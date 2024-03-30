@@ -1,0 +1,60 @@
+import {
+    ipcRenderer,
+} from 'electron';
+import type { ClientAPI, OmitFirstArg } from '../index';
+import { registerSDK } from './sdk';
+
+export const api = {
+    'get-config': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-config']>>) => {
+        return ipcRenderer.invoke('get-config') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['get-config']>>;
+    },
+    'set-config': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['set-config']>>) => {
+        return ipcRenderer.invoke('set-config', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['set-config']>>;
+    },
+    'save-config': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['save-config']>>) => {
+        return ipcRenderer.invoke('save-config') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['save-config']>>;
+    },
+    'get-environment-variable': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-environment-variable']>>) => {
+        return ipcRenderer.invoke('get-environment-variable', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['get-environment-variable']>>;
+    },
+    'get-path': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-path']>>) => {
+        return ipcRenderer.invoke('get-path', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['get-path']>>;
+    },
+    'resolve-path': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['resolve-path']>>) => {
+        return ipcRenderer.invoke('resolve-path', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['resolve-path']>>;
+    },
+    'path-basename': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['path-basename']>>) => {
+        return ipcRenderer.invoke('path-basename', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['path-basename']>>;
+    },
+    'path-dirname': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['path-dirname']>>) => {
+        return ipcRenderer.invoke('path-dirname', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['path-dirname']>>;
+    },
+    'path-extname': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['path-extname']>>) => {
+        return ipcRenderer.invoke('path-extname', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['path-extname']>>;
+    },
+    'show-file': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['show-file']>>) => {
+        return ipcRenderer.invoke('show-file', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['show-file']>>;
+    },
+    'open-file': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['open-file']>>) => {
+        return ipcRenderer.invoke('open-file', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['open-file']>>;
+    },
+    'save-file': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['save-file']>>) => {
+        return ipcRenderer.invoke('save-file', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['save-file']>>;
+    },
+    'get-cpu': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-cpu']>>) => {
+        return ipcRenderer.invoke('get-cpu', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['get-cpu']>>;
+    },
+} satisfies ClientAPI<ReturnType<typeof registerSDK>>;
