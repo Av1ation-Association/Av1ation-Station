@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import { Parameters as AOMParameters } from './AOM.js';
-import { Parameters as Rav1eParameters } from './Rav1e.js';
-import { Parameters as SVTParameters } from './SVT.js';
+import { type Parameters as AOMParameters } from './AOM.js';
+import { type Parameters as Rav1eParameters } from './Rav1e.js';
+import { type Parameters as SVTParameters } from './SVT.js';
 
 export interface ZoneOverrides<T = null> {
     encoder: 'svt_av1' | string;

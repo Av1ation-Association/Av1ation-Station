@@ -11,7 +11,7 @@ import { parseDoneJsonFile } from '../../data/Av1an/Types/Done.js';
 import type { Parameters as SVTParameters } from '../../data/Av1an/Types/SVT.js';
 import type { Chunk} from '../../data/Av1an/Types/Chunks.js';
 import { parseChunksJsonFile } from '../../data/Av1an/Types/Chunks.js';
-import type { Project, Task } from '/@/data/Configuration/Projects';
+import { type Task } from '../../data/Configuration/Projects';
 // import { Parameters as AOMParameters } from './Types/AOM.js';
 // import { Parameters as Rav1eParameters } from './Types/Rav1e.js';
 // import commandExists from "command-exists";

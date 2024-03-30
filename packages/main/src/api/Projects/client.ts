@@ -3,8 +3,8 @@ import {
 } from 'electron';
 import type { ClientAPI, OmitFirstArg } from '../index';
 import type { registerSDK } from './sdk';
-import { type Av1anStatus } from '/@/utils/Av1an/Av1an';
-import { type Project, type Task } from '/@/data/Configuration/Projects';
+import { type Av1anStatus } from '../../utils/Av1an/Av1an';
+import { type Project, type Task } from '../../data/Configuration/Projects';
 
 export interface StatusChange {
     projectId: Project['id'];

@@ -21,8 +21,8 @@ import {
 } from 'vue-router';
 import {
     Home,
-    VideoAdd,
-    QueryQueue,
+    // VideoAdd,
+    // QueryQueue,
     SettingsAdjust,
 } from '@vicons/carbon';
 // import { useGlobalStore } from '../stores/global';
@@ -33,7 +33,7 @@ import { useSidebarMenuStore } from '../stores/sidebarMenu';
 // const store = useGlobalStore();
 const store = useSidebarMenuStore();
 
-const { sidebarCollapsed, currentMenuValue } = storeToRefs(store);
+const { sidebarCollapsed } = storeToRefs(store);
 
 function generateLabel(label: string) {
     return h(

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, ref, toRaw } from 'vue';
-import { useRouter } from 'vue-router';
+// import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import {
     NDropdown,
@@ -25,7 +25,7 @@ import {
 import {
     VolumeFileStorage as RevealIcon,
     OverflowMenuVertical,
-    Reset as ResetIcon,
+    // Reset as ResetIcon,
     Delete as RemoveIcon,
     ErrorOutline as DisableIcon,
 } from '@vicons/carbon';

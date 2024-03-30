@@ -4,7 +4,10 @@ import * as net from 'net';
 import * as path from 'path';
 import * as url from 'url';
 import { type ChildProcessByStdio, spawn } from 'child_process';
-import { type Readable, type Writable } from 'stream';
+import {
+    // type Readable,
+    type Writable,
+} from 'stream';
 
 export enum ImportMethod {
     DGDECNV = 'dgdecnv',

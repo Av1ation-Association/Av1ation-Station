@@ -3,13 +3,13 @@ import { onBeforeRouteUpdate, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import {
     NLayout,
-    NH1,
-    NButton,
-    NFlex,
-    NDivider,
-    NCard,
-    NProgress,
-    NButtonGroup,
+    // NH1,
+    // NButton,
+    // NFlex,
+    // NDivider,
+    // NCard,
+    // NProgress,
+    // NButtonGroup,
 } from 'naive-ui';
 import { useProjectsStore } from '../stores/projects';
 import { type Project } from '../../../main/src/data/Configuration/Projects';
@@ -22,7 +22,7 @@ const router = useRouter();
 const projectsStore = useProjectsStore();
 const { projects } = storeToRefs(projectsStore);
 
-onBeforeRouteUpdate((to, from) => {
+onBeforeRouteUpdate((to, _from) => {
     if (!to.params.id) {
         router.push('/');
     }

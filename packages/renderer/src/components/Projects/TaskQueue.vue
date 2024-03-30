@@ -11,24 +11,27 @@ import {
     NFlex,
     NCard,
     NIcon,
-    NTime,
-    NDescriptions,
-    NDescriptionsItem,
-    NInput,
-    NPopover,
+    // NTime,
+    // NDescriptions,
+    // NDescriptionsItem,
+    // NInput,
+    // NPopover,
     NProgress,
-    NTooltip,
+    // NTooltip,
 } from 'naive-ui';
 import {
     VolumeFileStorage as RevealIcon,
     TrashCan as DeleteIcon,
     Copy as DuplicateIcon,
     OverflowMenuVertical,
-    TagEdit as EditNameIcon,
+    // TagEdit as EditNameIcon,
     Checkbox,
     CheckboxChecked,
 } from '@vicons/carbon';
-import { type Task, type Project } from '../../../../main/src/data/Configuration/Projects';
+import {
+    type Task,
+    // type Project,
+} from '../../../../main/src/data/Configuration/Projects';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
 import { type Av1anStatus } from '../../../../main/src/utils/Av1an/Av1an';

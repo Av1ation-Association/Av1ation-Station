@@ -2,10 +2,10 @@ import {
     ipcRenderer,
 } from 'electron';
 import type { ClientAPI, OmitFirstArg } from '../index';
-import { registerSDK } from './sdk';
+import { type registerSDK } from './sdk';
 
 export const api = {
-    'get-config': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-config']>>) => {
+    'get-config': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-config']>>) => {
         return ipcRenderer.invoke('get-config') as
             Promise<ReturnType<ReturnType<typeof registerSDK>['get-config']>>;
     },
@@ -13,7 +13,7 @@ export const api = {
         return ipcRenderer.invoke('set-config', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['set-config']>>;
     },
-    'save-config': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['save-config']>>) => {
+    'save-config': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['save-config']>>) => {
         return ipcRenderer.invoke('save-config') as
             Promise<ReturnType<ReturnType<typeof registerSDK>['save-config']>>;
     },

@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
-import { StartUpBehavior } from '../../../main/src/data/Configuration/Types/Configuration';
+// import { StartUpBehavior } from '../../../main/src/data/Configuration/Types/Configuration';
 import { type Project, type Task } from '../../../main/src/data/Configuration/Projects';
 import { Av1anInputLocationType, Av1anOutputLocationType, Av1anTemporaryLocationType } from '../../../main/src/data/Configuration/Av1anConfiguration';
 import { useGlobalStore } from './global';
 import { toRaw } from 'vue';
-import { type StatusChange } from '../../../main/src/api/Projects/client';
+// import { type StatusChange } from '../../../main/src/api/Projects/client';
 
 export const useProjectsStore = defineStore('projects', {
     

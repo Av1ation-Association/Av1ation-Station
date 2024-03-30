@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h } from 'vue';
-import { useRouter } from 'vue-router';
-import { storeToRefs } from 'pinia';
+// import { useRouter } from 'vue-router';
+// import { storeToRefs } from 'pinia';
 import {
     NDropdown,
     type DropdownOption,
@@ -23,10 +23,10 @@ import {
     OverflowMenuVertical,
     TagEdit as EditNameIcon,
 } from '@vicons/carbon';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+// import { type Project } from '../../../../main/src/data/Configuration/Projects';
 import { useProjectsStore } from '../../stores/projects';
 
-const router = useRouter();
+// const router = useRouter();
 
 const projectsStore = useProjectsStore();
 // const { projects } = storeToRefs(projectsStore);
