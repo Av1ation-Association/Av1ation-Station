@@ -8,7 +8,7 @@ import {
 } from 'vue-router';
 import HomeLayoutVue from '/@/layouts/HomeLayout.vue';
 import ProjectLayout from '/@/layouts/ProjectLayout.vue';
-import TaskLayout from '/@/layouts/TaskLayout.vue';
+// import TaskLayout from '/@/layouts/TaskLayout.vue';
 import SettingsLayout from '/@/layouts/SettingsLayout.vue';
 
 // Define routes
@@ -21,10 +21,10 @@ const routes: RouteRecordRaw[] = [
         path: '/projects/:id',
         component: ProjectLayout,
     },
-    {
-        path: '/tasks/:id',
-        component: TaskLayout,
-    },
+    // {
+    //     path: '/tasks/:id',
+    //     component: TaskLayout,
+    // },
     {
         path: '/settings',
         component: SettingsLayout,
