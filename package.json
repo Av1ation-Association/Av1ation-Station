@@ -4,7 +4,10 @@
     "version": "0.0.1",
     "private": true,
     "type": "module",
-    "author": "Boats",
+    "author": {
+        "email": "ichigo689@yahoo.com",
+        "name": "Boats"
+    },
     "main": "packages/main/dist/index.js",
     "scripts": {
         "build": "npm run build:main && npm run build:preload && npm run build:renderer",
