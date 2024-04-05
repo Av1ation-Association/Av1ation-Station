@@ -25,9 +25,7 @@ onBeforeMount(async () => {
                 has-sider
             >
                 <SidebarMenu />
-                <NLayout>
-                    <RouterView />
-                </NLayout>
+                <RouterView />
             </NLayout>
         </naiveprovider>
     </suspense>

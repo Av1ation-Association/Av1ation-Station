@@ -77,5 +77,17 @@ export const api = {
         return ipcRenderer.invoke('task-av1an-frame-count', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['task-av1an-frame-count']>>;
     },
+    'task-av1an-estimated-size': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['task-av1an-estimated-size']>>) => {
+        return ipcRenderer.invoke('task-av1an-estimated-size', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['task-av1an-estimated-size']>>;
+    },
+    'task-av1an-estimated-seconds': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['task-av1an-estimated-seconds']>>) => {
+        return ipcRenderer.invoke('task-av1an-estimated-seconds', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['task-av1an-estimated-seconds']>>;
+    },
+    'task-delete-temporary-files': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['task-delete-temporary-files']>>) => {
+        return ipcRenderer.invoke('task-delete-temporary-files', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['task-delete-temporary-files']>>;
+    },
     ...customApi,
 } satisfies ClientAPI<ReturnType<typeof registerSDK>> & typeof customApi;

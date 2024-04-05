@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
+import Watcher from 'watcher';
 // import * as url from 'url';
 import type { ChildProcessByStdio} from 'child_process';
 import { spawn } from 'child_process';
@@ -9,7 +10,7 @@ import type { Options} from '../../data/Av1an/Types/Options.js';
 import { Encoder, OutputOverwrite, Verbosity } from '../../data/Av1an/Types/Options.js';
 import { parseDoneJsonFile } from '../../data/Av1an/Types/Done.js';
 import type { Parameters as SVTParameters } from '../../data/Av1an/Types/SVT.js';
-import type { Chunk} from '../../data/Av1an/Types/Chunks.js';
+import type { Chunk } from '../../data/Av1an/Types/Chunks.js';
 import { parseChunksJsonFile } from '../../data/Av1an/Types/Chunks.js';
 import { type Task } from '../../data/Configuration/Projects';
 // import { Parameters as AOMParameters } from './Types/AOM.js';
@@ -18,11 +19,22 @@ import { type Task } from '../../data/Configuration/Projects';
 
 export interface Av1anStatus {
     time: Date;
-    state: 'idle' | 'paused' | 'scene-detection' | 'encoding' | 'done' | 'canceled' | 'error';
-    framesCompleted?: number;
-    bytesCompleted?: number;
-    framesPerSecond?: number;
-    bitrate?: number;
+    state: 'idle' | 'paused' | 'scene-detection' | 'encoding' | 'done' | 'cancelled' | 'error';
+    progress?: {
+        chunk: {
+            id: string;
+            framesCompleted: number;
+            bytesCompleted: number;
+            framesPerSecond: number;
+            bitrate: number;
+        };
+        framesCompleted: number;
+        bytesCompleted: number;
+        framesPerSecond: number;
+        bitrate: number;
+        estimatedSeconds: number;
+        estimatedSizeInBytes: number;
+    }
     error?: unknown;
 }
 
@@ -52,8 +64,7 @@ export class Av1an extends EventEmitter {
     // private childProcess?: ChildProcessByStdio<Writable, null, null>;
     // List of all Av1an states
     private allStates: Av1anStatus[] = [{ time: new Date(), state: 'idle' }];
-    private tempParentFolderWatch?: fs.FSWatcher;
-    private tempFolderWatch?: fs.FSWatcher;
+    private temporaryFolderWatcher?: Watcher;
     private totalFrames = 0;
     private chunks: Chunk[] = [];
     private previouslyCompletedChunkIds: string[] = [];
@@ -342,7 +353,7 @@ export class Av1an extends EventEmitter {
     public get framesPerSecond() {
         // TODO: Change to use current 
         const now = new Date();
-        const lastStartStatus = this.statusHistory.reverse().find(status => status.state === 'idle' || (status.state === 'encoding' && !status.framesCompleted));
+        const lastStartStatus = [...this.statusHistory].reverse().find(status => status.state === 'idle' || (status.state === 'encoding' && !status.progress?.framesCompleted));
         const secondsSinceLastStarted = (now.getTime() - (lastStartStatus?.time ?? now).getTime()) / 1000;
 
         return this.framesRecentlyCompleted / secondsSinceLastStarted;
@@ -415,50 +426,63 @@ export class Av1an extends EventEmitter {
             this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'] });
 
             this.childProcess.on('close', (code) => {
-                if (code === 0) {
-                    // Add new status with the state 'done'
-                    this.addStatus({
-                        state: 'done',
-                    });
-    
-                    this.stopWatchingTempFolder();
-                    
-                    return resolve();
-                } else {
-                    // Add new status with the state 'error'
-                    const error = new Error(`Av1an exited with code ${code}`);
-                    this.addStatus({
-                        state: 'error',
-                        error,
-                    });
-                    
-                    this.stopWatchingTempFolder();
-                    
-                    return reject(error);
+                switch (code) {
+                    case 0: {
+                        // Add new status with the state 'done'
+                        this.addStatus({
+                            state: 'done',
+                        });
+        
+                        this.temporaryFolderWatcher?.close();
+        
+                        return resolve();
+                    }
+                    case null: {
+                        // // Add new status with the state 'canceled'
+                        // this.addStatus({
+                        //     state: 'canceled',
+                        // });
+
+                        this.temporaryFolderWatcher?.close();
+
+                        return resolve();
+                    }
+                    default: {
+                        // Add new status with the state 'error'
+                        const error = new Error(`Av1an exited with code ${code}`);
+                        this.addStatus({
+                            state: 'error',
+                            error,
+                        });
+        
+                        this.temporaryFolderWatcher?.close();
+        
+                        return reject(error);
+                    }
                 }
             });
-    
+
             this.childProcess.on('error', (error) => {
                 // Add new status with the state 'error'
                 this.addStatus({
                     state: 'error',
                     error,
                 });
-    
-                this.stopWatchingTempFolder();
-                
+
+                this.temporaryFolderWatcher?.close();
+
                 return reject(error);
             });
-            
+
             this.childProcess.stderr.on('data', (data) => {
                 console.log(`[Av1an STDERR]: ${data.toString()}`);
             });
-            
+
             if (this.options?.temporary?.path) {
                 const temporaryPath = this.options.temporary.path;
                 const doneJsonFilePath = path.resolve(temporaryPath, 'done.json');
                 const chunksJsonFilePath = path.resolve(temporaryPath, 'chunks.json');
-                
+
                 // Instantiate chunks.json and done.json in case temporary folder already exists (resuming a previous run)
                 if (fs.existsSync(chunksJsonFilePath)) {
                     this.chunks = parseChunksJsonFile(chunksJsonFilePath);
@@ -468,26 +492,75 @@ export class Av1an extends EventEmitter {
                     this.totalFrames = frames;
                     this.previouslyCompletedChunkIds = Object.keys(done);
                 }
-                
-                // Wait for the temporary folder to be created
-                const temporaryFolderParentPath = path.dirname(temporaryPath);
-                if (!fs.existsSync(temporaryPath)) {
-                    // Watch the parent folder of temporaryPath until the temporaryPath is created
-                    this.tempParentFolderWatch = fs.watch(temporaryFolderParentPath, (event, filename) => {
-                        if (event === 'rename' && filename === path.basename(temporaryPath)) {
-                            // Stop watching the parent folder
-                            if (this.tempParentFolderWatch) {
-                                this.tempParentFolderWatch.close();
-                                this.tempParentFolderWatch = undefined;
+
+                // Watch the done.json file and check for new chunks
+                this.temporaryFolderWatcher = new Watcher(temporaryPath, {  }, (targetEvent, targetPath) => {
+                    if (targetEvent === 'change' && targetPath === doneJsonFilePath) {
+                        try {
+                            const { frames, done } = parseDoneJsonFile(doneJsonFilePath);
+            
+                            // Update totalFrames from initial value
+                            if (frames > this.totalFrames) {
+                                this.totalFrames = frames;
                             }
-                            // Start watching the temporary folder
-                            this.watchDoneJsonFile(temporaryPath);
+
+                            // filter out chunks in done.json that are already in completedChunks
+                            const newChunks = Object.keys(done).filter(chunk => !this.recentlyCompletedChunkIds.concat(this.previouslyCompletedChunkIds).includes(chunk));
+                            if (newChunks.length) {
+                                // Newly completed chunks
+                                this.recentlyCompletedChunkIds.push(...newChunks);
+                                const now = new Date();
+                                // Get the time in seconds since the last 'encoding' or 'idle' status
+                                const lastRunningStatus = this.statusHistory.reverse().find(status => status.state === 'encoding');
+                                const firstRunningStatus = this.statusHistory.find(status => status.state === 'encoding');
+                                const lastIdleStatus = this.statusHistory.reverse().find(status => status.state === 'idle');
+                                const previousChunkCompletedDate = (lastRunningStatus ?? lastIdleStatus)?.time ?? now;
+            
+                                const secondsSinceLastRunningStatus = (now.getTime() - previousChunkCompletedDate.getTime()) / 1000;
+                                const secondsSinceStarted = (now.getTime() - (firstRunningStatus?.time ?? now).getTime()) / 1000;
+            
+                                const { framesCompleted, bytesCompleted } = newChunks.reduce((chunkTotal, chunkId) => {
+                                    return {
+                                        framesCompleted: chunkTotal.framesCompleted + done[chunkId].frames,
+                                        bytesCompleted: chunkTotal.bytesCompleted + done[chunkId].size_bytes,
+                                    };
+                                }, { framesCompleted: 0, bytesCompleted: 0 });
+
+                                const { totalFramesCompleted, totalBytesCompleted } = Object.values(done).reduce((total, chunk) => {
+                                    return {
+                                        totalFramesCompleted: total.totalFramesCompleted + chunk.frames,
+                                        totalBytesCompleted: total.totalBytesCompleted + chunk.size_bytes,
+                                    };
+                                }, { totalFramesCompleted: 0, totalBytesCompleted: 0 });
+
+                                this.addStatus({
+                                    state: 'encoding',
+                                    progress: {
+                                        chunk: {
+                                            id: newChunks[0],
+                                            framesCompleted,
+                                            bytesCompleted,
+                                            bitrate: bytesCompleted * 8 / (framesCompleted / this.framerate),
+                                            framesPerSecond: framesCompleted / secondsSinceLastRunningStatus,
+                                        },
+                                        framesCompleted: totalFramesCompleted,
+                                        bytesCompleted: totalBytesCompleted,
+                                        bitrate: totalBytesCompleted * 8 / (totalFramesCompleted / this.framerate),
+                                        framesPerSecond: totalFramesCompleted / secondsSinceStarted,
+                                        estimatedSeconds: this.estimatedSecondsRemaining,
+                                        estimatedSizeInBytes: this.estimatedSizeInBytes,
+                                    },
+                                });
+                            }
+                        } catch (error) {
+                            // Av1an writes to done.json multiple times with invalid json - ignore these instances
+                            return;
                         }
-                    });
-                } else {
-                    // Temporary folder already exists, start watching the done.json file
-                    this.watchDoneJsonFile(temporaryPath);
-                }
+                    } else if (targetEvent === 'add' && targetPath === chunksJsonFilePath) {
+                        // Instantiate and parse newly created chunks.json
+                        this.chunks = parseChunksJsonFile(chunksJsonFilePath);
+                    }
+                });
             }
     
             // Add new 'encoding' status
@@ -542,11 +615,11 @@ export class Av1an extends EventEmitter {
             console.warn('Av1an has been terminated');
             return;
         }
-        if (['running', 'paused'].includes(this.status.state)) {
+        if (['scene-detection', 'encoding', 'paused'].includes(this.status.state)) {
             // Kill the process
             this.childProcess.kill('SIGKILL');
             this.addStatus({
-                state: 'canceled',
+                state: 'cancelled',
             });
             return;
         }
@@ -565,16 +638,14 @@ export class Av1an extends EventEmitter {
             console.log(`av1an ${Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).printFriendlyArguments.join(' ')}`);
             this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'pipe', 'pipe'] });
             // this.childProcess = spawn('av1an', this.buildArguments().arguments, { stdio: ['pipe', 'inherit', 'inherit'] });
-    
+
             this.childProcess.on('close', (code) => {
                 if (code === 0) {
                     // Add new status with the state 'idle'
                     this.addStatus({
                         state: 'idle',
                     });
-    
-                    this.stopWatchingTempFolder();
-    
+
                     return resolve();
                 } else {
                     // Add new status with the state 'error'
@@ -583,7 +654,7 @@ export class Av1an extends EventEmitter {
                         state: 'error',
                         error,
                     });
-    
+
                     return reject(error);
                 }
             });
@@ -594,79 +665,18 @@ export class Av1an extends EventEmitter {
                     state: 'error',
                     error,
                 });
-    
+
                 return reject(error);
             });
     
             this.childProcess.stderr.on('data', (data) => {
                 console.log(`[Av1an STDERR]: ${data.toString()}`);
             });
-    
+
             // Add new status with the state 'running'
             this.addStatus({
                 state: 'scene-detection',
             });
         });
-    }
-
-    private watchDoneJsonFile(temporaryPath: string) {
-        // Watch the done.json file and check for new chunks
-        this.tempFolderWatch = fs.watch(temporaryPath, (event, filename) => {
-            if (event === 'change' && filename === 'done.json') {
-                try {
-                    const { frames, done } = parseDoneJsonFile(path.join(temporaryPath, 'done.json'));
-    
-                    // Update totalFrames from initial value
-                    if (frames > this.totalFrames) {
-                        this.totalFrames = frames;
-                    }
-    
-                    // filter out chunks in done.json that are already in completedChunks
-                    const newChunks = Object.keys(done).filter(chunk => !this.recentlyCompletedChunkIds.concat(this.previouslyCompletedChunkIds).includes(chunk));
-                    if (newChunks.length) {
-                        // Newly completed chunks
-                        this.recentlyCompletedChunkIds.push(...newChunks);
-                        const now = new Date();
-                        // Get the time in seconds since the last 'encoding' or 'idle' status
-                        const lastRunningStatus = this.statusHistory.reverse().find(status => status.state === 'encoding');
-                        // const firstRunningStatus = this.statusHistory.find(status => status.state === 'encoding');
-                        const lastIdleStatus = this.statusHistory.reverse().find(status => status.state === 'idle');
-                        const previousChunkCompletedDate = (lastRunningStatus ?? lastIdleStatus)?.time ?? now;
-    
-                        const secondsSinceLastRunningStatus = (now.getTime() - previousChunkCompletedDate.getTime()) / 1000;
-                        // const secondsSinceStarted = (now.getTime() - (firstRunningStatus?.time ?? now).getTime()) / 1000;
-    
-                        const { framesCompleted, bytesCompleted } = newChunks.reduce((chunkTotal, chunkId) => {
-                            return {
-                                framesCompleted: chunkTotal.framesCompleted + done[chunkId].frames,
-                                bytesCompleted: chunkTotal.bytesCompleted + done[chunkId].size_bytes,
-                            };
-                        }, { framesCompleted: 0, bytesCompleted: 0 });
-    
-                        this.addStatus({
-                            state: 'encoding',
-                            framesCompleted,
-                            bytesCompleted,
-                            framesPerSecond: framesCompleted / secondsSinceLastRunningStatus,
-                            bitrate: bytesCompleted * 8 / (framesCompleted / this.framerate),
-                        });
-                    }
-                } catch (error) {
-                    // Av1an writes to done.json multiple times with invalid json - ignore these instances
-                    return;
-                }
-            } else if (event === 'change' && filename === 'chunks.json') {
-                // Instantiate and parse newly created chunks.json
-                this.chunks = parseChunksJsonFile(path.join(temporaryPath, 'chunks.json'));
-            }
-        });
-    }
-
-    private stopWatchingTempFolder() {
-        // Stop watching temporary folder
-        if (this.tempFolderWatch) {
-            this.tempFolderWatch.close();
-            this.tempFolderWatch = undefined;
-        }
     }
 }

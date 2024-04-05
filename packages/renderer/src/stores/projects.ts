@@ -51,6 +51,11 @@ export const useProjectsStore = defineStore('projects', {
             await window.projectsApi['save-project'](project);
             // Add project to projects
             this.projects.push(project);
+            // Initialize projectQueueMap
+            this.projectQueueMap[project.id] = {
+                status: 'idle',
+            };
+
 
             return project;
         },
@@ -64,6 +69,26 @@ export const useProjectsStore = defineStore('projects', {
                 if (projectIndex !== -1) {
                     // Update accessedAt
                     config.recentlyOpenedProjects[projectIndex].accessedAt = new Date();
+
+                    // Add 'paused' status to Tasks that were mid-encode when aborted
+                    project.tasks = project.tasks.map(task => {
+                        // Initialize with idle state if none found
+                        if (!task.statusHistory.length) {
+                            task.statusHistory.push({ state: 'idle', time: new Date() });
+                        }
+
+                        const lastStatus = task.statusHistory[task.statusHistory.length - 1];
+
+                        if (['encoding', 'scene-detection'].includes(lastStatus.state)) {
+                            task.statusHistory.push({ state: 'paused', time: new Date() });
+                        }
+
+                        return task;
+                    });
+
+                    // Save updated project
+                    this.projects[projectIndex] = project;
+                    await this.saveProject(project, false);
                 } else {
                     config.recentlyOpenedProjects.push({
                         id: project.id,
@@ -112,7 +137,7 @@ export const useProjectsStore = defineStore('projects', {
             // Save the updated config
             configStore.setConfig(toRaw(configStore.config), true);
 
-            // Cancel and Remove Tasks
+            // Cancel Tasks
             if (this.projectQueueMap[project.id]) {
                 if (this.projectQueueMap[project.id].status in ['processing', 'paused']) {
                     // Cancel task
@@ -126,6 +151,9 @@ export const useProjectsStore = defineStore('projects', {
                 // Remove project from queue
                 delete this.projectQueueMap[project.id];
             }
+
+            // Delete task temporary files
+            await Promise.all(project.tasks.map(task => window.projectsApi['task-delete-temporary-files'](toRaw(task))));
 
             // Remove project from projects
             this.projects.splice(this.projects.findIndex(p => p.id === project.id), 1);
@@ -188,23 +216,23 @@ export const useProjectsStore = defineStore('projects', {
                     }
                 }
     
+                const newQueueItem = await window.projectsApi['create-queue-item']();
                 let temporaryFolderPath: string;
     
                 switch (project.defaults.Av1an.temporary.type ?? config.defaults.Av1an.temporary.type) {
                     case Av1anTemporaryLocationType.InputAdjacentAv1anFolder:
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1ation Station', project.id, 'temporary');
+                        temporaryFolderPath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1ation Station', newQueueItem.id, 'temporary');
                         break;
                     case Av1anTemporaryLocationType.Av1ationStationDocumentsFolder:{
                         const documentsFolder = await window.configurationsApi['get-path']('documents');
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](documentsFolder, 'Av1ation Station', project.id, 'temporary');
+                        temporaryFolderPath = await window.configurationsApi['resolve-path'](documentsFolder, 'Av1ation Station', newQueueItem.id, 'temporary');
                         break;
                     }
                     case Av1anTemporaryLocationType.Custom:
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.temporary.customFolder ?? config.defaults.Av1an.temporary.customFolder ?? inputFileDirectory, 'Av1ation Station', project.id, 'temporary');
+                        temporaryFolderPath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.temporary.customFolder ?? config.defaults.Av1an.temporary.customFolder ?? inputFileDirectory, 'Av1ation Station', newQueueItem.id, 'temporary');
                         break;
                 }
     
-                const newQueueItem = await window.projectsApi['create-queue-item']();
                 const outputFileName = await window.configurationsApi['path-basename'](outputFilePath, true);
                 const scenesFilePath = await window.configurationsApi['resolve-path'](temporaryFolderPath, '../scenes.json');
                 const task: Task = {

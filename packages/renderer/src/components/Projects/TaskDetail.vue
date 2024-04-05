@@ -10,7 +10,6 @@ import {
     NTime,
     NDescriptions,
     NDescriptionsItem,
-    NInput,
     NPopover,
     NTooltip,
 } from 'naive-ui';
@@ -19,19 +18,23 @@ import {
     TrashCan as DeleteIcon,
     Copy as DuplicateIcon,
     OverflowMenuVertical,
-    TagEdit as EditNameIcon,
+    // TagEdit as EditNameIcon,
 } from '@vicons/carbon';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import { type Project, type Task } from '../../../../main/src/data/Configuration/Projects';
 import { useProjectsStore } from '../../stores/projects';
 
 const projectsStore = useProjectsStore();
+// const { projects } = storeToRefs(projectsStore);
 
-const { projectId } = defineProps<{
+const { projectId, taskId } = defineProps<{
     projectId: Project['id'];
+    taskId: Task['id'];
 }>();
 
 const projectIndex = projectsStore.projects.findIndex(project => project.id === projectId);
 const project = projectsStore.projects[projectIndex];
+const taskIndex = project.tasks.findIndex(task => task.id === taskId);
+const task = project.tasks[taskIndex];
 
 const dropdownOptions: DropdownOption[] = [
     {
@@ -70,20 +73,11 @@ async function revealFileLocation() {
     await window.configurationsApi['show-file'](`${project.path}`);
 }
 
-async function updateName(name: string) {
-    if (!name) {
-        delete project.name;
-    }
-
-    // Template string avoids passing reactive property
-    await projectsStore.saveProject(`${project.id}`);
-}
-
 </script>
 
 <template>
     <NCard
-        :title="`${project.name ?? project.id} Details`"
+        :title="`${task.outputFileName} Details`"
     >
         <template #header-extra>
             <NDropdown
@@ -111,36 +105,43 @@ async function updateName(name: string) {
             <NDescriptionsItem
                 label="Id"
             >
-                {{ project.id }}
+                {{ task.id }}
             </NDescriptionsItem>
             <NDescriptionsItem
-                label="Name"
+                label="Input"
             >
                 <NFlex
                     justify="space-between"
                     :wrap="false"
                 >
-                    <NInput
-                        v-model:value="project.name"
-                        placeholder="Enter new name"
-                        :on-change="updateName"
-                    >
-                        <template #suffix>
-                            <NIcon>
-                                <EditNameIcon />
-                            </NIcon>
+                    <!-- <span>{{ task.item.input }}</span> -->
+                    [REDACTED]
+                    <NTooltip>
+                        <template #trigger>
+                            <NButton
+                                circle
+                                quaternary
+                                @click="revealFileLocation"
+                            >
+                                <template #icon>
+                                    <NIcon>
+                                        <RevealIcon />
+                                    </NIcon>
+                                </template>
+                            </NButton>
                         </template>
-                    </NInput>
+                        Open File Location
+                    </NTooltip>
                 </NFlex>
             </NDescriptionsItem>
             <NDescriptionsItem
-                label="Path"
+                label="Output"
             >
                 <NFlex
                     justify="space-between"
                     :wrap="false"
                 >
-                    <!-- <span>{{ project.path }}</span> -->
+                    <!-- <span>{{ task.item.output }}</span> -->
                     [REDACTED]
                     <NTooltip>
                         <template #trigger>
@@ -169,13 +170,13 @@ async function updateName(name: string) {
                 >
                     <template #trigger>
                         <NTime
-                            :time="new Date(project.createdAt)"
+                            :time="new Date(task.createdAt)"
                             :to="new Date()"
                             type="relative"
                         />
                     </template>
                     <NTime
-                        :time="new Date(project.createdAt)"
+                        :time="new Date(task.createdAt)"
                     />
                 </NPopover>
             </NDescriptionsItem>
@@ -188,13 +189,13 @@ async function updateName(name: string) {
                 >
                     <template #trigger>
                         <NTime
-                            :time="new Date(project.updatedAt)"
+                            :time="new Date(task.updatedAt)"
                             :to="new Date()"
                             type="relative"
                         />
                     </template>
                     <NTime
-                        :time="new Date(project.updatedAt)"
+                        :time="new Date(task.updatedAt)"
                     />
                 </NPopover>
             </NDescriptionsItem>

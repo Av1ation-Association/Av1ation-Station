@@ -11,15 +11,14 @@ import {
     NFlex,
     NCard,
     NIcon,
-    // NTime,
-    // NDescriptions,
-    // NDescriptionsItem,
-    // NInput,
-    // NPopover,
     NProgress,
-    // NTooltip,
+    NText,
+    NTime,
+    NTag,
+    NTooltip,
 } from 'naive-ui';
 import {
+    Add,
     VolumeFileStorage as RevealIcon,
     TrashCan as DeleteIcon,
     Copy as DuplicateIcon,
@@ -107,14 +106,16 @@ if (!projectsStore.taskStatusListenerRegistered) {
             }
         }
         task.statusHistory.push(status.status);
-        console.log('STATUS HISTORY: ', task.statusHistory);
+
+        // Save Project File
+        await projectsStore.saveProject(toRaw(project), false);
     });
 
     projectsStore.taskStatusListenerRegistered = true;
 }
 
 
-async function createTask() {
+async function addTask() {
     // Import video or vapoursynth script from file dialog
     await projectsStore.createTasks(project);
 }
@@ -126,13 +127,14 @@ async function skipTask(taskId: Task['id']) {
     // Reset task updatedAt
     project.tasks[taskIndex].updatedAt = new Date();
 
-    // SortableJS workaround: toRaw all tasks
+    // SortableJS workaround: toRaw tasks which become proxies when moved/sorted
     project.tasks = project.tasks.map(task => toRaw(task));
     // Save Project File
     await projectsStore.saveProject(toRaw(project), false);
 }
 
 async function deleteTask(taskId: Task['id']) {
+    // TODO: Check if task is in progress (Prompt user to cancel the task if it is)
     project.tasks.splice(project.tasks.findIndex(task => task.id === taskId), 1);
 
     // Save Project File
@@ -152,19 +154,22 @@ async function buildAv1anArgs(taskId: Task['id']) {
 }
 
 async function processQueue(currentTask: Task) {
-    if (['paused', 'cancelled'].includes(projectsStore.projectQueueMap[project.id].status)) {
+    if (['cancelled'].includes(projectsStore.projectQueueMap[project.id].status)) {
         return;
     }
 
     const taskOptions = buildTaskAv1anOptions(currentTask);
     // Start or resume next task
-    console.log('TASK:', toRaw(currentTask));
-    console.log('TASK OPTIONS:', taskOptions);
     projectsStore.projectQueueMap[project.id] = {
         taskId: currentTask.id,
         status: 'processing',
     };
     await window.projectsApi['start-task'](toRaw(currentTask), taskOptions);
+
+    // Check if queue status has changed (cancelled, paused, error)
+    if (projectsStore.projectQueueMap[project.id].status !== 'processing') {
+        return;
+    }
 
     projectsStore.projectQueueMap[project.id] = {
         taskId: currentTask.id,
@@ -181,7 +186,6 @@ async function processQueue(currentTask: Task) {
             taskId: currentTask.id,
             status: 'done',
         };
-        console.log('QUEUE COMPLETE');
 
         return;
     }
@@ -277,8 +281,6 @@ function buildTaskAv1anOptions(task: Task) {
 function progressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 'warning' {
     const lastStatus: Av1anStatus = task.statusHistory[task.statusHistory.length - 1];
 
-    console.log('PROG - LAST STATUS: ', lastStatus);
-
     if (!lastStatus) {
         return 'default';
     }
@@ -286,10 +288,12 @@ function progressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 
     switch (lastStatus.state) {
         case 'done':
             return 'success';
-        case 'canceled':
+        case 'cancelled':
             return 'warning';
         case 'error':
             return 'error'; 
+        case 'idle':
+            return 'info';
         case 'scene-detection':
         case 'encoding':
         default:
@@ -298,9 +302,52 @@ function progressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 
 }
 
 function progressPercentage(task: Task) {
-    const totalFramesCompleted = task.statusHistory.reduce((total, status) => total + (status.framesCompleted ?? 0), 0);
+    const totalFramesCompleted = [...task.statusHistory].reverse().find(status => status.progress)?.progress?.framesCompleted ?? 0;
 
     return (totalFramesCompleted / (task.totalFrames || 1)) * 100;
+}
+
+function lastStatusProgress(task: Task) {
+    return [...task.statusHistory].reverse().find(status => status.progress);
+}
+
+function progressEstimatedSeconds(task: Task) {
+    const lastStatus = [...task.statusHistory].reverse().find(status => status.progress);
+    
+    if (!lastStatus || !lastStatus.progress) {
+        return;
+    }
+
+    return lastStatus.progress.estimatedSeconds;
+}
+
+function progressETA(task: Task) {
+    const estimatedSeconds = progressEstimatedSeconds(task);
+
+    if (!estimatedSeconds) {
+        return;
+    }
+
+    return new Date(Date.now() + (estimatedSeconds * 1000));
+}
+
+function progressEstimatedSize(task: Task) {
+    const lastStatus = [...task.statusHistory].reverse().find(status => status.progress);
+
+    if (!lastStatus || !lastStatus.progress) {
+        return;
+    }
+
+    return formatBytes(lastStatus.progress.estimatedSizeInBytes);
+}
+
+// Thanks to Pawel Zentala: https://gist.github.com/zentala/1e6f72438796d74531803cc3833c039c
+function formatBytes(bytes: number, decimals = 2) {
+    if (bytes == 0) return '0 Bytes';
+    const k = 1024,
+        sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+        i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
 
 async function revealFileLocation() {
@@ -310,16 +357,30 @@ async function revealFileLocation() {
 </script>
 
 <template>
-    <NCard
-        :title="`Task Queue`"
-    >
-        <template #header-extra>
-            <NButtonGroup>
+    <NCard>
+        <template #header>
+            <NFlex>
+                <NText>
+                    Task Queue
+                </NText>
                 <NButton
-                    @click="createTask"
+                    size="small"
+                    secondary
+                    @click="addTask"
                 >
+                    <template #icon>
+                        <NIcon
+                            size="28"
+                        >
+                            <Add />
+                        </NIcon>
+                    </template>
                     Add
                 </NButton>
+            </NFlex>
+        </template>
+        <template #header-extra>
+            <NButtonGroup>
                 <NButton
                     v-if="projectQueueMap[project.id].status !== 'processing'"
                     @click="async () => {
@@ -381,11 +442,14 @@ async function revealFileLocation() {
         >
             <!-- TODO: Update Project after every sort event -->
             <VueDraggable
-                ref="el"
                 v-model="project.tasks"
+                :delay="200"
+                :delay-on-touch-only="true"
                 @end="(event) => {
                     // choose, unchoose, start, end, add, update, sort, remove, filter, move, clone, change
                     console.log('SORTABLE EVENT:', event);
+                    // SortableJS workaround: toRaw tasks which become proxies when moved/sorted
+                    project.tasks = project.tasks.map(task => toRaw(task));
                 }"
             >
                 <NCard
@@ -393,27 +457,20 @@ async function revealFileLocation() {
                     :key="task.id"
                     :name="task.id"
                     :title="task.outputFileName"
+                    hoverable
+                    :style="{ opacity: task.skip ? 0.5 : 1 }"
                 >
                     <template #header-extra>
                         <NButtonGroup>
                             <NButton
                                 size="small"
-                                @click="router.push(`/encode/${task.id}`)"
-                            >
-                                View
-                            </NButton>
-                            <NButton
-                                :type="task.skip ? 'warning' : 'default'"
-                                size="small"
                                 ghost
-                                dashed
                                 @click="skipTask(task.id)"
                             >
-                                {{ task.skip ? 'Skipped' : 'Skip' }}
                                 <template #icon>
                                     <NIcon>
                                         <Checkbox
-                                            v-if="!task.skip"
+                                            v-if="task.skip"
                                         />
                                         <CheckboxChecked
                                             v-else
@@ -422,12 +479,19 @@ async function revealFileLocation() {
                                 </template>
                             </NButton>
                             <NButton
+                                size="small"
+                                @click="() => {
+                                    router.push(`/projects/${project.id}/tasks/${task.id}`);
+                                }"
+                            >
+                                View
+                            </NButton>
+                            <NButton
                                 type="error"
                                 size="small"
                                 ghost
                                 @click="() => deleteTask(task.id)"
                             >
-                                Delete
                                 <template #icon>
                                     <NIcon>
                                         <DeleteIcon />
@@ -442,15 +506,92 @@ async function revealFileLocation() {
                             </NButton>
                         </NButtonGroup>
                     </template>
-                    <NProgress
-                        type="line"
-                        :status="progressStatus(task)"
-                        :percentage="progressPercentage(task)"
-                        indicator-placement="inside"
-                        :processing="['encoding', 'scene-detection'].includes((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'))"
+                    <NFlex
+                        :wrap="false"
                     >
-                    <!-- TODO: Add ETA (Optional: Allow click to change between also showing FPS and X/FramesCount) -->
-                    </NProgress>
+                        <NProgress
+                            type="line"
+                            :status="progressStatus(task)"
+                            :percentage="progressPercentage(task)"
+                            indicator-placement="inside"
+                            :processing="['encoding', 'scene-detection'].includes((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'))"
+                            :height="['encoding', 'scene-detection', 'paused', 'cancelled'].includes((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle')) ? 22 : 10"
+                        >
+                            <template
+                                v-if="task.statusHistory.length && task.statusHistory[task.statusHistory.length - 1].state === 'scene-detection'"
+                            >
+                                Detecting Scenes...
+                            </template>
+                            <template
+                                v-else-if="task.statusHistory.length && ['encoding', 'paused', 'cancelled'].includes(task.statusHistory[task.statusHistory.length - 1].state)"
+                            >
+                                {{ progressPercentage(task).toFixed(2) }}%
+                            </template>
+                        </NProgress>
+                        <template
+                            v-if="['encoding', 'scene-detection', 'paused'].includes((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'))"
+                        >
+                            <template
+                                v-if="progressEstimatedSize(task)"
+                            >
+                                <NTooltip>
+                                    <template #trigger>
+                                        <NTag
+                                            round
+                                            :bordered="false"
+                                            size="small"
+                                        >
+                                            <NTime
+                                                type="relative"
+                                                :time="progressETA(task)?.getTime()"
+                                                :to="Date.now()"
+                                            />
+                                        </NTag>
+                                    </template>
+                                    {{ (progressEstimatedSeconds(task) ?? 0).toFixed(0) }} seconds left
+                                </NTooltip>
+                            </template>
+                            <template
+                                v-if="progressEstimatedSize(task)"
+                            >
+                                <NTooltip>
+                                    <template #trigger>
+                                        <NTag
+                                            round
+                                            :bordered="false"
+                                            size="small"
+                                        >
+                                            {{ progressEstimatedSize(task) }}
+                                        </NTag>
+                                    </template>
+                                    {{ ((lastStatusProgress(task)?.progress?.bitrate ?? 0) / 1000).toFixed(2) }} kbps
+                                </NTooltip>
+                            </template>
+                        </template>
+                        <template
+                            v-else-if="['done'].includes((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'))"
+                        >
+                            <NTooltip>
+                                <template #trigger>
+                                    <NTag
+                                        round
+                                        :bordered="false"
+                                        size="small"
+                                    >
+                                        <NTime
+                                            type="relative"
+                                            :time="(new Date(task.statusHistory[task.statusHistory.length - 1].time)).getTime()"
+                                            :to="Date.now()"
+                                        />
+                                    </NTag>
+                                </template>
+                                <NTime
+                                    :time="(new Date(task.statusHistory[task.statusHistory.length - 1].time)).getTime()"
+                                />
+                            </NTooltip>
+                        </template>
+                    </NFlex>
+                <!-- TODO: Add ETA (Optional: Allow click to change between also showing FPS and X/FramesCount) -->
                 </NCard>
             </VueDraggable>
         </NFlex>

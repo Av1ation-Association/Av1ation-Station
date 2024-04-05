@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import {
-    // h,
-    toRaw,
-} from 'vue';
 import { useRouter } from 'vue-router';
 import type {
     DropdownOption} from 'naive-ui';
@@ -19,16 +15,24 @@ import {
     NTimeline,
     NTimelineItem,
     NDropdown,
+    NFlex,
+    NStatistic,
+    NText,
+    NH3,
+    NTooltip,
 } from 'naive-ui';
 import {
     OverflowMenuVertical,
+    Add,
+    // View,
+    TrashCan as DeleteIcon,
 } from '@vicons/carbon';
 import { useGlobalStore } from '../stores/global';
 import { useProjectsStore } from '../stores/projects';
 import { storeToRefs } from 'pinia';
-const router = useRouter();
 import { type Project } from '../../../main/src/data/Configuration/Projects';
 
+const router = useRouter();
 const store = useGlobalStore();
 const projectsStore = useProjectsStore();
 const { config } = storeToRefs(store);
@@ -86,19 +90,22 @@ async function openExistingProject() {
 async function navigateToProject(project: Project) {
     const recentProjectIndex = store.config.recentlyOpenedProjects.findIndex((recentProject) => recentProject.id === project.id);
                                 
-    if (recentProjectIndex !== -1) {
-        store.config.recentlyOpenedProjects[recentProjectIndex].accessedAt = new Date();
-    } else {
-        store.config.recentlyOpenedProjects.push({
-            id: project.id,
-            path: project.path,
-            ...(project.name ? { name: project.name } : {}),
-            accessedAt: new Date(),
-        });
-    }
+    // if (recentProjectIndex !== -1) {
+    //     store.config.recentlyOpenedProjects[recentProjectIndex].accessedAt = new Date();
+    // } else {
+    //     store.config.recentlyOpenedProjects.push({
+    //         id: project.id,
+    //         path: project.path,
+    //         ...(project.name ? { name: project.name } : {}),
+    //         accessedAt: new Date(),
+    //     });
+    // }
 
-    // Set config
-    await store.setConfig(toRaw(store.config), true);
+    // // Set config
+    // await store.setConfig(toRaw(store.config), true);
+
+    await projectsStore.loadProject(store.config.recentlyOpenedProjects[recentProjectIndex].path);
+
     // Navigate to Project Layout
     router.push(`/projects/${project.id}`);
 }
@@ -112,12 +119,28 @@ async function navigateToProject(project: Project) {
         <NCard
             title="Projects"
         >
+            <template #header>
+                <NFlex>
+                    <NText>
+                        Projects
+                    </NText>
+                    <NButton
+                        size="small"
+                        secondary
+                        @click="createNewProject"
+                    >
+                        <template #icon>
+                            <NIcon
+                                size="28"
+                            >
+                                <Add />
+                            </NIcon>
+                        </template>
+                        Create
+                    </NButton>
+                </NFlex>
+            </template>
             <template #header-extra>
-                <NButton
-                    @click="createNewProject"
-                >
-                    New
-                </NButton>
                 <NDropdown
                     trigger="click"
                     :options="dropdownOptions"
@@ -152,94 +175,124 @@ async function navigateToProject(project: Project) {
                 :key="project.id"
                 :title="project.name ?? project.id"
             >
+                <template #header>
+                    <NButton
+                        text
+                        @click="navigateToProject(project)"
+                    >
+                        <NH3>
+                            {{ project.name ?? project.id }}
+                        </NH3>
+                    </NButton>
+                </template>
                 <template #header-extra>
                     <NButtonGroup
                         size="small"
                     >
-                        <NButton
-                            @click="navigateToProject(project)"
+                        <NTooltip
+                            :delay="1000"
                         >
-                            View
-                        </NButton>
-                        <NButton
-                            type="error"
-                            @click="projectsStore.deleteProject(project.id)"
-                        >
+                            <template #trigger>
+                                <NButton
+                                    type="error"
+                                    tertiary
+                                    @click="projectsStore.deleteProject(project.id)"
+                                >
+                                    <template #icon>
+                                        <NIcon>
+                                            <DeleteIcon />
+                                        </NIcon>
+                                    </template>
+                                </NButton>
+                            </template>
                             Delete
-                        </NButton>
+                        </NTooltip>
                     </NButtonGroup>
                 </template>
-                <NTimeline
-                    horizontal
+                <NFlex
+                    justify="center"
+                    :wrap="false"
                 >
-                    <NTimelineItem
-                        type="success"
-                        title="Created"
-                        :time="(new Date(project.createdAt)).toLocaleString()"
+                    <NTimeline
+                        horizontal
                     >
-                        <template #footer>
-                            <NPopover
-                                trigger="hover"
-                            >
-                                <template #trigger>
+                        <NTimelineItem
+                            type="success"
+                            title="Created"
+                            :time="(new Date(project.createdAt)).toLocaleString()"
+                        >
+                            <template #footer>
+                                <NPopover
+                                    trigger="hover"
+                                >
+                                    <template #trigger>
+                                        <NTime
+                                            :time="new Date(project.createdAt)"
+                                            :to="new Date()"
+                                            type="relative"
+                                        />
+                                    </template>
                                     <NTime
                                         :time="new Date(project.createdAt)"
-                                        :to="new Date()"
-                                        type="relative"
                                     />
-                                </template>
-                                <NTime
-                                    :time="new Date(project.createdAt)"
-                                />
-                            </NPopover>
-                        </template>
-                    </NTimelineItem>
-                    <NTimelineItem
-                        v-if="project.updatedAt !== project.createdAt"
-                        type="info"
-                        title="Updated"
-                        :time="(new Date(project.updatedAt)).toLocaleString()"
-                    >
-                        <template #footer>
-                            <NPopover
-                                trigger="hover"
-                            >
-                                <template #trigger>
+                                </NPopover>
+                            </template>
+                        </NTimelineItem>
+                        <NTimelineItem
+                            v-if="project.updatedAt !== project.createdAt"
+                            type="info"
+                            title="Updated"
+                            :time="(new Date(project.updatedAt)).toLocaleString()"
+                        >
+                            <template #footer>
+                                <NPopover
+                                    trigger="hover"
+                                >
+                                    <template #trigger>
+                                        <NTime
+                                            :time="new Date (project.updatedAt)"
+                                            :to="new Date()"
+                                            type="relative"
+                                        />
+                                    </template>
                                     <NTime
-                                        :time="new Date (project.updatedAt)"
-                                        :to="new Date()"
-                                        type="relative"
+                                        :time="new Date(project.updatedAt)"
                                     />
-                                </template>
-                                <NTime
-                                    :time="new Date(project.updatedAt)"
-                                />
-                            </NPopover>
-                        </template>
-                    </NTimelineItem>
-                    <NTimelineItem
-                        v-if="recentProjects.find((recentProject) => recentProject.id === project.id)"
-                        title="Accessed"
-                        :time="(new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)).toLocaleString()"
-                    >
-                        <template #footer>
-                            <NPopover
-                                trigger="hover"
-                            >
-                                <template #trigger>
+                                </NPopover>
+                            </template>
+                        </NTimelineItem>
+                        <NTimelineItem
+                            v-if="recentProjects.find((recentProject) => recentProject.id === project.id)"
+                            title="Accessed"
+                            :time="(new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)).toLocaleString()"
+                        >
+                            <template #footer>
+                                <NPopover
+                                    trigger="hover"
+                                >
+                                    <template #trigger>
+                                        <NTime
+                                            :time="new Date (recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
+                                            :to="new Date()"
+                                            type="relative"
+                                        />
+                                    </template>
                                     <NTime
-                                        :time="new Date (recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
-                                        :to="new Date()"
-                                        type="relative"
+                                        :time="new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
                                     />
-                                </template>
-                                <NTime
-                                    :time="new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
-                                />
-                            </NPopover>
+                                </NPopover>
+                            </template>
+                        </NTimelineItem>
+                    </NTimeline>
+                    <NStatistic
+                        label="Tasks Completed"
+                        :value="project.tasks.reduce((count, task) => count + ((task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle') === 'done' ? 1 : 0), 0)"
+                    >
+                        <template #suffix>
+                            / {{ project.tasks.length }}
                         </template>
-                    </NTimelineItem>
-                </NTimeline>
+                    </NStatistic>
+                </NFlex>
                 <!-- <NDescriptions
                     :column="1"
                     size="small"

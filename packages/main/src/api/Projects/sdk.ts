@@ -6,6 +6,8 @@ import {
     // dialog,
     // shell,
 } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
     type ClientSDK,
     // type ClientAPI,
@@ -53,6 +55,7 @@ export function registerSDK(window: BrowserWindow) {
             const av1an = Av1anManager.instance.av1anMap.get(task.id) ?? Av1anManager.instance.addAv1an(task.id, options.input, options.output, options, task.statusHistory);
             
             av1an.onStatus((status) => {
+                console.log('SEND STATUS:', status.state);
                 window.webContents.send('task-status', {
                     projectId: task.projectId,
                     taskId: task.id,
@@ -92,6 +95,22 @@ export function registerSDK(window: BrowserWindow) {
             if (av1an) {
                 return av1an.frameCount;
             }
+        },
+        'task-av1an-estimated-size': async (_event: IpcMainInvokeEvent, task: Task) => {
+            const av1an = Av1anManager.instance.av1anMap.get(task.id);
+            if (av1an) {
+                return av1an.estimatedSizeInBytes;
+            }
+        },
+        'task-av1an-estimated-seconds': async (_event: IpcMainInvokeEvent, task: Task) => {
+            const av1an = Av1anManager.instance.av1anMap.get(task.id);
+            if (av1an) {
+                return av1an.estimatedSecondsRemaining;
+            }
+        },
+        'task-delete-temporary-files': async (_event: IpcMainInvokeEvent, task: Task) => {
+            // Delete temp folder parent folder
+            await fs.promises.rm(path.resolve(task.item.temporary.path, '..'));
         },
     } satisfies ClientSDK;
 }
