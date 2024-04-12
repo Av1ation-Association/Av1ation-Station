@@ -88,23 +88,7 @@ async function openExistingProject() {
 }
 
 async function navigateToProject(project: Project) {
-    const recentProjectIndex = store.config.recentlyOpenedProjects.findIndex((recentProject) => recentProject.id === project.id);
-                                
-    // if (recentProjectIndex !== -1) {
-    //     store.config.recentlyOpenedProjects[recentProjectIndex].accessedAt = new Date();
-    // } else {
-    //     store.config.recentlyOpenedProjects.push({
-    //         id: project.id,
-    //         path: project.path,
-    //         ...(project.name ? { name: project.name } : {}),
-    //         accessedAt: new Date(),
-    //     });
-    // }
-
-    // // Set config
-    // await store.setConfig(toRaw(store.config), true);
-
-    await projectsStore.loadProject(store.config.recentlyOpenedProjects[recentProjectIndex].path);
+    await projectsStore.loadProject(project.path);
 
     // Navigate to Project Layout
     router.push(`/projects/${project.id}`);
