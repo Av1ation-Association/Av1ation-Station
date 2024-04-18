@@ -55,7 +55,6 @@ export function registerSDK(window: BrowserWindow) {
             const av1an = Av1anManager.instance.av1anMap.get(task.id) ?? Av1anManager.instance.addAv1an(task.id, options.input, options.output, options, task.statusHistory);
             
             av1an.onStatus((status) => {
-                console.log('SEND STATUS:', status.state);
                 window.webContents.send('task-status', {
                     projectId: task.projectId,
                     taskId: task.id,
