@@ -9,8 +9,6 @@ import {
     NTime,
     NButtonGroup,
     NButton,
-    // NDescriptions,
-    // NDescriptionsItem,
     NPopover,
     NTimeline,
     NTimelineItem,
@@ -18,7 +16,6 @@ import {
     NFlex,
     NStatistic,
     NText,
-    NH3,
     NTooltip,
 } from 'naive-ui';
 import {
@@ -37,30 +34,6 @@ const store = useGlobalStore();
 const projectsStore = useProjectsStore();
 const { config } = storeToRefs(store);
 const { projects } = storeToRefs(projectsStore);
-
-const recentProjects = store.config.recentlyOpenedProjects;
-projectsStore.projects = await window.projectsApi['list-projects'](recentProjects.map(project => project.path));
-
-// Initialize Project Task Queue Map
-projectsStore.projectQueueMap = projectsStore.projects.reduce((map, project: Project) => {
-    map[project.id] = {
-        status: 'idle',
-    };
-    for (const task of project.tasks) {
-        const lastStatus = task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle';
-        
-        if (lastStatus !== 'idle') {
-            map[project.id] = {
-                taskId: task.id,
-                status: 'paused',
-            };
-
-            break;
-        }
-    }
-
-    return map;
-}, {} as typeof projectsStore.projectQueueMap);
 
 const dropdownOptions: DropdownOption[] = [
     {
@@ -159,20 +132,15 @@ async function navigateToProject(project: Project) {
                 :key="project.id"
                 :title="project.name ?? project.id"
             >
-                <template #header>
-                    <NButton
-                        text
-                        @click="navigateToProject(project)"
-                    >
-                        <NH3>
-                            {{ project.name ?? project.id }}
-                        </NH3>
-                    </NButton>
-                </template>
                 <template #header-extra>
                     <NButtonGroup
                         size="small"
                     >
+                        <NButton
+                            @click="navigateToProject(project)"
+                        >
+                            View
+                        </NButton>
                         <NTooltip
                             :delay="1000"
                         >
@@ -246,9 +214,9 @@ async function navigateToProject(project: Project) {
                             </template>
                         </NTimelineItem>
                         <NTimelineItem
-                            v-if="recentProjects.find((recentProject) => recentProject.id === project.id)"
+                            v-if="config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)"
                             title="Accessed"
-                            :time="(new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)).toLocaleString()"
+                            :time="(new Date(config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)).toLocaleString()"
                         >
                             <template #footer>
                                 <NPopover
@@ -256,13 +224,13 @@ async function navigateToProject(project: Project) {
                                 >
                                     <template #trigger>
                                         <NTime
-                                            :time="new Date (recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
+                                            :time="new Date (config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
                                             :to="new Date()"
                                             type="relative"
                                         />
                                     </template>
                                     <NTime
-                                        :time="new Date(recentProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
+                                        :time="new Date(config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
                                     />
                                 </NPopover>
                             </template>
@@ -277,17 +245,6 @@ async function navigateToProject(project: Project) {
                         </template>
                     </NStatistic>
                 </NFlex>
-                <!-- <NDescriptions
-                    :column="1"
-                    size="small"
-                    label-placement="left"
-                >
-                    <NDescriptionsItem
-                        label="Tasks"
-                    >
-                        {{ project.tasks.length }}
-                    </NDescriptionsItem>
-                </NDescriptions> -->
             </NCard>
         </NCard>
     </NLayout>
