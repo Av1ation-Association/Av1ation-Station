@@ -20,12 +20,10 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/projects/:projectId',
         component: ProjectLayout,
-        children: [
-            {
-                path: 'tasks/:taskId',
-                component: TaskLayout,
-            },
-        ],
+    },
+    {
+        path: '/projects/:projectId/tasks/:taskId',
+        component: TaskLayout,
     },
     {
         path: '/settings',
