@@ -140,8 +140,10 @@ async function updateName(name: string) {
                     justify="space-between"
                     :wrap="false"
                 >
-                    <!-- <span>{{ project.path }}</span> -->
-                    [REDACTED]
+                    <NInput
+                        v-model:value="project.path"
+                        readonly
+                    />
                     <NTooltip>
                         <template #trigger>
                             <NButton

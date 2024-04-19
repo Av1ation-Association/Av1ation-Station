@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h } from 'vue';
+import { h, toRaw } from 'vue';
 import {
     NDropdown,
     type DropdownOption,
@@ -12,6 +12,8 @@ import {
     NDescriptionsItem,
     NPopover,
     NTooltip,
+    NInputGroup,
+    NInput,
 } from 'naive-ui';
 import {
     VolumeFileStorage as RevealIcon,
@@ -55,9 +57,6 @@ const dropdownOptions: DropdownOption[] = [
 ];
 async function handleDropdownSelect(key: string) {
     switch (key) {
-        case 'reveal':
-            await revealFileLocation();
-            break;
         case 'duplicate':
             console.log('DUPLICATE: ', project.path);
             break;
@@ -69,8 +68,40 @@ async function handleDropdownSelect(key: string) {
     }
 }
 
-async function revealFileLocation() {
-    await window.configurationsApi['show-file'](`${project.path}`);
+async function selectInputFile() {
+    const inputFilePath = await window.configurationsApi['open-file'](task.item.input, 'Select Input File');
+
+    if (inputFilePath.length) {
+        const inputFileName = await window.configurationsApi['path-basename'](inputFilePath[0], true);
+        task.item.input = inputFilePath[0];
+        task.inputFileName = inputFileName;
+    }
+
+    // Reset task updatedAt
+    project.tasks[taskIndex].updatedAt = new Date();
+
+    // Save Project File
+    await projectsStore.saveProject(toRaw(project), false);
+}
+
+async function selectOutputFile() {
+    const outputFilePath = await window.configurationsApi['save-file'](task.item.output, 'Select Output File');
+
+    if (outputFilePath) {
+        const outputFileName = await window.configurationsApi['path-basename'](outputFilePath, true);
+        task.item.output = outputFilePath;
+        task.outputFileName = outputFileName;
+    }
+
+    // Reset task updatedAt
+    project.tasks[taskIndex].updatedAt = new Date();
+
+    // Save Project File
+    await projectsStore.saveProject(toRaw(project), false);
+}
+
+async function revealFileLocation(path: string) {
+    await window.configurationsApi['show-file'](path);
 }
 
 </script>
@@ -114,14 +145,23 @@ async function revealFileLocation() {
                     justify="space-between"
                     :wrap="false"
                 >
-                    <!-- <span>{{ task.item.input }}</span> -->
-                    [REDACTED]
+                    <NInputGroup>
+                        <NInput
+                            v-model:value="task.item.input"
+                            readonly
+                        />
+                        <NButton
+                            @click="selectInputFile"
+                        >
+                            Select
+                        </NButton>
+                    </NInputGroup>
                     <NTooltip>
                         <template #trigger>
                             <NButton
                                 circle
                                 quaternary
-                                @click="revealFileLocation"
+                                @click="() => revealFileLocation(task.item.input)"
                             >
                                 <template #icon>
                                     <NIcon>
@@ -141,14 +181,24 @@ async function revealFileLocation() {
                     justify="space-between"
                     :wrap="false"
                 >
-                    <!-- <span>{{ task.item.output }}</span> -->
-                    [REDACTED]
+                    <NInputGroup>
+                        <NInput
+                            v-model:value="task.item.output"
+                            readonly
+                        />
+                        <NButton
+                            @click="selectOutputFile"
+                        >
+                            Select
+                        </NButton>
+                    </NInputGroup>
                     <NTooltip>
                         <template #trigger>
                             <NButton
                                 circle
                                 quaternary
-                                @click="revealFileLocation"
+                                :disabled="task.statusHistory.length > 0 && task.statusHistory[task.statusHistory.length - 1].state !== 'done'"
+                                @click="() => revealFileLocation(task.item.output)"
                             >
                                 <template #icon>
                                     <NIcon>
