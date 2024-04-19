@@ -127,8 +127,6 @@ async function skipTask(taskId: Task['id']) {
     // Reset task updatedAt
     project.tasks[taskIndex].updatedAt = new Date();
 
-    // SortableJS workaround: toRaw tasks which become proxies when moved/sorted
-    project.tasks = project.tasks.map(task => toRaw(task));
     // Save Project File
     await projectsStore.saveProject(toRaw(project), false);
 }
