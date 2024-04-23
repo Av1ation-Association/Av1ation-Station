@@ -109,6 +109,14 @@ async function skipTask(taskId: Task['id']) {
 
 async function deleteTask(taskId: Task['id']) {
     // TODO: Check if task is in progress (Prompt user to cancel the task if it is)
+    const taskIndex = project.tasks.findIndex(task => task.id === taskId);    
+    if (taskIndex === -1) {
+        return;
+    }
+
+    // Delete temporary files
+    await window.projectsApi['task-delete-temporary-files'](toRaw(project.tasks[taskIndex]));
+    // Remove task
     project.tasks.splice(project.tasks.findIndex(task => task.id === taskId), 1);
 
     // Save Project File
