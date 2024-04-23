@@ -21,15 +21,17 @@ import {
     Add,
     VolumeFileStorage as RevealIcon,
     TrashCan as DeleteIcon,
-    Copy as DuplicateIcon,
+    CopyFile as DuplicateIcon,
+    Copy,
     OverflowMenuVertical,
     // TagEdit as EditNameIcon,
     Checkbox,
     CheckboxChecked,
+    ResetAlt,
 } from '@vicons/carbon';
 import {
-    type Task,
     // type Project,
+    type Task,
 } from '../../../../main/src/data/Configuration/Projects';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
@@ -51,11 +53,6 @@ const project = projectsStore.projects[projectIndex];
 // #region Dropdown
 const dropdownOptions: DropdownOption[] = [
     {
-        label: 'Open File Location',
-        key: 'reveal',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
-    },
-    {
         label: 'Duplicate',
         key: 'duplicate',
         icon: () => h(NIcon, null, { default: () => h(DuplicateIcon) }),
@@ -68,15 +65,80 @@ const dropdownOptions: DropdownOption[] = [
 ];
 async function handleDropdownSelect(key: string) {
     switch (key) {
-        case 'reveal':
-            await revealFileLocation();
-            break;
         case 'duplicate':
             console.log('DUPLICATE: ', project.path);
             break;
         case 'delete':
             console.log('DELETE: ', project.path);
             break;
+        default:
+            break;
+    }
+}
+
+const taskDropdownOptions: DropdownOption[] = [
+    {
+        label: 'Open Input File Location',
+        key: 'revealinput',
+        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
+    },
+    {
+        label: 'Open Output File Location',
+        key: 'revealoutput',
+        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
+    },
+    {
+        label: 'Copy Av1an Command',
+        key: 'copycommand',
+        icon: () => h(NIcon, null, { default: () => h(Copy) }),
+    },
+    {
+        label: 'Reset',
+        key: 'reset',
+        icon: () => h(NIcon, null, { default: () => h(ResetAlt) }),
+    },
+];
+
+async function handleTaskDropdownSelect(task: Task, key: string) {
+    switch (key) {
+        case 'revealinput': {
+            await window.configurationsApi['show-file'](`${task.item.input}`);
+            break;
+        }
+        case 'revealoutput': {
+            await window.configurationsApi['show-file'](`${task.item.output}`);
+            break;
+        }
+        case 'copycommand': {
+            const args = await buildAv1anArgs(task);
+            if (!args) {
+                break;
+            }
+
+            await window.configurationsApi['copy-to-clipboard'](`av1an ${args.printFriendlyArguments.join(' ')}`);
+            break;
+        }
+        case 'reset': {
+            const taskIndex = project.tasks.findIndex(pTask => pTask.id === task.id);
+
+            if (taskIndex === -1) {
+                return;
+            }
+            
+            // Reset total frames, Status History, and delete temporary files
+            project.tasks[taskIndex].totalFrames = 0;
+            project.tasks[taskIndex].statusHistory = [{
+                state: 'idle',
+                time: new Date(),
+            }];
+            await window.projectsApi['task-delete-temporary-files'](toRaw(project.tasks[taskIndex]));
+            // Reset updatedAt
+            project.tasks[taskIndex].updatedAt = new Date();
+
+            // Save Project File
+            await projectsStore.saveProject(toRaw(project), false);
+            break;
+        }
         default:
             break;
     }
@@ -123,16 +185,14 @@ async function deleteTask(taskId: Task['id']) {
     await projectsStore.saveProject(toRaw(project));
 }
 
-async function buildAv1anArgs(taskId: Task['id']) {
-    const task = project.tasks.find(task => task.id === taskId);
+async function buildAv1anArgs(taskOrId: Task['id'] | Task) {
+    const task = typeof taskOrId === 'string' ? project.tasks.find(task => task.id === taskOrId) : taskOrId;
     if (!task) {
         return;
     }
 
     const builtOptions = buildTaskAv1anOptions(task);
-    const args = await window.projectsApi['build-task-av1an-arguments'](builtOptions);
-
-    console.log('COMMAND:', `av1an ${args.printFriendlyArguments.join(' ')}`);
+    return window.projectsApi['build-task-av1an-arguments'](builtOptions);
 }
 
 async function processQueue(currentTask: Task) {
@@ -335,10 +395,6 @@ function formatBytes(bytes: number, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
 
-async function revealFileLocation() {
-    await window.configurationsApi['show-file'](`${project.path}`);
-}
-
 </script>
 
 <template>
@@ -483,13 +539,23 @@ async function revealFileLocation() {
                                     </NIcon>
                                 </template>
                             </NButton>
-                            <NButton
-                                size="small"
-                                @click="() => buildAv1anArgs(task.id)"
-                            >
-                                Av1an Args
-                            </NButton>
                         </NButtonGroup>
+                        <NDropdown
+                            trigger="click"
+                            :options="taskDropdownOptions"
+                            @select="(key) => handleTaskDropdownSelect(task, key)"
+                        >
+                            <NButton
+                                text
+                                size="large"
+                            >
+                                <template #icon>
+                                    <NIcon>
+                                        <OverflowMenuVertical />
+                                    </NIcon>
+                                </template>
+                            </NButton>
+                        </NDropdown>
                     </template>
                     <NFlex
                         :wrap="false"
