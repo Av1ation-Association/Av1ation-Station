@@ -4,6 +4,8 @@ import {
 } from 'vue';
 import {
     NSelect,
+    NInput,
+    NSwitch,
 } from 'naive-ui';
 import { type PartialAv1anConfiguration } from '../Configuration/ConfigurationDefaults.vue';
 import { type FormInputComponent } from './library';
@@ -48,7 +50,110 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         ),
     };
 
+    const ffmpegAudioParameters = {
+        label: 'FFmpeg Audio Parameters',
+        path: 'encoding.FFmpegAudioParameters',
+        component: h(
+            NInput,
+            {
+                value: formValueRef.value.encoding?.FFmpegAudioParameters,
+                clearable: true,
+                onUpdateValue: (value?: string) => {
+                    if (!formValueRef.value.encoding) {
+                        formValueRef.value.encoding = {};
+                    }
+
+                    if (value !== null) {
+                        formValueRef.value.encoding.FFmpegAudioParameters = value;
+                    }
+                },
+                placeholder: 'None (-c:a copy)',
+                onClear: () => {
+                    delete formValueRef.value.encoding?.FFmpegAudioParameters;
+                },
+            },
+        ),
+    };
+
+    const ffmpegFilterOptions = {
+        label: 'FFmpeg Filter Options',
+        path: 'encoding.FFmpegFilterOptions',
+        component: h(
+            NInput,
+            {
+                value: formValueRef.value.encoding?.FFmpegFilterOptions,
+                clearable: true,
+                onUpdateValue: (value?: string) => {
+                    if (!formValueRef.value.encoding) {
+                        formValueRef.value.encoding = {};
+                    }
+
+                    if (value !== null) {
+                        formValueRef.value.encoding.FFmpegFilterOptions = value;
+                    }
+                },
+                placeholder: 'None',
+                onClear: () => {
+                    delete formValueRef.value.encoding?.FFmpegFilterOptions;
+                },
+            },
+        ),
+    };
+
+    const force = {
+        label: 'Force',
+        path: 'encoding.force',
+        component: h(
+            NSwitch,
+            {
+                value: formValueRef.value.encoding?.force,
+                onUpdateValue: (value?: boolean) => {
+                    if (!formValueRef.value.encoding) {
+                        formValueRef.value.encoding = {};
+                    }
+
+                    if (value !== null) {
+                        formValueRef.value.encoding.force = value;
+                    }
+                },
+            },
+        ),
+    };
+
+    const passes = {
+        label: 'Passes',
+        path: 'encoding.passes',
+        component: h(
+            NSelect,
+            {
+                value: formValueRef.value.encoding?.passes,
+                clearable: true,
+                options: [
+                    { label: '1', value: 1 },
+                    { label: '2', value: 2 },
+                ],
+                placeholder: 'None',
+                onUpdateValue: (value?: number) => {
+                    if (!formValueRef.value.encoding) {
+                        formValueRef.value.encoding = {};
+                    }
+
+                    if (value !== null) {
+                        formValueRef.value.encoding.passes = value;
+                    }
+                },
+                onClear: () => {
+                    delete formValueRef.value.encoding?.passes;
+                },
+            },
+        ),
+    };
+
     return [
         encoder,
+        force,
+        passes,
+        ffmpegFilterOptions,
+        ffmpegAudioParameters,
     ];
 }
