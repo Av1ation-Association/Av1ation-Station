@@ -88,32 +88,8 @@ async function handleDropdownSelect(key: string) {
 
 // Register Task Status Listener
 if (!projectsStore.taskStatusListenerRegistered) {
-    // Set up Task Status Listener
-    window.projectsApi['task-status'](async (status) => {
-        const task = project.tasks.find(task => task.id === status.taskId);
-    
-        if (!task) {
-            return;
-        }
-
-        if ((status.status as Av1anStatus).state === 'encoding') {
-            // Update task frame count
-            if (!task.totalFrames) {
-                const frameCount = await window.projectsApi['task-av1an-frame-count'](toRaw(task));
-                if (frameCount) {
-                    task.totalFrames = frameCount;
-                }
-            }
-        }
-        task.statusHistory.push(status.status);
-
-        // Save Project File
-        await projectsStore.saveProject(toRaw(project), false);
-    });
-
-    projectsStore.taskStatusListenerRegistered = true;
+    await projectsStore.registerTaskStatusListener();
 }
-
 
 async function addTask() {
     // Import video or vapoursynth script from file dialog
@@ -218,7 +194,10 @@ async function cancelTask() {
     }
 
     await window.projectsApi['cancel-task'](toRaw(task));
-    projectsStore.projectQueueMap[project.id].status = 'cancelled';
+    // projectsStore.projectQueueMap[project.id].status = 'cancelled';
+    projectsStore.projectQueueMap[project.id] = {
+        status: 'idle',
+    };
 }
 
 // #endregion Task Lifecycle
@@ -387,8 +366,8 @@ async function revealFileLocation() {
                         }
 
                         // Get first/next task
-                        const queueTaskIndex = projectQueueMap[project.id].taskId ? project.tasks.findIndex(task => task.id === projectQueueMap[project.id].taskId) : 0;
-                        const remainingTasks = project.tasks.slice(queueTaskIndex).filter(task => !task.skip);
+                        const queueTaskIndex = projectQueueMap[project.id].taskId ? project.tasks.findIndex(task => task.id === projectQueueMap[project.id].taskId) : -1;
+                        const remainingTasks = project.tasks.slice(queueTaskIndex > -1 ? queueTaskIndex : 0).filter(task => !task.skip);
                         const nextTask = remainingTasks.find(task => ['idle', 'paused', 'cancelled'].includes(task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'));
 
                         if (!nextTask) {

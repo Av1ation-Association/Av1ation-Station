@@ -72,6 +72,11 @@ export const useProjectsStore = defineStore('projects', {
 
                     // Add 'paused' status to Tasks that were mid-encode when aborted
                     project.tasks = project.tasks.map(task => {
+                        // Ignore currently processing task
+                        if (this.projectQueueMap[project.id].status === 'processing' && this.projectQueueMap[project.id].taskId === task.id) {
+                            return task;
+                        }
+
                         // Initialize with idle state if none found
                         if (!task.statusHistory.length) {
                             task.statusHistory.push({ state: 'idle', time: new Date() });
@@ -266,6 +271,34 @@ export const useProjectsStore = defineStore('projects', {
             await this.saveProject(project);
 
             return tasks;
+        },
+        async registerTaskStatusListener() {
+            await window.projectsApi['task-status'](async (status) => {
+                const projectIndex = this.projects.findIndex(p => p.id === status.projectId);
+                if (projectIndex === -1) {
+                    return;
+                }
+                const taskIndex = this.projects[projectIndex].tasks.findIndex(t => t.id === status.taskId);
+                if (taskIndex === -1) {
+                    return;
+                }
+
+                if (status.status.state === 'encoding') {
+                    // Update task frame count
+                    if (!this.projects[projectIndex].tasks[taskIndex].totalFrames) {
+                        const frameCount = await window.projectsApi['task-av1an-frame-count'](toRaw(this.projects[projectIndex].tasks[taskIndex]));
+                        if (frameCount) {
+                            this.projects[projectIndex].tasks[taskIndex].totalFrames = frameCount;
+                        }
+                    }
+                }
+                this.projects[projectIndex].tasks[taskIndex].statusHistory.push(status.status);
+
+                // Save Project File
+                await this.saveProject(toRaw(this.projects[projectIndex]), false);
+            });
+
+            this.taskStatusListenerRegistered = true;
         },
     },
 });
