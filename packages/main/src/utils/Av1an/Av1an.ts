@@ -437,6 +437,10 @@ export class Av1an extends EventEmitter {
 
         if (!scenesJSONExists) {
             await this.sceneDetection();
+            // If scene detection was cancelled, return
+            if (this.status.state === 'cancelled') {
+                return;
+            }
         }
 
         return new Promise<void>((resolve, reject) => {
