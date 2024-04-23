@@ -123,6 +123,18 @@ const defaultsFormRules = ref<FormRules>({
             required: false,
         },
     },
+    output: {
+        type: {
+            type: 'string',
+            required: false,
+        },
+    },
+    temporary: {
+        type: {
+            type: 'string',
+            required: false,
+        },
+    },
 });
 
 export type PartialChildren<T> = { [K in keyof T]?: Partial<T[K]>; };
@@ -156,6 +168,22 @@ async function selectInputFolder() {
 
     if (inputFolderPath.length) {
         defaultsFormValue.value.input.customFolder = inputFolderPath[0];
+    }
+}
+
+async function selectOutputFolder() {
+    const outputFolderPath = await window.configurationsApi['open-file'](defaultsFormValue.value.output.customFolder ?? project.defaults.Av1an.output.customFolder ?? configStore.config.defaults.Av1an.output.customFolder, 'Select Default Output Folder', undefined, ['openDirectory']);
+
+    if (outputFolderPath.length) {
+        defaultsFormValue.value.output.customFolder = outputFolderPath[0];
+    }
+}
+
+async function selectTemporaryFolder() {
+    const temporaryFolderPath = await window.configurationsApi['open-file'](defaultsFormValue.value.temporary.customFolder ?? project.defaults.Av1an.temporary.customFolder ?? configStore.config.defaults.Av1an.temporary.customFolder, 'Select Default Temporary Folder', undefined, ['openDirectory']);
+
+    if (temporaryFolderPath.length) {
+        defaultsFormValue.value.temporary.customFolder = temporaryFolderPath[0];
     }
 }
 
@@ -305,6 +333,25 @@ async function saveDefaultsConfig() {
                             />
                         </NFormItemGridItem>
                         <NFormItemGridItem
+                            v-if="defaultsFormValue.output.type === Av1anOutputLocationType.Custom"
+                            label="Custom Output Folder Location"
+                            path="output.customFolder"
+                            :span="12"
+                        >
+                            <NInputGroup>
+                                <NInput
+                                    v-model:value="defaultsFormValue.output.customFolder"
+                                    clearable
+                                />
+                                <NButton
+                                    type="primary"
+                                    @click="selectOutputFolder"
+                                >
+                                    Select
+                                </NButton>
+                            </NInputGroup>
+                        </NFormItemGridItem>
+                        <NFormItemGridItem
                             label="Temporary Folder Location"
                             path="temporary.type"
                             :span="12"
@@ -332,6 +379,25 @@ async function saveDefaultsConfig() {
                                     }
                                 }"
                             />
+                        </NFormItemGridItem>
+                        <NFormItemGridItem
+                            v-if="defaultsFormValue.temporary.type === Av1anTemporaryLocationType.Custom"
+                            label="Custom Temporary Folder Location"
+                            path="temporary.customFolder"
+                            :span="12"
+                        >
+                            <NInputGroup>
+                                <NInput
+                                    v-model:value="defaultsFormValue.temporary.customFolder"
+                                    clearable
+                                />
+                                <NButton
+                                    type="primary"
+                                    @click="selectTemporaryFolder"
+                                >
+                                    Select
+                                </NButton>
+                            </NInputGroup>
                         </NFormItemGridItem>
                     </NGrid>
                 </NTabPane>
