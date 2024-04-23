@@ -109,7 +109,7 @@ export function registerSDK(window: BrowserWindow) {
         },
         'task-delete-temporary-files': async (_event: IpcMainInvokeEvent, task: Task) => {
             // Delete temp folder parent folder
-            await fs.promises.rm(path.resolve(task.item.temporary.path, '..'));
+            await fs.promises.rm(path.resolve(task.item.temporary.path, '..'), { recursive: true, force: true });
         },
     } satisfies ClientSDK;
 }
