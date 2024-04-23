@@ -32,7 +32,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).filmGrain = value;
+                        (formValueRef.value.encoding as SVTEncoding)['film-grain'] = value;
                     }
                 },
             },
@@ -59,12 +59,12 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).filmGrainDenoise = value;
+                        (formValueRef.value.encoding as SVTEncoding)['film-grain-denoise'] = value;
                     }
                 },
                 placeholder: 'Disabled',
                 onClear: () => {
-                    delete (formValueRef.value.encoding as SVTEncoding).filmGrainDenoise;
+                    delete (formValueRef.value.encoding as SVTEncoding)['film-grain-denoise'];
                 },
             },
         ),
