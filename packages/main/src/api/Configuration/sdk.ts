@@ -7,6 +7,7 @@ import {
     app,
     dialog,
     shell,
+    clipboard,
 } from 'electron';
 import {
     type ClientSDK,
@@ -81,6 +82,9 @@ export function registerSDK(browserWindow: BrowserWindow) {
                 cores: cpus.length,
                 parallism: os.availableParallelism(),
             };
+        },
+        'copy-to-clipboard': (_event: IpcMainInvokeEvent, text: string) => {
+            clipboard.writeText(text);
         },
     } satisfies ClientSDK;
 }

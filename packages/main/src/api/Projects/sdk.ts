@@ -15,7 +15,7 @@ import {
 } from '../index';
 import { ProjectManager, type Task } from '../../data/Configuration/Projects';
 import { type Project } from '../../data/Configuration/Projects';
-import { Av1an, Av1anManager } from '../../utils/Av1an/Av1an';
+import { Av1an, Av1anManager, type Av1anStatus } from '../../utils/Av1an/Av1an';
 
 export function registerSDK(window: BrowserWindow) {
     return {
@@ -52,9 +52,14 @@ export function registerSDK(window: BrowserWindow) {
             }
         },
         'start-task': async (_event: IpcMainInvokeEvent, task: Task, options: Task['item']) => {
-            const av1an = Av1anManager.instance.av1anMap.get(task.id) ?? Av1anManager.instance.addAv1an(task.id, options.input, options.output, options, task.statusHistory);
+            const existingAv1an = Av1anManager.instance.av1anMap.get(task.id);
+            if (existingAv1an) {
+                Av1anManager.instance.removeAv1an(task.id);
+            }
+
+            const av1an = Av1anManager.instance.addAv1an(task.id, options.input, options.output, options, task.statusHistory);
             
-            av1an.onStatus((status) => {
+            av1an.on('status', (status: Av1anStatus) => {
                 window.webContents.send('task-status', {
                     projectId: task.projectId,
                     taskId: task.id,

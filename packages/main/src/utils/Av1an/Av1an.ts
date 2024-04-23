@@ -57,11 +57,19 @@ export class Av1anManager {
         this.av1anMap.set(id, av1an);
         return av1an;
     }
+
+    public removeAv1an(id: Task['id']) {
+        const av1an = this.av1anMap.get(id);
+        if (av1an) {
+            av1an.removeAllListeners();
+            this.av1anMap.delete(id);
+        }
+    }
 }
 
 export class Av1an extends EventEmitter {
     private childProcess?: ChildProcessByStdio<Writable, Readable, Readable>;
-    // private childProcess?: ChildProcessByStdio<Writable, null, null>;
+    // private childProcess?: ChildProcessByStdio<Writable, Readable | null, Readable | null>;
     // List of all Av1an states
     private allStates: Av1anStatus[] = [{ time: new Date(), state: 'idle' }];
     private temporaryFolderWatcher?: Watcher;
@@ -415,6 +423,15 @@ export class Av1an extends EventEmitter {
     }
 
     public async start() {
+        // Ensure temporary folder exists
+        if (this.options?.temporary?.path && !fs.existsSync(this.options.temporary.path)) {
+            await fs.promises.mkdir(this.options.temporary.path, { recursive: true });
+        }
+        // Ensure output folder exists
+        if (!fs.existsSync(path.dirname(this.output))) {
+            await fs.promises.mkdir(path.dirname(this.output), { recursive: true });
+        }
+
         // Check if the scenes.json exists
         const scenesJSONExists = this.options?.scenes?.path && fs.existsSync(this.options.scenes.path);
 
@@ -428,13 +445,17 @@ export class Av1an extends EventEmitter {
             this.childProcess.on('close', (code) => {
                 switch (code) {
                     case 0: {
+                        // this.temporaryFolderWatcher?.close();
+                        // Workaround: Watch temporary folder for 5 seconds before closing
+                        setTimeout(() => {
+                            this.temporaryFolderWatcher?.close();
+                        }, 5000);
+
                         // Add new status with the state 'done'
                         this.addStatus({
                             state: 'done',
                         });
-        
-                        this.temporaryFolderWatcher?.close();
-        
+
                         return resolve();
                     }
                     case null: {
@@ -448,21 +469,32 @@ export class Av1an extends EventEmitter {
                         return resolve();
                     }
                     default: {
+                        this.temporaryFolderWatcher?.close();
+                        if (this.status.state === 'cancelled') {
+                            // Ignore this error if the process has been cancelled
+                            console.log('Cancelled Av1an process exited with code', code);
+                            return;
+                        }
+
                         // Add new status with the state 'error'
                         const error = new Error(`Av1an exited with code ${code}`);
                         this.addStatus({
                             state: 'error',
                             error,
                         });
-        
-                        this.temporaryFolderWatcher?.close();
-        
+                        
                         return reject(error);
                     }
                 }
             });
 
             this.childProcess.on('error', (error) => {
+                if (this.status.state === 'cancelled') {
+                    // Ignore this error if the process has been cancelled
+                    console.log('Cancelled Av1an process received error:', error);
+                    return;
+                }
+
                 // Add new status with the state 'error'
                 this.addStatus({
                     state: 'error',
@@ -617,7 +649,11 @@ export class Av1an extends EventEmitter {
         }
         if (['scene-detection', 'encoding', 'paused'].includes(this.status.state)) {
             // Kill the process
-            this.childProcess.kill('SIGKILL');
+            // this.childProcess.kill('SIGKILL');
+            if (this.childProcess.pid) {
+                const terminate = (await import('terminate')).default;
+                await terminate(this.childProcess.pid);
+            }
             this.addStatus({
                 state: 'cancelled',
             });
@@ -640,22 +676,37 @@ export class Av1an extends EventEmitter {
             // this.childProcess = spawn('av1an', this.buildArguments().arguments, { stdio: ['pipe', 'inherit', 'inherit'] });
 
             this.childProcess.on('close', (code) => {
-                if (code === 0) {
-                    // Add new status with the state 'idle'
-                    this.addStatus({
-                        state: 'idle',
-                    });
+                switch (code) {
+                    case 0: {
+                        // Add new status with the state 'idle'
+                        this.addStatus({
+                            state: 'idle',
+                        });
 
-                    return resolve();
-                } else {
-                    // Add new status with the state 'error'
-                    const error = new Error(`Av1an exited with code ${code}`);
-                    this.addStatus({
-                        state: 'error',
-                        error,
-                    });
+                        return resolve();
+                    }
+                    // case null: {
+                    //     // // Add new status with the state 'canceled'
+                    //     // this.addStatus({
+                    //     //     state: 'canceled',
+                    //     // });
 
-                    return reject(error);
+                    //     return resolve();
+                    // }
+                    default: {
+                        // Ignore errror if process is cancelled
+                        if (this.status.state === 'cancelled') {
+                            return resolve();
+                        }
+                        // Add new status with the state 'error'
+                        const error = new Error(`Av1an exited with code ${code}`);
+                        this.addStatus({
+                            state: 'error',
+                            error,
+                        });
+
+                        return reject(error);
+                    }
                 }
             });
     

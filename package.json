@@ -61,6 +61,7 @@
     },
     "dependencies": {
         "electron-updater": "6.1.8",
+        "terminate": "^2.6.1",
         "watcher": "^2.3.0"
     }
 }

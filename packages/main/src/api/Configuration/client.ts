@@ -57,4 +57,8 @@ export const api = {
         return ipcRenderer.invoke('get-cpu', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['get-cpu']>>;
     },
+    'copy-to-clipboard': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['copy-to-clipboard']>>) => {
+        return ipcRenderer.invoke('copy-to-clipboard', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['copy-to-clipboard']>>;
+    },
 } satisfies ClientAPI<ReturnType<typeof registerSDK>>;
