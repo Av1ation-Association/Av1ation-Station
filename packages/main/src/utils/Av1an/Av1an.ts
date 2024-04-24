@@ -10,6 +10,9 @@ import type { Options} from '../../data/Av1an/Types/Options.js';
 import { Encoder, OutputOverwrite, Verbosity } from '../../data/Av1an/Types/Options.js';
 import { parseDoneJsonFile } from '../../data/Av1an/Types/Done.js';
 import type { Parameters as SVTParameters } from '../../data/Av1an/Types/SVT.js';
+import type { Parameters as AOMParameters } from '../../data/Av1an/Types/AOM.js';
+import type { Parameters as Rav1eParameters } from '../../data/Av1an/Types/Rav1e.js';
+import type { Parameters as VpxParameters } from '../../data/Av1an/Types/Vpx.js';
 import type { Chunk } from '../../data/Av1an/Types/Chunks.js';
 import { parseChunksJsonFile } from '../../data/Av1an/Types/Chunks.js';
 import { type Task } from '../../data/Configuration/Projects';
@@ -245,10 +248,24 @@ export class Av1an extends EventEmitter {
                         av1anPrintFriendlyArguments.push('--video-params', `"${svtParameters}"`);
                         break;
                     }
-                    case Encoder.aom:
+                    case Encoder.aom: {
+                        const aomParameters = Object.entries(encoderParameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
+                        av1anArguments.push('--video-params', aomParameters);
+                        av1anPrintFriendlyArguments.push('--video-params', `"${aomParameters}"`);
                         break;
-                    case Encoder.rav1e:
+                    }
+                    case Encoder.rav1e: {
+                        const rav1eParameters = Object.entries(encoderParameters as Rav1eParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
+                        av1anArguments.push('--video-params', rav1eParameters);
+                        av1anPrintFriendlyArguments.push('--video-params', `"${rav1eParameters}"`);
                         break;
+                    }
+                    case Encoder.vpx: {
+                        const vpxParameters = Object.entries(encoderParameters as VpxParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
+                        av1anArguments.push('--video-params', vpxParameters);
+                        av1anPrintFriendlyArguments.push('--video-params', `"${vpxParameters}"`);
+                        break;
+                    }
                     default:
                         break;
                 }
