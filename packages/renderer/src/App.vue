@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { NLayout } from 'naive-ui';
 import { onBeforeMount } from 'vue';
+import { useRouter } from 'vue-router';
 import NaiveProvider from './components/NaiveProvider.vue';
 import SidebarMenu from './layouts/SidebarMenuLayout.vue';
 import { useGlobalStore } from './stores/global';
@@ -40,6 +41,9 @@ onBeforeMount(async () => {
         return map;
     }, {} as typeof projectsStore.projectQueueMap);
 });
+
+const router = useRouter();
+router.push('/');
 
 </script>
 
