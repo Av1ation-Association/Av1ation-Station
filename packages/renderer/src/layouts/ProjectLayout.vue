@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onBeforeRouteUpdate, useRouter } from 'vue-router';
 import {
+    NFlex,
     NLayout,
 } from 'naive-ui';
 import { useProjectsStore } from '../stores/projects';
+import ProjectBreadcrumb from '../components/ProjectBreadcrumb.vue';
 import ProjectDetail from '../components/Projects/ProjectDetail.vue';
 import TaskQueue from '../components/Projects/TaskQueue.vue';
 import ConfigurationDefaults from '../components/Configuration/ConfigurationDefaults.vue';
@@ -40,14 +42,21 @@ const project = projectsStore.projects[projectIndex];
         content-style="padding: 24px;"
         :native-scrollbar="false"
     >
-        <ProjectDetail
-            :project-id="project.id"
-        />
-        <ConfigurationDefaults
-            :project-id="project.id"
-        />
-        <TaskQueue
-            :project-id="project.id"
-        />
+        <NFlex
+            vertical
+        >
+            <ProjectBreadcrumb
+                :project-id="project.id"
+            />
+            <ProjectDetail
+                :project-id="project.id"
+            />
+            <ConfigurationDefaults
+                :project-id="project.id"
+            />
+            <TaskQueue
+                :project-id="project.id"
+            />
+        </NFlex>
     </NLayout>
 </template>
