@@ -53,7 +53,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 value: (formValueRef.value.encoding as SVTEncoding).lp,
                 clearable: true,
                 min: 0,
-                defaultValue: formValueRef.value.threadAffinity ?? 0,
+                // defaultValue: formValueRef.value.threadAffinity ?? 0,
                 onUpdateValue: (value) => {
                     if (!formValueRef.value.encoding) {
                         formValueRef.value.encoding = {
