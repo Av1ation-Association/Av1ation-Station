@@ -470,14 +470,15 @@ export class Av1an extends EventEmitter {
                         // Workaround: Watch temporary folder for 5 seconds before closing
                         setTimeout(() => {
                             this.temporaryFolderWatcher?.close();
+
+                            // Add new status with the state 'done'
+                            this.addStatus({
+                                state: 'done',
+                            });
+    
+                            return resolve();
                         }, 5000);
-
-                        // Add new status with the state 'done'
-                        this.addStatus({
-                            state: 'done',
-                        });
-
-                        return resolve();
+                        break;
                     }
                     case null: {
                         // // Add new status with the state 'canceled'
