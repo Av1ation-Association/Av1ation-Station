@@ -59,8 +59,8 @@ function getDefaultPreferences () {
     >
         <NH3>{{ section.label }}</NH3>
         <NGrid
-            :span="24"
-            :x-gap="24"
+            cols="1 400:2 800:3 1200:4 1600:5 2400:6 3000:7 3600:8"
+            x-gap="12"
         >
             <!-- Sort by favorite -->
             <NFormItemGridItem
@@ -68,7 +68,6 @@ function getDefaultPreferences () {
                 :key="component.path"
                 :label="component.label"
                 :path="component.path"
-                :span="12"
             >
                 <template #label>
                     {{ component.label }}

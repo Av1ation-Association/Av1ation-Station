@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, toRaw } from 'vue';
+import { h, toRaw, ref, onMounted, onBeforeUnmount } from 'vue';
 import {
     NDropdown,
     type DropdownOption,
@@ -104,6 +104,26 @@ async function revealFileLocation(path: string) {
     await window.configurationsApi['show-file'](path);
 }
 
+const columnWidths = [600, 1200, 1800, 2400, 3000, 3600, 4200, 4800];
+let columnCount = ref<number>(Math.trunc(window.innerWidth / 600) + 1);
+
+function handleResize() {
+    columnCount.value = Math.trunc(window.innerWidth / 600) + 1;
+}
+
+
+onMounted(() => {
+    columnWidths.forEach(width => {
+        window.matchMedia(`(min-width: ${width}px)`).addEventListener('change', handleResize);
+    });
+});
+
+onBeforeUnmount(() => {
+    columnWidths.forEach(width => {
+        window.matchMedia(`(min-width: ${width}px)`).removeEventListener('change', handleResize);
+    });
+});
+
 </script>
 
 <template>
@@ -130,7 +150,7 @@ async function revealFileLocation(path: string) {
         </template>
         <NDescriptions
             bordered
-            :column="1"
+            :column="columnCount"
             size="small"
         >
             <NDescriptionsItem

@@ -74,6 +74,8 @@ const project = projectsStore.projects[projectIndex];
 const taskIndex = projectIndex !== -1 ? projectsStore.projects[projectIndex].tasks.findIndex(t => t.id === taskId) : -1;
 const task = taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined;
 
+const formGridColumnSize = '1 400:2 800:3 1200:4 1600:5 2400:6 3000:7 3600:8';
+
 const dropdownOptions: DropdownOption[] = [
     {
         label: 'Preview Av1an Command',
@@ -279,13 +281,12 @@ async function saveDefaultsConfig() {
                     tab="File Locations"
                 >
                     <NGrid
-                        :span="24"
-                        :x-gap="24"
+                        :cols="formGridColumnSize"
+                        x-gap="12"
                     >
                         <NFormItemGridItem
                             label="Input Location"
                             path="input.type"
-                            :span="12"
                         >
                             <NSelect
                                 v-model:value="defaultsFormValue.input.type"
@@ -316,7 +317,6 @@ async function saveDefaultsConfig() {
                             v-if="defaultsFormValue.input.type === Av1anInputLocationType.Custom"
                             label="Custom Input Folder Location"
                             path="input.customFolder"
-                            :span="12"
                         >
                             <NInputGroup>
                                 <NInput
@@ -334,7 +334,6 @@ async function saveDefaultsConfig() {
                         <NFormItemGridItem
                             label="Output Location"
                             path="output.type"
-                            :span="12"
                         >
                             <NSelect
                                 v-model:value="defaultsFormValue.output.type"
@@ -367,7 +366,6 @@ async function saveDefaultsConfig() {
                             v-if="defaultsFormValue.output.type === Av1anOutputLocationType.Custom"
                             label="Custom Output Folder Location"
                             path="output.customFolder"
-                            :span="12"
                         >
                             <NInputGroup>
                                 <NInput
@@ -385,7 +383,6 @@ async function saveDefaultsConfig() {
                         <NFormItemGridItem
                             label="Temporary Folder Location"
                             path="temporary.type"
-                            :span="12"
                         >
                             <NSelect
                                 v-model:value="defaultsFormValue.temporary.type"
@@ -415,7 +412,6 @@ async function saveDefaultsConfig() {
                             v-if="defaultsFormValue.temporary.type === Av1anTemporaryLocationType.Custom"
                             label="Custom Temporary Folder Location"
                             path="temporary.customFolder"
-                            :span="12"
                         >
                             <NInputGroup>
                                 <NInput
@@ -456,8 +452,8 @@ async function saveDefaultsConfig() {
                     >
                         <NH4>{{ `Inherited from ${task ? 'Global and Project' : 'Global'}` }}</NH4>
                         <NGrid
-                            :span="24"
-                            :x-gap="12"
+                            :cols="formGridColumnSize"
+                            x-gap="12"
                         >
                             <template
                                 v-for="[parameterName, parameterValue] in Object.entries(customParentAv1anParameters.encoding)"
@@ -466,7 +462,6 @@ async function saveDefaultsConfig() {
                                 <NFormItemGridItem
                                     :label="parameterName"
                                     :path="`encoding.${parameterName}`"
-                                    :span="12"
                                 >
                                     <template #label>
                                         {{ parameterName }}
@@ -536,13 +531,12 @@ async function saveDefaultsConfig() {
                     </template>
 
                     <NGrid
-                        :span="24"
-                        :x-gap="12"
+                        :cols="formGridColumnSize"
+                        x-gap="12"
                     >
                         <NFormItemGridItem
                             :label="`Add Custom Encoder Parameter`"
                             :path="`addCustomEncoding`"
-                            :span="24"
                         >
                             <NInputGroup>
                                 <NInput
@@ -580,7 +574,6 @@ async function saveDefaultsConfig() {
                                 v-if="parameterValue !== undefined"
                                 :label="parameterName"
                                 :path="`encoding.${parameterName}`"
-                                :span="12"
                             >
                                 <template #label>
                                     {{ parameterName }}
