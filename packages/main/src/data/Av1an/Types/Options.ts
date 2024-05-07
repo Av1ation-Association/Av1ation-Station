@@ -1,6 +1,7 @@
 import type { Parameters as SVTParameters } from './SVT.js';
 import type { Parameters as AOMParameters } from './AOM.js';
 import type { Parameters as Rav1eParameters } from './Rav1e.js';
+import type { Parameters as VpxParameters } from './Vpx.js';
 
 export enum OutputOverwrite {
     yes = 'yes',
@@ -40,16 +41,19 @@ export enum Encoder {
 }
 
 export interface BaseEncoding {
-    encoder: Encoder;
-    force?: boolean;
-    passes?: number;
-    FFmpegAudioParameters?: string | '-c:a copy';
-    FFmpegFilterOptions?: string;
+    encoder: Encoder | null;
+    force?: boolean | null;
+    passes?: number | null;
+    FFmpegAudioParameters?: string | '-c:a copy' | null;
+    FFmpegFilterOptions?: string | null;
 }
 
-export type SVTEncoding = BaseEncoding & Partial<SVTParameters>;
-export type AOMEncoding = BaseEncoding & Partial<AOMParameters>;
-export type Rav1eEncoding = BaseEncoding & Partial<Rav1eParameters>;
+type PartialNullable<T> = { [K in keyof T]?: T[K] | null };
+
+export type SVTEncoding = BaseEncoding & PartialNullable<SVTParameters>;
+export type AOMEncoding = BaseEncoding & PartialNullable<AOMParameters>;
+export type Rav1eEncoding = BaseEncoding & PartialNullable<Rav1eParameters>;
+export type VpxEncoding = BaseEncoding & PartialNullable<VpxParameters>;
 
 export enum ChunkMethod {
     segment = 'segment',
@@ -79,56 +83,58 @@ export enum FFmpegPixelFormat {
 }
 
 export interface Options {
-    overwriteOutput?: OutputOverwrite;
-    help?: boolean;
-    version?: boolean;
-    verbosity?: Verbosity;
-    maxTries?: number;
-    workers?: number;
-    threadAffinity?: number;
-    scaler?: string;
+    overwriteOutput?: OutputOverwrite | null;
+    help?: boolean | null;
+    version?: boolean | null;
+    verbosity?: Verbosity | null;
+    maxTries?: number | null;
+    workers?: number | null;
+    threadAffinity?: number | null;
+    scaler?: string | null;
     temporary?: {
         path?: string;
         keep?: boolean;
         resume?: boolean;
     };
     logging?: {
-        path?: string;
-        level?: LogLevel;
+        path?: string | null;
+        level?: LogLevel | null;
     };
     scenes?: {
-        path?: string;
-        splitMethod?: SplitMethod;
-        detectionMethod?: SceneDetectionMethod;
-        detectionDownscaleHeight?: number;
-        detectionPixelFormat?: string;
-        detectionOnly?: boolean;
-        maximumSceneLength?: { frames: number } | { seconds: number };
-        minimumSceneLengthFrames?: number;
-        ignoreFrameMismatch?: boolean;
+        path?: string | null;
+        splitMethod?: SplitMethod | null;
+        detectionMethod?: SceneDetectionMethod | null;
+        detectionDownscaleHeight?: number | null;
+        detectionPixelFormat?: string | null;
+        detectionOnly?: boolean | null;
+        // maximumSceneLength?: { frames: number } | { seconds: number };
+        maximumSceneLengthFrames?: number | null;
+        maximumSceneLengthSeconds?: number | null;
+        minimumSceneLengthFrames?: number | null;
+        ignoreFrameMismatch?: boolean | null;
     };
-    encoding?: SVTEncoding | AOMEncoding | Rav1eEncoding;
+    encoding?: SVTEncoding | AOMEncoding | Rav1eEncoding | VpxEncoding;
     // encoding?: SVTEncoding | AOMEncoding | Rav1eEncoding | x264Encoding | x265Encoding;
     chunking?: {
-        method?: ChunkMethod;
-        order?: ChunkOrder;
-        concatenater?: Concatenator;
+        method?: ChunkMethod | null;
+        order?: ChunkOrder | null;
+        concatenater?: Concatenator | null;
     };
-    photonNoise?: number;
-    pixelFormat?: FFmpegPixelFormat;
-    zones?: string;
+    photonNoise?: number | null;
+    pixelFormat?: FFmpegPixelFormat | null;
+    zones?: string | null;
     vmaf?: {
-        path?: string;
-        resolution?: string;
-        threads?: number;
-        filter?: string;
+        path?: string | null;
+        resolution?: string | null;
+        threads?: number | null;
+        filter?: string | null;
     };
     targetQuality?: {
-        targetVMAFScore: number;
-        maximumProbes?: number;
-        probingFrameRate?: number;
-        probeSlow?: boolean;
-        minimumQ?: number;
-        maximumQ?: number;
+        targetVMAFScore: number | null;
+        maximumProbes?: number | null;
+        probingFrameRate?: number | null;
+        probeSlow?: boolean | null;
+        minimumQ?: number | null;
+        maximumQ?: number | null;
     };
 }

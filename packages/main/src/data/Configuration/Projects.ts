@@ -15,11 +15,16 @@ export interface Task {
     outputFileName: string;
     totalFrames: number;
     statusHistory: Av1anStatus[];
-    item: Omit<Options, 'temporary' | 'overwriteOutput'> & {
-        input: string;
-        output: string;
-        temporary: Options['temporary'] & {
-            path: string;
+    item: {
+        Av1an: Omit<Options, 'temporary' | 'overwriteOutput'> & {
+            input: string;
+            output: string;
+            temporary: Options['temporary'] & {
+                path: string;
+            };
+        };
+        Av1anCustom: Omit<Options, 'encoding'> & {
+            encoding?: Record<string, string | number | null>;
         };
     };
     skip: boolean;

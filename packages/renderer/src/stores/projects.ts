@@ -248,16 +248,19 @@ export const useProjectsStore = defineStore('projects', {
                     totalFrames: 0,
                     statusHistory: [],
                     item: {
-                        input: inputFilePath,
-                        output: outputFilePath,
-                        temporary: {
-                            path: temporaryFolderPath,
-                            keep: true,
-                            resume: true,
+                        Av1an: {
+                            input: inputFilePath,
+                            output: outputFilePath,
+                            temporary: {
+                                path: temporaryFolderPath,
+                                keep: true,
+                                resume: true,
+                            },
+                            scenes: {
+                                path: scenesFilePath,
+                            },
                         },
-                        scenes: {
-                            path: scenesFilePath,
-                        },
+                        Av1anCustom: {},
                     },
                     skip: false,
                 };

@@ -34,13 +34,13 @@ export interface StartUpConfiguration {
 export interface Defaults  {
     Av1an: Av1anConfiguration;
     Av1anCustom: Omit<Options, 'encoding'> & {
-        encoding?: Record<string, string | number>;
+        encoding?: Record<string, string | number | null>;
     };
 }
 
 export interface Preferences {
     defaults: {
-        [path: string]: 'none' | 'favorite' | 'hidden';
+        [path: string]: 'none' | 'pinned' | 'hidden';
     };
     showHidden: boolean;
 }

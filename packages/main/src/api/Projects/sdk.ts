@@ -37,21 +37,21 @@ export function registerSDK(window: BrowserWindow) {
         'create-queue-item': (_event: IpcMainInvokeEvent) => {
             return ProjectManager.instance.createTask();
         },
-        'create-task': (_event: IpcMainInvokeEvent, task: Task, options: Task['item']) => {
+        'create-task': (_event: IpcMainInvokeEvent, task: Task, options: Task['item']['Av1an']) => {
             return Av1anManager.instance.addAv1an(task.id, task.inputFileName, task.outputFileName, options, task.statusHistory);
         },
         'update-task': (_event: IpcMainInvokeEvent, task: Task) => {
             const av1an = Av1anManager.instance.av1anMap.get(task.id);
             if (av1an) {
-                av1an.input = task.item.input;
-                av1an.output = task.item.output;
+                av1an.input = task.item.Av1an.input;
+                av1an.output = task.item.Av1an.output;
                 av1an.options = {
                     ...av1an.options,
                     ...task.item,
                 };
             }
         },
-        'start-task': async (_event: IpcMainInvokeEvent, task: Task, options: Task['item']) => {
+        'start-task': async (_event: IpcMainInvokeEvent, task: Task, options: Task['item']['Av1an']) => {
             const existingAv1an = Av1anManager.instance.av1anMap.get(task.id);
             if (existingAv1an) {
                 Av1anManager.instance.removeAv1an(task.id);
@@ -91,7 +91,7 @@ export function registerSDK(window: BrowserWindow) {
                 await av1an.cancel();
             }
         },
-        'build-task-av1an-arguments': async (_event: IpcMainInvokeEvent, options: Task['item']) => {
+        'build-task-av1an-arguments': async (_event: IpcMainInvokeEvent, options: Task['item']['Av1an']) => {
             return Av1an.BuildArguments(options.input, options.output, options);
         },
         'task-av1an-frame-count': async (_event: IpcMainInvokeEvent, task: Task) => {
@@ -114,7 +114,7 @@ export function registerSDK(window: BrowserWindow) {
         },
         'task-delete-temporary-files': async (_event: IpcMainInvokeEvent, task: Task) => {
             // Delete temp folder parent folder
-            await fs.promises.rm(path.resolve(task.item.temporary.path, '..'), { recursive: true, force: true });
+            await fs.promises.rm(path.resolve(task.item.Av1an.temporary.path, '..'), { recursive: true, force: true });
         },
     } satisfies ClientSDK;
 }

@@ -102,11 +102,11 @@ const taskDropdownOptions: DropdownOption[] = [
 async function handleTaskDropdownSelect(task: Task, key: string) {
     switch (key) {
         case 'revealinput': {
-            await window.configurationsApi['show-file'](`${task.item.input}`);
+            await window.configurationsApi['show-file'](`${task.item.Av1an.input}`);
             break;
         }
         case 'revealoutput': {
-            await window.configurationsApi['show-file'](`${task.item.output}`);
+            await window.configurationsApi['show-file'](`${task.item.Av1an.output}`);
             break;
         }
         case 'copycommand': {
@@ -191,7 +191,7 @@ async function buildAv1anArgs(taskOrId: Task['id'] | Task) {
         return;
     }
 
-    const builtOptions = buildTaskAv1anOptions(task);
+    const builtOptions = buildTaskAv1anOptions(toRaw(task));
     return window.projectsApi['build-task-av1an-arguments'](builtOptions);
 }
 
@@ -225,7 +225,7 @@ async function processQueue(currentTask: Task) {
     if (!nextTask) {
         // Nothing to process
         projectsStore.projectQueueMap[project.id] = {
-            taskId: currentTask.id,
+            // taskId: currentTask.id,
             status: 'done',
         };
 
@@ -277,16 +277,16 @@ function buildTaskAv1anOptions(task: Task) {
         output: _configOutput,
         temporary: _configTemporary,
         ...configDefaults
-    } = configStore.config.defaults.Av1an;
+    } = toRaw(configStore.config.defaults.Av1an);
     const {
         input: _projectInput,
         output: _projectOutput,
         temporary: _projectTemporary,
         ...projectDefaults
-    } = project.defaults.Av1an;
+    } = toRaw(project.defaults.Av1an);
 
     // Apply Av1an Defaults - Config -> Project -> Task
-    function applyOptions(options: Task['item'], av1anCustom: Record<string, unknown>) {
+    function applyOptions(options: Task['item']['Av1an'], av1anCustom: Record<string, unknown>) {
         return Object.entries(av1anCustom).reduce((opts, [parameterName, parameterValue]) => {
             if (parameterValue === null) {
                 delete (opts as Record<string, unknown>)[parameterName];
@@ -309,18 +309,19 @@ function buildTaskAv1anOptions(task: Task) {
         }, options);
     }
     // Initial Av1an Options
-    const configOptions: Task['item'] = {
+    const configOptions: Task['item']['Av1an'] = {
         input: task.inputFileName,
         output: task.outputFileName,
-        temporary: toRaw(task).item.temporary,
+        temporary: toRaw(task).item.Av1an.temporary,
         ...configDefaults,
     };
     const configCustomOptions = applyOptions(configOptions, configStore.config.defaults.Av1anCustom);
     const projectOptions = applyOptions(configCustomOptions, projectDefaults);
     const projectCustomOptions = applyOptions(projectOptions, project.defaults.Av1anCustom);
-    const taskOptions = applyOptions(projectCustomOptions, task.item);
+    const taskOptions = applyOptions(projectCustomOptions, task.item.Av1an);
+    const taskCustomOptions = applyOptions(taskOptions, task.item.Av1anCustom);
 
-    return taskOptions;
+    return taskCustomOptions;
 }
 
 function progressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 'warning' {

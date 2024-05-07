@@ -6,18 +6,22 @@ import {
     NInputNumber,
     NSelect,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../../Configuration/ConfigurationDefaults.vue';
 import { type SVTEncoding, Encoder } from '../../../../../main/src/data/Av1an/Types/Options';
 import { type FormInputComponent } from '../library';
+import { type Task } from '../../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const tune = {
         label: 'Tune',
         path: 'encoding.tune',
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).tune,
+                value: (formValueRef.value.encoding as SVTEncoding)?.tune,
                 clearable: true,
                 options: [
                     { label: 'VQ (0)', value: 0 },
@@ -33,15 +37,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).tune = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).tune === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).tune;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).tune = value;
+                        }
                     }
                 },
                 placeholder: 'PSNR (1)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.tune : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding).tune;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).tune = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.tune === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).tune;
+        },
     };
 
     const logicalProcessors = {
@@ -50,7 +74,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NInputNumber,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).lp,
+                value: (formValueRef.value.encoding as SVTEncoding)?.lp,
                 clearable: true,
                 min: 0,
                 // defaultValue: formValueRef.value.threadAffinity ?? 0,
@@ -62,15 +86,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).lp = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).lp === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).lp;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).lp = value;
+                        }
                     }
                 },
                 placeholder: '0 (all)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.lp : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding).lp;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).lp = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.lp === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).lp;
+        },
     };
 
     const inputDepth = {
@@ -79,7 +123,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding)['input-depth'],
+                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['input-depth'] : undefined,
                 clearable: true,
                 options: [
                     { label: '8-bit', value: 8 },
@@ -93,15 +137,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding)['input-depth'] = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['input-depth'] === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding)['input-depth'];
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding)['input-depth'] = value;
+                        }
                     }
                 },
                 placeholder: '10',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['input-depth'] : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding)['input-depth'];
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['input-depth'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['input-depth']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['input-depth'];
+        },
     };
 
     const skip = {
@@ -110,7 +174,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NInputNumber,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).skip,
+                value: (formValueRef.value.encoding as SVTEncoding)?.skip,
                 clearable: true,
                 min: 0,
                 onUpdateValue: (value) => {
@@ -121,15 +185,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).skip = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).skip === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).skip;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).skip = value;
+                        }
                     }
                 },
                 placeholder: '0',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.skip : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding).skip;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).skip = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.skip === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).skip;
+        },
     };
 
     const bufferedInput = {
@@ -138,7 +222,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NInputNumber,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).nb,
+                value: (formValueRef.value.encoding as SVTEncoding)?.nb,
                 clearable: true,
                 min: 0,
                 onUpdateValue: (value) => {
@@ -149,15 +233,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).nb = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).nb === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).nb;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).nb = value;
+                        }
                     }
                 },
                 placeholder: '0',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.nb : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding).nb;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).nb = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.nb === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).nb;
+        },
     };
 
     const hdr = {
@@ -166,7 +270,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding)['enable-hdr'],
+                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['enable-hdr'] : undefined,
                 clearable: true,
                 options: [
                     { label: 'No (0)', value: 0 },
@@ -180,16 +284,37 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding)['enable-hdr'] = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['enable-hdr'] === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding)['enable-hdr'];
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding)['enable-hdr'] = value;
+                        }
                     }
                 },
                 placeholder: 'No (0)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['enable-hdr'] : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding)['enable-hdr'];
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['enable-hdr'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['enable-hdr']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['enable-hdr'];
+        },
     };
+
 
     const fps = {
         label: 'Framerate (FPS)',
@@ -197,7 +322,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NInputNumber,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).fps,
+                value: (formValueRef.value.encoding as SVTEncoding)?.fps,
                 clearable: true,
                 min: 1,
                 onUpdateValue: (value) => {
@@ -208,15 +333,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).fps = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).fps === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).fps;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).fps = value;
+                        }
                     }
                 },
                 placeholder: 'Auto',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.fps : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding).fps;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).fps = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.fps === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).fps;
+        },
     };
 
     const enableStatReport = {
@@ -225,7 +370,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'],
+                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'] : undefined,
                 clearable: true,
                 options: [
                     { label: 'No (0)', value: 0 },
@@ -239,15 +384,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'] = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['enable-stat-report'] === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'];
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'] = value;
+                        }
                     }
                 },
                 placeholder: 'No (0)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['enable-stat-report'] : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'];
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['enable-stat-report']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['enable-stat-report'];
+        },
     };
 
     const fastDecode = {
@@ -256,7 +421,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding)['fast-decode'],
+                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['fast-decode'] : undefined,
                 clearable: true,
                 options: [
                     { label: 'No (0)', value: 0 },
@@ -270,15 +435,35 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding)['fast-decode'] = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['fast-decode'] === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding)['fast-decode'];
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding)['fast-decode'] = value;
+                        }
                     }
                 },
                 placeholder: 'No (0)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['fast-decode'] : undefined,
                 onClear: () => {
                     delete (formValueRef.value.encoding as SVTEncoding)['fast-decode'];
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['fast-decode'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['fast-decode']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['fast-decode'];
+        },
     };
 
     return [

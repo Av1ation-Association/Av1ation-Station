@@ -5,15 +5,19 @@ import {
 import {
     NSelect,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../Configuration/ConfigurationDefaults.vue';
 import {
     ChunkMethod,
     ChunkOrder,
     Concatenator,
 } from '../../../../main/src/data/Av1an/Types/Options';
 import { type FormInputComponent } from './library';
+import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const chunkingMethod = {
         label: 'Chunking Method',
         path: 'chunking.method',
@@ -32,12 +36,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'BestSource', value: ChunkMethod.bestsource },
                 ],
                 placeholder: 'L-SmashWorks',
+                defaultValue: parentAv1anValue?.chunking?.method,
                 onUpdateValue: (value?: ChunkMethod) => {
                     if (!formValueRef.value.chunking) {
                         formValueRef.value.chunking = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.chunking.method = value;
+                        if (parentAv1anValue?.chunking?.method === value) {
+                            delete formValueRef.value.chunking.method;
+                        } else {
+                            formValueRef.value.chunking.method = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -45,6 +54,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.chunking) {
+                formValueRef.value.chunking = {};
+            }
+
+            formValueRef.value.chunking.method = null;
+        },
+        disabled: () => {
+            return formValueRef.value.chunking?.method === null;
+        },
+        reset: () => {
+            delete formValueRef.value.chunking?.method;
+        },
     };
 
     const chunkOrder = {
@@ -62,12 +84,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'Random', value: ChunkOrder.random },
                 ],
                 placeholder: 'Long to Short',
+                defaultValue: parentAv1anValue?.chunking?.order,
                 onUpdateValue: (value?: ChunkOrder) => {
                     if (!formValueRef.value.chunking) {
                         formValueRef.value.chunking = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.chunking.order = value;
+                        if (parentAv1anValue?.chunking?.order === value) {
+                            delete formValueRef.value.chunking.order;
+                        } else {
+                            formValueRef.value.chunking.order = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -75,6 +102,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.chunking) {
+                formValueRef.value.chunking = {};
+            }
+
+            formValueRef.value.chunking.order = null;
+        },
+        disabled: () => {
+            return formValueRef.value.chunking?.order === null;
+        },
+        reset: () => {
+            delete formValueRef.value.chunking?.order;
+        },
     };
 
     const concatenater = {
@@ -91,12 +131,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'IVF', value: Concatenator.ivf },
                 ],
                 placeholder: 'FFmpeg',
+                defaultValue: parentAv1anValue?.chunking?.concatenater,
                 onUpdateValue: (value?: Concatenator) => {
                     if (!formValueRef.value.chunking) {
                         formValueRef.value.chunking = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.chunking.concatenater = value;
+                        if (parentAv1anValue?.chunking?.concatenater === value) {
+                            delete formValueRef.value.chunking.concatenater;
+                        } else {
+                            formValueRef.value.chunking.concatenater = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -104,6 +149,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.chunking) {
+                formValueRef.value.chunking = {};
+            }
+
+            formValueRef.value.chunking.concatenater = null;
+        },
+        disabled: () => {
+            return formValueRef.value.chunking?.concatenater === null;
+        },
+        reset: () => {
+            delete formValueRef.value.chunking?.concatenater;
+        },
     };
 
     return [

@@ -7,30 +7,18 @@ import {
     NLayoutSider,
     NText,
     NSpace,
-    NAnchor,
-    NAnchorLink,
-    NDivider,
 } from 'naive-ui';
 import {
     type Component,
     h,
 } from 'vue';
-import {
-    RouterLink,
-    // useRouter,
-} from 'vue-router';
+import { RouterLink } from 'vue-router';
 import {
     Home,
-    // VideoAdd,
-    // QueryQueue,
     SettingsAdjust,
 } from '@vicons/carbon';
-// import { useGlobalStore } from '../stores/global';
 import { useSidebarMenuStore } from '../stores/sidebarMenu';
 
-// const router = useRouter();
-
-// const store = useGlobalStore();
 const store = useSidebarMenuStore();
 
 const { sidebarCollapsed } = storeToRefs(store);
@@ -55,28 +43,20 @@ function renderIcon(icon: Component) {
     return () => h(NIcon, null, { default: () => h(icon) });
 }
 
-const menuOptions: MenuOption[] = [
-    {
-        label: () => h(RouterLink, { to: '/' }, { default: () => generateLabel('Home') }),
-        key: '',
-        icon: renderIcon(Home),
-    },
-    // {
-    //     label: () => h(RouterLink, { to: '/queue' }, { default: () => generateLabel('Queue') }),
-    //     key: 'queue',
-    //     icon: renderIcon(QueryQueue),
-    // },
-    // {
-    //     label: () => h(RouterLink, { to: '/encode' }, { default: () => generateLabel('Encode') }),
-    //     key: 'encode',
-    //     icon: renderIcon(VideoAdd),
-    // },
-    {
-        label: () => h(RouterLink, { to: '/settings' }, { default: () => generateLabel('Settings') }),
-        key: 'settings',
-        icon: renderIcon(SettingsAdjust),
-    },
-];
+function generateMenuOptions(): MenuOption[] {
+    return [
+        {
+            label: () => h(RouterLink, { to: '/' }, { default: () => generateLabel('Home') }),
+            key: '/',
+            icon: renderIcon(Home),
+        },
+        {
+            label: () => h(RouterLink, { to: '/settings' }, { default: () => generateLabel('Settings') }),
+            key: '/settings',
+            icon: renderIcon(SettingsAdjust),
+        },
+    ];
+}
 </script>
 
 <template>
@@ -89,42 +69,12 @@ const menuOptions: MenuOption[] = [
         bordered
         @update:collapsed="store.toggleSidebar"
     >
-        <n-menu
+        <NMenu
             :collapsed="sidebarCollapsed"
-            :value="$route.path.substring(1)"
-            :options="menuOptions"
+            :value="$route.path"
+            :options="generateMenuOptions()"
             :indent="10"
             default-expand-all
         />
-        <NDivider />
-        <NAnchor
-            v-if="!sidebarCollapsed"
-        >
-            <NAnchorLink
-                title="Demos"
-                href="#Demos"
-            >
-                <NAnchorLink
-                    title="Basic"
-                    href="#basic.vue"
-                />
-                <NAnchorLink
-                    title="Ignore-Gap"
-                    href="#ignore-gap.vue"
-                />
-                <NAnchorLink
-                    title="Affix"
-                    href="#affix.vue"
-                />
-                <NAnchorLink
-                    title="Scroll To"
-                    href="#scrollto.vue"
-                />
-            </NAnchorLink>
-            <NAnchorLink
-                title="API"
-                href="#API"
-            />
-        </NAnchor>
     </NLayoutSider>
 </template>

@@ -21,6 +21,8 @@ import {
     NInputNumber,
     NButtonGroup,
     NTooltip,
+    NH3,
+    NH4,
 } from 'naive-ui';
 import {
     VolumeFileStorage as RevealIcon,
@@ -28,6 +30,8 @@ import {
     // Reset as ResetIcon,
     Delete as RemoveIcon,
     ErrorOutline as DisableIcon,
+    Edit as EditIcon,
+    Reset as ResetIcon,
 } from '@vicons/carbon';
 import {
     Av1anInputLocationType,
@@ -35,7 +39,7 @@ import {
     Av1anTemporaryLocationType,
     type Av1anConfiguration,
 } from '../../../../main/src/data/Configuration/Av1anConfiguration';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import { type Project, type Task } from '../../../../main/src/data/Configuration/Projects';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
 import {
@@ -60,12 +64,15 @@ const projectsStore = useProjectsStore();
 const { config } = storeToRefs(configStore);
 // const { projects } = storeToRefs(projectsStore);
 
-const { projectId } = defineProps<{
+const { projectId, taskId } = defineProps<{
     projectId?: Project['id'];
+    taskId?: Task['id'];
 }>();
 
 const projectIndex = projectsStore.projects.findIndex(p => p.id === projectId);
 const project = projectsStore.projects[projectIndex];
+const taskIndex = projectIndex !== -1 ? projectsStore.projects[projectIndex].tasks.findIndex(t => t.id === taskId) : -1;
+const task = taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined;
 
 const dropdownOptions: DropdownOption[] = [
     {
@@ -136,6 +143,8 @@ const defaultsFormRules = ref<FormRules>({
         },
     },
 });
+const av1anForm = ref<FormInst>();
+const av1anFormRules = ref<FormRules>({});
 
 export type PartialChildren<T> = { [K in keyof T]?: Partial<T[K]>; };
 export type PartialAv1anConfiguration = PartialChildren<Av1anConfiguration> & { input: Partial<Av1anConfiguration['input']>; output: Partial<Av1anConfiguration['output']>; temporary: Partial<Av1anConfiguration['temporary']> };
@@ -155,10 +164,18 @@ const defaultsFormValue = ref<PartialAv1anConfiguration>({
         ...((project ?? configStore.config).defaults.Av1an.temporary.customFolder && { customFolder: (project ?? configStore.config).defaults.Av1an.temporary.customFolder }),
     },
 });
-const wrappedRef = { defaultsFormValue };
+const av1anFormValue = ref<PartialChildren<Task['item']['Av1an']>>({
+    ...(toRaw(task)?.item.Av1an),
+});
+const wrappedRef = { defaultsFormValue, av1anFormValue };
+const parentAv1anValue = task ? { ...toRaw(configStore.config.defaults.Av1an), ...toRaw(project.defaults.Av1an) } : configStore.config.defaults.Av1an;
 
+const customParentAv1anParameters = ref<typeof config.value.defaults.Av1anCustom>({
+    ...(project ? toRaw(configStore.config.defaults.Av1anCustom) : {}),
+    ...(task ? toRaw(project.defaults.Av1anCustom) : {}),
+});
 const customAv1anParameters = ref<typeof config.value.defaults.Av1anCustom>({
-    ...toRaw(project ?? configStore.config).defaults.Av1anCustom,
+    ...(task ? toRaw(task).item.Av1anCustom : toRaw(project ?? configStore.config).defaults.Av1anCustom),
 });
 const customEncoderParameterName = ref('');
 const customEncoderParameterType = ref<'string' | 'number'>('string');
@@ -189,19 +206,32 @@ async function selectTemporaryFolder() {
 
 async function saveDefaultsConfig() {
     const result = await defaultsForm.value?.validate();
+    const av1anResult = await av1anForm.value?.validate();
 
+    // TODO: Validation and alert notifications
     if (result && result.warnings?.length) {
-        // TODO: Validation and alert notifications
         console.log(result);
     }
+    if (av1anResult && av1anResult.warnings?.length) {
+        console.log(av1anResult);
+    }
 
-    (project ?? configStore.config).defaults.Av1an = toRaw(defaultsFormValue.value) as Av1anConfiguration;
-    (project ?? configStore.config).defaults.Av1anCustom = toRaw(customAv1anParameters.value);
-    if (project) {
+    if (task) {
+        task.item.Av1an = toRaw(av1anFormValue.value) as Task['item']['Av1an'];
+        task.item.Av1anCustom = toRaw(customAv1anParameters.value);
+
         // Save Project File
-        await projectsStore.saveProject(project);
+        await projectsStore.saveProject(toRaw(project), false);
     } else {
-        await window.configurationsApi['save-config']();
+        (project ?? configStore.config).defaults.Av1an = toRaw(defaultsFormValue.value) as Av1anConfiguration;
+        (project ?? configStore.config).defaults.Av1anCustom = toRaw(customAv1anParameters.value);
+
+        if (project) {
+            // Save Project File
+            await projectsStore.saveProject(project);
+        } else {
+            await window.configurationsApi['save-config']();
+        }
     }
 }
 
@@ -235,15 +265,16 @@ async function saveDefaultsConfig() {
             </NDropdown>
         </template>
         <NForm
-            ref="defaultsForm"
-            :model="defaultsFormValue"
-            :rules="defaultsFormRules"
+            :ref="task ? 'av1anForm' : 'defaultsForm'"
+            :model="task ? av1anFormValue : defaultsFormValue"
+            :rules="task ? av1anFormRules : defaultsFormRules"
         >
             <NTabs
                 animated
                 type="card"
             >
                 <NTabPane
+                    v-if="!task"
                     name="file-locations"
                     tab="File Locations"
                 >
@@ -402,76 +433,108 @@ async function saveDefaultsConfig() {
                     </NGrid>
                 </NTabPane>
                 <NTabPane
-                    name="av1an-general"
-                    tab="Av1an General"
+                    name="av1an"
+                    tab="Av1an"
                 >
                     <DefaultsFormGrid
                         :model-value="{
-                            defaultsFormValue,
+                            defaultsFormValue: task ? av1anFormValue : defaultsFormValue,
                             project,
                         }"
-                        :form-input-components="getAv1anGeneralComponents(wrappedRef.defaultsFormValue)"
+                        :sections="[
+                            { label: 'General', formInputComponents: getAv1anGeneralComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'Scenes', formInputComponents: getAv1anScenesComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'Chunking', formInputComponents: getAv1anChunkingComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'VMAF', formInputComponents: getAv1anVMAFComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'Target Quality', formInputComponents: getAv1anTargetQualityComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'Encoding', formInputComponents: getAv1anEncodingComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                        ]"
                     />
-                </NTabPane>
-                <NTabPane
-                    name="scenes"
-                    tab="Scenes"
-                >
-                    <DefaultsFormGrid
-                        :model-value="{
-                            defaultsFormValue,
-                            project,
-                        }"
-                        :form-input-components="getAv1anScenesComponents(wrappedRef.defaultsFormValue)"
-                    />
-                </NTabPane>
-                <NTabPane
-                    name="chunking"
-                    tab="Chunking"
-                >
-                    <DefaultsFormGrid
-                        :model-value="{
-                            defaultsFormValue,
-                            project,
-                        }"
-                        :form-input-components="getAv1anChunkingComponents(wrappedRef.defaultsFormValue)"
-                    />
-                </NTabPane>
-                <NTabPane
-                    name="vmaf"
-                    tab="VMAF"
-                >
-                    <DefaultsFormGrid
-                        :model-value="{
-                            defaultsFormValue,
-                            project,
-                        }"
-                        :form-input-components="getAv1anVMAFComponents(wrappedRef.defaultsFormValue)"
-                    />
-                </NTabPane>
-                <NTabPane
-                    name="target-quality"
-                    tab="Target Quality"
-                >
-                    <DefaultsFormGrid
-                        :model-value="{
-                            defaultsFormValue,
-                            project,
-                        }"
-                        :form-input-components="getAv1anTargetQualityComponents(wrappedRef.defaultsFormValue)"
-                    />
-                </NTabPane>
-                <NTabPane
-                    name="encoding"
-                    tab="Encoding"
-                >
-                    <DefaultsFormGrid
-                        :model-value="{
-                            defaultsFormValue,
-                            project,
-                        }"
-                        :form-input-components="getAv1anEncodingComponents(wrappedRef.defaultsFormValue)"
-                    />
+                    <NH3>Custom Encoder Parameters</NH3>
+                    <template
+                        v-if="(task || project) && customParentAv1anParameters.encoding && Object.entries(customParentAv1anParameters.encoding).length > 0"
+                    >
+                        <NH4>{{ `Inherited from ${task ? 'Global and Project' : 'Global'}` }}</NH4>
+                        <NGrid
+                            :span="24"
+                            :x-gap="12"
+                        >
+                            <template
+                                v-for="[parameterName, parameterValue] in Object.entries(customParentAv1anParameters.encoding)"
+                                :key="`parent.encoding.${parameterName}`"
+                            >
+                                <NFormItemGridItem
+                                    :label="parameterName"
+                                    :path="`encoding.${parameterName}`"
+                                    :span="12"
+                                >
+                                    <template #label>
+                                        {{ parameterName }}
+                                        <!-- Sacrificial Button workaround for button inheriting sibling/parent label when using "text" option and causing double click -->
+                                        <NButton text />
+                                        <NButtonGroup>
+                                            <NButton
+                                                v-if="!customAv1anParameters.encoding || !(parameterName in customAv1anParameters.encoding)"
+                                                text
+                                                size="small"
+                                                @click="() => {
+                                                    // Set to undefined and when saved it will remove the key from the object
+                                                    if (!customAv1anParameters.encoding) {
+                                                        customAv1anParameters.encoding = {};
+                                                    }
+
+                                                    customAv1anParameters.encoding[parameterName] = parameterValue;
+                                                }"
+                                            >
+                                                <NTooltip>
+                                                    <template #trigger>
+                                                        <NIcon
+                                                            :component="EditIcon"
+                                                        />
+                                                    </template>
+                                                    Edit
+                                                </NTooltip>
+                                            </NButton>
+                                            <NButton
+                                                v-if="!customAv1anParameters.encoding || (customAv1anParameters.encoding[parameterName]) !== null"
+                                                text
+                                                size="small"
+                                                @click="() => {
+                                                    // Set to null to override parent (config object) value
+                                                    if (!customAv1anParameters.encoding) {
+                                                        customAv1anParameters.encoding = {};
+                                                    }
+                                                    customAv1anParameters.encoding[parameterName] = null;
+                                                }"
+                                            >
+                                                <NTooltip>
+                                                    <template #trigger>
+                                                        <NIcon
+                                                            :component="DisableIcon"
+                                                        />
+                                                    </template>
+                                                    Disable
+                                                </NTooltip>
+                                            </NButton>
+                                        </NButtonGroup>
+                                    </template>
+                                    <NInput
+                                        v-if="typeof parameterValue === 'string' || parameterValue === null"
+                                        :v-model:value="parameterValue"
+                                        readonly
+                                        :placeholder="parameterValue === null ? 'Disabled' : parameterValue"
+                                    />
+                                    <NInputNumber
+                                        v-else-if="typeof parameterValue === 'number'"
+                                        :v-model:value="parameterValue"
+                                        readonly
+                                        :placeholder="parameterValue === null ? 'Disabled' : `${parameterValue}`"
+                                    />
+                                </NFormItemGridItem>
+                            </template>
+                        </NGrid>
+                    </template>
+
                     <NGrid
                         :span="24"
                         :x-gap="12"
@@ -528,6 +591,27 @@ async function saveDefaultsConfig() {
                                             text
                                             size="small"
                                             @click="() => {
+                                                if (!customAv1anParameters.encoding) {
+                                                    customAv1anParameters.encoding = {};
+                                                }
+
+                                                customAv1anParameters.encoding[parameterName] = typeof customAv1anParameters.encoding![parameterName] === 'string' ? '' : 0;
+                                            }"
+                                        >
+                                            <NTooltip>
+                                                <template #trigger>
+                                                    <NIcon
+                                                        :component="ResetIcon"
+                                                    />
+                                                </template>
+                                                Reset
+                                            </NTooltip>
+                                        </NButton>
+                                        <NButton
+                                            v-if="customAv1anParameters.encoding && parameterName in customAv1anParameters.encoding"
+                                            text
+                                            size="small"
+                                            @click="() => {
                                                 // Set to undefined and when saved it will remove the key from the object
                                                 (customAv1anParameters.encoding![parameterName] as string | undefined) = undefined;
                                             }"
@@ -546,6 +630,9 @@ async function saveDefaultsConfig() {
                                             size="small"
                                             @click="() => {
                                                 // Set to null to override parent (config object) value
+                                                if (!customAv1anParameters.encoding) {
+                                                    customAv1anParameters.encoding = {};
+                                                }
                                                 (customAv1anParameters.encoding![parameterName] as string | null) = null;
                                             }"
                                         >
@@ -562,7 +649,7 @@ async function saveDefaultsConfig() {
                                 </template>
                                 <NInput
                                     v-if="typeof parameterValue === 'string' || parameterValue === null"
-                                    :v-model:value="customAv1anParameters.encoding![parameterName]"
+                                    :v-model:value="customAv1anParameters.encoding && parameterName in customAv1anParameters.encoding ? customAv1anParameters.encoding![parameterName] : customParentAv1anParameters.encoding![parameterName]"
                                     clearable
                                     :disabled="parameterValue === null"
                                     :placeholder="parameterValue === null ? 'Disabled' : parameterValue"
@@ -572,7 +659,7 @@ async function saveDefaultsConfig() {
                                 />
                                 <NInputNumber
                                     v-else-if="typeof parameterValue === 'number'"
-                                    :v-model:value="(customAv1anParameters.encoding![parameterName] as number)"
+                                    :v-model:value="(customAv1anParameters.encoding && parameterName in customAv1anParameters.encoding ? customAv1anParameters.encoding[parameterName] as number : customParentAv1anParameters.encoding![parameterName] as number)"
                                     clearable
                                     :disabled="parameterValue === null"
                                     :placeholder="parameterValue === null ? 'Disabled' : `${parameterValue}`"
@@ -585,70 +672,28 @@ async function saveDefaultsConfig() {
                     </NGrid>
                 </NTabPane>
                 <template
-                    v-if="defaultsFormValue.encoding?.encoder === 'svt-av1'"
+                    v-if="task && av1anFormValue.encoding?.encoder ? av1anFormValue.encoding.encoder === 'svt-av1' : defaultsFormValue.encoding?.encoder === 'svt-av1'"
                 >
                     <NTabPane
-                        name="svt-general"
-                        tab="SVT General"
+                        name="svt"
+                        tab="SVT"
                     >
                         <DefaultsFormGrid
                             :model-value="{
-                                defaultsFormValue,
+                                defaultsFormValue: task ? av1anFormValue : defaultsFormValue,
                                 project,
                             }"
-                            :form-input-components="getSVTGeneralComponents(wrappedRef.defaultsFormValue)"
-                        />
-                    </NTabPane>
-                    <NTabPane
-                        name="svt-global"
-                        tab="SVT Global"
-                    >
-                        <DefaultsFormGrid
-                            :model-value="{
-                                defaultsFormValue,
-                                project,
-                            }"
-                            :form-input-components="getSVTGlobalComponents(wrappedRef.defaultsFormValue)"
-                        />
-                    </NTabPane>
-                    <NTabPane
-                        name="svt-rate-control"
-                        tab="SVT Rate Control"
-                    >
-                        <DefaultsFormGrid
-                            :model-value="{
-                                defaultsFormValue,
-                                project,
-                            }"
-                            :form-input-components="getSVTRateControlComponents(wrappedRef.defaultsFormValue)"
-                        />
-                    </NTabPane>
-                    <NTabPane
-                        name="svt-gop"
-                        tab="SVT GOP"
-                    >
-                        <DefaultsFormGrid
-                            :model-value="{
-                                defaultsFormValue,
-                                project,
-                            }"
-                            :form-input-components="getSVTGOPComponents(wrappedRef.defaultsFormValue)"
-                        />
-                    </NTabPane>
-                    <NTabPane
-                        name="svt-av1-specific"
-                        tab="SVT AV1 Specific"
-                    >
-                        <DefaultsFormGrid
-                            :model-value="{
-                                defaultsFormValue,
-                                project,
-                            }"
-                            :form-input-components="getSVTAV1SpecificComponents(wrappedRef.defaultsFormValue)"
+                            :sections="[
+                                { label: 'General', formInputComponents: getSVTGeneralComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                                { label: 'Global', formInputComponents: getSVTGlobalComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                                { label: 'Rate Control', formInputComponents: getSVTRateControlComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                                { label: 'GOP', formInputComponents: getSVTGOPComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                                { label: 'AV1 Specific', formInputComponents: getSVTAV1SpecificComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            ]"
                         />
                     </NTabPane>
                 </template>
             </NTabs>
         </NForm>
     </NCard>
-</template>../Av1an/SVT/SVTGeneral.vue
+</template>

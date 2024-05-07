@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { onBeforeRouteUpdate, useRouter } from 'vue-router';
+import {
+    onBeforeRouteUpdate,
+    useRouter,
+} from 'vue-router';
 import {
     NFlex,
     NLayout,
@@ -12,9 +15,6 @@ import ConfigurationDefaults from '../components/Configuration/ConfigurationDefa
 
 const router = useRouter();
 
-const projectsStore = useProjectsStore();
-// const { projects } = storeToRefs(projectsStore);
-
 // Redirect if no project id
 onBeforeRouteUpdate((to, _from) => {
     if (!to.params.projectId) {
@@ -25,6 +25,7 @@ onBeforeRouteUpdate((to, _from) => {
 // Get project id from route
 const { projectId } = router.currentRoute.value.params;
 
+const projectsStore = useProjectsStore();
 const projectIndex = projectsStore.projects.findIndex((project) => project.id === projectId);
 
 if (projectIndex === -1) {

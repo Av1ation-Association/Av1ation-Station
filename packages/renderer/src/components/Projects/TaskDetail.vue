@@ -69,11 +69,11 @@ async function handleDropdownSelect(key: string) {
 }
 
 async function selectInputFile() {
-    const inputFilePath = await window.configurationsApi['open-file'](task.item.input, 'Select Input File');
+    const inputFilePath = await window.configurationsApi['open-file'](task.item.Av1an.input, 'Select Input File');
 
     if (inputFilePath.length) {
         const inputFileName = await window.configurationsApi['path-basename'](inputFilePath[0], true);
-        task.item.input = inputFilePath[0];
+        task.item.Av1an.input = inputFilePath[0];
         task.inputFileName = inputFileName;
     }
 
@@ -85,11 +85,11 @@ async function selectInputFile() {
 }
 
 async function selectOutputFile() {
-    const outputFilePath = await window.configurationsApi['save-file'](task.item.output, 'Select Output File');
+    const outputFilePath = await window.configurationsApi['save-file'](task.item.Av1an.output, 'Select Output File');
 
     if (outputFilePath) {
         const outputFileName = await window.configurationsApi['path-basename'](outputFilePath, true);
-        task.item.output = outputFilePath;
+        task.item.Av1an.output = outputFilePath;
         task.outputFileName = outputFileName;
     }
 
@@ -147,7 +147,7 @@ async function revealFileLocation(path: string) {
                 >
                     <NInputGroup>
                         <NInput
-                            v-model:value="task.item.input"
+                            v-model:value="task.item.Av1an.input"
                             readonly
                         />
                         <NButton
@@ -161,7 +161,7 @@ async function revealFileLocation(path: string) {
                             <NButton
                                 circle
                                 quaternary
-                                @click="() => revealFileLocation(task.item.input)"
+                                @click="() => revealFileLocation(task.item.Av1an.input)"
                             >
                                 <template #icon>
                                     <NIcon>
@@ -183,7 +183,7 @@ async function revealFileLocation(path: string) {
                 >
                     <NInputGroup>
                         <NInput
-                            v-model:value="task.item.output"
+                            v-model:value="task.item.Av1an.output"
                             readonly
                         />
                         <NButton
@@ -198,7 +198,7 @@ async function revealFileLocation(path: string) {
                                 circle
                                 quaternary
                                 :disabled="task.statusHistory.length > 0 && task.statusHistory[task.statusHistory.length - 1].state !== 'done'"
-                                @click="() => revealFileLocation(task.item.output)"
+                                @click="() => revealFileLocation(task.item.Av1an.output)"
                             >
                                 <template #icon>
                                     <NIcon>

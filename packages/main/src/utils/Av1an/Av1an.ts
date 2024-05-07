@@ -6,7 +6,7 @@ import Watcher from 'watcher';
 import type { ChildProcessByStdio} from 'child_process';
 import { spawn } from 'child_process';
 import type { Readable, Writable } from 'stream';
-import type { Options} from '../../data/Av1an/Types/Options.js';
+import type { Options } from '../../data/Av1an/Types/Options.js';
 import { Encoder, OutputOverwrite, Verbosity } from '../../data/Av1an/Types/Options.js';
 import { parseDoneJsonFile } from '../../data/Av1an/Types/Done.js';
 import type { Parameters as SVTParameters } from '../../data/Av1an/Types/SVT.js';
@@ -55,7 +55,7 @@ export class Av1anManager {
         return this._instance;
     }
 
-    public addAv1an(id: Task['id'], input: Task['inputFileName'], output: Task['outputFileName'], options: Task['item'], history: Task['statusHistory']) {
+    public addAv1an(id: Task['id'], input: Task['inputFileName'], output: Task['outputFileName'], options: Task['item']['Av1an'], history: Task['statusHistory']) {
         const av1an = new Av1an(input, output, options, history);
         this.av1anMap.set(id, av1an);
         return av1an;
@@ -199,15 +199,13 @@ export class Av1an extends EventEmitter {
                     av1anArguments.push('--sc-only');
                     av1anPrintFriendlyArguments.push('--sc-only');
                 }
-                if (options.scenes.maximumSceneLength) {
-                    if ('frames' in options.scenes.maximumSceneLength) {
-                        av1anArguments.push('--extra-split', `${options.scenes.maximumSceneLength.frames}`);
-                        av1anPrintFriendlyArguments.push('--extra-split', `${options.scenes.maximumSceneLength.frames}`);
-                    }
-                    if ('seconds' in options.scenes.maximumSceneLength) {
-                        av1anArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLength['seconds']}`);
-                        av1anPrintFriendlyArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLength['seconds']}`);
-                    }
+                if (options.scenes.maximumSceneLengthFrames) {
+                    av1anArguments.push('--extra-split', `${options.scenes.maximumSceneLengthFrames}`);
+                    av1anPrintFriendlyArguments.push('--extra-split', `${options.scenes.maximumSceneLengthFrames}`);
+                }
+                if (options.scenes.maximumSceneLengthSeconds) {
+                    av1anArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLengthSeconds}`);
+                    av1anPrintFriendlyArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLengthSeconds}`);
                 }
                 if (options.scenes.minimumSceneLengthFrames) {
                     av1anArguments.push('--min-scene-len', `${options.scenes.minimumSceneLengthFrames}`);
@@ -221,9 +219,11 @@ export class Av1an extends EventEmitter {
 
             if (options.encoding && Object.keys(options.encoding).length) {
                 const { encoder, force, passes, FFmpegAudioParameters, FFmpegFilterOptions, ...encoderParameters } = options.encoding;
-                av1anArguments.push('--encoder', encoder);
-                av1anPrintFriendlyArguments.push('--encoder', encoder);
 
+                if (encoder) {
+                    av1anArguments.push('--encoder', encoder);
+                    av1anPrintFriendlyArguments.push('--encoder', encoder);
+                }
                 if (force) {
                     av1anArguments.push('--force');
                     av1anPrintFriendlyArguments.push('--force');
@@ -248,12 +248,6 @@ export class Av1an extends EventEmitter {
                         av1anPrintFriendlyArguments.push('--video-params', `"${svtParameters}"`);
                         break;
                     }
-                    case Encoder.aom: {
-                        const aomParameters = Object.entries(encoderParameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
-                        av1anArguments.push('--video-params', aomParameters);
-                        av1anPrintFriendlyArguments.push('--video-params', `"${aomParameters}"`);
-                        break;
-                    }
                     case Encoder.rav1e: {
                         const rav1eParameters = Object.entries(encoderParameters as Rav1eParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
                         av1anArguments.push('--video-params', rav1eParameters);
@@ -267,7 +261,12 @@ export class Av1an extends EventEmitter {
                         break;
                     }
                     default:
+                    case Encoder.aom: {
+                        const aomParameters = Object.entries(encoderParameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
+                        av1anArguments.push('--video-params', aomParameters);
+                        av1anPrintFriendlyArguments.push('--video-params', `"${aomParameters}"`);
                         break;
+                    }
                 }
             }
 

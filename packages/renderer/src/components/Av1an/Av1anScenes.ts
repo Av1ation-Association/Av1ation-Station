@@ -3,19 +3,22 @@ import {
     h,
 } from 'vue';
 import {
-    NInputGroup,
     NInputNumber,
     NSelect,
     NSwitch,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../Configuration/ConfigurationDefaults.vue';
 import {
     SceneDetectionMethod,
     SplitMethod,
 } from '../../../../main/src/data/Av1an/Types/Options';
 import { type FormInputComponent } from './library';
+import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const splitMethod: FormInputComponent = {
         label: 'Split Method',
         path: 'splitMethod',
@@ -29,12 +32,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'None', value: SplitMethod.none },
                 ],
                 placeholder: 'AV Scene Change',
+                defaultValue: parentAv1anValue?.scenes?.splitMethod,
                 onUpdateValue: (value?: SplitMethod) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.splitMethod = value;
+                        if (parentAv1anValue?.scenes?.splitMethod === value) {
+                            delete formValueRef.value.scenes.splitMethod;
+                        } else {
+                            formValueRef.value.scenes.splitMethod = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -42,6 +50,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.splitMethod = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.splitMethod === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.splitMethod;
+        },
     };
 
     const detectionOnly: FormInputComponent = {
@@ -50,20 +71,37 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.scenes?.detectionOnly,
-                // defaultValue: false,
+                value: formValueRef.value.scenes?.detectionOnly ?? undefined,
+                defaultValue: parentAv1anValue?.scenes?.detectionOnly ?? undefined,
                 onUpdateValue: (value?: boolean) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.detectionOnly = value;
+                        if (parentAv1anValue?.scenes?.detectionOnly === value) {
+                            delete formValueRef.value.scenes.detectionOnly;
+                        } else {
+                            formValueRef.value.scenes.detectionOnly = value;
+                        }
                     } else {
                         delete formValueRef.value.scenes.detectionOnly;
                     }
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.detectionOnly = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.detectionOnly === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.detectionOnly;
+        },
     };
 
     const detectionMethod: FormInputComponent = {
@@ -79,12 +117,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'Standard', value: SceneDetectionMethod.standard },
                 ],
                 placeholder: 'Standard',
+                defaultValue: parentAv1anValue?.scenes?.detectionMethod,
                 onUpdateValue: (value?: SceneDetectionMethod) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.detectionMethod = value;
+                        if (parentAv1anValue?.scenes?.detectionMethod === value) {
+                            delete formValueRef.value.scenes.detectionMethod;
+                        } else {
+                            formValueRef.value.scenes.detectionMethod = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -92,6 +135,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.detectionMethod = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.detectionMethod === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.detectionMethod;
+        },
     };
 
     const detectionDownscaleHeight: FormInputComponent = {
@@ -103,13 +159,18 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 value: formValueRef.value.scenes?.detectionDownscaleHeight,
                 clearable: true,
                 placeholder: 'Auto',
+                defaultValue: parentAv1anValue?.scenes?.detectionDownscaleHeight,
                 min: 1,
                 onUpdateValue: (value) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.detectionDownscaleHeight = value;
+                        if (parentAv1anValue?.scenes?.detectionDownscaleHeight === value) {
+                            delete formValueRef.value.scenes.detectionDownscaleHeight;
+                        } else {
+                            formValueRef.value.scenes.detectionDownscaleHeight = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -117,6 +178,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.detectionDownscaleHeight = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.detectionDownscaleHeight === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.detectionDownscaleHeight;
+        },
     };
 
     const detectionPixelFormat: FormInputComponent = {
@@ -131,12 +205,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: 'yuv420p10le', value: 'yuv420p10le' },
                 ],
                 placeholder: 'yuv420p10le',
+                defaultValue: parentAv1anValue?.scenes?.detectionPixelFormat,
                 onUpdateValue: (value?: string) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.detectionPixelFormat = value;
+                        if (parentAv1anValue?.scenes?.detectionPixelFormat === value) {
+                            delete formValueRef.value.scenes.detectionPixelFormat;
+                        } else {
+                            formValueRef.value.scenes.detectionPixelFormat = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -144,6 +223,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.detectionPixelFormat = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.detectionPixelFormat === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.detectionPixelFormat;
+        },
     };
 
     const minimumSceneLengthFrames: FormInputComponent = {
@@ -155,13 +247,18 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 value: formValueRef.value.scenes?.minimumSceneLengthFrames,
                 clearable: true,
                 placeholder: '24',
+                defaultValue: parentAv1anValue?.scenes?.minimumSceneLengthFrames,
                 min: 1,
                 onUpdateValue: (value) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.minimumSceneLengthFrames = value;
+                        if (parentAv1anValue?.scenes?.minimumSceneLengthFrames === value) {
+                            delete formValueRef.value.scenes.minimumSceneLengthFrames;
+                        } else {
+                            formValueRef.value.scenes.minimumSceneLengthFrames = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -169,95 +266,105 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.minimumSceneLengthFrames = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.minimumSceneLengthFrames === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.minimumSceneLengthFrames;
+        },
     };
 
-    let maximumSceneLengthNumber = !formValueRef.value.scenes?.maximumSceneLength ? 24 : 'frames' in formValueRef.value.scenes.maximumSceneLength ? formValueRef.value.scenes.maximumSceneLength.frames : 'seconds' in formValueRef.value.scenes.maximumSceneLength ? formValueRef.value.scenes.maximumSceneLength.seconds : 10;
-    let maximumSceneLengthType: 'frames' | 'seconds' = !formValueRef.value.scenes?.maximumSceneLength ? 'frames' : 'frames' in formValueRef.value.scenes.maximumSceneLength ? 'frames' : 'seconds' in formValueRef.value.scenes.maximumSceneLength ? 'seconds' : 'frames';
-
-    const maximumSceneLength: FormInputComponent = {
-        label: 'Maximum Scene Length',
-        path: 'scenes.maximumSceneLength',
+    const maximumSceneLengthFrames: FormInputComponent = {
+        label: 'Maximum Scene Length (Frames)',
+        path: 'scenes.maximumSceneLengthFrames',
         component: h(
-            NInputGroup,
-            undefined,
-            () => [
-                h(
-                    NInputNumber,
-                    {
-                        value: maximumSceneLengthNumber,
-                        clearable: true,
-                        placeholder: 'Auto',
-                        min: 0,
-                        onUpdateValue: (value) => {
-                            if (value === null) {
-                                delete formValueRef.value.scenes?.maximumSceneLength;
-
-                                if (maximumSceneLengthType === 'frames') {
-                                    maximumSceneLengthNumber = 24;
-                                }
-                                if (maximumSceneLengthType === 'seconds') {
-                                    maximumSceneLengthNumber = 10;
-                                }
-                                return;
-                            }
-
-                            maximumSceneLengthNumber = value;
-                            if (!formValueRef.value.scenes) {
-                                formValueRef.value.scenes = {};
-                            }
-                            switch (maximumSceneLengthType) {
-                                case 'frames':
-                                    formValueRef.value.scenes.maximumSceneLength = {
-                                        frames: maximumSceneLengthNumber,
-                                    };
-                                    break;
-                                case 'seconds':
-                                    formValueRef.value.scenes.maximumSceneLength = {
-                                        seconds: maximumSceneLengthNumber,
-                                    };
-                                    break;
-                            }
-                        },
-                        onClear: () => {
-                            delete formValueRef.value.scenes?.maximumSceneLength;
-                        },
-                    },
-                ),
-                h(
-                    NSelect,
-                    {
-                        value: maximumSceneLengthType,
-                        options: [
-                            { label: 'Frames', value: 'frames' },
-                            { label: 'Seconds', value: 'seconds' },
-                        ],
-                        placeholder: 'Frames',
-                        onUpdateValue: (value?: 'frames' | 'seconds') => {
-                            if (!value) {
-                                return;
-                            }
-
-                            maximumSceneLengthType = value;
-                            if (!formValueRef.value.scenes) {
-                                formValueRef.value.scenes = {};
-                            }
-                            switch (maximumSceneLengthType) {
-                                case 'frames':
-                                    formValueRef.value.scenes.maximumSceneLength = {
-                                        frames: maximumSceneLengthNumber ?? 24,
-                                    };
-                                    break;
-                                case 'seconds':
-                                    formValueRef.value.scenes.maximumSceneLength = {
-                                        seconds: maximumSceneLengthNumber ?? 10,
-                                    };
-                                    break;
-                            }
-                        },
-                    },
-                ),
-            ],
+            NInputNumber,
+            {
+                value: formValueRef.value.scenes?.maximumSceneLengthFrames,
+                clearable: true,
+                placeholder: 'None',
+                defaultValue: parentAv1anValue?.scenes?.maximumSceneLengthFrames,
+                min: 0,
+                onUpdateValue: (value) => {
+                    if (!formValueRef.value.scenes) {
+                        formValueRef.value.scenes = {};
+                    }
+                    if (value !== null) {
+                        if (parentAv1anValue?.scenes?.maximumSceneLengthFrames === value) {
+                            delete formValueRef.value.scenes.maximumSceneLengthFrames;
+                        } else {
+                            formValueRef.value.scenes.maximumSceneLengthFrames = value;
+                        }
+                    }
+                },
+                onClear: () => {
+                    delete formValueRef.value.scenes?.maximumSceneLengthFrames;
+                },
+            },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.maximumSceneLengthFrames = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.maximumSceneLengthFrames === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.maximumSceneLengthFrames;
+        },
+    };
+
+    const maximumSceneLengthSeconds: FormInputComponent = {
+        label: 'Maximum Scene Length (Seconds)',
+        path: 'scenes.maximumSceneLengthSeconds',
+        component: h(
+            NInputNumber,
+            {
+                value: formValueRef.value.scenes?.maximumSceneLengthSeconds,
+                clearable: true,
+                placeholder: 'None',
+                defaultValue: parentAv1anValue?.scenes?.maximumSceneLengthSeconds,
+                min: 0,
+                onUpdateValue: (value) => {
+                    if (!formValueRef.value.scenes) {
+                        formValueRef.value.scenes = {};
+                    }
+                    if (value !== null) {
+                        if (parentAv1anValue?.scenes?.maximumSceneLengthSeconds === value) {
+                            delete formValueRef.value.scenes.maximumSceneLengthSeconds;
+                        } else {
+                            formValueRef.value.scenes.maximumSceneLengthSeconds = value;
+                        }
+                    }
+                },
+                onClear: () => {
+                    delete formValueRef.value.scenes?.maximumSceneLengthSeconds;
+                },
+            },
+        ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.maximumSceneLengthSeconds = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.maximumSceneLengthSeconds === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.maximumSceneLengthSeconds;
+        },
     };
 
     const ignoreFrameMismatch: FormInputComponent = {
@@ -266,19 +373,37 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.scenes?.ignoreFrameMismatch,
+                value: formValueRef.value.scenes?.ignoreFrameMismatch ?? undefined,
+                defaultValue: parentAv1anValue?.scenes?.ignoreFrameMismatch ?? undefined,
                 onUpdateValue: (value) => {
                     if (!formValueRef.value.scenes) {
                         formValueRef.value.scenes = {};
                     }
                     if (value !== null) {
-                        formValueRef.value.scenes.ignoreFrameMismatch = value;
+                        if (parentAv1anValue?.scenes?.ignoreFrameMismatch === value) {
+                            delete formValueRef.value.scenes.ignoreFrameMismatch;
+                        } else {
+                            formValueRef.value.scenes.ignoreFrameMismatch = value;
+                        }
                     } else {
                         delete formValueRef.value.scenes.ignoreFrameMismatch;
                     }
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.scenes) {
+                formValueRef.value.scenes = {};
+            }
+
+            formValueRef.value.scenes.ignoreFrameMismatch = null;
+        },
+        disabled: () => {
+            return formValueRef.value.scenes?.ignoreFrameMismatch === null;
+        },
+        reset: () => {
+            delete formValueRef.value.scenes?.ignoreFrameMismatch;
+        },
     };
 
     return [
@@ -288,7 +413,8 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         detectionDownscaleHeight,
         detectionPixelFormat,
         minimumSceneLengthFrames,
-        maximumSceneLength,
+        maximumSceneLengthFrames,
+        maximumSceneLengthSeconds,
         ignoreFrameMismatch,
     ];
 }

@@ -4,7 +4,6 @@ export const useSidebarMenuStore = defineStore('sidebarMenu', {
     state: () => {
         return {
             sidebarCollapsed: false,
-            currentMenuValue: 'home',
         };
     },
     actions: {

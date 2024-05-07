@@ -7,11 +7,15 @@ import {
     NInput,
     NSwitch,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../Configuration/ConfigurationDefaults.vue';
 import { type FormInputComponent } from './library';
 import { Encoder } from '../../../../main/src/data/Av1an/Types/Options';
+import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const encoder = {
         label: 'Encoder',
         path: 'encoding.encoder',
@@ -43,11 +47,25 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
                 },
                 placeholder: 'Alliance for Open Media AV1 (aom)',
+                defaultValue: parentAv1anValue?.encoding?.encoder,
                 onClear: () => {
                     delete formValueRef.value.encoding?.encoder;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {};
+            }
+
+            formValueRef.value.encoding.encoder = null;
+        },
+        disabled: () => {
+            return formValueRef.value.encoding?.encoder === null;
+        },
+        reset: () => {
+            delete formValueRef.value.encoding?.encoder;
+        },
     };
 
     const ffmpegAudioParameters = {
@@ -64,15 +82,33 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        formValueRef.value.encoding.FFmpegAudioParameters = value;
+                        if (parentAv1anValue?.encoding?.FFmpegAudioParameters === value) {
+                            delete formValueRef.value.encoding?.FFmpegAudioParameters;
+                        } else {
+                            formValueRef.value.encoding.FFmpegAudioParameters = value;
+                        }
                     }
                 },
                 placeholder: 'None (-c:a copy)',
+                defaultValue: parentAv1anValue?.encoding?.FFmpegAudioParameters,
                 onClear: () => {
                     delete formValueRef.value.encoding?.FFmpegAudioParameters;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {};
+            }
+
+            formValueRef.value.encoding.FFmpegAudioParameters = null;
+        },
+        disabled: () => {
+            return formValueRef.value.encoding?.FFmpegAudioParameters === null;
+        },
+        reset: () => {
+            delete formValueRef.value.encoding?.FFmpegAudioParameters;
+        },
     };
 
     const ffmpegFilterOptions = {
@@ -89,15 +125,33 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     }
 
                     if (value !== null) {
-                        formValueRef.value.encoding.FFmpegFilterOptions = value;
+                        if (parentAv1anValue?.encoding?.FFmpegFilterOptions === value) {
+                            delete formValueRef.value.encoding?.FFmpegFilterOptions;
+                        } else {
+                            formValueRef.value.encoding.FFmpegFilterOptions = value;
+                        }
                     }
                 },
                 placeholder: 'None',
+                defaultValue: parentAv1anValue?.encoding?.FFmpegFilterOptions,
                 onClear: () => {
                     delete formValueRef.value.encoding?.FFmpegFilterOptions;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {};
+            }
+
+            formValueRef.value.encoding.FFmpegFilterOptions = null;
+        },
+        disabled: () => {
+            return formValueRef.value.encoding?.FFmpegFilterOptions === null;
+        },
+        reset: () => {
+            delete formValueRef.value.encoding?.FFmpegFilterOptions;
+        },
     };
 
     const force = {
@@ -106,18 +160,36 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.encoding?.force,
+                value: formValueRef.value.encoding?.force ?? undefined,
+                defaultValue: parentAv1anValue?.encoding?.force ?? undefined,
                 onUpdateValue: (value?: boolean) => {
                     if (!formValueRef.value.encoding) {
                         formValueRef.value.encoding = {};
                     }
 
                     if (value !== null) {
-                        formValueRef.value.encoding.force = value;
+                        if (parentAv1anValue?.encoding?.force === value) {
+                            delete formValueRef.value.encoding?.force;
+                        } else {
+                            formValueRef.value.encoding.force = value;
+                        }
                     }
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {};
+            }
+
+            formValueRef.value.encoding.force = null;
+        },
+        disabled: () => {
+            return formValueRef.value.encoding?.force === null;
+        },
+        reset: () => {
+            delete formValueRef.value.encoding?.force;
+        },
     };
 
     const passes = {
@@ -133,13 +205,18 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     { label: '2', value: 2 },
                 ],
                 placeholder: 'None',
+                defaultValue: parentAv1anValue?.encoding?.passes,
                 onUpdateValue: (value?: number) => {
                     if (!formValueRef.value.encoding) {
                         formValueRef.value.encoding = {};
                     }
 
                     if (value !== null) {
-                        formValueRef.value.encoding.passes = value;
+                        if (parentAv1anValue?.encoding?.passes === value) {
+                            delete formValueRef.value.encoding?.passes;
+                        } else {
+                            formValueRef.value.encoding.passes = value;
+                        }
                     }
                 },
                 onClear: () => {
@@ -147,6 +224,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {};
+            }
+
+            formValueRef.value.encoding.passes = null;
+        },
+        disabled: () => {
+            return formValueRef.value.encoding?.passes === null;
+        },
+        reset: () => {
+            delete formValueRef.value.encoding?.passes;
+        },
     };
 
     return [

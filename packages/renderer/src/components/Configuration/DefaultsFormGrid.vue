@@ -6,14 +6,24 @@ import {
     NButton,
     NIcon,
     NGrid,
+    NH3,
+    NTooltip,
 } from 'naive-ui';
 import {
-    Star as FavoriteIcon,
-    StarFilled as FavoritedIcon,
+    Pin as PinIcon,
+    PinFilled as PinnedIcon,
+    ErrorOutline as DisableIcon,
+    Reset as ResetIcon,
 } from '@vicons/carbon';
 import { useGlobalStore } from '../../stores/global';
-import { type PartialAv1anConfiguration } from './ConfigurationDefaults.vue';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from './ConfigurationDefaults.vue';
+import {
+    type Project,
+    type Task,
+} from '../../../../main/src/data/Configuration/Projects';
 import type { FormInputComponent } from '../Av1an/library';
 import { ref } from 'vue';
 
@@ -21,14 +31,17 @@ const store = useGlobalStore();
 const { config } = storeToRefs(store);
 
 const model = defineModel<{
-    defaultsFormValue: PartialAv1anConfiguration;
+    defaultsFormValue: PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>;
     project?: Project;
 }>();
-const { formInputComponents } = defineProps<{
-    formInputComponents: FormInputComponent[];
+const { sections } = defineProps<{
+    sections: {
+        label: string;
+        formInputComponents: FormInputComponent[];
+    }[];
 }>();
 
-const showFavorite = ref<Record<string, boolean>>({});
+const showButton = ref<Record<string, { pinned?: boolean; disable?: boolean; reset?: boolean }>>({});
 
 function getDefaultPreferences () {
     return {
@@ -40,66 +53,164 @@ function getDefaultPreferences () {
 </script>
 
 <template>
-    <NGrid
-        :span="24"
-        :x-gap="24"
+    <template
+        v-for="section in sections"
+        :key="section.label"
     >
-        <!-- Sort by favorite -->
-        <NFormItemGridItem
-            v-for="component in [...formInputComponents].sort((a, b) => getDefaultPreferences()[a.path] === 'favorite' ? -1 : getDefaultPreferences()[b.path] === 'favorite' ? 1 : 0)"
-            :key="component.path"
-            :label="component.label"
-            :path="component.path"
-            :span="12"
+        <NH3>{{ section.label }}</NH3>
+        <NGrid
+            :span="24"
+            :x-gap="24"
         >
-            <template #label>
-                {{ component.label }}
-                <!-- Sacrificial Button workaround for button inheriting sibling/parent label when using "text" option and causing double click -->
-                <NButton text />
-                <NButton
-                    text
-                    size="tiny"
-                    :onmouseenter="() => {
-                        showFavorite[component.path] = true;
-                    }"
-                    :onmouseleave="() => {
-                        showFavorite[component.path] = false;
-                    }"
-                    @click="() => {
-                        if (model?.project) {
-                            if (model.project.preferences.defaults[component.path] !== 'favorite') {
-                                model.project.preferences.defaults[component.path] = 'favorite';
-                            } else {
-                                // delete model.project.preferences.defaults[component.path];
-                                model.project.preferences.defaults[component.path] = 'none';
-                            }
-                        } else {
-                            if (config.preferences.defaults[component.path] !== 'favorite') {
-                                config.preferences.defaults[component.path] = 'favorite';
-                            } else {
-                                // delete config.preferences.defaults[component.path];
-                                config.preferences.defaults[component.path] = 'none';
-                            }
-                        }
-                    }"
-                >
-                    <template #icon>
-                        <NIcon
-                            :color="getDefaultPreferences()[component.path] === 'favorite' ? '#FFD700' : undefined"
-                        >
-                            <FavoritedIcon v-if="getDefaultPreferences()[component.path] === 'favorite'" />
-                            <template
-                                v-if="showFavorite[component.path]"
+            <!-- Sort by favorite -->
+            <NFormItemGridItem
+                v-for="component in [...section.formInputComponents].sort((a, b) => getDefaultPreferences()[a.path] === 'pinned' ? -1 : getDefaultPreferences()[b.path] === 'pinned' ? 1 : 0)"
+                :key="component.path"
+                :label="component.label"
+                :path="component.path"
+                :span="12"
+            >
+                <template #label>
+                    {{ component.label }}
+                    <!-- Sacrificial Button workaround for button inheriting sibling/parent label when using "text" option and causing double click -->
+                    <NButton text />
+                    <NTooltip
+                        :delay="500"
+                    >
+                        <template #trigger>
+                            <NButton
+                                text
+                                size="tiny"
+                                :onmouseenter="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+        
+                                    showButton[component.path].pinned = true;
+                                }"
+                                :onmouseleave="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+            
+                                    showButton[component.path].pinned = false;
+                                }"
+                                @click="() => {
+                                    if (model?.project) {
+                                        if (model.project.preferences.defaults[component.path] !== 'pinned') {
+                                            model.project.preferences.defaults[component.path] = 'pinned';
+                                        } else {
+                                            // delete model.project.preferences.defaults[component.path];
+                                            model.project.preferences.defaults[component.path] = 'none';
+                                        }
+                                    } else {
+                                        if (config.preferences.defaults[component.path] !== 'pinned') {
+                                            config.preferences.defaults[component.path] = 'pinned';
+                                        } else {
+                                            // delete config.preferences.defaults[component.path];
+                                            config.preferences.defaults[component.path] = 'none';
+                                        }
+                                    }
+                                }"
                             >
-                                <FavoriteIcon v-if="getDefaultPreferences()[component.path] !== 'favorite'" />
-                            </template>
-                        </NIcon>
-                    </template>
-                </NButton>
-            </template>
-            <component
-                :is="component.component"
-            />
-        </NFormItemGridItem>
-    </NGrid>
+                                <template #icon>
+                                    <NIcon
+                                        :color="getDefaultPreferences()[component.path] === 'pinned' ? '#22BBFF' : undefined"
+                                    >
+                                        <PinnedIcon v-if="getDefaultPreferences()[component.path] === 'pinned'" />
+                                        <template
+                                            v-if="showButton[component.path] && showButton[component.path].pinned"
+                                        >
+                                            <PinIcon v-if="getDefaultPreferences()[component.path] !== 'pinned'" />
+                                        </template>
+                                    </NIcon>
+                                </template>
+                            </NButton>
+                        </template>
+                        {{ getDefaultPreferences()[component.path] === 'pinned' ? 'Unpin' : 'Pin' }}
+                    </NTooltip>
+                    <NTooltip
+                        :delay="500"
+                    >
+                        <template #trigger>
+                            <NButton
+                                text
+                                size="tiny"
+                                :onmouseenter="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+
+                                    showButton[component.path].reset = true;
+                                }"
+                                :onmouseleave="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+
+                                    showButton[component.path].reset = false;
+                                }"
+                                @click="() => {
+                                    component.reset();
+                                }"
+                            >
+                                <template #icon>
+                                    <NIcon>
+                                        <ResetIcon v-if="showButton[component.path] && showButton[component.path].reset" />
+                                    </NIcon>
+                                </template>
+                            </NButton>
+                        </template>
+                        Reset
+                    </NTooltip>
+                    <NTooltip
+                        :delay="500"
+                    >
+                        <template #trigger>
+                            <NButton
+                                text
+                                size="tiny"
+                                :disabled="component.disabled()"
+                                :onmouseenter="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+
+                                    showButton[component.path].disable = true;
+                                }"
+                                :onmouseleave="() => {
+                                    if (!showButton[component.path]) {
+                                        showButton[component.path] = {};
+                                    }
+
+                                    showButton[component.path].disable = false;
+                                }"
+                                @click="() => {
+                                    component.disable();
+                                }"
+                            >
+                                <template #icon>
+                                    <NIcon
+                                        :color="component.disabled() ? '#FF0000' : undefined"
+                                    >
+                                        <DisableIcon v-if="component.disabled()" />
+                                        <template
+                                            v-if="showButton[component.path] && showButton[component.path].disable"
+                                        >
+                                            <DisableIcon v-if="!component.disabled()" />
+                                        </template>
+                                    </NIcon>
+                                </template>
+                            </NButton>
+                        </template>
+                        {{ component.disabled() ? 'Disabled' : 'Disable' }}
+                    </NTooltip>
+                </template>
+                <component
+                    :is="component.component"
+                    :style="{ opacity: component.disabled() ? 0.5 : 1 }"
+                />
+            </NFormItemGridItem>
+        </NGrid>
+    </template>
 </template>

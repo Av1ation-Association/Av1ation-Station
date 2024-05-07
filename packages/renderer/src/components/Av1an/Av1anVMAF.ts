@@ -8,10 +8,14 @@ import {
     NInputGroup,
     NInputNumber,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../Configuration/ConfigurationDefaults.vue';
 import { type FormInputComponent } from './library';
+import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const modelPath = {
         label: 'VMAF Model Path',
         path: 'vmaf.path',
@@ -29,10 +33,15 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                             }
 
                             if (value) {
-                                formValueRef.value.vmaf.path = value;
+                                if (parentAv1anValue?.vmaf?.path === value) {
+                                    delete formValueRef.value.vmaf.path;
+                                } else {
+                                    formValueRef.value.vmaf.path = value;
+                                }
                             }
                         },
                         placeholder: 'VMAF Model File Path',
+                        defaultValue: parentAv1anValue?.vmaf?.path,
                         onClear: () => {
                             delete formValueRef.value.vmaf?.path;
                         },
@@ -44,13 +53,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         type: 'primary',
                         onClick: async () => {
                             const defaultPath = formValueRef.value.vmaf?.path; // TODO: fallback to output directory
-                            const vmafFilePath = await window.configurationsApi['save-file'](defaultPath, 'VMAF Model');
+                            const vmafFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'VMAF Model');
                             if (vmafFilePath) {
                                 if (!formValueRef.value.vmaf) {
                                     formValueRef.value.vmaf = {};
                                 }
 
-                                formValueRef.value.vmaf.path = vmafFilePath;
+                                if (parentAv1anValue?.vmaf?.path === vmafFilePath) {
+                                    delete formValueRef.value.vmaf.path;
+                                } else {
+                                    formValueRef.value.vmaf.path = vmafFilePath;
+                                }
                             }
                         },
                     },
@@ -60,6 +73,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 ),
             ],
         ),
+        disable: () => {
+            if (!formValueRef.value.vmaf) {
+                formValueRef.value.vmaf = {};
+            }
+
+            formValueRef.value.vmaf.path = null;
+        },
+        disabled: () => {
+            return formValueRef.value.vmaf?.path === null;
+        },
+        reset: () => {
+            delete formValueRef.value.vmaf?.path;
+        },
     };
 
     const resolution = {
@@ -75,14 +101,34 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         formValueRef.value.vmaf = {};
                     }
                     
-                    formValueRef.value.vmaf.resolution = value;
+                    if (value !== null) {
+                        if (parentAv1anValue?.vmaf?.resolution === value) {
+                            delete formValueRef.value.vmaf.resolution;
+                        } else {
+                            formValueRef.value.vmaf.resolution = value;
+                        }
+                    }
                 },
                 placeholder: '1920x1080',
+                defaultValue: parentAv1anValue?.vmaf?.resolution,
                 onClear: () => {
                     delete formValueRef.value.vmaf?.resolution;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.vmaf) {
+                formValueRef.value.vmaf = {};
+            }
+
+            formValueRef.value.vmaf.resolution = null;
+        },
+        disabled: () => {
+            return formValueRef.value.vmaf?.resolution === null;
+        },
+        reset: () => {
+            delete formValueRef.value.vmaf?.resolution;
+        },
     };
 
     const threads = {
@@ -98,16 +144,34 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         formValueRef.value.vmaf = {};
                     }
 
-                    if (value) {
-                        formValueRef.value.vmaf.threads = value;
+                    if (value !== null) {
+                        if (parentAv1anValue?.vmaf?.threads === value) {
+                            delete formValueRef.value.vmaf.threads;
+                        } else {
+                            formValueRef.value.vmaf.threads = value;
+                        }
                     }
                 },
                 placeholder: '',
+                defaultValue: parentAv1anValue?.vmaf?.threads,
                 onClear: () => {
                     delete formValueRef.value.vmaf?.threads;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.vmaf) {
+                formValueRef.value.vmaf = {};
+            }
+
+            formValueRef.value.vmaf.threads = null;
+        },
+        disabled: () => {
+            return formValueRef.value.vmaf?.threads === null;
+        },
+        reset: () => {
+            delete formValueRef.value.vmaf?.threads;
+        },
     };
 
     const filter = {
@@ -123,15 +187,36 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         formValueRef.value.vmaf = {};
                     }
                     
-                    formValueRef.value.vmaf.filter = value;
+                    if (value !== null) {
+                        if (parentAv1anValue?.vmaf?.filter === value) {
+                            delete formValueRef.value.vmaf.filter;
+                        } else {
+                            formValueRef.value.vmaf.filter = value;
+                        }
+                    }
                 },
                 placeholder: '',
+                defaultValue: parentAv1anValue?.vmaf?.filter,
                 onClear: () => {
                     delete formValueRef.value.vmaf?.filter;
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.vmaf) {
+                formValueRef.value.vmaf = {};
+            }
+
+            formValueRef.value.vmaf.filter = null;
+        },
+        disabled: () => {
+            return formValueRef.value.vmaf?.filter === null;
+        },
+        reset: () => {
+            delete formValueRef.value.vmaf?.filter;
+        },
     };
+
 
     return [
         modelPath,

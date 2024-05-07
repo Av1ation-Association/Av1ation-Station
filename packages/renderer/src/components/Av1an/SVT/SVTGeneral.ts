@@ -9,18 +9,22 @@ import {
     NSelect,
     NSlider,
 } from 'naive-ui';
-import { type PartialAv1anConfiguration } from '../../Configuration/ConfigurationDefaults.vue';
+import {
+    type PartialChildren,
+    type PartialAv1anConfiguration,
+} from '../../Configuration/ConfigurationDefaults.vue';
 import { type SVTEncoding, Encoder } from '../../../../../main/src/data/Av1an/Types/Options';
 import { type FormInputComponent } from '../library';
+import { type Task } from '../../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
     const preset = {
         label: 'Preset',
         path: 'encoding.preset',
         component: h(
             NSlider,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).preset ?? 10,
+                value: (formValueRef.value.encoding as SVTEncoding)?.preset ?? undefined,
                 min: -3,
                 max: 12,
                 step: 1,
@@ -29,6 +33,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                     6: 'Recommended',
                     10: 'Default',
                 },
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.preset ?? 10 : 10,
                 onUpdateValue: (value?: number) => {
                     if (!formValueRef.value.encoding) {
                         formValueRef.value.encoding = {
@@ -36,11 +41,30 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         };
                     }
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).preset = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).preset === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).preset;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).preset = value;
+                        }
                     }
                 },
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).preset = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.preset === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).preset;
+        },
     };
 
     const errlog = {
@@ -53,7 +77,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 h(
                     NInput,
                     {
-                        value: (formValueRef.value.encoding as SVTEncoding).errlog,
+                        value: (formValueRef.value.encoding as SVTEncoding)?.errlog,
                         clearable: true,
                         onUpdateValue: (value?: string) => {
                             if (!formValueRef.value.encoding) {
@@ -61,11 +85,16 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                                     encoder: Encoder.svt,
                                 };
                             }
-                            if (value) {
-                                (formValueRef.value.encoding as SVTEncoding).errlog = value;
+                            if (value !== null) {
+                                if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).errlog === value) {
+                                    delete (formValueRef.value.encoding as SVTEncoding).errlog;
+                                } else {
+                                    (formValueRef.value.encoding as SVTEncoding).errlog = value;
+                                }
                             }
                         },
                         placeholder: 'Error Log File Path',
+                        defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.errlog : undefined,
                         onClear: () => {
                             delete (formValueRef.value.encoding as SVTEncoding).errlog;
                         },
@@ -77,7 +106,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         type: 'primary',
                         onClick: async () => {
                             const defaultPath = (formValueRef.value.encoding as SVTEncoding).errlog; // TODO: fallback to output directory
-                            const errlogFilePath = await window.configurationsApi['save-file'](defaultPath, 'Error Log File');
+                            const errlogFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Error Log File');
                             if (errlogFilePath) {
                                 if (!formValueRef.value.encoding) {
                                     formValueRef.value.encoding = {
@@ -94,6 +123,21 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 ),
             ],
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).errlog = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.errlog === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).errlog;
+        },
     };
 
     const statFile = {
@@ -106,7 +150,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 h(
                     NInput,
                     {
-                        value: (formValueRef.value.encoding as SVTEncoding)['stat-file'],
+                        value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['stat-file'] : undefined,
                         clearable: true,
                         onUpdateValue: (value?: string) => {
                             if (!formValueRef.value.encoding) {
@@ -115,10 +159,15 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                                 };
                             }
                             if (value !== null) {
-                                (formValueRef.value.encoding as SVTEncoding)['stat-file'] = value;
+                                if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['stat-file'] === value) {
+                                    delete (formValueRef.value.encoding as SVTEncoding)['stat-file'];
+                                } else {
+                                    (formValueRef.value.encoding as SVTEncoding)['stat-file'] = value;
+                                }
                             }
                         },
                         placeholder: 'Stat File Path',
+                        defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['stat-file'] : undefined,
                         onClear: () => {
                             delete (formValueRef.value.encoding as SVTEncoding)['stat-file'];
                         },
@@ -130,7 +179,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         type: 'primary',
                         onClick: async () => {
                             const defaultPath = (formValueRef.value.encoding as SVTEncoding)['stat-file']; // TODO: fallback to output directory
-                            const statFilePath = await window.configurationsApi['save-file'](defaultPath, 'Stat File');
+                            const statFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Stat File');
                             if (statFilePath) {
                                 if (!formValueRef.value.encoding) {
                                     formValueRef.value.encoding = {
@@ -147,6 +196,21 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 ),
             ],
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['stat-file'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['stat-file']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['stat-file'];
+        },
     };
 
     const predStructFile = {
@@ -159,7 +223,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 h(
                     NInput,
                     {
-                        value: (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'],
+                        value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'] : undefined,
                         clearable: true,
                         onUpdateValue: (value?: string) => {
                             if (!formValueRef.value.encoding) {
@@ -168,10 +232,15 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                                 };
                             }
                             if (value !== null) {
-                                (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'] = value;
+                                if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['pred-struct-file'] === value) {
+                                    delete (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'];
+                                } else {
+                                    (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'] = value;
+                                }
                             }
                         },
                         placeholder: 'Prediction Structure File Path',
+                        defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['pred-struct-file'] : undefined,
                         onClear: () => {
                             delete (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'];
                         },
@@ -183,7 +252,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         type: 'primary',
                         onClick: async () => {
                             const defaultPath = (formValueRef.value.encoding as SVTEncoding)['pred-struct-file']; // TODO: fallback to output directory
-                            const predStructFilePath = await window.configurationsApi['save-file'](defaultPath, 'Prediction Structure File');
+                            const predStructFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Prediction Structure File');
                             if (predStructFilePath) {
                                 if (!formValueRef.value.encoding) {
                                     formValueRef.value.encoding = {
@@ -200,6 +269,21 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                 ),
             ],
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'] = null;
+        },
+        disabled: () => {
+            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['pred-struct-file']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding)['pred-struct-file'];
+        },
     };
 
     const progress = {
@@ -208,7 +292,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
         component: h(
             NSelect,
             {
-                value: (formValueRef.value.encoding as SVTEncoding).progress,
+                value: (formValueRef.value.encoding as SVTEncoding)?.progress,
                 clearable: true,
                 options: [
                     { label: 'None (0)', value: 0 },
@@ -223,12 +307,32 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration>): For
                         };
                     }
                     if (value !== null) {
-                        (formValueRef.value.encoding as SVTEncoding).progress = value;
+                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).progress === value) {
+                            delete (formValueRef.value.encoding as SVTEncoding).progress;
+                        } else {
+                            (formValueRef.value.encoding as SVTEncoding).progress = value;
+                        }
                     }
                 },
                 placeholder: 'None (0)',
+                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding).progress : undefined,
             },
         ),
+        disable: () => {
+            if (!formValueRef.value.encoding) {
+                formValueRef.value.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            (formValueRef.value.encoding as SVTEncoding).progress = null;
+        },
+        disabled: () => {
+            return (formValueRef.value.encoding as SVTEncoding)?.progress === null;
+        },
+        reset: () => {
+            delete (formValueRef.value.encoding as SVTEncoding).progress;
+        },
     };
 
     return [

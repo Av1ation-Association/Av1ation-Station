@@ -12,10 +12,14 @@ import { getComponents as getSVTGOPComponents } from './SVT/SVTGOP';
 import { getComponents as getSVTRateControlComponents } from './SVT/SVTRateControl';
 import { getComponents as getSVTAV1SpecificComponents } from './SVT/SVTAV1Specific';
 
+// TODO: Convert to Generic Class
 export interface FormInputComponent {
     label: string;
     path: string;
     component: VNode;
+    disable: () => void;
+    disabled: () => boolean;
+    reset: () => void;
 }
 
 export {
