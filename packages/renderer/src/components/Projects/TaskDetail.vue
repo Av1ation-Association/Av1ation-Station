@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
                                     v-else
                                 >
                                     <NAlert
-                                        title="Cannot change Input while Task is running!"
+                                        title="Cannot change Input while Task is in progress!"
                                         type="error"
                                     >
                                         Stop and reset to change the input file.
@@ -367,7 +367,7 @@ onBeforeUnmount(() => {
                                     v-if="taskStarted() && !taskCompleted()"
                                 >
                                     <NAlert
-                                        title="Cannot change Output while Task is running!"
+                                        title="Cannot change Output while Task is in progress!"
                                         type="error"
                                     >
                                         Stop and reset or wait for task to complete to change the output file location/name.
