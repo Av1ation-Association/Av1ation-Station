@@ -320,6 +320,8 @@ async function copyToClipboard(text: string) {
         <template #header-extra>
             <NTooltip
                 :delay="500"
+                placement="left"
+                :style="{ padding: '10px', paddingTop: '5px', paddingBottom: '5px' }"
             >
                 <template #trigger>
                     <NButton

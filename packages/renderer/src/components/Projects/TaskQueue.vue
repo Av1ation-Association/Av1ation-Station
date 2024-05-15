@@ -317,6 +317,7 @@ async function copyToClipboard(text: string) {
                 <NTooltip
                     :delay="500"
                     placement="right"
+                    :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                 >
                     <template #trigger>
                         <NButton
@@ -342,6 +343,8 @@ async function copyToClipboard(text: string) {
                 <NTooltip
                     v-if="projectQueueMap[projects[projectIndex].id].status !== 'processing'"
                     :delay="500"
+                    placement="left"
+                    :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                 >
                     <template #trigger>
                         <NButton
@@ -383,6 +386,8 @@ async function copyToClipboard(text: string) {
                 <NTooltip
                     v-else-if="projectQueueMap[projects[projectIndex].id].status === 'processing'"
                     :delay="500"
+                    placement="left"
+                    :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                 >
                     <template #trigger>
                         <NButton
@@ -444,13 +449,23 @@ async function copyToClipboard(text: string) {
                             :style="{ textDecoration: 'none' }"
                             :to="`/projects/${projects[projectIndex].id}/tasks/${task.id}`"
                         >
-                            <NText>{{ task.outputFileName }}</NText>
+                            <NTooltip
+                                :delay="500"
+                                placement="top-start"
+                                :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
+                            >
+                                <template #trigger>
+                                    <NText>{{ task.outputFileName }}</NText>
+                                </template>
+                                {{ task.id }}
+                            </NTooltip>
                         </RouterLink>
                     </template>
                     <template #header-extra>
                         <NButtonGroup>
                             <NTooltip
                                 :delay="500"
+                                :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                             >
                                 <template #trigger>
                                     <NButton
@@ -475,6 +490,7 @@ async function copyToClipboard(text: string) {
                             </NTooltip>
                             <NTooltip
                                 :delay="500"
+                                :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                             >
                                 <template #trigger>
                                     <NButton

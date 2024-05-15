@@ -87,6 +87,8 @@ async function revealLogFile() {
                 <template #header-extra>
                     <NTooltip
                         :delay="500"
+                        placement="left"
+                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                     >
                         <template #trigger>
                             <NButton

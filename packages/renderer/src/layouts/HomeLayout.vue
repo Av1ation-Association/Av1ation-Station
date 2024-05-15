@@ -71,6 +71,7 @@ async function openExistingProject() {
                     <NTooltip
                         :delay="500"
                         placement="right"
+                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                     >
                         <template #trigger>
                             <NButton
@@ -133,7 +134,17 @@ async function openExistingProject() {
                             :style="{ textDecoration: 'none' }"
                             :to="`/projects/${project.id}`"
                         >
-                            <NText>{{ project.name ?? project.id }}</NText>
+                            <NTooltip
+                                :delay="500"
+                                placement="top-start"
+                                :disabled="!project.name"
+                                :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
+                            >
+                                <template #trigger>
+                                    <NText>{{ project.name ?? project.id }}</NText>
+                                </template>
+                                {{ project.id }}
+                            </NTooltip>
                         </RouterLink>
                     </template>
                     <template #header-extra>
@@ -141,7 +152,9 @@ async function openExistingProject() {
                             size="small"
                         >
                             <NTooltip
-                                :delay="1000"
+                                :delay="500"
+                                placement="left"
+                                :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                             >
                                 <template #trigger>
                                     <NButton
@@ -175,6 +188,9 @@ async function openExistingProject() {
                                 <template #footer>
                                     <NPopover
                                         trigger="hover"
+                                        :delay="500"
+                                        placement="bottom"
+                                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                                     >
                                         <template #trigger>
                                             <NTime
@@ -198,6 +214,9 @@ async function openExistingProject() {
                                 <template #footer>
                                     <NPopover
                                         trigger="hover"
+                                        :delay="500"
+                                        placement="bottom"
+                                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                                     >
                                         <template #trigger>
                                             <NTime
@@ -220,6 +239,9 @@ async function openExistingProject() {
                                 <template #footer>
                                     <NPopover
                                         trigger="hover"
+                                        :delay="500"
+                                        placement="bottom"
+                                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                                     >
                                         <template #trigger>
                                             <NTime

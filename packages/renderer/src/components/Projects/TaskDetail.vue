@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
                             />
                             <NTooltip
                                 :delay="500"
-                                :style="!taskStarted() ? undefined : { padding: 0, maxWidth: '300px' }"
+                                :style="!taskStarted() ? { padding: '10px', paddingTop: '2px', paddingBottom: '2px' } : { padding: 0, maxWidth: '200px' }"
                             >
                                 <template #trigger>
                                     <NButton
@@ -278,7 +278,6 @@ onBeforeUnmount(() => {
                                     v-else-if="taskCompleted()"
                                 >
                                     <NAlert
-                                        title="Change Input File"
                                         type="warning"
                                     >
                                         Changing the input file will also reset this task.
@@ -288,16 +287,17 @@ onBeforeUnmount(() => {
                                     v-else
                                 >
                                     <NAlert
-                                        title="Cannot Change Input File"
+                                        title="Cannot change Input while Task is running!"
                                         type="error"
                                     >
-                                        Cannot change the input file while the task is running. Stop and reset to change the input file.
+                                        Stop and reset to change the input file.
                                     </NAlert>
                                 </template>
                             </NTooltip>
                         </NInputGroup>
                         <NTooltip
                             :delay="500"
+                            :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
@@ -322,6 +322,7 @@ onBeforeUnmount(() => {
                         <NTooltip
                             v-if="projects[projectIndex].tasks[taskIndex].outputFileOveridden"
                             :delay="500"
+                            :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
@@ -351,7 +352,7 @@ onBeforeUnmount(() => {
                             />
                             <NTooltip
                                 :delay="500"
-                                :style="taskStarted() && !taskCompleted() ? { padding: '0', maxWidth: '300px' } : {}"
+                                :style="taskStarted() && !taskCompleted() ? { padding: '0', maxWidth: '300px' } : { padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                             >
                                 <template #trigger>
                                     <NButton
@@ -366,10 +367,10 @@ onBeforeUnmount(() => {
                                     v-if="taskStarted() && !taskCompleted()"
                                 >
                                     <NAlert
-                                        title="Cannot Change Output File Location"
+                                        title="Cannot change Output while Task is running!"
                                         type="error"
                                     >
-                                        Cannot change the output file location/name while the task is running. Stop and reset or wait for the task to complete to change the output file location/name.
+                                        Stop and reset or wait for task to complete to change the output file location/name.
                                     </NAlert>
                                 </template>
                                 <template
@@ -386,6 +387,7 @@ onBeforeUnmount(() => {
                         </NInputGroup>
                         <NTooltip
                             :delay="500"
+                            :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
@@ -418,6 +420,7 @@ onBeforeUnmount(() => {
                         />
                         <NTooltip
                             :delay="500"
+                            :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
