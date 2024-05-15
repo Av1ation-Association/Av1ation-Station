@@ -18,6 +18,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const verbosity: FormInputComponent = {
         label: 'Verbosity',
         path: 'verbosity',
+        advanced: true,
         component: h(
             NSelect,
             {
@@ -57,6 +58,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const logLevel: FormInputComponent = {
         label: 'Log Level',
         path: 'logging.level',
+        advanced: true,
         component: h(
             NSelect,
             {

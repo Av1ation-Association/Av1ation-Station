@@ -70,6 +70,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const errlog = {
         label: 'Error Log File',
         path: 'encoding.errlog',
+        advanced: true,
         component: h(
             NInputGroup,
             undefined,
@@ -143,6 +144,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const statFile = {
         label: 'Stat File',
         path: `encoding['stat-file']`,
+        advanced: true,
         component: h(
             NInputGroup,
             undefined,
@@ -216,6 +218,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const predStructFile = {
         label: 'Prediction Structure File',
         path: `encoding['pred-struct-file']`,
+        advanced: true,
         component: h(
             NInputGroup,
             undefined,
@@ -289,6 +292,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const progress = {
         label: 'Progress',
         path: 'encoding.progress',
+        advanced: true,
         component: h(
             NSelect,
             {

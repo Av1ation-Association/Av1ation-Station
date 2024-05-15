@@ -12,6 +12,7 @@ import ProjectBreadcrumb from '../components/ProjectBreadcrumb.vue';
 import ProjectDetail from '../components/Projects/ProjectDetail.vue';
 import TaskQueue from '../components/Projects/TaskQueue.vue';
 import ConfigurationDefaults from '../components/Configuration/ConfigurationDefaults.vue';
+import { onBeforeMount, toRaw } from 'vue';
 
 const router = useRouter();
 
@@ -19,6 +20,22 @@ const router = useRouter();
 onBeforeRouteUpdate((to, _from) => {
     if (!to.params.projectId) {
         router.push('/');
+        return;
+    }
+});
+
+onBeforeMount(async () => {
+    const projectsStore = useProjectsStore();
+    const project = projectsStore.projects.find((project) => project.id === router.currentRoute.value.params.projectId);
+    const projectIndex = projectsStore.projects.findIndex((project) => project.id === router.currentRoute.value.params.projectId);
+
+    if (projectIndex === -1) {
+        router.push('/');
+        return;
+    }
+
+    if (project) {
+        await projectsStore.loadProject(toRaw(projectsStore.projects[projectIndex]).path);
     }
 });
 

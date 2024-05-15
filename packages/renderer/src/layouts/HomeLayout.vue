@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-import type {
-    DropdownOption} from 'naive-ui';
+import { type DropdownOption } from 'naive-ui';
 import {
     NLayout,
     NCard,
@@ -21,15 +19,12 @@ import {
 import {
     OverflowMenuVertical,
     Add,
-    // View,
     TrashCan as DeleteIcon,
 } from '@vicons/carbon';
 import { useGlobalStore } from '../stores/global';
 import { useProjectsStore } from '../stores/projects';
 import { storeToRefs } from 'pinia';
-import { type Project } from '../../../main/src/data/Configuration/Projects';
 
-const router = useRouter();
 const store = useGlobalStore();
 const projectsStore = useProjectsStore();
 const { config } = storeToRefs(store);
@@ -60,41 +55,40 @@ async function openExistingProject() {
     // TODO: Open File Dialog and load Project
 }
 
-async function navigateToProject(project: Project) {
-    await projectsStore.loadProject(project.path);
-
-    // Navigate to Project Layout
-    router.push(`/projects/${project.id}`);
-}
-
 </script>
 
 <template>
     <NLayout
         content-style="padding: 24px;"
+        :native-scrollbar="false"
     >
-        <NCard
-            title="Projects"
-        >
+        <NCard>
             <template #header>
                 <NFlex>
                     <NText>
                         Projects
                     </NText>
-                    <NButton
-                        size="small"
-                        secondary
-                        @click="createNewProject"
+                    <NTooltip
+                        :delay="500"
+                        placement="right"
                     >
-                        <template #icon>
-                            <NIcon
-                                size="28"
+                        <template #trigger>
+                            <NButton
+                                size="small"
+                                secondary
+                                @click="createNewProject"
                             >
-                                <Add />
-                            </NIcon>
+                                <template #icon>
+                                    <NIcon
+                                        size="28"
+                                    >
+                                        <Add />
+                                    </NIcon>
+                                </template>
+                            </NButton>
                         </template>
-                        Create
-                    </NButton>
+                        New Project
+                    </NTooltip>
                 </NFlex>
             </template>
             <template #header-extra>
@@ -133,17 +127,19 @@ async function navigateToProject(project: Project) {
                         return bLastOpened.getTime() - aLastOpened.getTime();
                     })"
                     :key="project.id"
-                    :title="project.name ?? project.id"
                 >
+                    <template #header>
+                        <RouterLink
+                            :style="{ textDecoration: 'none' }"
+                            :to="`/projects/${project.id}`"
+                        >
+                            <NText>{{ project.name ?? project.id }}</NText>
+                        </RouterLink>
+                    </template>
                     <template #header-extra>
                         <NButtonGroup
                             size="small"
                         >
-                            <NButton
-                                @click="navigateToProject(project)"
-                            >
-                                View
-                            </NButton>
                             <NTooltip
                                 :delay="1000"
                             >

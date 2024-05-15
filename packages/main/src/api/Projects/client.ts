@@ -12,10 +12,21 @@ export interface StatusChange {
     status: Av1anStatus;
 }
 
+export interface TaskLog {
+    projectId: Project['id'];
+    taskId: Task['id'];
+    log: string;
+}
+
 const customApi = {
     'task-status': async (callback: (status: StatusChange) => void) => {
         ipcRenderer.on('task-status', (_event, status: StatusChange) => {
             callback(status);
+        });
+    },
+    'task-log': async (callback: (log: TaskLog) => void) => {
+        ipcRenderer.on('task-log', (_event, log: TaskLog) => {
+            callback(log);
         });
     },
 };
@@ -88,6 +99,10 @@ export const api = {
     'task-delete-temporary-files': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['task-delete-temporary-files']>>) => {
         return ipcRenderer.invoke('task-delete-temporary-files', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['task-delete-temporary-files']>>;
+    },
+    'task-get-av1an-temporary-log-file': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['task-get-av1an-temporary-log-file']>>) => {
+        return ipcRenderer.invoke('task-get-av1an-temporary-log-file', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['task-get-av1an-temporary-log-file']>>;
     },
     ...customApi,
 } satisfies ClientAPI<ReturnType<typeof registerSDK>> & typeof customApi;

@@ -67,6 +67,14 @@ export function registerSDK(window: BrowserWindow) {
                 });
             });
 
+            av1an.on('log', (log: string) => {
+                window.webContents.send('task-log', {
+                    projectId: task.projectId,
+                    taskId: task.id,
+                    log,
+                });
+            });
+
             try {
                 await av1an.start();
             } catch (error) {
@@ -115,6 +123,12 @@ export function registerSDK(window: BrowserWindow) {
         'task-delete-temporary-files': async (_event: IpcMainInvokeEvent, task: Task) => {
             // Delete temp folder parent folder
             await fs.promises.rm(path.resolve(task.item.Av1an.temporary.path, '..'), { recursive: true, force: true });
+        },
+        'task-get-av1an-temporary-log-file': async (_event: IpcMainInvokeEvent, task: Task) => {
+            if (!fs.existsSync(task.item.Av1an.temporary.path)) {
+                return '';
+            }
+            return fs.promises.readFile(path.resolve(task.item.Av1an.temporary.path, 'log.log'), 'utf-8');
         },
     } satisfies ClientSDK;
 }

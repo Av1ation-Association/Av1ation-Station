@@ -78,6 +78,7 @@ export class Av1an extends EventEmitter {
     private temporaryFolderWatcher?: Watcher;
     private totalFrames = 0;
     private chunks: Chunk[] = [];
+    private log: string = '';
     private previouslyCompletedChunkIds: string[] = [];
     private recentlyCompletedChunkIds: string[] = [];
 
@@ -535,6 +536,7 @@ export class Av1an extends EventEmitter {
                 const temporaryPath = this.options.temporary.path;
                 const doneJsonFilePath = path.resolve(temporaryPath, 'done.json');
                 const chunksJsonFilePath = path.resolve(temporaryPath, 'chunks.json');
+                const logFilePath = path.resolve(temporaryPath, 'log.log');
 
                 // Instantiate chunks.json and done.json in case temporary folder already exists (resuming a previous run)
                 if (fs.existsSync(chunksJsonFilePath)) {
@@ -544,6 +546,9 @@ export class Av1an extends EventEmitter {
                     const { frames, done } = parseDoneJsonFile(doneJsonFilePath);
                     this.totalFrames = frames;
                     this.previouslyCompletedChunkIds = Object.keys(done);
+                }
+                if (fs.existsSync(logFilePath)) {
+                    this.log = fs.readFileSync(logFilePath, 'utf-8');
                 }
 
                 // Watch the done.json file and check for new chunks
@@ -612,6 +617,8 @@ export class Av1an extends EventEmitter {
                     } else if (targetEvent === 'add' && targetPath === chunksJsonFilePath) {
                         // Instantiate and parse newly created chunks.json
                         this.chunks = parseChunksJsonFile(chunksJsonFilePath);
+                    } else if (targetEvent === 'change' && targetPath === logFilePath) {
+                        this.log = fs.readFileSync(logFilePath, 'utf-8');
                     }
                 });
             }

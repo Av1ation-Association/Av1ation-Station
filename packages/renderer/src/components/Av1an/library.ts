@@ -16,9 +16,10 @@ import { getComponents as getSVTAV1SpecificComponents } from './SVT/SVTAV1Specif
 export interface FormInputComponent {
     label: string;
     path: string;
+    advanced?: boolean;
     component: VNode;
-    disable: () => void;
-    disabled: () => boolean;
+    disable?: () => void;
+    disabled?: () => boolean;
     reset: () => void;
 }
 

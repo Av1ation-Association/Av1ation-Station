@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { h, onBeforeUnmount, onMounted, ref } from 'vue';
+import { h, onBeforeUnmount, onMounted, ref, toRaw } from 'vue';
+import { storeToRefs } from 'pinia';
 import {
     NDropdown,
     type DropdownOption,
@@ -17,7 +18,6 @@ import {
 import {
     VolumeFileStorage as RevealIcon,
     TrashCan as DeleteIcon,
-    Copy as DuplicateIcon,
     OverflowMenuVertical,
     TagEdit as EditNameIcon,
 } from '@vicons/carbon';
@@ -25,25 +25,15 @@ import { type Project } from '../../../../main/src/data/Configuration/Projects';
 import { useProjectsStore } from '../../stores/projects';
 
 const projectsStore = useProjectsStore();
+const { projects } = storeToRefs(projectsStore);
 
 const { projectId } = defineProps<{
     projectId: Project['id'];
 }>();
 
 const projectIndex = projectsStore.projects.findIndex(project => project.id === projectId);
-const project = projectsStore.projects[projectIndex];
 
 const dropdownOptions: DropdownOption[] = [
-    {
-        label: 'Open File Location',
-        key: 'reveal',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
-    },
-    {
-        label: 'Duplicate',
-        key: 'duplicate',
-        icon: () => h(NIcon, null, { default: () => h(DuplicateIcon) }),
-    },
     {
         label: 'Delete',
         key: 'delete',
@@ -52,14 +42,8 @@ const dropdownOptions: DropdownOption[] = [
 ];
 async function handleDropdownSelect(key: string) {
     switch (key) {
-        case 'reveal':
-            await revealFileLocation();
-            break;
-        case 'duplicate':
-            console.log('DUPLICATE: ', project.path);
-            break;
         case 'delete':
-            console.log('DELETE: ', project.path);
+            console.log('DELETE:');
             break;
         default:
             break;
@@ -67,16 +51,15 @@ async function handleDropdownSelect(key: string) {
 }
 
 async function revealFileLocation() {
-    await window.configurationsApi['show-file'](`${project.path}`);
+    await window.configurationsApi['show-file'](`${projectsStore.projects[projectIndex].path}`);
 }
 
 async function updateName(name: string) {
     if (!name) {
-        delete project.name;
+        delete projectsStore.projects[projectIndex].name;
     }
 
-    // Template string avoids passing reactive property
-    await projectsStore.saveProject(`${project.id}`);
+    await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]));
 }
 
 const columnWidths = [600, 1200, 1800, 2400, 3000, 3600, 4200, 4800];
@@ -103,7 +86,7 @@ onBeforeUnmount(() => {
 
 <template>
     <NCard
-        :title="`${project.name ?? project.id} Details`"
+        :title="`${projects[projectIndex].name ?? projects[projectIndex].id} Details`"
     >
         <template #header-extra>
             <NDropdown
@@ -131,7 +114,7 @@ onBeforeUnmount(() => {
             <NDescriptionsItem
                 label="Id"
             >
-                {{ project.id }}
+                {{ projects[projectIndex].id }}
             </NDescriptionsItem>
             <NDescriptionsItem
                 label="Name"
@@ -141,7 +124,7 @@ onBeforeUnmount(() => {
                     :wrap="false"
                 >
                     <NInput
-                        v-model:value="project.name"
+                        v-model:value="projects[projectIndex].name"
                         placeholder="Enter new name"
                         :on-change="updateName"
                     >
@@ -161,7 +144,7 @@ onBeforeUnmount(() => {
                     :wrap="false"
                 >
                     <NInput
-                        v-model:value="project.path"
+                        v-model:value="projects[projectIndex].path"
                         readonly
                     />
                     <NTooltip>
@@ -184,6 +167,7 @@ onBeforeUnmount(() => {
             </NDescriptionsItem>
             <NDescriptionsItem
                 label="Created"
+                :span=".5"
             >
                 <NPopover
                     trigger="hover"
@@ -191,18 +175,19 @@ onBeforeUnmount(() => {
                 >
                     <template #trigger>
                         <NTime
-                            :time="new Date(project.createdAt)"
+                            :time="new Date(projects[projectIndex].createdAt)"
                             :to="new Date()"
                             type="relative"
                         />
                     </template>
                     <NTime
-                        :time="new Date(project.createdAt)"
+                        :time="new Date(projects[projectIndex].createdAt)"
                     />
                 </NPopover>
             </NDescriptionsItem>
             <NDescriptionsItem
                 label="Last Updated"
+                :span=".5"
             >
                 <NPopover
                     trigger="hover"
@@ -210,13 +195,13 @@ onBeforeUnmount(() => {
                 >
                     <template #trigger>
                         <NTime
-                            :time="new Date(project.updatedAt)"
+                            :time="new Date(projects[projectIndex].updatedAt)"
                             :to="new Date()"
                             type="relative"
                         />
                     </template>
                     <NTime
-                        :time="new Date(project.updatedAt)"
+                        :time="new Date(projects[projectIndex].updatedAt)"
                     />
                 </NPopover>
             </NDescriptionsItem>

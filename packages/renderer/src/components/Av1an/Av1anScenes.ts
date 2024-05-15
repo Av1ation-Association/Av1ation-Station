@@ -1,8 +1,12 @@
 import {
     type Ref,
     h,
+    toRaw,
 } from 'vue';
 import {
+    NButton,
+    NInput,
+    NInputGroup,
     NInputNumber,
     NSelect,
     NSwitch,
@@ -17,8 +21,9 @@ import {
 } from '../../../../main/src/data/Av1an/Types/Options';
 import { type FormInputComponent } from './library';
 import { type Task } from '../../../../main/src/data/Configuration/Projects';
+import { useProjectsStore } from '../../stores/projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration, task?: Task): FormInputComponent[] {
     const splitMethod: FormInputComponent = {
         label: 'Split Method',
         path: 'splitMethod',
@@ -64,6 +69,84 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
             delete formValueRef.value.scenes?.splitMethod;
         },
     };
+
+    let sceneFilePath: FormInputComponent | undefined = undefined;
+
+    if (task) {
+        sceneFilePath = {
+            label: 'Scene Detection File Path',
+            path: 'scenes.path',
+            component: h(
+                NInputGroup,
+                undefined,
+                () => [
+                    h(
+                        NInput, {
+                            value: formValueRef.value.vmaf?.path,
+                            clearable: true,
+                            onUpdateValue: (value) => {
+                                if (!formValueRef.value.scenes) {
+                                    formValueRef.value.scenes = {};
+                                }
+    
+                                if (value) {
+                                    formValueRef.value.scenes.path = value;
+                                }
+                            },
+                            placeholder: formValueRef.value.scenes?.path ?? 'Scene Detection File Path',
+                            defaultValue: formValueRef.value.scenes?.path ?? undefined,
+                            onClear: async () => {
+                                const projectsStore = useProjectsStore();
+                                const projectIndex = projectsStore.projects.findIndex(p => p.id === task.projectId);
+                                const taskIndex = projectsStore.projects[projectIndex].tasks.findIndex(pTask => pTask.id === task.id);
+                                // Reset to default
+                                const { scenesFilePath } = await projectsStore.buildDefaultTaskPaths(toRaw(projectsStore.projects[projectIndex]), projectsStore.projects[projectIndex].tasks[taskIndex].id, projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an.input);
+
+                                if (!formValueRef.value.scenes) {
+                                    formValueRef.value.scenes = {};
+                                }
+
+                                formValueRef.value.scenes.path = scenesFilePath;
+                            },
+                        },
+                    ),
+                    h(
+                        NButton,
+                        {
+                            type: 'primary',
+                            onClick: async () => {
+                                const defaultPath = formValueRef.value.scenes?.path;
+                                const sceneDetectionFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Av1an Scene Detection File');
+                                if (sceneDetectionFilePath) {
+                                    if (!formValueRef.value.scenes) {
+                                        formValueRef.value.scenes = {};
+                                    }
+
+                                    formValueRef.value.scenes.path = sceneDetectionFilePath;
+                                }
+                            },
+                        },
+                        () => [
+                            'Select',
+                        ],
+                    ),
+                ],
+            ),
+            reset: async () => {
+                const projectsStore = useProjectsStore();
+                const projectIndex = projectsStore.projects.findIndex(p => p.id === task.projectId);
+                const taskIndex = projectsStore.projects[projectIndex].tasks.findIndex(pTask => pTask.id === task.id);
+                // Reset to default
+                const { scenesFilePath } = await projectsStore.buildDefaultTaskPaths(toRaw(projectsStore.projects[projectIndex]), projectsStore.projects[projectIndex].tasks[taskIndex].id, projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an.input);
+
+                if (!formValueRef.value.scenes) {
+                    formValueRef.value.scenes = {};
+                }
+
+                formValueRef.value.scenes.path = scenesFilePath;
+            },
+        };
+    }
 
     const detectionOnly: FormInputComponent = {
         label: 'Run Scene Detection Only',
@@ -408,6 +491,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
 
     return [
         splitMethod,
+        ...(sceneFilePath ? [sceneFilePath] : []),
         detectionOnly,
         detectionMethod,
         detectionDownscaleHeight,

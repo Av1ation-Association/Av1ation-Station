@@ -171,6 +171,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const skip = {
         label: 'Skip (Frames)',
         path: 'encoding.skip',
+        advanced: true,
         component: h(
             NInputNumber,
             {
@@ -219,6 +220,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const bufferedInput = {
         label: 'Buffered Input',
         path: 'encoding.nb',
+        advanced: true,
         component: h(
             NInputNumber,
             {
@@ -367,6 +369,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const enableStatReport = {
         label: 'Enable Stat Report',
         path: `encoding['enable-stat-report']`,
+        advanced: true,
         component: h(
             NSelect,
             {

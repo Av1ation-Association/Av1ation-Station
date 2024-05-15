@@ -1,5 +1,6 @@
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import {
     type BrowserWindow,
     type IpcMainInvokeEvent,
@@ -75,6 +76,9 @@ export function registerSDK(browserWindow: BrowserWindow) {
         'save-file': async (_event: IpcMainInvokeEvent, defaultPath?: string, title?: string, filters?: Electron.FileFilter[]) => {
             const { filePath } = await dialog.showSaveDialog(browserWindow, { title, defaultPath, ...(filters && { filters }) });
             return filePath;
+        },
+        'move-file': async (_event: IpcMainInvokeEvent, oldPath: string, newPath: string) => {
+            return fs.promises.rename(oldPath, newPath);
         },
         'get-cpu': (_event: IpcMainInvokeEvent) => {
             const cpus = os.cpus();

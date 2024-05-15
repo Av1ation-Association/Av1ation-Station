@@ -42,7 +42,8 @@ export interface Preferences {
     defaults: {
         [path: string]: 'none' | 'pinned' | 'hidden';
     };
-    showHidden: boolean;
+    showHidden?: boolean;
+    showAdvanced?: boolean;
 }
 
 export interface Configuration {

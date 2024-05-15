@@ -13,6 +13,7 @@ export interface Task {
     projectId: Project['id'];
     inputFileName: string;
     outputFileName: string;
+    outputFileOveridden: boolean;
     totalFrames: number;
     statusHistory: Av1anStatus[];
     item: {
@@ -78,12 +79,18 @@ export class ProjectManager {
     // Create a new project
     public createProject(projectPath?: Project['path'], projectName?: Project['name']) {
         const id = crypto.randomUUID();
+        const { input, output, temporary } = ConfigurationManager.instance.configuration.defaults.Av1an;
         const project: Project = {
             id,
             name: projectName,
             path: projectPath ?? path.resolve(this.projectsFolder, `${id}.json`),
-            defaults: ConfigurationManager.instance.configuration.defaults,
-            preferences: ConfigurationManager.instance.configuration.preferences,
+            defaults: {
+                Av1an: { input, output, temporary },
+                Av1anCustom: {},
+            },
+            preferences: {
+                defaults: {},
+            },
             tasks: [],
             createdAt: new Date(),
             updatedAt: new Date(),

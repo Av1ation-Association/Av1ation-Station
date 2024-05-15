@@ -6,6 +6,9 @@ import {
     NSelect,
     NInput,
     NSwitch,
+    NSlider,
+    NInputGroup,
+    NButton,
 } from 'naive-ui';
 import {
     type PartialChildren,
@@ -157,6 +160,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const force = {
         label: 'Force',
         path: 'encoding.force',
+        advanced: true,
         component: h(
             NSwitch,
             {
@@ -239,11 +243,106 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         },
     };
 
+    const photonNoise = {
+        label: 'Photon Noise',
+        path: 'photonNoise',
+        component: h(
+            NSlider,
+            {
+                value: formValueRef.value.photonNoise ?? undefined,
+                min: 0,
+                max: 63,
+                step: 1,
+                defaultValue: parentAv1anValue?.photonNoise ?? undefined,
+                onUpdateValue: (value?: number) => {
+                    if (value !== null) {
+                        if (parentAv1anValue?.photonNoise === value) {
+                            delete formValueRef.value.photonNoise;
+                        } else {
+                            formValueRef.value.photonNoise = value;
+                        }
+                    }
+                },
+            },
+        ),
+        disable: () => {
+            formValueRef.value.photonNoise = null;
+        },
+        disabled: () => {
+            return formValueRef.value.photonNoise === null;
+        },
+        reset: () => {
+            delete formValueRef.value.photonNoise;
+        },
+    };
+
+    const zones = {
+        label: 'Zones',
+        path: 'zones',
+        component: h(
+            NInputGroup,
+            undefined,
+            () => [
+                h(
+                    NInput, {
+                        value: formValueRef.value.zones,
+                        clearable: true,
+                        onUpdateValue: (value) => {
+                            if (value) {
+                                if (parentAv1anValue?.zones === value) {
+                                    delete formValueRef.value.zones;
+                                } else {
+                                    formValueRef.value.zones = value;
+                                }
+                            }
+                        },
+                        placeholder: 'Zones File Path',
+                        defaultValue: parentAv1anValue?.zones,
+                        onClear: () => {
+                            delete formValueRef.value.zones;
+                        },
+                    },
+                ),
+                h(
+                    NButton,
+                    {
+                        type: 'primary',
+                        onClick: async () => {
+                            const defaultPath = formValueRef.value.zones; // TODO: fallback to output directory
+                            const zonesFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'VMAF Model');
+                            if (zonesFilePath) {
+                                if (parentAv1anValue?.zones === zonesFilePath) {
+                                    delete formValueRef.value.zones;
+                                } else {
+                                    formValueRef.value.zones = zonesFilePath;
+                                }
+                            }
+                        },
+                    },
+                    () => [
+                        'Select',
+                    ],
+                ),
+            ],
+        ),
+        disable: () => {
+            formValueRef.value.zones = null;
+        },
+        disabled: () => {
+            return formValueRef.value.zones === null;
+        },
+        reset: () => {
+            delete formValueRef.value.zones;
+        },
+    };
+
     return [
         encoder,
         force,
         passes,
         ffmpegFilterOptions,
         ffmpegAudioParameters,
+        photonNoise,
+        zones,
     ];
 }

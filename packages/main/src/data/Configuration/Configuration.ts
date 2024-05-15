@@ -29,6 +29,7 @@ const defaultConfig: Configuration = {
     preferences: {
         defaults: {},
         showHidden: false,
+        showAdvanced: false,
     },
 };
 

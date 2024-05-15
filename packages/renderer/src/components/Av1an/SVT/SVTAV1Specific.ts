@@ -221,6 +221,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                 options: [
                     { label: 'Disabled (0)', value: 0 },
                     { label: 'Enabled (1)', value: 1 },
+                    { label: 'Improved (2) (PSY Only)', value: 2 },
                 ],
                 onUpdateValue: (value) => {
                     if (!formValueRef.value.encoding) {
@@ -366,6 +367,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const enableTpl = {
         label: 'Temporal Dependency Model',
         path: `encoding['enable-tpl-la']`,
+        advanced: true,
         component: h(
             NSelect,
             {
@@ -417,6 +419,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
     const enableMfmv = {
         label: 'Motion Field Motion Vector',
         path: `encoding['enable-mfmv']`,
+        advanced: true,
         component: h(
             NSelect,
             {

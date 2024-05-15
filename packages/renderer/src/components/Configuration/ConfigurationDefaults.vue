@@ -23,15 +23,19 @@ import {
     NTooltip,
     NH3,
     NH4,
+    NModal,
 } from 'naive-ui';
 import {
-    VolumeFileStorage as RevealIcon,
     OverflowMenuVertical,
-    // Reset as ResetIcon,
     Delete as RemoveIcon,
+    SaveAnnotation as ApplyChangesIcon,
     ErrorOutline as DisableIcon,
     Edit as EditIcon,
     Reset as ResetIcon,
+    ResetAlt as ResetConfigIcon,
+    Copy as CopyIcon,
+    DataViewAlt as PreviewCommandIcon,
+    SettingsView as AdvancedParametersIcon,
 } from '@vicons/carbon';
 import {
     Av1anInputLocationType,
@@ -62,7 +66,7 @@ import DefaultsFormGrid from './DefaultsFormGrid.vue';
 const configStore = useGlobalStore();
 const projectsStore = useProjectsStore();
 const { config } = storeToRefs(configStore);
-// const { projects } = storeToRefs(projectsStore);
+const { projects } = storeToRefs(projectsStore);
 
 const { projectId, taskId } = defineProps<{
     projectId?: Project['id'];
@@ -74,55 +78,121 @@ const project = projectsStore.projects[projectIndex];
 const taskIndex = projectIndex !== -1 ? projectsStore.projects[projectIndex].tasks.findIndex(t => t.id === taskId) : -1;
 const task = taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined;
 
+const showAv1anCommandModal = ref(false);
+const showAv1anPrintFriendlyCommand = ref(false);
+let av1anCommand: Awaited<ReturnType<typeof window.projectsApi['build-task-av1an-arguments']>> = { arguments: [], printFriendlyArguments: [] };
 const formGridColumnSize = '1 400:2 800:3 1200:4 1600:5 2400:6 3000:7 3600:8';
+
+// #region Dropdown
 
 const dropdownOptions: DropdownOption[] = [
     {
         label: 'Preview Av1an Command',
         key: 'preview',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
-    },
-    {
-        label: 'Revert Changes',
-        key: 'revert',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
+        icon: () => h(NIcon, null, { default: () => h(PreviewCommandIcon) }),
     },
     {
         label: 'Reset Configuration',
         key: 'reset',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
+        icon: () => h(NIcon, null, { default: () => h(ResetConfigIcon) }),
     },
     {
-        label: 'Reset Favorites',
-        key: 'reset-favorites',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
-    },
-    {
-        label: 'Show Hidden',
-        key: 'show-hidden',
-        icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
+        label: `Show/Hide Advanced Parameters`,
+        key: 'show-advanced',
+        icon: () => h(NIcon, null, { default: () => h(AdvancedParametersIcon) }),
     },
 ];
 async function handleDropdownSelect(key: string) {
     switch (key) {
-        case 'preview':
+        case 'preview': {
+            if (task) {
+                const simulatedTask: Task = {
+                    ...task,
+                    item: {
+                        Av1an: toRaw(av1anFormValue.value) as Task['item']['Av1an'],
+                        Av1anCustom: toRaw(customAv1anParameters.value),
+                    },
+                };
+
+                // Build Av1an Command
+                const av1anOptions = projectsStore.buildTaskAv1anOptions(simulatedTask);
+                if (!av1anOptions) {
+                    return;
+                }
+
+                av1anCommand = await window.projectsApi['build-task-av1an-arguments'](av1anOptions);
+            } else {
+                const simulatedTaskOptions = {
+                    input: '{INPUT}',
+                    output: '{OUTPUT}',
+                    temporary: {
+                        path: '{TEMPORARY}',
+                        keep: true,
+                        resume: true,
+                    },
+                } as unknown as Task['item']['Av1an'];
+
+                // Build Av1an Command
+                if (project) {
+                    const { input: _configInput, output: _configOutput, temporary: _configTemporary, ...configDefaults } = toRaw(configStore.config.defaults.Av1an);
+                    const { input: _projectInput, output: _projectOutput, temporary: _projectTemporary, ...projectDefaults } = toRaw(defaultsFormValue.value);
+                    const configOptions = projectsStore.applyAv1anOptions(simulatedTaskOptions, configDefaults);
+                    const customConfigOptions = projectsStore.applyAv1anOptions(configOptions, toRaw(configStore.config.defaults.Av1anCustom));
+                    const projectOptions = projectsStore.applyAv1anOptions(customConfigOptions, projectDefaults);
+                    const customProjectOptions = projectsStore.applyAv1anOptions(projectOptions, toRaw(customAv1anParameters.value));
+                    av1anCommand = await window.projectsApi['build-task-av1an-arguments'](customProjectOptions);
+                } else {
+                    const { input: _configInput, output: _configOutput, temporary: _configTemporary, ...configDefaults } = toRaw(defaultsFormValue.value);
+                    const configOptions = projectsStore.applyAv1anOptions(simulatedTaskOptions, configDefaults);
+                    const customConfigOptions = projectsStore.applyAv1anOptions(configOptions, toRaw(customAv1anParameters.value));
+
+                    av1anCommand = await window.projectsApi['build-task-av1an-arguments'](customConfigOptions);
+                }
+            }
+            showAv1anCommandModal.value = true;
             // Preview Av1an Command (Modal with textarea + copy to clipboard button?)
             break;
-        case 'revert':
-            // Clear defaultsFormValue
+        }
+        case 'reset': {
+            // Reset form
+            if (task) {
+                av1anFormValue.value = {
+                    input: task.item.Av1an.input,
+                    output: task.item.Av1an.output,
+                    temporary: task.item.Av1an.temporary,
+                    scenes: {
+                        path: task.item.Av1an.scenes?.path,
+                    },
+                };
+            } else {
+                defaultsFormValue.value = {
+                    input: {
+                        type: Av1anInputLocationType.Videos,
+                    },
+                    output: {
+                        type: Av1anOutputLocationType.InputAdjacent,
+                    },
+                    temporary: {
+                        type: Av1anTemporaryLocationType.InputAdjacentAv1anFolder,
+                    },
+                };
+            }
+            customAv1anParameters.value = {};
+
+            // Save defaults
+            await saveDefaultsConfig();
             break;
-        case 'reset':
-            // Clear defaultsFormValue and delete config/project defaults
-            break;
-        case 'reset-favorites':
-            // Clear preferences.defaults
-            break;
-        case 'show-hidden':
+        }
+        case 'show-advanced':
+            configStore.config.preferences.showAdvanced = !configStore.config.preferences.showAdvanced;
+            await window.configurationsApi['save-config']();
             break;
         default:
             break;
     }
 }
+
+// #endregion Dropdown
 
 const defaultsForm = ref<FormInst>();
 const defaultsFormRules = ref<FormRules>({
@@ -219,22 +289,26 @@ async function saveDefaultsConfig() {
     }
 
     if (task) {
-        task.item.Av1an = toRaw(av1anFormValue.value) as Task['item']['Av1an'];
-        task.item.Av1anCustom = toRaw(customAv1anParameters.value);
+        projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an = toRaw(av1anFormValue.value) as Task['item']['Av1an'];
+        projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1anCustom = toRaw(customAv1anParameters.value);
 
         // Save Project File
-        await projectsStore.saveProject(toRaw(project), false);
+        await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]), false);
     } else {
-        (project ?? configStore.config).defaults.Av1an = toRaw(defaultsFormValue.value) as Av1anConfiguration;
-        (project ?? configStore.config).defaults.Av1anCustom = toRaw(customAv1anParameters.value);
+        (project ? projectsStore.projects[projectIndex] : configStore.config).defaults.Av1an = toRaw(defaultsFormValue.value) as Av1anConfiguration;
+        (project ? projectsStore.projects[projectIndex] : configStore.config).defaults.Av1anCustom = toRaw(customAv1anParameters.value);
 
         if (project) {
             // Save Project File
-            await projectsStore.saveProject(project);
+            await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]));
         } else {
             await window.configurationsApi['save-config']();
         }
     }
+}
+
+async function copyToClipboard(text: string) {
+    await window.configurationsApi['copy-to-clipboard'](text);
 }
 
 </script>
@@ -244,11 +318,22 @@ async function saveDefaultsConfig() {
         :title="`Default Configurations`"
     >
         <template #header-extra>
-            <NButton
-                @click="saveDefaultsConfig"
+            <NTooltip
+                :delay="500"
             >
-                Save
-            </NButton>
+                <template #trigger>
+                    <NButton
+                        @click="saveDefaultsConfig"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <ApplyChangesIcon />
+                            </NIcon>
+                        </template>
+                    </NButton>
+                </template>
+                Apply Changes
+            </NTooltip>
             <NDropdown
                 trigger="click"
                 :options="dropdownOptions"
@@ -435,11 +520,11 @@ async function saveDefaultsConfig() {
                     <DefaultsFormGrid
                         :model-value="{
                             defaultsFormValue: task ? av1anFormValue : defaultsFormValue,
-                            project,
+                            project: project ? projects[projectIndex] : undefined,
                         }"
                         :sections="[
                             { label: 'General', formInputComponents: getAv1anGeneralComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
-                            { label: 'Scenes', formInputComponents: getAv1anScenesComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
+                            { label: 'Scenes', formInputComponents: getAv1anScenesComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue, toRaw(task)) },
                             { label: 'Chunking', formInputComponents: getAv1anChunkingComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
                             { label: 'VMAF', formInputComponents: getAv1anVMAFComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
                             { label: 'Target Quality', formInputComponents: getAv1anTargetQualityComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
@@ -537,6 +622,7 @@ async function saveDefaultsConfig() {
                         <NFormItemGridItem
                             :label="`Add Custom Encoder Parameter`"
                             :path="`addCustomEncoding`"
+                            :span="2"
                         >
                             <NInputGroup>
                                 <NInput
@@ -665,7 +751,7 @@ async function saveDefaultsConfig() {
                     </NGrid>
                 </NTabPane>
                 <template
-                    v-if="task && av1anFormValue.encoding?.encoder ? av1anFormValue.encoding.encoder === 'svt-av1' : defaultsFormValue.encoding?.encoder === 'svt-av1'"
+                    v-if="({ ...parentAv1anValue.encoding, ...defaultsFormValue.encoding } as typeof defaultsFormValue.encoding).encoder && ({ ...parentAv1anValue.encoding, ...defaultsFormValue.encoding } as typeof defaultsFormValue.encoding).encoder === 'svt-av1'"
                 >
                     <NTabPane
                         name="svt"
@@ -674,7 +760,7 @@ async function saveDefaultsConfig() {
                         <DefaultsFormGrid
                             :model-value="{
                                 defaultsFormValue: task ? av1anFormValue : defaultsFormValue,
-                                project,
+                                project: project ? projects[projectIndex] : undefined,
                             }"
                             :sections="[
                                 { label: 'General', formInputComponents: getSVTGeneralComponents(task ? wrappedRef.av1anFormValue : wrappedRef.defaultsFormValue, parentAv1anValue) },
@@ -689,4 +775,44 @@ async function saveDefaultsConfig() {
             </NTabs>
         </NForm>
     </NCard>
+    <NModal
+        v-model:show="showAv1anCommandModal"
+        preset="card"
+        title="Av1an Command"
+        :style="{ width: '65%', height: '65%' }"
+    >
+        <template #header-extra>
+            <NButton
+                size="small"
+                secondary
+                @click="() => {
+                    showAv1anPrintFriendlyCommand = !showAv1anPrintFriendlyCommand;
+                }"
+            >
+                Show {{ showAv1anPrintFriendlyCommand ? 'Unquoted' : 'Console-Friendly' }} Command
+            </NButton>
+        </template>
+        <NInput
+            :value="`av1an ${(showAv1anPrintFriendlyCommand ? av1anCommand.printFriendlyArguments : av1anCommand.arguments).join(' ')}`"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+            readonly
+        >
+            <template #suffix>
+                <NButton
+                    text
+                    @click="copyToClipboard(`av1an ${(showAv1anPrintFriendlyCommand ? av1anCommand.printFriendlyArguments : av1anCommand.arguments).join(' ')}`)"
+                >
+                    <NTooltip>
+                        <template #trigger>
+                            <NIcon
+                                :component="CopyIcon"
+                            />
+                        </template>
+                        Copy
+                    </NTooltip>
+                </NButton>
+            </template>
+        </NInput>
+    </NModal>
 </template>

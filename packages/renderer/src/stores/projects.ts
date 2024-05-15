@@ -1,13 +1,13 @@
+import { toRaw } from 'vue';
 import { defineStore } from 'pinia';
 // import { StartUpBehavior } from '../../../main/src/data/Configuration/Types/Configuration';
 import { type Project, type Task } from '../../../main/src/data/Configuration/Projects';
+import { type Av1anStatus } from '../../../main/src/utils/Av1an/Av1an';
 import { Av1anInputLocationType, Av1anOutputLocationType, Av1anTemporaryLocationType } from '../../../main/src/data/Configuration/Av1anConfiguration';
 import { useGlobalStore } from './global';
-import { toRaw } from 'vue';
 // import { type StatusChange } from '../../../main/src/api/Projects/client';
 
 export const useProjectsStore = defineStore('projects', {
-    
     state: () => {
         return {
             projects: [] as Project[],
@@ -18,33 +18,15 @@ export const useProjectsStore = defineStore('projects', {
                     status: 'idle' | 'paused' | 'processing' | 'done' | 'cancelled' | 'error';
                 };
             },
+            taskLogMap: {} as {
+                [projectId: Project['id']]: {
+                    [taskId: Task['id']]: string;
+                };
+            },
             taskStatusListenerRegistered: false,
         };
     },
     actions: {
-        // async getProject() {
-        //     const globalStore = useGlobalStore();
-        //     const config = await globalStore.getConfig();
-        //     const projectsSorted = config.recentlyOpenedProjects.sort((a, b) => b.accessedAt.getTime() - a.accessedAt.getTime());
-        //     let project = config.startUp.behavior === StartUpBehavior.OpenRecentProject && config.recentlyOpenedProjects.length > 0 ? await window.projectsApi['load-project'](projectsSorted[0].path) : undefined;
-
-        //     if (!project) {
-        //         project = await window.projectsApi['create-project']();
-        //         // Save the new project
-        //         await window.projectsApi['save-project'](project);
-        //         // Add to recently opened projects in the config
-        //         config.recentlyOpenedProjects.push({
-        //             id: project.id,
-        //             path: project.path,
-        //             name: project.name,
-        //             accessedAt: new Date(),
-        //         });
-        //         await globalStore.setConfig(config, true);
-        //     }
-
-        //     this.project = project;
-        //     return project;
-        // },
         async createProject() {
             const project = await window.projectsApi['create-project']();
             // Save the new project
@@ -61,14 +43,14 @@ export const useProjectsStore = defineStore('projects', {
         },
         async loadProject(projectPath: string) {
             const project = await window.projectsApi['load-project'](projectPath);
-            const config = await useGlobalStore().getConfig();
+            const configStore = useGlobalStore();
 
             if (project) {
-                const projectIndex = config.recentlyOpenedProjects.findIndex(recent => recent.id === project.id);
+                const projectIndex = configStore.config.recentlyOpenedProjects.findIndex(recent => recent.id === project.id);
 
                 if (projectIndex !== -1) {
                     // Update accessedAt
-                    config.recentlyOpenedProjects[projectIndex].accessedAt = new Date();
+                    configStore.config.recentlyOpenedProjects[projectIndex].accessedAt = new Date();
 
                     // Add 'paused' status to Tasks that were mid-encode when aborted
                     project.tasks = project.tasks.map(task => {
@@ -85,7 +67,7 @@ export const useProjectsStore = defineStore('projects', {
                         const lastStatus = task.statusHistory[task.statusHistory.length - 1];
 
                         if (['encoding', 'scene-detection'].includes(lastStatus.state)) {
-                            task.statusHistory.push({ state: 'paused', time: new Date() });
+                            task.statusHistory.push({ state: 'cancelled', time: new Date() });
                         }
 
                         return task;
@@ -95,7 +77,7 @@ export const useProjectsStore = defineStore('projects', {
                     this.projects[projectIndex] = project;
                     await this.saveProject(project, false);
                 } else {
-                    config.recentlyOpenedProjects.push({
+                    configStore.config.recentlyOpenedProjects.push({
                         id: project.id,
                         path: project.path,
                         name: project.name,
@@ -104,7 +86,7 @@ export const useProjectsStore = defineStore('projects', {
                 }
 
                 // Save the updated config
-                (await useGlobalStore()).setConfig(config, true);
+                await configStore.setConfig(toRaw(configStore.config), true);
             }
 
             return project;
@@ -163,21 +145,15 @@ export const useProjectsStore = defineStore('projects', {
             // Remove project from projects
             this.projects.splice(this.projects.findIndex(p => p.id === project.id), 1);
         },
-        async createTasks(projectProxy: Project) {
-            const config = toRaw((await useGlobalStore()).config);
-            const project = toRaw(projectProxy);
-            const defaultInput = project.defaults.Av1an.input.type ?? config.defaults.Av1an.input.type;
-            // Tremendous Ternary
-            const initialPath = defaultInput === Av1anInputLocationType.Videos
-                ? await window.configurationsApi['get-path']('videos')
-                : defaultInput === Av1anInputLocationType.Downloads
-                    ? await window.configurationsApi['get-path']('downloads')
-                    : defaultInput === Av1anInputLocationType.Desktop
-                        ? await window.configurationsApi['get-path']('desktop')
-                        : defaultInput === Av1anInputLocationType.Custom
-                            ? project.defaults.Av1an.input.customFolder ?? config.defaults.Av1an.input.customFolder
-                            : project.path;
+        async createTasks(project: Project) {
+            const projectIndex = this.projects.findIndex(p => p.id === project.id);
 
+            // Typeguard - Should not occur
+            if (projectIndex === -1) {
+                return Promise.resolve();
+            }
+
+            const initialPath = await this.getDefaultTaskInputDirectory(project);
             const inputFilePaths = await window.configurationsApi['open-file'](initialPath, 'Av1an Input', undefined, ['multiSelections']);
 
             if (inputFilePaths === undefined || inputFilePaths.length === 0) {
@@ -185,66 +161,16 @@ export const useProjectsStore = defineStore('projects', {
             }
 
             const tasks = await Promise.all(inputFilePaths.map(async inputFilePath => {
-                const inputFileDirectory = await window.configurationsApi['path-dirname'](inputFilePath);
+                const newTask = await window.projectsApi['create-queue-item']();
                 const inputFileName = await window.configurationsApi['path-basename'](inputFilePath, true);
-    
-                const defaultOutput = project.defaults.Av1an.output.type ?? config.defaults.Av1an.output.type;
-                let outputFilePath: string;
-                const outputFileExtension = project.defaults.Av1an.output.extension ?? config.defaults.Av1an.output.extension;
-    
-                // Splendiferous Switch - But which is best?
-                switch (defaultOutput) {
-                    case Av1anOutputLocationType.InputAdjacent:
-                        outputFilePath = await window.configurationsApi['resolve-path'](inputFileDirectory, `${inputFileName}.av1an.${outputFileExtension}`);
-                        break;
-                    case Av1anOutputLocationType.InputAdjacentAv1anFolder:
-                        outputFilePath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1an', `${inputFileName}.${outputFileExtension}`);
-                        break;
-                    case Av1anOutputLocationType.Videos: {
-                        const outputDirectory = await window.configurationsApi['get-path']('videos');
-                        outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
-                        break;
-                    }
-                    case Av1anOutputLocationType.Downloads: {
-                        const outputDirectory = await window.configurationsApi['get-path']('downloads');
-                        outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
-                        break;
-                    }
-                    case Av1anOutputLocationType.Desktop: {
-                        const outputDirectory = await window.configurationsApi['get-path']('desktop');
-                        outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
-                        break;
-                    }
-                    case Av1anOutputLocationType.Custom: {
-                        outputFilePath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.output.customFolder ?? config.defaults.Av1an.output.customFolder ?? inputFileDirectory, `${inputFileName}.${outputFileExtension}`);
-                        break;
-                    }
-                }
-    
-                const newQueueItem = await window.projectsApi['create-queue-item']();
-                let temporaryFolderPath: string;
-    
-                switch (project.defaults.Av1an.temporary.type ?? config.defaults.Av1an.temporary.type) {
-                    case Av1anTemporaryLocationType.InputAdjacentAv1anFolder:
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1ation Station', newQueueItem.id, 'temporary');
-                        break;
-                    case Av1anTemporaryLocationType.Av1ationStationDocumentsFolder:{
-                        const documentsFolder = await window.configurationsApi['get-path']('documents');
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](documentsFolder, 'Av1ation Station', newQueueItem.id, 'temporary');
-                        break;
-                    }
-                    case Av1anTemporaryLocationType.Custom:
-                        temporaryFolderPath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.temporary.customFolder ?? config.defaults.Av1an.temporary.customFolder ?? inputFileDirectory, 'Av1ation Station', newQueueItem.id, 'temporary');
-                        break;
-                }
-    
+                const { outputFilePath, temporaryFolderPath, scenesFilePath } = await this.buildDefaultTaskPaths(project, newTask.id, inputFilePath);
                 const outputFileName = await window.configurationsApi['path-basename'](outputFilePath, true);
-                const scenesFilePath = await window.configurationsApi['resolve-path'](temporaryFolderPath, '../scenes.json');
                 const task: Task = {
-                    ...newQueueItem,
+                    ...newTask,
                     projectId: project.id,
                     inputFileName,
                     outputFileName,
+                    outputFileOveridden: false,
                     totalFrames: 0,
                     statusHistory: [],
                     item: {
@@ -268,14 +194,91 @@ export const useProjectsStore = defineStore('projects', {
                 return Promise.resolve(task);
             }));
 
-            projectProxy.tasks.push(...tasks);
-            // this.projects[this.projects.findIndex(p => p.id === project.id)] = projectProxy;
+            this.projects[projectIndex].tasks.push(...tasks);
 
-            await this.saveProject(project);
+            await this.saveProject(toRaw(this.projects[projectIndex]));
 
             return tasks;
         },
-        async registerTaskStatusListener() {
+        async getDefaultTaskInputDirectory(project: Project) {
+            const configStore = useGlobalStore();
+
+            const defaultInput = project.defaults.Av1an.input.type ?? configStore.config.defaults.Av1an.input.type;
+            // Tremendous Ternary
+            return defaultInput === Av1anInputLocationType.Videos
+                ? await window.configurationsApi['get-path']('videos')
+                : defaultInput === Av1anInputLocationType.Downloads
+                    ? await window.configurationsApi['get-path']('downloads')
+                    : defaultInput === Av1anInputLocationType.Desktop
+                        ? await window.configurationsApi['get-path']('desktop')
+                        : defaultInput === Av1anInputLocationType.Custom
+                            ? project.defaults.Av1an.input.customFolder ?? configStore.config.defaults.Av1an.input.customFolder
+                            : project.path;
+        },
+        async buildDefaultTaskPaths(project: Project, taskId: Task['id'], inputFilePath: string) {
+            const configStore = useGlobalStore();
+            const projectIndex = this.projects.findIndex(p => p.id === project.id);
+            const inputFileDirectory = await window.configurationsApi['path-dirname'](inputFilePath ?? this.projects[projectIndex]);
+            const inputFileName = await window.configurationsApi['path-basename'](inputFilePath ?? this.projects[projectIndex], true);
+
+            const defaultOutput = this.projects[projectIndex].defaults.Av1an.output.type ?? configStore.config.defaults.Av1an.output.type;
+            let outputFilePath: string;
+            const outputFileExtension = this.projects[projectIndex].defaults.Av1an.output.extension ?? configStore.config.defaults.Av1an.output.extension;
+
+            // Splendiferous Switch - But which is best?
+            switch (defaultOutput) {
+                case Av1anOutputLocationType.InputAdjacent:
+                    outputFilePath = await window.configurationsApi['resolve-path'](inputFileDirectory, `${inputFileName}.av1an.${outputFileExtension}`);
+                    break;
+                case Av1anOutputLocationType.InputAdjacentAv1anFolder:
+                    outputFilePath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1an', `${inputFileName}.${outputFileExtension}`);
+                    break;
+                case Av1anOutputLocationType.Videos: {
+                    const outputDirectory = await window.configurationsApi['get-path']('videos');
+                    outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
+                    break;
+                }
+                case Av1anOutputLocationType.Downloads: {
+                    const outputDirectory = await window.configurationsApi['get-path']('downloads');
+                    outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
+                    break;
+                }
+                case Av1anOutputLocationType.Desktop: {
+                    const outputDirectory = await window.configurationsApi['get-path']('desktop');
+                    outputFilePath = await window.configurationsApi['resolve-path'](outputDirectory, `${inputFileName}.${outputFileExtension}`);
+                    break;
+                }
+                case Av1anOutputLocationType.Custom: {
+                    outputFilePath = await window.configurationsApi['resolve-path'](this.projects[projectIndex].defaults.Av1an.output.customFolder ?? configStore.config.defaults.Av1an.output.customFolder ?? inputFileDirectory, `${inputFileName}.${outputFileExtension}`);
+                    break;
+                }
+            }
+
+            let temporaryFolderPath: string;
+    
+            switch (project.defaults.Av1an.temporary.type ?? configStore.config.defaults.Av1an.temporary.type) {
+                case Av1anTemporaryLocationType.InputAdjacentAv1anFolder:
+                    temporaryFolderPath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1ation Station', taskId, 'temporary');
+                    break;
+                case Av1anTemporaryLocationType.Av1ationStationDocumentsFolder:{
+                    const documentsFolder = await window.configurationsApi['get-path']('documents');
+                    temporaryFolderPath = await window.configurationsApi['resolve-path'](documentsFolder, 'Av1ation Station', taskId, 'temporary');
+                    break;
+                }
+                case Av1anTemporaryLocationType.Custom:
+                    temporaryFolderPath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.temporary.customFolder ?? configStore.config.defaults.Av1an.temporary.customFolder ?? inputFileDirectory, 'Av1ation Station', taskId, 'temporary');
+                    break;
+            }
+
+            const scenesFilePath = await window.configurationsApi['resolve-path'](temporaryFolderPath, '../scenes.json');
+
+            return {
+                outputFilePath,
+                temporaryFolderPath,
+                scenesFilePath,
+            };
+        },
+        async registerTaskListeners() {
             await window.projectsApi['task-status'](async (status) => {
                 const projectIndex = this.projects.findIndex(p => p.id === status.projectId);
                 if (projectIndex === -1) {
@@ -301,7 +304,148 @@ export const useProjectsStore = defineStore('projects', {
                 await this.saveProject(toRaw(this.projects[projectIndex]), false);
             });
 
+            await window.projectsApi['task-log'](async (log) => {
+                const projectIndex = this.projects.findIndex(p => p.id === log.projectId);
+                if (projectIndex === -1) {
+                    return;
+                }
+                const taskIndex = this.projects[projectIndex].tasks.findIndex(t => t.id === log.taskId);
+                if (taskIndex === -1) {
+                    return;
+                }
+                this.taskLogMap[log.projectId][log.taskId] = log.log;
+            });
+
             this.taskStatusListenerRegistered = true;
+        },
+        buildTaskAv1anOptions(task: Task) {
+            const configStore = useGlobalStore();
+            const project = this.projects.find(p => p.id === task.projectId);
+
+            if (!project) {
+                return;
+            }
+
+            // Build Task Av1an Options
+            const {
+                input: _configInput,
+                output: _configOutput,
+                temporary: _configTemporary,
+                ...configDefaults
+            } = toRaw(configStore.config.defaults.Av1an);
+            const {
+                input: _projectInput,
+                output: _projectOutput,
+                temporary: _projectTemporary,
+                ...projectDefaults
+            } = toRaw(project.defaults.Av1an);
+
+            // Initial Av1an Options
+            const configOptions: Task['item']['Av1an'] = {
+                input: task.inputFileName,
+                output: task.outputFileName,
+                temporary: toRaw(task).item.Av1an.temporary,
+                ...configDefaults,
+            };
+            // Apply Av1an Defaults - Config -> Project -> Task
+            const configCustomOptions = this.applyAv1anOptions(configOptions, configStore.config.defaults.Av1anCustom);
+            const projectOptions = this.applyAv1anOptions(configCustomOptions, projectDefaults);
+            const projectCustomOptions = this.applyAv1anOptions(projectOptions, project.defaults.Av1anCustom);
+            const taskOptions = this.applyAv1anOptions(projectCustomOptions, task.item.Av1an);
+            const taskCustomOptions = this.applyAv1anOptions(taskOptions, task.item.Av1anCustom);
+
+            return taskCustomOptions;
+        },
+        applyAv1anOptions(options: Task['item']['Av1an'], av1anCustom: Record<string, unknown>) {
+            return Object.entries(av1anCustom).reduce((opts, [parameterName, parameterValue]) => {
+                if (parameterValue === null) {
+                    delete (opts as Record<string, unknown>)[parameterName];
+                } else if (typeof parameterValue === 'object') {
+                    if (!(parameterName in opts)) {
+                        (opts as Record<string, unknown>)[parameterName] = {};
+                    }
+                    Object.entries(parameterValue).forEach(([subParameterName, subParameterValue]) => {
+                        if (subParameterValue === null) {
+                            delete ((opts as Record<string, unknown>)[parameterName] as Record<string, unknown>)[subParameterName];
+                        } else {
+                            ((opts as Record<string, unknown>)[parameterName] as Record<string, unknown>)[subParameterName] = toRaw(subParameterValue);
+                        }
+                    });
+                } else {
+                    (opts as Record<string, unknown>)[parameterName] = parameterValue;
+                }
+    
+                return opts;
+            }, options);
+        },
+        async resetTask(task: Task, saveProject = true) {
+            const taskIndex = this.projects[this.projects.findIndex(p => p.id === task.projectId)].tasks.findIndex(pTask => pTask.id === task.id);
+
+            if (taskIndex === -1) {
+                return;
+            }
+
+            const projectIndex = this.projects.findIndex(p => p.id === task.projectId);
+            
+            // Reset total frames, Status History, and delete temporary files
+            this.projects[projectIndex].tasks[taskIndex].totalFrames = 0;
+            this.projects[projectIndex].tasks[taskIndex].statusHistory = [{
+                state: 'idle',
+                time: new Date(),
+            }];
+            await window.projectsApi['task-delete-temporary-files'](toRaw(this.projects[projectIndex].tasks[taskIndex]));
+            // Reset updatedAt
+            this.projects[projectIndex].tasks[taskIndex].updatedAt = new Date();
+        
+            // Save Project File
+            if (saveProject) {
+                await this.saveProject(toRaw(this.projects[projectIndex]), false);
+            }
+        },
+        taskProgressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 'warning' {
+            const lastStatus: Av1anStatus = task.statusHistory[task.statusHistory.length - 1];
+        
+            if (!lastStatus) {
+                return 'default';
+            }
+        
+            switch (lastStatus.state) {
+                case 'done':
+                    return 'success';
+                case 'cancelled':
+                    return 'warning';
+                case 'error':
+                    return 'error'; 
+                case 'idle':
+                    return 'info';
+                case 'scene-detection':
+                case 'encoding':
+                default:
+                    return 'default';
+            }
+        },
+        taskProgressPercentage(task: Task) {
+            const totalFramesCompleted = [...task.statusHistory].reverse().find(status => status.progress)?.progress?.framesCompleted ?? 0;
+
+            return (totalFramesCompleted / (task.totalFrames || 1)) * 100;
+        },
+        taskProgressEstimatedSeconds(task: Task) {
+            const lastStatus = [...task.statusHistory].reverse().find(status => status.progress);
+    
+            if (!lastStatus || !lastStatus.progress) {
+                return;
+            }
+
+            return lastStatus.progress.estimatedSeconds;
+        },
+        taskProgressETA(task: Task) {
+            const estimatedSeconds = this.taskProgressEstimatedSeconds(task);
+
+            if (!estimatedSeconds) {
+                return;
+            }
+
+            return new Date(Date.now() + (estimatedSeconds * 1000));
         },
     },
 });

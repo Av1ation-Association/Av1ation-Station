@@ -53,6 +53,10 @@ export const api = {
         return ipcRenderer.invoke('save-file', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['save-file']>>;
     },
+    'move-file': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['move-file']>>) => {
+        return ipcRenderer.invoke('move-file', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['move-file']>>;
+    },
     'get-cpu': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-cpu']>>) => {
         return ipcRenderer.invoke('get-cpu', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['get-cpu']>>;
