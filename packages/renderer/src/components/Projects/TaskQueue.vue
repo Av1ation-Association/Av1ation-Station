@@ -127,7 +127,7 @@ function generateTaskDropdownOptions(task: Task): DropdownOption[] {
         {
             label: 'Open Output File Location',
             key: 'revealoutput',
-            disabled: projectsStore.taskCompleted(toRaw(task)),
+            disabled: !projectsStore.taskCompleted(toRaw(task)),
             icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
         },
         {
