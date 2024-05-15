@@ -446,6 +446,8 @@ onBeforeUnmount(() => {
                     <NPopover
                         trigger="hover"
                         placement="right"
+                        :delay="500"
+                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                     >
                         <template #trigger>
                             <NTime
@@ -466,6 +468,8 @@ onBeforeUnmount(() => {
                     <NPopover
                         trigger="hover"
                         placement="right"
+                        :delay="500"
+                        :style="{ padding: '10px', paddingTop: '2px', paddingBottom: '2px' }"
                     >
                         <template #trigger>
                             <NTime
