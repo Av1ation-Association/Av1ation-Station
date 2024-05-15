@@ -402,6 +402,39 @@ export const useProjectsStore = defineStore('projects', {
                 await this.saveProject(toRaw(this.projects[projectIndex]), false);
             }
         },
+        async deleteTask(task: Task, saveProject = true) {
+            const projectIndex = this.projects.findIndex(project => project.id === task.projectId);
+            if (projectIndex === -1) {
+                return;
+            }
+            const taskIndex = this.projects[projectIndex].tasks.findIndex(task => task.id === task.id);
+            if (taskIndex === -1) {
+                return;
+            }
+
+            // Move Task Queue "cursor" to previous unskipped task or reset to Idle
+            if (this.projectQueueMap[this.projects[projectIndex].id].taskId && this.projectQueueMap[this.projects[projectIndex].id].taskId === this.projects[projectIndex].tasks[taskIndex].id) {
+                const previousUnskippedTaskIndex = this.projects[projectIndex].tasks.slice(0, taskIndex).reverse().findIndex(task => !task.skip);
+
+                if (previousUnskippedTaskIndex === -1) {
+                    this.projectQueueMap[this.projects[projectIndex].id] = {
+                        status: 'idle',
+                    };
+                } else {
+                    this.projectQueueMap[this.projects[projectIndex].id].taskId = this.projects[projectIndex].tasks[previousUnskippedTaskIndex].id;
+                }
+            }
+
+            // Delete temporary files
+            await window.projectsApi['task-delete-temporary-files'](toRaw(this.projects[projectIndex].tasks[taskIndex]));
+            // Remove task
+            this.projects[projectIndex].tasks.splice(taskIndex, 1);
+
+            // Save Project File (False for batch operations)
+            if (saveProject) {
+                await this.saveProject(toRaw(this.projects[projectIndex]));
+            }
+        },
         taskProgressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 'warning' {
             const lastStatus: Av1anStatus = task.statusHistory[task.statusHistory.length - 1];
         

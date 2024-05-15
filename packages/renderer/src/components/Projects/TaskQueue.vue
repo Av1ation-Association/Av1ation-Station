@@ -88,7 +88,12 @@ async function handleDropdownSelect(key: string) {
             break;
         }
         case 'remove-all': {
-            await Promise.all(projectsStore.projects[projectIndex].tasks.map(task => deleteTask(task.id, false)));
+            await Promise.all(projectsStore.projects[projectIndex].tasks.map(task => projectsStore.deleteTask(toRaw(task), false)));
+
+            // Reset QueueMap
+            projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
+                status: 'idle',
+            };
 
             await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]), false);
             break;
@@ -202,22 +207,8 @@ async function skipTask(taskId: Task['id']) {
     await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]), false);
 }
 
-async function deleteTask(taskId: Task['id'], saveProject = true) {
-    // TODO: Check if task is in progress (Prompt user to cancel the task if it is)
-    const taskIndex = projectsStore.projects[projectIndex].tasks.findIndex(task => task.id === taskId);    
-    if (taskIndex === -1) {
-        return;
-    }
-
-    // Delete temporary files
-    await window.projectsApi['task-delete-temporary-files'](toRaw(projectsStore.projects[projectIndex].tasks[taskIndex]));
-    // Remove task
-    projectsStore.projects[projectIndex].tasks.splice(projectsStore.projects[projectIndex].tasks.findIndex(task => task.id === taskId), 1);
-
-    // Save Project File
-    if (saveProject) {
-        await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]));
-    }
+async function deleteTask(task: Task, saveProject = true) {
+    await projectsStore.deleteTask(toRaw(task), saveProject);
 }
 
 async function buildAv1anArgs(taskOrId: Task['id'] | Task) {
@@ -500,7 +491,7 @@ async function copyToClipboard(text: string) {
                                         size="small"
                                         tertiary
                                         :disabled="projectQueueMap[projects[projectIndex].id].status === 'processing' && projectQueueMap[projects[projectIndex].id].taskId === task.id"
-                                        @click="() => deleteTask(task.id)"
+                                        @click="() => deleteTask(task)"
                                     >
                                         <template #icon>
                                             <NIcon>
