@@ -172,7 +172,10 @@ export const useProjectsStore = defineStore('projects', {
                     outputFileName,
                     outputFileOveridden: false,
                     totalFrames: 0,
-                    statusHistory: [],
+                    statusHistory: [{
+                        state: 'idle',
+                        time: new Date(),
+                    }],
                     item: {
                         Av1an: {
                             input: inputFilePath,
