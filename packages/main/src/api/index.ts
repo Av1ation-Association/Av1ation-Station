@@ -7,6 +7,7 @@ import {
 import { registerSDK as registerConfigurationsSDK } from './Configuration/sdk';
 import { registerSDK as registerProjectsSDK } from './Projects/sdk';
 
+export type AppCommand = 'restart';
 
 // Thanks, georg - https://stackoverflow.com/questions/58764853/typescript-remove-first-argument-from-a-function
 export type OmitFirstArg<F> = F extends (omitted: any, ...args: infer P) => infer R ? (...args: P) => R : never;
@@ -33,7 +34,7 @@ export function generateClientAPI<SDK extends ClientSDK>(clientSDK: SDK): Client
     }, {} as ClientAPI<typeof clientSDK>);
 }
 
-export function registerAllSDKs(browserWindow: BrowserWindow) {
+export function registerAllSDKs(browserWindow: BrowserWindow, appCommand: (command: AppCommand) => void) {
     // TODO: Ensure all apis are imported without key conflicts
 
     // const API = (() => {
@@ -52,7 +53,7 @@ export function registerAllSDKs(browserWindow: BrowserWindow) {
     //     return allApis;
     // })();
     return {
-        ...registerConfigurationsSDK(browserWindow),
+        ...registerConfigurationsSDK(browserWindow, appCommand),
         ...registerProjectsSDK(browserWindow),
     };
 }

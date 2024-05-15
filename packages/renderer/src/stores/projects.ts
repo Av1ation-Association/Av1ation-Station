@@ -1,11 +1,9 @@
 import { toRaw } from 'vue';
 import { defineStore } from 'pinia';
-// import { StartUpBehavior } from '../../../main/src/data/Configuration/Types/Configuration';
 import { type Project, type Task } from '../../../main/src/data/Configuration/Projects';
 import { type Av1anStatus } from '../../../main/src/utils/Av1an/Av1an';
 import { Av1anInputLocationType, Av1anOutputLocationType, Av1anTemporaryLocationType } from '../../../main/src/data/Configuration/Av1anConfiguration';
 import { useGlobalStore } from './global';
-// import { type StatusChange } from '../../../main/src/api/Projects/client';
 
 export const useProjectsStore = defineStore('projects', {
     state: () => {
@@ -27,6 +25,32 @@ export const useProjectsStore = defineStore('projects', {
         };
     },
     actions: {
+        async initialize() {
+            const configStore = useGlobalStore();
+
+            this.projects = await window.projectsApi['list-projects'](configStore.config.recentlyOpenedProjects.map(project => project.path));
+
+            // Initialize projectQueueMap
+            this.projectQueueMap = this.projects.reduce((map, project: Project) => {
+                map[project.id] = {
+                    status: 'idle',
+                };
+                for (const task of project.tasks) {
+                    const lastStatus = task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle';
+                
+                    if (lastStatus !== 'idle') {
+                        map[project.id] = {
+                            taskId: task.id,
+                            status: 'paused',
+                        };
+        
+                        break;
+                    }
+                }
+        
+                return map;
+            }, {} as typeof this.projectQueueMap);
+        },
         async createProject() {
             const project = await window.projectsApi['create-project']();
             // Save the new project

@@ -11,6 +11,7 @@ import {
     clipboard,
 } from 'electron';
 import {
+    type AppCommand,
     type ClientSDK,
     // type ClientAPI,
     // OmitFirstArg,
@@ -19,26 +20,8 @@ import { ConfigurationManager } from '../../data/Configuration/Configuration';
 import { type Configuration } from '../../data/Configuration/Types/Configuration';
 
 
-export function registerSDK(browserWindow: BrowserWindow) {
+export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: AppCommand) => void) {
     return {
-        // // TODO: Consolidate these to a global VideoSaladAPI (Prefix: `vs-${}`)
-        // 'get-videos-folder': (_event: IpcMainInvokeEvent, newFileName?: string) => {
-        //     try {
-        //         const videosPath = app.getPath('videos');
-        //         return path.resolve(videosPath, newFileName ?? '');
-        //     } catch (error) {
-        //         // eslint-disable-next-line no-console
-        //         console.log('Failed to get videos folder');
-        //     }
-        // },
-        // 'get-ffmpeg-path': async (_event: IpcMainInvokeEvent, type: 'ffmpeg' | 'ffprobe', existingPath?: string) => {
-        //     const selectedFile = await dialog.showOpenDialog({
-        //         title: `Select ${type} path`,
-        //         defaultPath: existingPath,
-        //         properties: ['openFile', 'dontAddToRecent'],
-        //     });
-        //     return selectedFile;
-        // },
         'get-config': (_event: IpcMainInvokeEvent) => {
             return ConfigurationManager.instance.configuration;
         },
@@ -47,6 +30,12 @@ export function registerSDK(browserWindow: BrowserWindow) {
         },
         'save-config': (_event: IpcMainInvokeEvent) => {
             ConfigurationManager.SaveConfiguration();
+        },
+        'reset-config': (_event: IpcMainInvokeEvent) => {
+            ConfigurationManager.ResetConfiguration();
+        },
+        'restart-app': (_event: IpcMainInvokeEvent) => {
+            appCommand('restart');
         },
         'get-environment-variable': (_event: IpcMainInvokeEvent, name: string) => {
             return process.env[name];

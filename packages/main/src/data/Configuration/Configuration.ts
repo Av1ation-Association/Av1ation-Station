@@ -17,6 +17,7 @@ const defaultConfig: Configuration = {
             y: 0,
         },
         maximized: false,
+        enableHardwareAcceleration: true,
     },
     startUp: {
         behavior: StartUpBehavior.NewProject,
@@ -78,5 +79,10 @@ export class ConfigurationManager {
     // Save the configuration to a file
     public static SaveConfiguration() {
         fs.writeFileSync(ConfigurationManager.configPath, JSON.stringify(ConfigurationManager.config, null, 4));
+    }
+
+    public static ResetConfiguration() {
+        fs.writeFileSync(ConfigurationManager.configPath, JSON.stringify(defaultConfig, null, 4));
+        ConfigurationManager.config = defaultConfig;
     }
 }

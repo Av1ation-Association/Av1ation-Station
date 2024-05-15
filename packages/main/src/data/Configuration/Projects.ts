@@ -130,6 +130,15 @@ export class ProjectManager {
         fs.rmSync(projectPath);
     }
 
+    // Delete projects folder
+    public deleteProjectsFolder() {
+        if (!fs.existsSync(this.projectsFolder)) {
+            return;
+        }
+
+        fs.rmSync(this.projectsFolder, { recursive: true });
+    }
+
     // Create a new project queue item
     public createTask() {
         const item: Pick<Task, 'id' | 'createdAt' | 'updatedAt'> = {

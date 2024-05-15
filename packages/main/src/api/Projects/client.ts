@@ -52,6 +52,10 @@ export const api = {
         return ipcRenderer.invoke('delete-project', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['delete-project']>>;
     },
+    'delete-projects-folder': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['delete-projects-folder']>>) => {
+        return ipcRenderer.invoke('delete-projects-folder', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['delete-projects-folder']>>;
+    },
     'create-queue-item': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['create-queue-item']>>) => {
         return ipcRenderer.invoke('create-queue-item', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['create-queue-item']>>;

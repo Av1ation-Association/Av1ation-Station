@@ -19,6 +19,7 @@ export interface Appearance {
         y: number;
     };
     maximized: boolean;
+    enableHardwareAcceleration: boolean;
 }
 
 export enum StartUpBehavior {

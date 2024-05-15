@@ -17,6 +17,14 @@ export const api = {
         return ipcRenderer.invoke('save-config') as
             Promise<ReturnType<ReturnType<typeof registerSDK>['save-config']>>;
     },
+    'reset-config': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['reset-config']>>) => {
+        return ipcRenderer.invoke('reset-config') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['reset-config']>>;
+    },
+    'restart-app': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['restart-app']>>) => {
+        return ipcRenderer.invoke('restart-app') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['restart-app']>>;
+    },
     'get-environment-variable': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-environment-variable']>>) => {
         return ipcRenderer.invoke('get-environment-variable', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['get-environment-variable']>>;

@@ -34,6 +34,9 @@ export function registerSDK(window: BrowserWindow) {
         'delete-project': (_event: IpcMainInvokeEvent, projectPath: string) => {
             return ProjectManager.instance.deleteProject(projectPath);
         },
+        'delete-projects-folder': (_event: IpcMainInvokeEvent) => {
+            return ProjectManager.instance.deleteProjectsFolder();
+        },
         'create-queue-item': (_event: IpcMainInvokeEvent) => {
             return ProjectManager.instance.createTask();
         },

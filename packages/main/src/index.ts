@@ -1,8 +1,26 @@
-import {app} from 'electron';
+import { app } from 'electron';
 import './security-restrictions';
-import {restoreOrCreateWindow} from '/@/mainWindow';
-import {platform} from 'node:process';
+import { restoreOrCreateWindow } from '/@/mainWindow';
+import { platform } from 'node:process';
 import updater from 'electron-updater';
+import { ConfigurationManager } from './data/Configuration/Configuration';
+import { type AppCommand } from './api';
+
+/**
+ * Initialize Application Configuration Manager
+ */
+const configManager = ConfigurationManager.instance;
+
+function appCommand(command: AppCommand) {
+    switch (command) {
+        case 'restart':
+            app.relaunch();
+            app.quit();
+            break;
+        default:
+            break;
+    }
+}
 
 /**
  * Prevent electron from running multiple instances.
@@ -12,15 +30,17 @@ if (!isSingleInstance) {
     app.quit();
     process.exit(0);
 }
-app.on('second-instance', restoreOrCreateWindow);
+app.on('second-instance', () => restoreOrCreateWindow(appCommand));
 
 /**
  * Disable Hardware Acceleration to save more system resources.
  */
-app.disableHardwareAcceleration();
+if (!configManager.configuration.appearance.enableHardwareAcceleration) {
+    app.disableHardwareAcceleration();
+}
 
 /**
- * Shout down background process if all windows was closed
+ * Shut down background process if all windows were closed
  */
 app.on('window-all-closed', () => {
     if (platform !== 'darwin') {
@@ -31,14 +51,14 @@ app.on('window-all-closed', () => {
 /**
  * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
  */
-app.on('activate', restoreOrCreateWindow);
+app.on('activate', () => restoreOrCreateWindow(appCommand));
 
 /**
  * Create the application window when the background process is ready.
  */
 app
     .whenReady()
-    .then(restoreOrCreateWindow)
+    .then(() => restoreOrCreateWindow(appCommand))
     .catch(e => console.error('Failed create window:', e));
 
 /**

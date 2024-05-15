@@ -61,7 +61,6 @@ onBeforeMount(async () => {
 
 async function revealLogFile() {
     const logFileLocation = await window.configurationsApi['resolve-path'](projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an.temporary.path, './log.log');
-    console.log('logFileLocation', logFileLocation);
     await window.configurationsApi['show-file'](logFileLocation);
 }
 

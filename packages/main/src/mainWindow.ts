@@ -1,11 +1,13 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { registerAllSDKs } from './api';
+import {
+    type AppCommand,
+    registerAllSDKs,
+} from './api';
 import { ConfigurationManager } from './data/Configuration/Configuration';
 
-async function createWindow() {
-    // Initialize Application Configuration
+async function createWindow(appCommand: (command: AppCommand) => void) {
     const configManager = ConfigurationManager.instance;
     const {
         size,
@@ -37,7 +39,7 @@ async function createWindow() {
     });
 
     // Register SDKs with ipcMain
-    Object.entries(registerAllSDKs(browserWindow)).forEach(([eventName, handler]) => {
+    Object.entries(registerAllSDKs(browserWindow, appCommand)).forEach(([eventName, handler]) => {
         ipcMain.handle(eventName, handler);
     });
 
@@ -86,11 +88,11 @@ async function createWindow() {
 /**
  * Restore an existing BrowserWindow or Create a new BrowserWindow.
  */
-export async function restoreOrCreateWindow() {
+export async function restoreOrCreateWindow(appCommand: (command: AppCommand) => void) {
     let window = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
 
     if (window === undefined) {
-        window = await createWindow();
+        window = await createWindow(appCommand);
     }
 
     if (window.isMinimized()) {
