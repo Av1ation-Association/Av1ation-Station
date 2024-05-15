@@ -145,7 +145,9 @@ function formatBytes(bytes: number, decimals = 2) {
         <template
             v-else-if="['done'].includes((projects[getIndexes().projectIndex].tasks[getIndexes().taskIndex].statusHistory.length ? projects[getIndexes().projectIndex].tasks[getIndexes().taskIndex].statusHistory[projects[getIndexes().projectIndex].tasks[getIndexes().taskIndex].statusHistory.length - 1].state : 'idle'))"
         >
-            <NTooltip>
+            <NTooltip
+                :delay="500"
+            >
                 <template #trigger>
                     <NTag
                         round
@@ -162,6 +164,20 @@ function formatBytes(bytes: number, decimals = 2) {
                 <NTime
                     :time="(new Date(projects[getIndexes().projectIndex].tasks[getIndexes().taskIndex].statusHistory[projects[getIndexes().projectIndex].tasks[getIndexes().taskIndex].statusHistory.length - 1].time)).getTime()"
                 />
+            </NTooltip>
+            <NTooltip
+                :delay="500"
+            >
+                <template #trigger>
+                    <NTag
+                        round
+                        :bordered="false"
+                        size="small"
+                    >
+                        {{ progressEstimatedSize() }}
+                    </NTag>
+                </template>
+                {{ ((lastStatusProgress()?.progress?.bitrate ?? 0) / 1000).toFixed(2) }} kbps
             </NTooltip>
         </template>
     </NFlex>
