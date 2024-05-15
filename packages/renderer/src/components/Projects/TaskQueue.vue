@@ -122,11 +122,13 @@ function generateTaskDropdownOptions(task: Task): DropdownOption[] {
         {
             label: 'Open Output File Location',
             key: 'revealoutput',
+            disabled: projectsStore.taskCompleted(toRaw(task)),
             icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
         },
         {
             label: 'Open Av1an Temporary Directory',
             key: 'revealtemp',
+            disabled: !projectsStore.taskStarted(toRaw(task)),
             icon: () => h(NIcon, null, { default: () => h(RevealIcon) }),
         },
         {

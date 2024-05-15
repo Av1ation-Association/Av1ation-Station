@@ -177,11 +177,11 @@ async function revealFileLocation(path: string) {
 }
 
 function taskStarted() {
-    return projectsStore.projects[projectIndex].tasks[taskIndex].statusHistory.some(status => status.state === 'scene-detection' || status.state === 'encoding');
+    return projectsStore.taskStarted(toRaw(projectsStore.projects[projectIndex].tasks[taskIndex]));
 }
 
 function taskCompleted() {
-    return projectsStore.projects[projectIndex].tasks[taskIndex].statusHistory[projectsStore.projects[projectIndex].tasks[taskIndex].statusHistory.length - 1].state === 'done';
+    return projectsStore.taskCompleted(toRaw(projectsStore.projects[projectIndex].tasks[taskIndex]));
 }
 
 // #region Column Width
@@ -393,7 +393,7 @@ onBeforeUnmount(() => {
                                 <NButton
                                     circle
                                     quaternary
-                                    :disabled="projects[projectIndex].tasks[taskIndex].statusHistory.length > 0 && projects[projectIndex].tasks[taskIndex].statusHistory[projects[projectIndex].tasks[taskIndex].statusHistory.length - 1].state !== 'done'"
+                                    :disabled="!taskCompleted()"
                                     @click="() => revealFileLocation(projects[projectIndex].tasks[taskIndex].item.Av1an.output)"
                                 >
                                     <template #icon>
@@ -426,6 +426,7 @@ onBeforeUnmount(() => {
                                 <NButton
                                     circle
                                     quaternary
+                                    :disabled="!taskStarted()"
                                     @click="() => revealFileLocation(projects[projectIndex].tasks[taskIndex].item.Av1an.temporary.path)"
                                 >
                                     <template #icon>

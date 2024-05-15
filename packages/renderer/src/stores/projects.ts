@@ -447,5 +447,11 @@ export const useProjectsStore = defineStore('projects', {
 
             return new Date(Date.now() + (estimatedSeconds * 1000));
         },
+        taskStarted(task: Task) {
+            return task.statusHistory.some(status => status.state === 'scene-detection' || status.state === 'encoding');
+        },
+        taskCompleted(task: Task) {
+            return task.statusHistory[task.statusHistory.length - 1].state === 'done';
+        },
     },
 });
