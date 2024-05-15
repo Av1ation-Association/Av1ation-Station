@@ -568,7 +568,10 @@ async function copyToClipboard(text: string) {
                                                     customAv1anParameters.encoding[parameterName] = parameterValue;
                                                 }"
                                             >
-                                                <NTooltip>
+                                                <NTooltip
+                                                    :delay="500"
+                                                    :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
+                                                >
                                                     <template #trigger>
                                                         <NIcon
                                                             :component="EditIcon"
@@ -589,7 +592,10 @@ async function copyToClipboard(text: string) {
                                                     customAv1anParameters.encoding[parameterName] = null;
                                                 }"
                                             >
-                                                <NTooltip>
+                                                <NTooltip
+                                                    :delay="500"
+                                                    :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
+                                                >
                                                     <template #trigger>
                                                         <NIcon
                                                             :component="DisableIcon"
@@ -679,7 +685,10 @@ async function copyToClipboard(text: string) {
                                                 customAv1anParameters.encoding[parameterName] = typeof customAv1anParameters.encoding![parameterName] === 'string' ? '' : 0;
                                             }"
                                         >
-                                            <NTooltip>
+                                            <NTooltip
+                                                :delay="500"
+                                                :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
+                                            >
                                                 <template #trigger>
                                                     <NIcon
                                                         :component="ResetIcon"
@@ -697,7 +706,10 @@ async function copyToClipboard(text: string) {
                                                 (customAv1anParameters.encoding![parameterName] as string | undefined) = undefined;
                                             }"
                                         >
-                                            <NTooltip>
+                                            <NTooltip
+                                                :delay="500"
+                                                :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
+                                            >
                                                 <template #trigger>
                                                     <NIcon
                                                         :component="RemoveIcon"
@@ -717,7 +729,10 @@ async function copyToClipboard(text: string) {
                                                 (customAv1anParameters.encoding![parameterName] as string | null) = null;
                                             }"
                                         >
-                                            <NTooltip>
+                                            <NTooltip
+                                                :delay="500"
+                                                :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
+                                            >
                                                 <template #trigger>
                                                     <NIcon
                                                         :component="DisableIcon"
@@ -805,7 +820,10 @@ async function copyToClipboard(text: string) {
                     text
                     @click="copyToClipboard(`av1an ${(showAv1anPrintFriendlyCommand ? av1anCommand.printFriendlyArguments : av1anCommand.arguments).join(' ')}`)"
                 >
-                    <NTooltip>
+                    <NTooltip
+                        :delay="500"
+                        :style="{ padding: '10px', paddingTop: '5px', paddingBottom: '5px' }"
+                    >
                         <template #trigger>
                             <NIcon
                                 :component="CopyIcon"

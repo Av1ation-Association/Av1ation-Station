@@ -78,6 +78,7 @@ function getDefaultPreferences () {
                         <NButton text />
                         <NTooltip
                             :delay="500"
+                            :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
@@ -133,6 +134,7 @@ function getDefaultPreferences () {
                         </NTooltip>
                         <NTooltip
                             :delay="500"
+                            :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
@@ -168,6 +170,7 @@ function getDefaultPreferences () {
                         <NTooltip
                             v-if="component.disabled !== undefined && component.disable !== undefined"
                             :delay="500"
+                            :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
                                 <NButton
