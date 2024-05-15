@@ -135,8 +135,8 @@ function generateTaskDropdownOptions(task: Task): DropdownOption[] {
             icon: () => h(NIcon, null, { default: () => h(CopyIcon) }),
         },
         {
-            label: 'Reset',
-            key: 'reset',
+            label: 'Reset Progress',
+            key: 'resetprogress',
             disabled: projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing' && projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId === task.id,
             icon: () => h(NIcon, null, { default: () => h(ResetAlt) }),
         },
@@ -166,7 +166,7 @@ async function handleTaskDropdownSelect(task: Task, key: string) {
             await window.configurationsApi['copy-to-clipboard'](`av1an ${args.printFriendlyArguments.join(' ')}`);
             break;
         }
-        case 'reset': {
+        case 'resetprogress': {
             await projectsStore.resetTask(task);
             break;
         }
