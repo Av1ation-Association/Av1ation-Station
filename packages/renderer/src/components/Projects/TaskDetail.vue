@@ -108,6 +108,7 @@ function generateProgressDropdownOptions(): DropdownOption[] {
         {
             label: 'View Av1an Logs',
             key: 'view-av1an-logs',
+            disabled: !taskStarted(),
             icon: () => h(NIcon, null, { default: () => h(ViewLogsIcon) }),
         },
     ];
