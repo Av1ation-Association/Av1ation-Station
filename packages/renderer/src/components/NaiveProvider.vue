@@ -8,6 +8,7 @@ import {
     NLoadingBarProvider,
     NMessageProvider,
     NDialogProvider,
+    NModalProvider,
 } from 'naive-ui';
 import { storeToRefs } from 'pinia';
 import { useGlobalStore } from '../stores/global';
@@ -38,7 +39,9 @@ const { theme } = storeToRefs(store);
         <n-loading-bar-provider>
             <n-message-provider>
                 <n-dialog-provider>
-                    <slot />
+                    <n-modal-provider>
+                        <slot />
+                    </n-modal-provider>
                 </n-dialog-provider>
             </n-message-provider>
         </n-loading-bar-provider>

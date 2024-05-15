@@ -18,6 +18,8 @@ import {
     NInput,
     NText,
     NAlert,
+    useModal,
+    useMessage,
 } from 'naive-ui';
 import {
     VolumeFileStorage as RevealIcon,
@@ -44,6 +46,9 @@ const { projectId, taskId } = defineProps<{
 const projectIndex = projectsStore.projects.findIndex(project => project.id === projectId);
 const taskIndex = projectsStore.projects[projectIndex].tasks.findIndex(task => task.id === taskId);
 
+const message = useMessage();
+const modal = useModal();
+
 function generateDropdownOptions(): DropdownOption[] {
     return [
         {
@@ -57,6 +62,36 @@ function generateDropdownOptions(): DropdownOption[] {
 async function handleDropdownSelect(key: string) {
     switch (key) {
         case 'delete':
+            if (taskStarted() && !taskCompleted()) {
+                const checkModal = modal.create({
+                    preset: 'dialog',
+                    title: 'Delete Task in Progress?',
+                    type: 'warning',
+                    content: 'All progress will be lost. This will cancel the task and delete the temporary files.',
+                    positiveText: 'Delete',
+                    positiveButtonProps: {
+                        renderIcon: () => h(NIcon, null, { default: () => h(DeleteIcon) }),
+                        type: 'error',
+                    },
+                    negativeText: 'Cancel',
+                    onPositiveClick: async () => {
+                        const projectId = projectsStore.projects[projectIndex].id;
+                        const outputFileName = projectsStore.projects[projectIndex].tasks[taskIndex].outputFileName;
+
+                        await router.push(`/projects/${projectId}`);
+                        await projectsStore.deleteTask(projectsStore.projects[projectIndex].tasks[taskIndex]);
+                        message.success(`Task ${outputFileName} Deleted`);
+                        checkModal.destroy();
+                    },
+                });
+            } else {
+                const projectId = projectsStore.projects[projectIndex].id;
+                const outputFileName = projectsStore.projects[projectIndex].tasks[taskIndex].outputFileName;
+
+                await router.push(`/projects/${projectId}`);
+                await projectsStore.deleteTask(projectsStore.projects[projectIndex].tasks[taskIndex]);
+                message.success(`Task ${outputFileName} Deleted`);
+            }
             break;
         default:
             break;

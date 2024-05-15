@@ -59,8 +59,8 @@ function generateDropdownOptions(): DropdownOption[] {
             icon: () => h(NIcon, null, { default: () => h(SkipIcon) }),
         },
         {
-            label: 'Remove All',
-            key: 'remove-all',
+            label: 'Delete All',
+            key: 'delete-all',
             disabled: projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing',
             icon: () => h(NIcon, null, { default: () => h(DeleteIcon) }),
         },
@@ -87,7 +87,7 @@ async function handleDropdownSelect(key: string) {
             await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]), false);
             break;
         }
-        case 'remove-all': {
+        case 'delete-all': {
             await Promise.all(projectsStore.projects[projectIndex].tasks.map(task => projectsStore.deleteTask(toRaw(task), false)));
 
             // Reset QueueMap
