@@ -106,6 +106,7 @@ function formatBytes(bytes: number, decimals = 2) {
             >
                 <NTooltip
                     :delay="500"
+                    :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                 >
                     <template #trigger>
                         <NTag
@@ -128,6 +129,7 @@ function formatBytes(bytes: number, decimals = 2) {
             >
                 <NTooltip
                     :delay="500"
+                    :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                 >
                     <template #trigger>
                         <NTag
@@ -147,6 +149,7 @@ function formatBytes(bytes: number, decimals = 2) {
         >
             <NTooltip
                 :delay="500"
+                :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
             >
                 <template #trigger>
                     <NTag
@@ -167,6 +170,7 @@ function formatBytes(bytes: number, decimals = 2) {
             </NTooltip>
             <NTooltip
                 :delay="500"
+                :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
             >
                 <template #trigger>
                     <NTag
