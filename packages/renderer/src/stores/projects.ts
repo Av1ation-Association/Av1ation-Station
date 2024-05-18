@@ -434,7 +434,7 @@ export const useProjectsStore = defineStore('projects', {
             if (projectIndex === -1) {
                 return;
             }
-            const taskIndex = this.projects[projectIndex].tasks.findIndex(task => task.id === task.id);
+            const taskIndex = this.projects[projectIndex].tasks.findIndex(t => t.id === task.id);
             if (taskIndex === -1) {
                 return;
             }
