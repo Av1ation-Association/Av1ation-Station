@@ -45,7 +45,22 @@ jobs:
       - run: npm run build
 
       - if: ${{ matrix.os == 'windows-latest' }}
-        run: node ./scripts/package-av1an.js
+        run: |
+          touch .env.local
+          echo VAPOURSYNTH_URL="${{ vars.VAPOURSYNTH_URL }}" >> .env.local
+          echo FFMS2_URL="${{ vars.FFMS2_URL }}" >> .env.local
+          echo LSMASH_URL="${{ vars.LSMASH_URL }}" >> .env.local
+          echo BESTSOURCE_URL="${{ vars.BESTSOURCE_URL }}" >> .env.local
+          echo AV1AN_URL="${{ vars.AV1AN_URL }}" >> .env.local
+          echo FFMPEG_URL="${{ vars.FFMPEG_URL }}" >> .env.local
+          echo MKVTOOLNIX_URL="${{ vars.MKVTOOLNIX_URL }}" >> .env.local
+          echo AOM_URL="${{ vars.AOM_URL }}" >> .env.local
+          echo SVT_URL="${{ vars.SVT_URL }}" >> .env.local
+          echo RAV1E_URL="${{ vars.RAV1E_URL }}" >> .env.local
+          echo VPX_URL="${{ vars.VPX_URL }}" >> .env.local
+          echo X264_URL="${{ vars.X264_URL }}" >> .env.local
+          echo X265_URL="${{ vars.X265_URL }}" >> .env.local
+          node ./scripts/package-av1an.js
 
       - name: Compile artifacts ${{ inputs.dry-run && '' || 'and upload them to github release' }}
         # I use this action because it is capable of retrying multiple times if there are any issues with the distribution server
