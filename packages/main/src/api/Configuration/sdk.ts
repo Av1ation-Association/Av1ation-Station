@@ -37,6 +37,34 @@ export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: 
         'restart-app': (_event: IpcMainInvokeEvent) => {
             appCommand('restart');
         },
+        'init-environment': (_event: IpcMainInvokeEvent) => {
+            // Windows only
+            if (process.platform !== 'win32') {
+                return;
+            }
+
+            // Set resources if in development mode
+            const resourcesPath = import.meta.env.DEV ? path.resolve(app.getAppPath(), 'buildResources', 'win') : process.resourcesPath;
+
+            import.meta.resources = {
+                PORTABLE: {
+                    VAPOURSYNTH_PATH: fs.existsSync(path.resolve(resourcesPath, 'vapoursynth')) && fs.readdirSync(path.resolve(resourcesPath, 'vapoursynth')).length ? path.resolve(resourcesPath, 'vapoursynth') : undefined,
+                    DGDECNV_PATH: fs.existsSync(path.resolve(resourcesPath, 'dgdecnv')) && fs.readdirSync(path.resolve(resourcesPath, 'dgdecnv')).length ? path.resolve(resourcesPath, 'dgdecnv') : undefined,
+                    AV1AN_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'av1an.exe')) ? path.resolve(resourcesPath, 'av1an', 'av1an.exe') : undefined,
+                    FFMPEG_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'ffmpeg')) && fs.readdirSync(path.resolve(resourcesPath, 'av1an', 'ffmpeg')).length ? path.resolve(resourcesPath, 'av1an', 'ffmpeg') : undefined,
+                    MKVTOOLNIX_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'mkvtoolnix')) && fs.readdirSync(path.resolve(resourcesPath, 'av1an', 'mkvtoolnix')).length ? path.resolve(resourcesPath, 'av1an', 'mkvtoolnix') : undefined,
+                    AOM_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'aom', 'aomenc.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'aom', 'aomenc.exe') : undefined,
+                    SVT_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'svtav1', 'SvtAv1EncApp.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'svtav1', 'SvtAv1EncApp.exe') : undefined,
+                    RAV1E_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'rav1e', 'rav1e.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'rav1e', 'rav1e.exe') : undefined,
+                    VPX_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'vpx', 'vpxenc.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'vpx', 'vpxenc.exe') : undefined,
+                    x264_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'x264', 'x264.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'x264', 'x264.exe') : undefined,
+                    x265_PATH: fs.existsSync(path.resolve(resourcesPath, 'av1an', 'encoders', 'x265', 'x265.exe')) ? path.resolve(resourcesPath, 'av1an', 'encoders', 'x265', 'x265.exe') : undefined,
+                },
+            };
+        },
+        'get-environment-resources': (_event: IpcMainInvokeEvent) => {
+            return import.meta.resources;
+        },
         'get-environment-variable': (_event: IpcMainInvokeEvent, name: string) => {
             return process.env[name];
         },

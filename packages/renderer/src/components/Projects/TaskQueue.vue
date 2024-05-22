@@ -29,6 +29,7 @@ import {
     PlayFilledAlt as StartIcon,
     StopFilledAlt as StopIcon,
 } from '@vicons/carbon';
+import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
 import {
     // type Project,
@@ -36,6 +37,7 @@ import {
 } from '../../../../main/src/data/Configuration/Projects';
 import TaskProgress from './TaskProgress.vue';
 
+const configStore = useGlobalStore();
 const projectsStore = useProjectsStore();
 const { projectQueueMap, projects } = storeToRefs(projectsStore);
 
@@ -230,6 +232,10 @@ async function processQueue(currentTask: Task) {
         return;
     }
 
+    const taskEnvironment = {
+        ...toRaw(configStore.config.preferences.dependencyPaths),
+        ...toRaw(projectsStore.projects[projectIndex].preferences.dependencyPaths),
+    };
     const taskOptions = projectsStore.buildTaskAv1anOptions(currentTask);
     if (!taskOptions) {
         projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
@@ -245,7 +251,8 @@ async function processQueue(currentTask: Task) {
         taskId: currentTask.id,
         status: 'processing',
     };
-    await window.projectsApi['start-task'](toRaw(currentTask), taskOptions);
+
+    await window.projectsApi['start-task'](toRaw(currentTask), taskOptions, taskEnvironment);
 
     // Check if queue status has changed (cancelled, paused, error)
     if (projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status !== 'processing') {

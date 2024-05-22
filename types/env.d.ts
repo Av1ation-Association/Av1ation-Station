@@ -22,4 +22,42 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
     readonly env: ImportMetaEnv;
+    
+    resources: {
+        /** Paths to portable binaries */
+        PORTABLE: {
+            /** Av1an executable path */
+            AV1AN_PATH?: string;
+        
+            /** VapourSynth portable path */
+            VAPOURSYNTH_PATH?: string;
+
+            /** DGDecNV portable path */
+            DGDECNV_PATH?: string;
+        
+            /** MKVToolNix portable path */
+            MKVTOOLNIX_PATH?: string;
+        
+            /** FFmpeg portable path */
+            FFMPEG_PATH?: string;
+        
+            /** SVT-AV1 executable path */
+            SVT_PATH?: string;
+        
+            /** RAV1E executable path */
+            RAV1E_PATH?: string;
+        
+            /** VPX executable path */
+            VPX_PATH?: string;
+        
+            /** AOM executable path */
+            AOM_PATH?: string;
+        
+            /** x264 executable path */
+            x264_PATH?: string;
+        
+            /** x265 executable path */
+            x265_PATH?: string;
+        };
+    }
 }

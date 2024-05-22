@@ -40,6 +40,9 @@ export const useGlobalStore = defineStore(`global`, {
         async initialize() {
             // Set Theme
             this.updateTheme();
+
+            // Initialize Environment
+            await window.configurationsApi['init-environment']();
         },
         updateTheme(theme?: Theme) {
             if (theme) {

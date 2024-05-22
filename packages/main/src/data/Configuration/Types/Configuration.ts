@@ -32,19 +32,43 @@ export interface StartUpConfiguration {
     behavior: StartUpBehavior;
 }
 
-export interface Defaults  {
+export type ConfigurationType = 'Config' | 'Project';
+
+export interface Defaults {
     Av1an: Av1anConfiguration;
     Av1anCustom: Omit<Options, 'encoding'> & {
         encoding?: Record<string, string | number | null>;
     };
 }
 
-export interface Preferences {
+export enum DependencyType {
+    System = 'system',
+    Packaged = 'packaged',
+    Custom = 'custom',
+}
+export type DependencyPathPreference<CustomAllowed extends boolean = true> = CustomAllowed extends true ? { type: DependencyType.Custom; path: string } | { type: DependencyType.System | DependencyType.Packaged; } : { type: DependencyType.System | DependencyType.Packaged; };
+
+export interface DependencyPaths {
+    vapoursynth: DependencyPathPreference<false>;
+    av1an: DependencyPathPreference;
+    ffmpeg: DependencyPathPreference;
+    mkvtoolnix: DependencyPathPreference;
+    dgdecnv: DependencyPathPreference;
+    aom: DependencyPathPreference;
+    svt: DependencyPathPreference;
+    rav1e: DependencyPathPreference;
+    vpx: DependencyPathPreference;
+    x264: DependencyPathPreference;
+    x265: DependencyPathPreference;
+}
+
+export interface Preferences<T extends 'Config' | 'Project' = 'Config'> {
     defaults: {
         [path: string]: 'none' | 'pinned' | 'hidden';
     };
     showHidden?: boolean;
     showAdvanced?: boolean;
+    dependencyPaths: T extends 'Config' ? DependencyPaths : Partial<DependencyPaths>;
 }
 
 export interface Configuration {
@@ -56,7 +80,6 @@ export interface Configuration {
     
     recentlyOpenedProjects: (Pick<Project, 'id' | 'path' | 'name'> & { accessedAt: Date })[];
 
-    Av1anExecutablePath?: string;
     defaults: Defaults;
     preferences: Preferences;
 }

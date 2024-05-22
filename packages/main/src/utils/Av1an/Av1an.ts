@@ -15,6 +15,10 @@ import type { Parameters as Rav1eParameters } from '../../data/Av1an/Types/Rav1e
 import type { Parameters as VpxParameters } from '../../data/Av1an/Types/Vpx.js';
 import type { Chunk } from '../../data/Av1an/Types/Chunks.js';
 import { parseChunksJsonFile } from '../../data/Av1an/Types/Chunks.js';
+import {
+    type DependencyPaths,
+    DependencyType,
+} from '../../data/Configuration/Types/Configuration.js';
 import { type Task } from '../../data/Configuration/Projects';
 // import { Parameters as AOMParameters } from './Types/AOM.js';
 // import { Parameters as Rav1eParameters } from './Types/Rav1e.js';
@@ -55,8 +59,8 @@ export class Av1anManager {
         return this._instance;
     }
 
-    public addAv1an(id: Task['id'], input: Task['inputFileName'], output: Task['outputFileName'], options: Task['item']['Av1an'], history: Task['statusHistory']) {
-        const av1an = new Av1an(input, output, options, history);
+    public addAv1an(id: Task['id'], input: Task['inputFileName'], output: Task['outputFileName'], options: Task['item']['Av1an'], environment: DependencyPaths, history: Task['statusHistory']) {
+        const av1an = new Av1an(input, output, options, environment, history);
         this.av1anMap.set(id, av1an);
         return av1an;
     }
@@ -82,7 +86,7 @@ export class Av1an extends EventEmitter {
     private previouslyCompletedChunkIds: string[] = [];
     private recentlyCompletedChunkIds: string[] = [];
 
-    constructor(public input: string, public output: string, public options?: Options, private readonly previousStatusHistory: Av1anStatus[] = []) {
+    constructor(public input: string, public output: string, public options: Options, public environment: DependencyPaths, private readonly previousStatusHistory: Av1anStatus[] = []) {
         super();
         // Todo: Ensure input file exists
         // Todo: Ensure temporary folder exists if in options.temp
@@ -351,6 +355,82 @@ export class Av1an extends EventEmitter {
         };
     }
 
+    public static BuildEnvironmentPath(environment: DependencyPaths) {
+        // Build Environment PATH
+        const pathValues = process.env.PATH?.split(';') ?? [];
+        // Modify PATH to add paths from PORTABLE
+        if (process.platform === 'win32') {
+            // vapoursynth
+            if (environment.vapoursynth.type === DependencyType.Packaged && import.meta.resources.PORTABLE.VAPOURSYNTH_PATH) {
+                pathValues.unshift(import.meta.resources.PORTABLE.VAPOURSYNTH_PATH);
+                pathValues.unshift(path.resolve(import.meta.resources.PORTABLE.VAPOURSYNTH_PATH, 'Lib', 'site-packages'));    
+            }
+            // dgdecnv
+            if (environment.dgdecnv.type === DependencyType.Packaged && import.meta.resources.PORTABLE.DGDECNV_PATH) {
+                pathValues.unshift(import.meta.resources.PORTABLE.DGDECNV_PATH);
+            } else if (environment.dgdecnv.type === DependencyType.Custom) {
+                pathValues.unshift(environment.dgdecnv.path);
+            }
+            // av1an
+            if (environment.av1an.type === DependencyType.Packaged && import.meta.resources.PORTABLE.AV1AN_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.AV1AN_PATH));
+            } else if (environment.av1an.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.av1an.path));
+            }
+            // ffmpeg
+            if (environment.ffmpeg.type === DependencyType.Packaged && import.meta.resources.PORTABLE.FFMPEG_PATH) {
+                pathValues.unshift(import.meta.resources.PORTABLE.FFMPEG_PATH);
+            } else if (environment.ffmpeg.type === DependencyType.Custom) {
+                pathValues.unshift(environment.ffmpeg.path);
+            }
+            // mkvtoolnix
+            if (environment.mkvtoolnix.type === DependencyType.Packaged && import.meta.resources.PORTABLE.MKVTOOLNIX_PATH) {
+                pathValues.unshift(import.meta.resources.PORTABLE.MKVTOOLNIX_PATH);
+            } else if (environment.mkvtoolnix.type === DependencyType.Custom) {
+                pathValues.unshift(environment.mkvtoolnix.path);
+            }
+            // aom
+            if (environment.aom.type === DependencyType.Packaged && import.meta.resources.PORTABLE.AOM_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.AOM_PATH));
+            } else if (environment.aom.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.aom.path));
+            }
+            // svt
+            if (environment.svt.type === DependencyType.Packaged && import.meta.resources.PORTABLE.SVT_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.SVT_PATH));
+            } else if (environment.svt.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.svt.path));
+            }
+            // rav1e
+            if (environment.rav1e.type === DependencyType.Packaged && import.meta.resources.PORTABLE.RAV1E_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.RAV1E_PATH));
+            } else if (environment.rav1e.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.rav1e.path));
+            }
+            // vpx
+            if (environment.vpx.type === DependencyType.Packaged && import.meta.resources.PORTABLE.VPX_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.VPX_PATH));
+            } else if (environment.vpx.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.vpx.path));
+            }
+            // x264
+            if (environment.x264.type === DependencyType.Packaged && import.meta.resources.PORTABLE.x264_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.x264_PATH));
+            } else if (environment.x264.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.x264.path));
+            }
+            // x265
+            if (environment.x265.type === DependencyType.Packaged && import.meta.resources.PORTABLE.x265_PATH) {
+                pathValues.unshift(path.dirname(import.meta.resources.PORTABLE.x265_PATH));
+            } else if (environment.x265.type === DependencyType.Custom) {
+                pathValues.unshift(path.dirname(environment.x265.path));
+            }
+
+        }
+
+        return pathValues.join(';');
+    }
+
     public get command() {
         return `av1an ${Av1an.BuildArguments(this.input, this.output, this.options).printFriendlyArguments.join(' ')}`;
     }
@@ -461,7 +541,7 @@ export class Av1an extends EventEmitter {
         }
 
         return new Promise<void>((resolve, reject) => {
-            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'] });
+            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
 
             this.childProcess.on('close', (code) => {
                 switch (code) {
@@ -699,9 +779,8 @@ export class Av1an extends EventEmitter {
                 },
             };
 
-            console.log(`av1an ${Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).printFriendlyArguments.join(' ')}`);
-            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'pipe', 'pipe'] });
-            // this.childProcess = spawn('av1an', this.buildArguments().arguments, { stdio: ['pipe', 'inherit', 'inherit'] });
+            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
+            // spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'inherit', 'inherit'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
 
             this.childProcess.on('close', (code) => {
                 switch (code) {

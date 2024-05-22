@@ -72,14 +72,6 @@ export const api = {
         return ipcRenderer.invoke('start-task', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['start-task']>>;
     },
-    'pause-task': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['pause-task']>>) => {
-        return ipcRenderer.invoke('pause-task', ...args) as
-            Promise<ReturnType<ReturnType<typeof registerSDK>['pause-task']>>;
-    },
-    'resume-task': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['resume-task']>>) => {
-        return ipcRenderer.invoke('resume-task', ...args) as
-            Promise<ReturnType<ReturnType<typeof registerSDK>['resume-task']>>;
-    },
     'cancel-task': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['cancel-task']>>) => {
         return ipcRenderer.invoke('cancel-task', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['cancel-task']>>;

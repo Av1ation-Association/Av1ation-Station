@@ -38,7 +38,7 @@ export interface Project {
     name?: string;
     path: string;
     defaults: Defaults;
-    preferences: Preferences;
+    preferences: Preferences<'Project'>;
     tasks: Task[];
     createdAt: Date;
     updatedAt: Date;
@@ -90,6 +90,7 @@ export class ProjectManager {
             },
             preferences: {
                 defaults: {},
+                dependencyPaths: {},
             },
             tasks: [],
             createdAt: new Date(),
@@ -105,6 +106,7 @@ export class ProjectManager {
             return;
         }
 
+        // TODO: Migrate based on project version
         const project = JSON.parse(fs.readFileSync(projectPath, 'utf8')) as Project;
 
         return project;

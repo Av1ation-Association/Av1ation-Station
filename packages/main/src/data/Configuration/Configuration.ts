@@ -1,8 +1,13 @@
 import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { defaultAv1anConfiguration } from './Av1anConfiguration';
-import { type Configuration, StartUpBehavior, Theme } from './Types/Configuration';
+import { type Configuration, StartUpBehavior, Theme, DependencyType } from './Types/Configuration';
+
+const isWindows = os.platform() === 'win32';
+
+// TODO: Check which packages are pre-installed
 
 const defaultConfig: Configuration = {
     // TODO: Add a versioning system
@@ -31,6 +36,20 @@ const defaultConfig: Configuration = {
         defaults: {},
         showHidden: false,
         showAdvanced: false,
+        dependencyPaths: {
+            // TODO: Default to Package if windows and packaged items exist
+            vapoursynth: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            dgdecnv: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            av1an: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            ffmpeg: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            mkvtoolnix: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            aom: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            svt: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            rav1e: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            vpx: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            x264: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+            x265: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+        },
     },
 };
 
@@ -49,6 +68,64 @@ export class ConfigurationManager {
         return this._instance;
     }
 
+    public static MergeDefault(existingConfig: Configuration): Configuration {
+        const { appearance, startUp, defaults, preferences, ...configRest } = existingConfig;
+        const { appearance: defaultAppearance, startUp: defaultStartUp, defaults: defaultDefaults, preferences: defaultPreferences, ...defaultRest } = defaultConfig;
+
+        // Merge appearance
+        const { theme, size, position, maximized, enableHardwareAcceleration } = appearance;
+        const { theme: defaultTheme, size: defaultSize, position: defaultPosition, maximized: defaultMaximized, enableHardwareAcceleration: defaultEnableHardwareAcceleration } = defaultAppearance;
+        const mergedAppearance: Configuration['appearance'] = {
+            theme: theme ?? defaultTheme,
+            size: {
+                ...defaultSize,
+                ...size,
+            },
+            position: {
+                ...defaultPosition,
+                ...position,
+            },
+            maximized: maximized ?? defaultMaximized,
+            enableHardwareAcceleration: enableHardwareAcceleration ?? defaultEnableHardwareAcceleration,
+        };
+
+        // Merge startUp
+        const { behavior } = startUp;
+        const { behavior: defaultBehavior } = defaultStartUp;
+        const mergedStartUp: Configuration['startUp'] = {
+            behavior: behavior ?? defaultBehavior,
+        };
+
+        // Merge defaults
+        const mergedDefaults: Configuration['defaults'] = {
+            ...defaultDefaults,
+            ...defaults,
+        };
+
+        // Merge preferences
+        const { defaults: preferencesDefaults, showHidden, showAdvanced, dependencyPaths } = preferences;
+        const { defaults: defaultPreferencesDefaults, showHidden: defaultShowHidden, showAdvanced: defaultShowAdvanced, dependencyPaths: defaultDependencyPaths } = defaultPreferences;
+
+        const mergedPreferences: Configuration['preferences'] = {
+            defaults: preferencesDefaults ?? defaultPreferencesDefaults,
+            showHidden: showHidden ?? defaultShowHidden,
+            showAdvanced: showAdvanced ?? defaultShowAdvanced,
+            dependencyPaths: {
+                ...defaultDependencyPaths,
+                ...dependencyPaths,
+            },
+        };
+
+        return {
+            appearance: mergedAppearance,
+            startUp: mergedStartUp,
+            defaults: mergedDefaults,
+            preferences: mergedPreferences,
+            ...defaultRest,
+            ...configRest,
+        };
+    }
+
     // TODO: Consider making these async methods
     public get configuration(): Configuration {
         if (!ConfigurationManager.config) {
@@ -61,11 +138,9 @@ export class ConfigurationManager {
             } else {
                 // Read config file
                 const existingConfig = JSON.parse(fs.readFileSync(ConfigurationManager.configPath, 'utf8')) as Configuration;
-                ConfigurationManager.config = {
-                    // Merge default config with file in case of missing properties
-                    ...defaultConfig,
-                    ...existingConfig,
-                };
+
+                // Merge default config with file in case of missing properties
+                return ConfigurationManager.MergeDefault(existingConfig);
             }
         }
 

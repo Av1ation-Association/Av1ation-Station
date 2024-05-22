@@ -283,8 +283,8 @@ function totalEncodeTime(groups?: Av1anStatus[][]) {
                                     >
                                         <template #trigger>
                                             <NTime
-                                                :time="new Date()"
-                                                :to="new Date(progressETA(projects[projectIndex].tasks[taskIndex]))"
+                                                :time="new Date(progressETA(projects[projectIndex].tasks[taskIndex]))"
+                                                :to="new Date()"
                                                 type="relative"
                                             />
                                         </template>

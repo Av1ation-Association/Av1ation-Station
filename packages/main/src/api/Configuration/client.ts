@@ -25,6 +25,14 @@ export const api = {
         return ipcRenderer.invoke('restart-app') as
             Promise<ReturnType<ReturnType<typeof registerSDK>['restart-app']>>;
     },
+    'init-environment': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['init-environment']>>) => {
+        return ipcRenderer.invoke('init-environment') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['init-environment']>>;
+    },
+    'get-environment-resources': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-environment-resources']>>) => {
+        return ipcRenderer.invoke('get-environment-resources') as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['get-environment-resources']>>;
+    },
     'get-environment-variable': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-environment-variable']>>) => {
         return ipcRenderer.invoke('get-environment-variable', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['get-environment-variable']>>;

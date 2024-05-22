@@ -43,6 +43,9 @@ import {
     Av1anTemporaryLocationType,
     type Av1anConfiguration,
 } from '../../../../main/src/data/Configuration/Av1anConfiguration';
+import {
+    Encoder,
+} from '../../../../main/src/data/Av1an/Types/Options';
 import { type Project, type Task } from '../../../../main/src/data/Configuration/Projects';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
@@ -59,7 +62,9 @@ import {
     getSVTRateControlComponents,
     getSVTAV1SpecificComponents,
 } from '../Av1an/library';
+import { getDependenciesComponents } from '../Dependencies/library';
 import DefaultsFormGrid from './DefaultsFormGrid.vue';
+import DependenciesFormGrid from './DependenciesFormGrid.vue';
 
 // const router = useRouter();
 
@@ -516,6 +521,20 @@ async function copyToClipboard(text: string) {
                     </NGrid>
                 </NTabPane>
                 <NTabPane
+                    v-if="!task && (!project || config.preferences.showAdvanced)"
+                    name="dependencies"
+                    tab="Dependencies"
+                >
+                    <DependenciesFormGrid
+                        :model-value="{
+                            project: project ? projects[projectIndex] : undefined,
+                        }"
+                        :sections="[
+                            { label: 'Dependencies', formInputComponents: getDependenciesComponents() },
+                        ]"
+                    />
+                </NTabPane>
+                <NTabPane
                     name="av1an"
                     tab="Av1an"
                 >
@@ -768,7 +787,7 @@ async function copyToClipboard(text: string) {
                     </NGrid>
                 </NTabPane>
                 <template
-                    v-if="({ ...parentAv1anValue.encoding, ...defaultsFormValue.encoding } as typeof defaultsFormValue.encoding).encoder && ({ ...parentAv1anValue.encoding, ...defaultsFormValue.encoding } as typeof defaultsFormValue.encoding).encoder === 'svt-av1'"
+                    v-if="defaultsFormValue.encoding?.encoder && defaultsFormValue.encoding.encoder === Encoder.svt || parentAv1anValue.encoding?.encoder === Encoder.svt || config.defaults.Av1an.encoding?.encoder === Encoder.svt"
                 >
                     <NTabPane
                         name="svt"
