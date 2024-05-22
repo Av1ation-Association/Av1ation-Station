@@ -44,7 +44,8 @@ jobs:
 
       - run: npm run build
 
-      - run: npm run package-av1an
+      - if: ${{ matrix.os == 'windows-latest' }}
+        run: node ./scripts/package-av1an.js
 
       - name: Compile artifacts ${{ inputs.dry-run && '' || 'and upload them to github release' }}
         # I use this action because it is capable of retrying multiple times if there are any issues with the distribution server
