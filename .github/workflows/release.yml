@@ -60,7 +60,7 @@ jobs:
           echo VPX_URL="${{ vars.VPX_URL }}" >> .env.local
           echo X264_URL="${{ vars.X264_URL }}" >> .env.local
           echo X265_URL="${{ vars.X265_URL }}" >> .env.local
-          node ./scripts/package-av1an.js
+          npm run package-av1an
 
       - name: Compile artifacts ${{ inputs.dry-run && '' || 'and upload them to github release' }}
         # I use this action because it is capable of retrying multiple times if there are any issues with the distribution server
