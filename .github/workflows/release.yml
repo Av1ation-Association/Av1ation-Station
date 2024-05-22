@@ -44,23 +44,26 @@ jobs:
 
       - run: npm run build
 
+      - name: Make envfile
+        uses: SpicyPizza/create-envfile@v2.0.3
+        with:
+          envkey_VAPOURSYNTH_URL: ${{ vars.VAPOURSYNTH_URL }}
+          envkey_FFMS2_URL: ${{ vars.FFMS2_URL }}
+          envkey_LSMASH_URL: ${{ vars.LSMASH_URL }}
+          envkey_BESTSOURCE_URL: ${{ vars.BESTSOURCE_URL }}
+          envkey_AV1AN_URL: ${{ vars.AV1AN_URL }}
+          envkey_FFMPEG_URL: ${{ vars.FFMPEG_URL }}
+          envkey_MKVTOOLNIX_URL: ${{ vars.MKVTOOLNIX_URL }}
+          envkey_AOM_URL: ${{ vars.AOM_URL }}
+          envkey_SVT_URL: ${{ vars.SVT_URL }}
+          envkey_RAV1E_URL: ${{ vars.RAV1E_URL }}
+          envkey_VPX_URL: ${{ vars.VPX_URL }}
+          envkey_X264_URL: ${{ vars.X264_URL }}
+          envkey_X265_URL: ${{ vars.X265_URL }}
+          file_name: .env.local
+
       - if: ${{ matrix.os == 'windows-latest' }}
-        run: |
-          touch .env.local
-          echo VAPOURSYNTH_URL="${{ vars.VAPOURSYNTH_URL }}" >> .env.local
-          echo FFMS2_URL="${{ vars.FFMS2_URL }}" >> .env.local
-          echo LSMASH_URL="${{ vars.LSMASH_URL }}" >> .env.local
-          echo BESTSOURCE_URL="${{ vars.BESTSOURCE_URL }}" >> .env.local
-          echo AV1AN_URL="${{ vars.AV1AN_URL }}" >> .env.local
-          echo FFMPEG_URL="${{ vars.FFMPEG_URL }}" >> .env.local
-          echo MKVTOOLNIX_URL="${{ vars.MKVTOOLNIX_URL }}" >> .env.local
-          echo AOM_URL="${{ vars.AOM_URL }}" >> .env.local
-          echo SVT_URL="${{ vars.SVT_URL }}" >> .env.local
-          echo RAV1E_URL="${{ vars.RAV1E_URL }}" >> .env.local
-          echo VPX_URL="${{ vars.VPX_URL }}" >> .env.local
-          echo X264_URL="${{ vars.X264_URL }}" >> .env.local
-          echo X265_URL="${{ vars.X265_URL }}" >> .env.local
-          npm run package-av1an
+        run: npm run package-av1an
 
       - name: Compile artifacts ${{ inputs.dry-run && '' || 'and upload them to github release' }}
         # I use this action because it is capable of retrying multiple times if there are any issues with the distribution server
