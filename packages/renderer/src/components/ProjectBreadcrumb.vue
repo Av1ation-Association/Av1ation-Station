@@ -9,7 +9,7 @@ import { useProjectsStore } from '../stores/projects';
 import {
     type Project,
     type Task,
-} from '../../../main/src/data/Configuration/Projects';
+} from '../../../shared/src/data/Projects';
 
 
 const { projectId, taskId } = defineProps<{

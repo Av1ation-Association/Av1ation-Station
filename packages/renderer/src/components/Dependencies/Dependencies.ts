@@ -1,20 +1,23 @@
 import {
     h,
-    toRaw,
 } from 'vue';
 import {
     NSelect,
 } from 'naive-ui';
 import { type FormInputComponent } from './library';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import { type Project } from '../../../../shared/src/data/Projects';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
-import { DependencyType } from '../../../../main/src/data/Configuration/Types/Configuration';
+import type { ConfigurationType, Preferences } from '../../../../shared/src/data/Configuration';
+import { DependencyType, DependencyTypeToString } from '../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../stores/configurations';
 
 
 export function getComponents(project?: Project): FormInputComponent[] {
     const configStore = useGlobalStore();
     const projectsStore = useProjectsStore();
+    // Assume Project ConfigurationType to avoid repetitive casting
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Project>();
 
     const projectIndex = project ? projectsStore.projects.findIndex(p => p.id === project.id) : -1;
 
@@ -24,30 +27,40 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth?.type : configStore.config.preferences.dependencyPaths.vapoursynth.type,
+                value: configurationsStore.preferences.dependencyPaths.vapoursynth?.type,
+                clearable: !!project,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.vapoursynth.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.vapoursynth.type),
                 onUpdateValue: (value?: DependencyType.System | DependencyType.Packaged) => {
-                    if (value) {
-                        if (project) {
-                            if (!projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth) {
-                                projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth = { type: value };
-                            }
-
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth!.type = value;
-                        } else {
-                            configStore.config.preferences.dependencyPaths.vapoursynth.type = value;
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.vapoursynth;
+                        return;
                     }
+
+                    if (!configurationsStore.preferences.dependencyPaths.vapoursynth) {
+                        configurationsStore.preferences.dependencyPaths.vapoursynth = { type: value };
+                    }
+                    configurationsStore.preferences.dependencyPaths.vapoursynth.type = value;
                 },
             },
         ),
         reset: () => {
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth;
+            // Only allowed for Projects
+            delete configurationsStore.preferences.dependencyPaths.vapoursynth;
+        },
+        isModified: () => {
+            const previousVapoursynth = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.vapoursynth : configStore.config.preferences.dependencyPaths.vapoursynth;
+
+            if ((!previousVapoursynth || !previousVapoursynth.type)) {
+                return (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vapoursynth?.type !== undefined;
+            } else if (previousVapoursynth?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vapoursynth?.type) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -58,49 +71,42 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.dgdecnv?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.dgdecnv as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.dgdecnv?.type : configStore.config.preferences.dependencyPaths.dgdecnv.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.dgdecnv.path : configStore.config.preferences.dependencyPaths.dgdecnv.type,
+                value: configurationsStore.preferences.dependencyPaths.dgdecnv?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.dgdecnv.path : configurationsStore.preferences.dependencyPaths.dgdecnv?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.dgdecnv.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.dgdecnv.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['dgdecnv'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.DGDECNV_PATH, 'DGDemux Path', undefined, ['openDirectory']);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.dgdecnv = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.dgdecnv = newValue as typeof configStore.config.preferences.dependencyPaths.dgdecnv;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.dgdecnv;
+                        return;
                     }
+                    let newValue: Project['preferences']['dependencyPaths']['dgdecnv'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.DGDECNV_PATH, 'DGDemux Path', undefined, ['openDirectory']);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.dgdecnv = newValue;
                 },
             },
         ),
@@ -108,6 +114,19 @@ export function getComponents(project?: Project): FormInputComponent[] {
             // Only allowed for Projects
             if (project) {
                 delete projectsStore.projects[projectIndex].preferences.dependencyPaths.dgdecnv;
+            }
+        },
+        isModified: () => {
+            const previousDgdecnv = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.dgdecnv : configStore.config.preferences.dependencyPaths.dgdecnv;
+
+            if ((!previousDgdecnv || !previousDgdecnv?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.dgdecnv?.type) {
+                return true;
+            } else if (previousDgdecnv?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.dgdecnv?.type) {
+                return true;
+            } else if (previousDgdecnv?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.dgdecnv?.type === DependencyType.Custom && previousDgdecnv.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.dgdecnv as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -118,56 +137,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.av1an?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.av1an as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.av1an?.type : configStore.config.preferences.dependencyPaths.av1an.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.av1an.path : configStore.config.preferences.dependencyPaths.av1an.type,
+                value: configurationsStore.preferences.dependencyPaths.av1an?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.av1an.path : configurationsStore.preferences.dependencyPaths.av1an?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.av1an.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.av1an.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['av1an'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.AV1AN_PATH, 'Av1an Executable Path', [{ name: 'av1an', extensions: ['exe'] }], ['openFile']);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.av1an = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.av1an = newValue as typeof configStore.config.preferences.dependencyPaths.av1an;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.av1an;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['av1an'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.AV1AN_PATH, 'Av1an Executable Path', [{ name: 'av1an', extensions: ['exe'] }], ['openFile']);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.av1an = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.av1an;
+            delete configurationsStore.preferences.dependencyPaths.av1an;
+        },
+        isModified: () => {
+            const previousAv1an = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.av1an : configStore.config.preferences.dependencyPaths.av1an;
+
+            if ((!previousAv1an || !previousAv1an?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.av1an?.type) {
+                return true;
+            } else if (previousAv1an?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.av1an?.type) {
+                return true;
+            } else if (previousAv1an?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.av1an?.type === DependencyType.Custom && previousAv1an.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.av1an as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -178,56 +202,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.ffmpeg?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.ffmpeg as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.ffmpeg?.type : configStore.config.preferences.dependencyPaths.ffmpeg.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.ffmpeg.path : configStore.config.preferences.dependencyPaths.ffmpeg.type,
+                value: configurationsStore.preferences.dependencyPaths.ffmpeg?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.ffmpeg.path : configurationsStore.preferences.dependencyPaths.ffmpeg?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.ffmpeg.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.ffmpeg.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['ffmpeg'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.FFMPEG_PATH, 'FFmpeg Installation Directory', undefined, ['openDirectory']);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.ffmpeg = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.ffmpeg = newValue as typeof configStore.config.preferences.dependencyPaths.ffmpeg;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.ffmpeg;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['ffmpeg'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.FFMPEG_PATH, 'FFmpeg Installation Directory', undefined, ['openDirectory']);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.ffmpeg = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.ffmpeg;
+            delete configurationsStore.preferences.dependencyPaths.ffmpeg;
+        },
+        isModified: () => {
+            const previousFfmpeg = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.ffmpeg : configStore.config.preferences.dependencyPaths.ffmpeg;
+
+            if ((!previousFfmpeg || !previousFfmpeg?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.ffmpeg?.type) {
+                return true;
+            } else if (previousFfmpeg?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.ffmpeg?.type) {
+                return true;
+            } else if (previousFfmpeg?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.ffmpeg?.type === DependencyType.Custom && previousFfmpeg.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.ffmpeg as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -238,56 +267,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.mkvtoolnix?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.mkvtoolnix as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.mkvtoolnix?.type : configStore.config.preferences.dependencyPaths.mkvtoolnix.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.mkvtoolnix.path : configStore.config.preferences.dependencyPaths.mkvtoolnix.type,
+                value: configurationsStore.preferences.dependencyPaths.mkvtoolnix?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.mkvtoolnix.path : configurationsStore.preferences.dependencyPaths.mkvtoolnix?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.mkvtoolnix.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.mkvtoolnix.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['mkvtoolnix'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.MKVTOOLNIX_PATH, 'MKVToolNix Installation Directory', undefined, ['openDirectory']);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.mkvtoolnix = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.mkvtoolnix = newValue as typeof configStore.config.preferences.dependencyPaths.mkvtoolnix;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.mkvtoolnix;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['mkvtoolnix'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.MKVTOOLNIX_PATH, 'MKVToolNix Installation Directory', undefined, ['openDirectory']);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.mkvtoolnix = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.mkvtoolnix;
+            delete configurationsStore.preferences.dependencyPaths.mkvtoolnix;
+        },
+        isModified: () => {
+            const previousMkvtoolnix = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.mkvtoolnix : configStore.config.preferences.dependencyPaths.mkvtoolnix;
+
+            if ((!previousMkvtoolnix || !previousMkvtoolnix?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.mkvtoolnix?.type) {
+                return true;
+            } else if (previousMkvtoolnix?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.mkvtoolnix?.type) {
+                return true;
+            } else if (previousMkvtoolnix?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.mkvtoolnix?.type === DependencyType.Custom && previousMkvtoolnix.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.mkvtoolnix as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -298,56 +332,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.aom?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.aom as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.aom?.type : configStore.config.preferences.dependencyPaths.aom.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.aom.path : configStore.config.preferences.dependencyPaths.aom.type,
+                value: configurationsStore.preferences.dependencyPaths.aom?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.aom.path : configurationsStore.preferences.dependencyPaths.aom?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.aom.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.aom.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['aom'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.AOM_PATH, 'AOM Executable Path', [{ name: 'aomenc', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.aom = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.aom = newValue as typeof configStore.config.preferences.dependencyPaths.aom;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.aom;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['aom'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.AOM_PATH, 'AOM Executable Path', [{ name: 'aomenc', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.aom = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.aom;
+            delete configurationsStore.preferences.dependencyPaths.aom;
+        },
+        isModified: () => {
+            const previousAom = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.aom : configStore.config.preferences.dependencyPaths.aom;
+
+            if ((!previousAom || !previousAom?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.aom?.type) {
+                return true;
+            } else if (previousAom?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.aom?.type) {
+                return true;
+            } else if (previousAom?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.aom?.type === DependencyType.Custom && previousAom.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.aom as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -358,56 +397,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.svt?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.svt as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.svt?.type : configStore.config.preferences.dependencyPaths.svt.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.svt.path : configStore.config.preferences.dependencyPaths.svt.type,
+                value: configurationsStore.preferences.dependencyPaths.svt?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.svt.path : configurationsStore.preferences.dependencyPaths.svt?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.svt.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.svt.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['svt'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.SVT_PATH, 'SVT-AV1 Executable Path', [{ name: 'SvtAv1EncApp', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.svt = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.svt = newValue as typeof configStore.config.preferences.dependencyPaths.svt;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.svt;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['svt'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.SVT_PATH, 'SVT-AV1 Executable Path', [{ name: 'SvtAv1EncApp', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.svt = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.svt;
+            delete configurationsStore.preferences.dependencyPaths.svt;
+        },
+        isModified: () => {
+            const previousSvt = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.svt : configStore.config.preferences.dependencyPaths.svt;
+
+            if ((!previousSvt || !previousSvt?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.svt?.type) {
+                return true;
+            } else if (previousSvt?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.svt?.type) {
+                return true;
+            } else if (previousSvt?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.svt?.type === DependencyType.Custom && previousSvt.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.svt as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -418,56 +462,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.rav1e?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.rav1e as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.rav1e?.type : configStore.config.preferences.dependencyPaths.rav1e.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.rav1e.path : configStore.config.preferences.dependencyPaths.rav1e.type,
+                value: configurationsStore.preferences.dependencyPaths.rav1e?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.rav1e.path : configurationsStore.preferences.dependencyPaths.rav1e?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.rav1e.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.rav1e.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['rav1e'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.RAV1E_PATH, 'Rav1e Executable Path', [{ name: 'rav1e', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.rav1e = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.rav1e = newValue as typeof configStore.config.preferences.dependencyPaths.rav1e;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.rav1e;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['rav1e'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.RAV1E_PATH, 'Rav1e Executable Path', [{ name: 'rav1e', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.rav1e = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.rav1e;
+            delete configurationsStore.preferences.dependencyPaths.rav1e;
+        },
+        isModified: () => {
+            const previousRav1e = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.rav1e : configStore.config.preferences.dependencyPaths.rav1e;
+
+            if ((!previousRav1e || !previousRav1e?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.rav1e?.type) {
+                return true;
+            } else if (previousRav1e?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.rav1e?.type) {
+                return true;
+            } else if (previousRav1e?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.rav1e?.type === DependencyType.Custom && previousRav1e.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.rav1e as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -478,56 +527,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.vpx?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.vpx as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.vpx?.type : configStore.config.preferences.dependencyPaths.vpx.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.vpx.path : configStore.config.preferences.dependencyPaths.vpx.type,
+                value: configurationsStore.preferences.dependencyPaths.vpx?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.vpx.path : configurationsStore.preferences.dependencyPaths.vpx?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.vpx.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.vpx.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['vpx'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.VPX_PATH, 'VPX Executable Path', [{ name: 'vpxenc', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.vpx = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.vpx = newValue as typeof configStore.config.preferences.dependencyPaths.vpx;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.vpx;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['vpx'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.VPX_PATH, 'VPX Executable Path', [{ name: 'vpxenc', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.vpx = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.vpx;
+            delete configurationsStore.preferences.dependencyPaths.vpx;
+        },
+        isModified: () => {
+            const previousVpx = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.vpx : configStore.config.preferences.dependencyPaths.vpx;
+
+            if ((!previousVpx || !previousVpx?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vpx?.type) {
+                return true;
+            } else if (previousVpx?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vpx?.type) {
+                return true;
+            } else if (previousVpx?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vpx?.type === DependencyType.Custom && previousVpx.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.vpx as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -538,56 +592,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.x264?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.x264 as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.x264?.type : configStore.config.preferences.dependencyPaths.x264.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.x264.path : configStore.config.preferences.dependencyPaths.x264.type,
+                value: configurationsStore.preferences.dependencyPaths.x264?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.x264.path : configurationsStore.preferences.dependencyPaths.x264?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.x264.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.x264.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['x264'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.x264_PATH, 'x264 Executable Path', [{ name: 'x264', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.x264 = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.x264 = newValue as typeof configStore.config.preferences.dependencyPaths.x264;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.x264;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['x264'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.x264_PATH, 'x264 Executable Path', [{ name: 'x264', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.x264 = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.x264;
+            delete configurationsStore.preferences.dependencyPaths.x264;
+        },
+        isModified: () => {
+            const previousx264 = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.x264 : configStore.config.preferences.dependencyPaths.x264;
+
+            if ((!previousx264 || !previousx264?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x264?.type) {
+                return true;
+            } else if (previousx264?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x264?.type) {
+                return true;
+            } else if (previousx264?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x264?.type === DependencyType.Custom && previousx264.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x264 as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };
@@ -598,56 +657,61 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.x265?.type === DependencyType.Custom ? (projectsStore.projects[projectIndex].preferences.dependencyPaths.x265 as { type: DependencyType.Custom, path: string; }).path : project.preferences.dependencyPaths.x265?.type : configStore.config.preferences.dependencyPaths.x265.type === DependencyType.Custom ? configStore.config.preferences.dependencyPaths.x265.path : configStore.config.preferences.dependencyPaths.x265.type,
+                value: configurationsStore.preferences.dependencyPaths.x265?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.x265.path : configurationsStore.preferences.dependencyPaths.x265?.type,
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
                     { label: 'Custom', value: DependencyType.Custom },
                 ],
-                placeholder: configStore.config.preferences.dependencyPaths.x265.type,
+                placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.x265.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
-                    if (value) {
-                        let newValue: Project['preferences']['dependencyPaths']['x265'] = undefined;
-                        
-                        if (value === DependencyType.Custom) {
-                            // Get path from user
-                            const environmentResources = await window.configurationsApi['get-environment-resources']();
-                            const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.x265_PATH, 'x265 Executable Path', [{ name: 'x265', extensions: ['exe'] }]);
-
-                            if (!path || path.length < 1) {
-                                // User canceled path selection
-                                return;
-                            }
-
-                            newValue = {
-                                type: value,
-                                path: path[0],
-                            };
-                        } else {
-                            newValue = {
-                                type: value,
-                            };
-                        }
-
-                        if (project) {
-                            projectsStore.projects[projectIndex].preferences.dependencyPaths.x265 = newValue;
-
-                            // Update project
-                            await projectsStore.saveProject(projectsStore.projects[projectIndex].id, true);
-                        } else {
-                            configStore.config.preferences.dependencyPaths.x265 = newValue as typeof configStore.config.preferences.dependencyPaths.x265;
-
-                            // Save config
-                            configStore.setConfig(toRaw(configStore.config), true);
-                        }
+                    if (!value) {
+                        // Projects only
+                        delete configurationsStore.preferences.dependencyPaths.x265;
+                        return;
                     }
+
+                    let newValue: Project['preferences']['dependencyPaths']['x265'] = undefined;
+
+                    if (value === DependencyType.Custom) {
+                        // Get path from user
+                        const environmentResources = await window.configurationsApi['get-environment-resources']();
+                        const path = await window.configurationsApi['open-file'](environmentResources.PORTABLE.x265_PATH, 'x265 Executable Path', [{ name: 'x265', extensions: ['exe'] }]);
+
+                        if (!path || path.length < 1) {
+                            // User canceled path selection
+                            return;
+                        }
+
+                        newValue = {
+                            type: value,
+                            path: path[0],
+                        };
+                    } else {
+                        newValue = {
+                            type: value,
+                        };
+                    }
+
+                    configurationsStore.preferences.dependencyPaths.x265 = newValue;
                 },
             },
         ),
         reset: () => {
             // Only allowed for Projects
-            if (project) {
-                delete projectsStore.projects[projectIndex].preferences.dependencyPaths.x265;
+            delete configurationsStore.preferences.dependencyPaths.x265;
+        },
+        isModified: () => {
+            const previousx265 = project ? projectsStore.projects[projectIndex].preferences.dependencyPaths.x265 : configStore.config.preferences.dependencyPaths.x265;
+
+            if ((!previousx265 || !previousx265?.type) && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x265?.type) {
+                return true;
+            } else if (previousx265?.type !== (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x265?.type) {
+                return true;
+            } else if (previousx265?.type === DependencyType.Custom && (configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x265?.type === DependencyType.Custom && previousx265.path !== ((configurationsStore.preferences as Preferences<ConfigurationType.Project>).dependencyPaths.x265 as { type: DependencyType.Custom, path: string; }).path) {
+                return true;
+            } else {
+                return false;
             }
         },
     };

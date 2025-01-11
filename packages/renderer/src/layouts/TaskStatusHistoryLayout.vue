@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toRaw } from 'vue';
 import { RouterLink, onBeforeRouteUpdate, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import {
@@ -12,10 +13,9 @@ import {
     NTimelineItem,
 } from 'naive-ui';
 import { useProjectsStore } from '../stores/projects';
-import { type Av1anStatus } from '../../../main/src/utils/Av1an/Av1an';
+import { type Av1anStatus } from '../../../shared/src/data/Types/Status';
+import { type Task } from '../../../shared/src/data/Projects';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb.vue';
-import { type Task } from '../../../main/src/data/Configuration/Projects';
-import { toRaw } from 'vue';
 
 const router = useRouter();
 

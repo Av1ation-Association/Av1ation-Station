@@ -22,7 +22,7 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
     readonly env: ImportMetaEnv;
-    
+
     resources: {
         /** Paths to portable binaries */
         PORTABLE: {

@@ -11,7 +11,7 @@ import {
     Reset as ResetIcon,
 } from '@vicons/carbon';
 import { useGlobalStore } from '../../stores/global';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import { type Project } from '../../../../shared/src/data/Projects';
 import { type FormInputComponent } from '../Dependencies/library';
 import { ref } from 'vue';
 
@@ -54,11 +54,11 @@ function getDefaultPreferences () {
                 :key="component.path"
             >
                 <NFormItemGridItem
-                    :label="component.label"
+                    :label="`${component.label}${component.isModified() ? '*' : ''}`"
                     :path="component.path"
                 >
                     <template #label>
-                        {{ component.label }}
+                        {{ `${component.label}${component.isModified() ? '*' : ''}` }}
                         <!-- Sacrificial Button workaround for button inheriting sibling/parent label when using "text" option and causing double click -->
                         <NButton text />
                         <NTooltip

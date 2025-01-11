@@ -1,0 +1,27 @@
+{
+  "name": "@av1ation-station/renderer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build --base ./",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@av1ation-station/shared": "*",
+    "@vicons/carbon": "^0.12.0",
+    "naive-ui": "2.40.1",
+    "pinia": "^2.2.8",
+    "vue": "^3.5.12",
+    "vue-draggable-plus": "^0.6.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "typescript": "5.6.2",
+    "vite": "^5.4.10",
+    "vue-tsc": "2.0.29"
+  },
+  "main": "./dist/index.html"
+}

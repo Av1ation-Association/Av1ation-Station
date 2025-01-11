@@ -8,6 +8,7 @@ import { useProjectsStore } from '../stores/projects';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb.vue';
 import TaskDetail from '../components/Projects/TaskDetail.vue';
 import ConfigurationDefaults from '../components/Configuration/ConfigurationDefaults.vue';
+import ConfigurationFloatingButtons from '../components/Configuration/ConfigurationFloatingButtons.vue';
 
 const router = useRouter();
 
@@ -66,4 +67,8 @@ const task = projectsStore.projects[projectIndex].tasks[taskIndex];
             />
         </NFlex>
     </NLayout>
+    <ConfigurationFloatingButtons
+        :project-id="task.projectId"
+        :task-id="task.id"
+    />
 </template>

@@ -36,7 +36,7 @@ router.push('/');
                 <SidebarMenu />
                 <RouterView />
             </NLayout>
-        </naiveprovider>
+        </NaiveProvider>
     </suspense>
 </template>
 

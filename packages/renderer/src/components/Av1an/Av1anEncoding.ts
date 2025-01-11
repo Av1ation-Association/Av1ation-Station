@@ -1,7 +1,4 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NSelect,
     NInput,
@@ -10,22 +7,26 @@ import {
     NInputGroup,
     NButton,
 } from 'naive-ui';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
 import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
+    Encoder,
+    EncodertoString,
+} from '../../../../shared/src/data/Types/Options';
+import { useConfigurationsStore } from '../../stores/configurations';
 import { type FormInputComponent } from './library';
-import { Encoder } from '../../../../main/src/data/Av1an/Types/Options';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const encoder = {
         label: 'Encoder',
         path: 'encoding.encoder',
         component: h(
             NSelect,
             {
-                value: formValueRef.value.encoding?.encoder,
+                value: configurationsStore.defaults.Av1an.encoding?.encoder,
                 clearable: true,
                 options: [
                     { label: 'Alliance for Open Media AV1 (aom)', value: Encoder.aom },
@@ -36,38 +37,47 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     { label: 'High Efficiency Video Coding (x265)', value: Encoder.x265 },
                 ],
                 onUpdateValue: (value?: Encoder) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {};
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
                     }
 
                     if (value !== null) {
-                        if (formValueRef.value.encoding.encoder !== value) {
+                        if (configurationsStore.defaults.Av1an.encoding.encoder !== value) {
                             // Reset value when changing encoder
-                            formValueRef.value.encoding = {};
+                            configurationsStore.defaults.Av1an.encoding = {};
                         }
 
-                        formValueRef.value.encoding.encoder = value;
+                        configurationsStore.defaults.Av1an.encoding.encoder = value;
                     }
                 },
-                placeholder: 'Alliance for Open Media AV1 (aom)',
-                defaultValue: parentAv1anValue?.encoding?.encoder,
+                placeholder: EncodertoString(parentAv1an.encoding?.encoder ?? Encoder.aom),
+                // defaultValue: parentAv1an.encoding?.encoder,
                 onClear: () => {
-                    delete formValueRef.value.encoding?.encoder;
+                    delete configurationsStore.defaults.Av1an.encoding?.encoder;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {};
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
             }
 
-            formValueRef.value.encoding.encoder = null;
+            configurationsStore.defaults.Av1an.encoding.encoder = null;
         },
         disabled: () => {
-            return formValueRef.value.encoding?.encoder === null;
+            return configurationsStore.defaults.Av1an.encoding?.encoder === null;
         },
         reset: () => {
-            delete formValueRef.value.encoding?.encoder;
+            delete configurationsStore.defaults.Av1an.encoding?.encoder;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.encoder === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.encoder !== undefined;
+            } else if (previousAv1an.encoding.encoder !== configurationsStore.defaults.Av1an.encoding?.encoder) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -77,40 +87,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInput,
             {
-                value: formValueRef.value.encoding?.FFmpegAudioParameters,
+                value: configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters,
                 clearable: true,
                 onUpdateValue: (value?: string) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {};
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.FFmpegAudioParameters === value) {
-                            delete formValueRef.value.encoding?.FFmpegAudioParameters;
+                        if (parentAv1an.encoding?.FFmpegAudioParameters === value) {
+                            delete configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters;
                         } else {
-                            formValueRef.value.encoding.FFmpegAudioParameters = value;
+                            configurationsStore.defaults.Av1an.encoding.FFmpegAudioParameters = value;
                         }
                     }
                 },
-                placeholder: 'None (-c:a copy)',
-                defaultValue: parentAv1anValue?.encoding?.FFmpegAudioParameters,
+                placeholder: parentAv1an.encoding?.FFmpegAudioParameters ?? 'None (-c:a copy)',
+                // defaultValue: parentAv1an.encoding?.FFmpegAudioParameters,
                 onClear: () => {
-                    delete formValueRef.value.encoding?.FFmpegAudioParameters;
+                    delete configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {};
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
             }
 
-            formValueRef.value.encoding.FFmpegAudioParameters = null;
+            configurationsStore.defaults.Av1an.encoding.FFmpegAudioParameters = null;
         },
         disabled: () => {
-            return formValueRef.value.encoding?.FFmpegAudioParameters === null;
+            return configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters === null;
         },
         reset: () => {
-            delete formValueRef.value.encoding?.FFmpegAudioParameters;
+            delete configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.FFmpegAudioParameters === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters !== undefined;
+            } else if (previousAv1an.encoding.FFmpegAudioParameters !== configurationsStore.defaults.Av1an.encoding?.FFmpegAudioParameters) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -120,40 +139,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInput,
             {
-                value: formValueRef.value.encoding?.FFmpegFilterOptions,
+                value: configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions,
                 clearable: true,
                 onUpdateValue: (value?: string) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {};
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.FFmpegFilterOptions === value) {
-                            delete formValueRef.value.encoding?.FFmpegFilterOptions;
+                        if (parentAv1an.encoding?.FFmpegFilterOptions === value) {
+                            delete configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions;
                         } else {
-                            formValueRef.value.encoding.FFmpegFilterOptions = value;
+                            configurationsStore.defaults.Av1an.encoding.FFmpegFilterOptions = value;
                         }
                     }
                 },
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.encoding?.FFmpegFilterOptions,
+                placeholder: parentAv1an.encoding?.FFmpegFilterOptions ?? 'None',
+                // defaultValue: parentAv1an.encoding?.FFmpegFilterOptions,
                 onClear: () => {
-                    delete formValueRef.value.encoding?.FFmpegFilterOptions;
+                    delete configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {};
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
             }
 
-            formValueRef.value.encoding.FFmpegFilterOptions = null;
+            configurationsStore.defaults.Av1an.encoding.FFmpegFilterOptions = null;
         },
         disabled: () => {
-            return formValueRef.value.encoding?.FFmpegFilterOptions === null;
+            return configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions === null;
         },
         reset: () => {
-            delete formValueRef.value.encoding?.FFmpegFilterOptions;
+            delete configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.FFmpegFilterOptions === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions !== undefined;
+            } else if (previousAv1an.encoding.FFmpegFilterOptions !== configurationsStore.defaults.Av1an.encoding?.FFmpegFilterOptions) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -164,35 +192,44 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.encoding?.force ?? undefined,
-                defaultValue: parentAv1anValue?.encoding?.force ?? undefined,
+                value: configurationsStore.defaults.Av1an.encoding?.force ?? undefined,
+                defaultValue: parentAv1an.encoding?.force ?? undefined,
                 onUpdateValue: (value?: boolean) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {};
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.force === value) {
-                            delete formValueRef.value.encoding?.force;
+                        if (parentAv1an.encoding?.force === value) {
+                            delete configurationsStore.defaults.Av1an.encoding?.force;
                         } else {
-                            formValueRef.value.encoding.force = value;
+                            configurationsStore.defaults.Av1an.encoding.force = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {};
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
             }
 
-            formValueRef.value.encoding.force = null;
+            configurationsStore.defaults.Av1an.encoding.force = null;
         },
         disabled: () => {
-            return formValueRef.value.encoding?.force === null;
+            return configurationsStore.defaults.Av1an.encoding?.force === null;
         },
         reset: () => {
-            delete formValueRef.value.encoding?.force;
+            delete configurationsStore.defaults.Av1an.encoding?.force;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.force === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.force !== undefined;
+            } else if (previousAv1an.encoding.force !== configurationsStore.defaults.Av1an.encoding?.force) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -202,44 +239,53 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.encoding?.passes,
+                value: configurationsStore.defaults.Av1an.encoding?.passes,
                 clearable: true,
                 options: [
                     { label: '1', value: 1 },
                     { label: '2', value: 2 },
                 ],
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.encoding?.passes,
-                onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {};
+                placeholder: parentAv1an.encoding?.passes?.toString() ?? 'None',
+                // defaultValue: parentAv1an.encoding?.passes,
+                onUpdateValue: (value?: 1 | 2 | null) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.passes === value) {
-                            delete formValueRef.value.encoding?.passes;
+                        if (parentAv1an.encoding?.passes === value) {
+                            delete configurationsStore.defaults.Av1an.encoding?.passes;
                         } else {
-                            formValueRef.value.encoding.passes = value;
+                            configurationsStore.defaults.Av1an.encoding.passes = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.encoding?.passes;
+                    delete configurationsStore.defaults.Av1an.encoding?.passes;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {};
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
             }
 
-            formValueRef.value.encoding.passes = null;
+            configurationsStore.defaults.Av1an.encoding.passes = null;
         },
         disabled: () => {
-            return formValueRef.value.encoding?.passes === null;
+            return configurationsStore.defaults.Av1an.encoding?.passes === null;
         },
         reset: () => {
-            delete formValueRef.value.encoding?.passes;
+            delete configurationsStore.defaults.Av1an.encoding?.passes;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.passes === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.passes !== undefined;
+            } else if (previousAv1an.encoding.passes !== configurationsStore.defaults.Av1an.encoding?.passes) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -249,30 +295,39 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: formValueRef.value.photonNoise ?? undefined,
+                value: configurationsStore.defaults.Av1an.photonNoise ?? undefined,
                 min: 0,
                 max: 63,
                 step: 1,
-                defaultValue: parentAv1anValue?.photonNoise ?? undefined,
+                defaultValue: parentAv1an.photonNoise ?? undefined,
                 onUpdateValue: (value?: number) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.photonNoise === value) {
-                            delete formValueRef.value.photonNoise;
+                        if (parentAv1an.photonNoise === value) {
+                            delete configurationsStore.defaults.Av1an.photonNoise;
                         } else {
-                            formValueRef.value.photonNoise = value;
+                            configurationsStore.defaults.Av1an.photonNoise = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.photonNoise = null;
+            configurationsStore.defaults.Av1an.photonNoise = null;
         },
         disabled: () => {
-            return formValueRef.value.photonNoise === null;
+            return configurationsStore.defaults.Av1an.photonNoise === null;
         },
         reset: () => {
-            delete formValueRef.value.photonNoise;
+            delete configurationsStore.defaults.Av1an.photonNoise;
+        },
+        isModified: () => {
+            if (!previousAv1an || previousAv1an.photonNoise === undefined) {
+                return configurationsStore.defaults.Av1an.photonNoise !== undefined;
+            } else if (previousAv1an.photonNoise !== configurationsStore.defaults.Av1an.photonNoise) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -285,21 +340,21 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
             () => [
                 h(
                     NInput, {
-                        value: formValueRef.value.zones,
+                        value: configurationsStore.defaults.Av1an.zones,
                         clearable: true,
                         onUpdateValue: (value) => {
                             if (value) {
-                                if (parentAv1anValue?.zones === value) {
-                                    delete formValueRef.value.zones;
+                                if (parentAv1an.zones === value) {
+                                    delete configurationsStore.defaults.Av1an.zones;
                                 } else {
-                                    formValueRef.value.zones = value;
+                                    configurationsStore.defaults.Av1an.zones = value;
                                 }
                             }
                         },
-                        placeholder: 'Zones File Path',
-                        defaultValue: parentAv1anValue?.zones,
+                        placeholder: parentAv1an.zones ?? 'Zones File Path',
+                        // defaultValue: parentAv1an.zones,
                         onClear: () => {
-                            delete formValueRef.value.zones;
+                            delete configurationsStore.defaults.Av1an.zones;
                         },
                     },
                 ),
@@ -308,13 +363,13 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     {
                         type: 'primary',
                         onClick: async () => {
-                            const defaultPath = formValueRef.value.zones; // TODO: fallback to output directory
+                            const defaultPath = configurationsStore.defaults.Av1an.zones; // TODO: fallback to output directory
                             const zonesFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'VMAF Model');
                             if (zonesFilePath) {
-                                if (parentAv1anValue?.zones === zonesFilePath) {
-                                    delete formValueRef.value.zones;
+                                if (parentAv1an.zones === zonesFilePath) {
+                                    delete configurationsStore.defaults.Av1an.zones;
                                 } else {
-                                    formValueRef.value.zones = zonesFilePath;
+                                    configurationsStore.defaults.Av1an.zones = zonesFilePath;
                                 }
                             }
                         },
@@ -326,13 +381,22 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
             ],
         ),
         disable: () => {
-            formValueRef.value.zones = null;
+            configurationsStore.defaults.Av1an.zones = null;
         },
         disabled: () => {
-            return formValueRef.value.zones === null;
+            return configurationsStore.defaults.Av1an.zones === null;
         },
         reset: () => {
-            delete formValueRef.value.zones;
+            delete configurationsStore.defaults.Av1an.zones;
+        },
+        isModified: () => {
+            if (!previousAv1an || previousAv1an.zones === undefined) {
+                return configurationsStore.defaults.Av1an.zones !== undefined;
+            } else if (previousAv1an.zones !== configurationsStore.defaults.Av1an.zones) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

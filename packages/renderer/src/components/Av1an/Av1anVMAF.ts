@@ -1,21 +1,19 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NButton,
     NInput,
     NInputGroup,
     NInputNumber,
 } from 'naive-ui';
-import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../stores/configurations';
 import { type FormInputComponent } from './library';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const modelPath = {
         label: 'VMAF Model Path',
         path: 'vmaf.path',
@@ -25,25 +23,25 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
             () => [
                 h(
                     NInput, {
-                        value: formValueRef.value.vmaf?.path,
+                        value: configurationsStore.defaults.Av1an.vmaf?.path,
                         clearable: true,
                         onUpdateValue: (value) => {
-                            if (!formValueRef.value.vmaf) {
-                                formValueRef.value.vmaf = {};
+                            if (!configurationsStore.defaults.Av1an.vmaf) {
+                                configurationsStore.defaults.Av1an.vmaf = {};
                             }
 
                             if (value) {
-                                if (parentAv1anValue?.vmaf?.path === value) {
-                                    delete formValueRef.value.vmaf.path;
+                                if (parentAv1an.vmaf?.path === value) {
+                                    delete configurationsStore.defaults.Av1an.vmaf.path;
                                 } else {
-                                    formValueRef.value.vmaf.path = value;
+                                    configurationsStore.defaults.Av1an.vmaf.path = value;
                                 }
                             }
                         },
-                        placeholder: 'VMAF Model File Path',
-                        defaultValue: parentAv1anValue?.vmaf?.path,
+                        placeholder: parentAv1an.vmaf?.path ?? 'VMAF Model File Path',
+                        // defaultValue: parentAv1an.vmaf?.path,
                         onClear: () => {
-                            delete formValueRef.value.vmaf?.path;
+                            delete configurationsStore.defaults.Av1an.vmaf?.path;
                         },
                     },
                 ),
@@ -52,17 +50,17 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     {
                         type: 'primary',
                         onClick: async () => {
-                            const defaultPath = formValueRef.value.vmaf?.path; // TODO: fallback to output directory
+                            const defaultPath = configurationsStore.defaults.Av1an.vmaf?.path; // TODO: fallback to output directory
                             const vmafFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'VMAF Model');
                             if (vmafFilePath) {
-                                if (!formValueRef.value.vmaf) {
-                                    formValueRef.value.vmaf = {};
+                                if (!configurationsStore.defaults.Av1an.vmaf) {
+                                    configurationsStore.defaults.Av1an.vmaf = {};
                                 }
 
-                                if (parentAv1anValue?.vmaf?.path === vmafFilePath) {
-                                    delete formValueRef.value.vmaf.path;
+                                if (parentAv1an.vmaf?.path === vmafFilePath) {
+                                    delete configurationsStore.defaults.Av1an.vmaf.path;
                                 } else {
-                                    formValueRef.value.vmaf.path = vmafFilePath;
+                                    configurationsStore.defaults.Av1an.vmaf.path = vmafFilePath;
                                 }
                             }
                         },
@@ -74,17 +72,26 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
             ],
         ),
         disable: () => {
-            if (!formValueRef.value.vmaf) {
-                formValueRef.value.vmaf = {};
+            if (!configurationsStore.defaults.Av1an.vmaf) {
+                configurationsStore.defaults.Av1an.vmaf = {};
             }
 
-            formValueRef.value.vmaf.path = null;
+            configurationsStore.defaults.Av1an.vmaf.path = null;
         },
         disabled: () => {
-            return formValueRef.value.vmaf?.path === null;
+            return configurationsStore.defaults.Av1an.vmaf?.path === null;
         },
         reset: () => {
-            delete formValueRef.value.vmaf?.path;
+            delete configurationsStore.defaults.Av1an.vmaf?.path;
+        },
+        isModified: () => {
+            if (!previousAv1an.vmaf || previousAv1an.vmaf.path === undefined) {
+                return configurationsStore.defaults.Av1an.vmaf?.path !== undefined;
+            } else if (previousAv1an.vmaf.path !== configurationsStore.defaults.Av1an.vmaf?.path) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -94,40 +101,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInput,
             {
-                value: formValueRef.value.vmaf?.resolution,
+                value: configurationsStore.defaults.Av1an.vmaf?.resolution,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.vmaf) {
-                        formValueRef.value.vmaf = {};
+                    if (!configurationsStore.defaults.Av1an.vmaf) {
+                        configurationsStore.defaults.Av1an.vmaf = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.vmaf?.resolution === value) {
-                            delete formValueRef.value.vmaf.resolution;
+                        if (parentAv1an.vmaf?.resolution === value) {
+                            delete configurationsStore.defaults.Av1an.vmaf.resolution;
                         } else {
-                            formValueRef.value.vmaf.resolution = value;
+                            configurationsStore.defaults.Av1an.vmaf.resolution = value;
                         }
                     }
                 },
-                placeholder: '1920x1080',
-                defaultValue: parentAv1anValue?.vmaf?.resolution,
+                placeholder: parentAv1an.vmaf?.resolution ?? '1920x1080',
+                // defaultValue: parentAv1an.vmaf?.resolution,
                 onClear: () => {
-                    delete formValueRef.value.vmaf?.resolution;
+                    delete configurationsStore.defaults.Av1an.vmaf?.resolution;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.vmaf) {
-                formValueRef.value.vmaf = {};
+            if (!configurationsStore.defaults.Av1an.vmaf) {
+                configurationsStore.defaults.Av1an.vmaf = {};
             }
 
-            formValueRef.value.vmaf.resolution = null;
+            configurationsStore.defaults.Av1an.vmaf.resolution = null;
         },
         disabled: () => {
-            return formValueRef.value.vmaf?.resolution === null;
+            return configurationsStore.defaults.Av1an.vmaf?.resolution === null;
         },
         reset: () => {
-            delete formValueRef.value.vmaf?.resolution;
+            delete configurationsStore.defaults.Av1an.vmaf?.resolution;
+        },
+        isModified: () => {
+            if (!previousAv1an.vmaf || previousAv1an.vmaf.resolution === undefined) {
+                return configurationsStore.defaults.Av1an.vmaf?.resolution !== undefined;
+            } else if (previousAv1an.vmaf.path !== configurationsStore.defaults.Av1an.vmaf?.resolution) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -137,40 +153,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.vmaf?.threads,
+                value: configurationsStore.defaults.Av1an.vmaf?.threads,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.vmaf) {
-                        formValueRef.value.vmaf = {};
+                    if (!configurationsStore.defaults.Av1an.vmaf) {
+                        configurationsStore.defaults.Av1an.vmaf = {};
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.vmaf?.threads === value) {
-                            delete formValueRef.value.vmaf.threads;
+                        if (parentAv1an.vmaf?.threads === value) {
+                            delete configurationsStore.defaults.Av1an.vmaf.threads;
                         } else {
-                            formValueRef.value.vmaf.threads = value;
+                            configurationsStore.defaults.Av1an.vmaf.threads = value;
                         }
                     }
                 },
-                placeholder: '',
-                defaultValue: parentAv1anValue?.vmaf?.threads,
+                placeholder: parentAv1an.vmaf?.threads?.toString() ?? '',
+                // defaultValue: parentAv1an.vmaf?.threads,
                 onClear: () => {
-                    delete formValueRef.value.vmaf?.threads;
+                    delete configurationsStore.defaults.Av1an.vmaf?.threads;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.vmaf) {
-                formValueRef.value.vmaf = {};
+            if (!configurationsStore.defaults.Av1an.vmaf) {
+                configurationsStore.defaults.Av1an.vmaf = {};
             }
 
-            formValueRef.value.vmaf.threads = null;
+            configurationsStore.defaults.Av1an.vmaf.threads = null;
         },
         disabled: () => {
-            return formValueRef.value.vmaf?.threads === null;
+            return configurationsStore.defaults.Av1an.vmaf?.threads === null;
         },
         reset: () => {
-            delete formValueRef.value.vmaf?.threads;
+            delete configurationsStore.defaults.Av1an.vmaf?.threads;
+        },
+        isModified: () => {
+            if (!previousAv1an.vmaf || previousAv1an.vmaf.threads === undefined) {
+                return configurationsStore.defaults.Av1an.vmaf?.threads !== undefined;
+            } else if (previousAv1an.vmaf.threads !== configurationsStore.defaults.Av1an.vmaf?.threads) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -180,40 +205,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInput,
             {
-                value: formValueRef.value.vmaf?.filter,
+                value: configurationsStore.defaults.Av1an.vmaf?.filter,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.vmaf) {
-                        formValueRef.value.vmaf = {};
+                    if (!configurationsStore.defaults.Av1an.vmaf) {
+                        configurationsStore.defaults.Av1an.vmaf = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.vmaf?.filter === value) {
-                            delete formValueRef.value.vmaf.filter;
+                        if (parentAv1an.vmaf?.filter === value) {
+                            delete configurationsStore.defaults.Av1an.vmaf.filter;
                         } else {
-                            formValueRef.value.vmaf.filter = value;
+                            configurationsStore.defaults.Av1an.vmaf.filter = value;
                         }
                     }
                 },
-                placeholder: '',
-                defaultValue: parentAv1anValue?.vmaf?.filter,
+                placeholder: parentAv1an.vmaf?.filter ?? '',
+                // defaultValue: parentAv1an.vmaf?.filter,
                 onClear: () => {
-                    delete formValueRef.value.vmaf?.filter;
+                    delete configurationsStore.defaults.Av1an.vmaf?.filter;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.vmaf) {
-                formValueRef.value.vmaf = {};
+            if (!configurationsStore.defaults.Av1an.vmaf) {
+                configurationsStore.defaults.Av1an.vmaf = {};
             }
 
-            formValueRef.value.vmaf.filter = null;
+            configurationsStore.defaults.Av1an.vmaf.filter = null;
         },
         disabled: () => {
-            return formValueRef.value.vmaf?.filter === null;
+            return configurationsStore.defaults.Av1an.vmaf?.filter === null;
         },
         reset: () => {
-            delete formValueRef.value.vmaf?.filter;
+            delete configurationsStore.defaults.Av1an.vmaf?.filter;
+        },
+        isModified: () => {
+            if (!previousAv1an.vmaf || previousAv1an.vmaf.filter === undefined) {
+                return configurationsStore.defaults.Av1an.vmaf?.filter !== undefined;
+            } else if (previousAv1an.vmaf.filter !== configurationsStore.defaults.Av1an.vmaf?.filter) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

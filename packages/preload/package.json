@@ -1,0 +1,24 @@
+{
+    "name": "@av1ation-station/preload",
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "typecheck": "tsc --noEmit"
+    },
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./dist/_virtual_browser.mjs"
+        },
+        "./exposed.mjs": {
+            "types": "./src/exposed.d.ts",
+            "default": "./dist/exposed.mjs"
+        }
+    },
+    "devDependencies": {
+        "@vite-electron-builder/electron-versions": "*",
+        "mlly": "1.7.3",
+        "typescript": "^5.6.3",
+        "vite": "5.4.11"
+    }
+}

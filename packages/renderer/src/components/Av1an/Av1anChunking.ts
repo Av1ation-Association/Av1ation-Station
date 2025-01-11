@@ -1,30 +1,31 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NSelect,
 } from 'naive-ui';
 import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
-import {
     ChunkMethod,
+    ChunkMethodtoString,
     ChunkOrder,
+    ChunkOrdertoString,
     Concatenator,
-} from '../../../../main/src/data/Av1an/Types/Options';
+    ConcatenatortoString,
+} from '../../../../shared/src/data/Types/Options';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../stores/configurations';
 import { type FormInputComponent } from './library';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const chunkingMethod = {
         label: 'Chunking Method',
         path: 'chunking.method',
         component: h(
             NSelect,
             {
-                value: formValueRef.value.chunking?.method,
+                value: configurationsStore.defaults.Av1an.chunking?.method,
                 clearable: true,
                 options: [
                     { label: 'Segment', value: ChunkMethod.segment },
@@ -35,37 +36,46 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     { label: 'DGDecNV', value: ChunkMethod.dgdecnv },
                     { label: 'BestSource', value: ChunkMethod.bestsource },
                 ],
-                placeholder: 'L-SmashWorks',
-                defaultValue: parentAv1anValue?.chunking?.method,
+                placeholder: ChunkMethodtoString(parentAv1an.chunking?.method ?? ChunkMethod.lsmash),
+                // defaultValue: parentAv1an.chunking?.method,
                 onUpdateValue: (value?: ChunkMethod) => {
-                    if (!formValueRef.value.chunking) {
-                        formValueRef.value.chunking = {};
+                    if (!configurationsStore.defaults.Av1an.chunking) {
+                        configurationsStore.defaults.Av1an.chunking = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.chunking?.method === value) {
-                            delete formValueRef.value.chunking.method;
+                        if (parentAv1an.chunking?.method === value) {
+                            delete configurationsStore.defaults.Av1an.chunking.method;
                         } else {
-                            formValueRef.value.chunking.method = value;
+                            configurationsStore.defaults.Av1an.chunking.method = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.chunking?.method;
+                    delete configurationsStore.defaults.Av1an.chunking?.method;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.chunking) {
-                formValueRef.value.chunking = {};
+            if (!configurationsStore.defaults.Av1an.chunking) {
+                configurationsStore.defaults.Av1an.chunking = {};
             }
 
-            formValueRef.value.chunking.method = null;
+            configurationsStore.defaults.Av1an.chunking.method = null;
         },
         disabled: () => {
-            return formValueRef.value.chunking?.method === null;
+            return configurationsStore.defaults.Av1an.chunking?.method === null;
         },
         reset: () => {
-            delete formValueRef.value.chunking?.method;
+            delete configurationsStore.defaults.Av1an.chunking?.method;
+        },
+        isModified: () => {
+            if (!previousAv1an.chunking || previousAv1an.chunking.method === undefined) {
+                return configurationsStore.defaults.Av1an.chunking?.method !== undefined;
+            } else if (previousAv1an.chunking.method !== configurationsStore.defaults.Av1an.chunking?.method) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -75,7 +85,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.chunking?.order,
+                value: configurationsStore.defaults.Av1an.chunking?.order,
                 clearable: true,
                 options: [
                     { label: 'Long to Short', value: ChunkOrder.longToShort },
@@ -83,37 +93,46 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     { label: 'Sequential', value: ChunkOrder.sequential },
                     { label: 'Random', value: ChunkOrder.random },
                 ],
-                placeholder: 'Long to Short',
-                defaultValue: parentAv1anValue?.chunking?.order,
+                placeholder: ChunkOrdertoString(parentAv1an.chunking?.order ?? ChunkOrder.longToShort),
+                // defaultValue: parentAv1an.chunking?.order,
                 onUpdateValue: (value?: ChunkOrder) => {
-                    if (!formValueRef.value.chunking) {
-                        formValueRef.value.chunking = {};
+                    if (!configurationsStore.defaults.Av1an.chunking) {
+                        configurationsStore.defaults.Av1an.chunking = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.chunking?.order === value) {
-                            delete formValueRef.value.chunking.order;
+                        if (parentAv1an.chunking?.order === value) {
+                            delete configurationsStore.defaults.Av1an.chunking.order;
                         } else {
-                            formValueRef.value.chunking.order = value;
+                            configurationsStore.defaults.Av1an.chunking.order = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.chunking?.order;
+                    delete configurationsStore.defaults.Av1an.chunking?.order;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.chunking) {
-                formValueRef.value.chunking = {};
+            if (!configurationsStore.defaults.Av1an.chunking) {
+                configurationsStore.defaults.Av1an.chunking = {};
             }
 
-            formValueRef.value.chunking.order = null;
+            configurationsStore.defaults.Av1an.chunking.order = null;
         },
         disabled: () => {
-            return formValueRef.value.chunking?.order === null;
+            return configurationsStore.defaults.Av1an.chunking?.order === null;
         },
         reset: () => {
-            delete formValueRef.value.chunking?.order;
+            delete configurationsStore.defaults.Av1an.chunking?.order;
+        },
+        isModified: () => {
+            if (!previousAv1an.chunking || previousAv1an.chunking.order === undefined) {
+                return configurationsStore.defaults.Av1an.chunking?.order !== undefined;
+            } else if (previousAv1an.chunking.order !== configurationsStore.defaults.Av1an.chunking?.order) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -123,44 +142,53 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.chunking?.concatenater,
+                value: configurationsStore.defaults.Av1an.chunking?.concatenater,
                 clearable: true,
                 options: [
                     { label: 'FFmpeg', value: Concatenator.ffmpeg },
                     { label: 'MKVMerge', value: Concatenator.mkvmerge },
                     { label: 'IVF', value: Concatenator.ivf },
                 ],
-                placeholder: 'FFmpeg',
-                defaultValue: parentAv1anValue?.chunking?.concatenater,
+                placeholder: ConcatenatortoString(parentAv1an.chunking?.concatenater ?? Concatenator.ffmpeg),
+                // defaultValue: parentAv1an.chunking?.concatenater,
                 onUpdateValue: (value?: Concatenator) => {
-                    if (!formValueRef.value.chunking) {
-                        formValueRef.value.chunking = {};
+                    if (!configurationsStore.defaults.Av1an.chunking) {
+                        configurationsStore.defaults.Av1an.chunking = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.chunking?.concatenater === value) {
-                            delete formValueRef.value.chunking.concatenater;
+                        if (parentAv1an.chunking?.concatenater === value) {
+                            delete configurationsStore.defaults.Av1an.chunking.concatenater;
                         } else {
-                            formValueRef.value.chunking.concatenater = value;
+                            configurationsStore.defaults.Av1an.chunking.concatenater = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.chunking?.concatenater;
+                    delete configurationsStore.defaults.Av1an.chunking?.concatenater;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.chunking) {
-                formValueRef.value.chunking = {};
+            if (!configurationsStore.defaults.Av1an.chunking) {
+                configurationsStore.defaults.Av1an.chunking = {};
             }
 
-            formValueRef.value.chunking.concatenater = null;
+            configurationsStore.defaults.Av1an.chunking.concatenater = null;
         },
         disabled: () => {
-            return formValueRef.value.chunking?.concatenater === null;
+            return configurationsStore.defaults.Av1an.chunking?.concatenater === null;
         },
         reset: () => {
-            delete formValueRef.value.chunking?.concatenater;
+            delete configurationsStore.defaults.Av1an.chunking?.concatenater;
+        },
+        isModified: () => {
+            if (!previousAv1an.chunking || previousAv1an.chunking.concatenater === undefined) {
+                return configurationsStore.defaults.Av1an.chunking?.concatenater !== undefined;
+            } else if (previousAv1an.chunking.concatenater !== configurationsStore.defaults.Av1an.chunking?.concatenater) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

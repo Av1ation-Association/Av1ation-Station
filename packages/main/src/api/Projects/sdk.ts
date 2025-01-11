@@ -1,17 +1,22 @@
+ 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
     type BrowserWindow,
     type IpcMainInvokeEvent,
 } from 'electron';
-import { type ClientSDK } from '../index';
-import { type DependencyPaths } from '../../data/Configuration/Types/Configuration';
+import { type ClientSDK } from '../index.js';
+import { type DependencyPaths } from '../../../../shared/src/data/Configuration.js';
+import { ProjectManager } from '../../data/Configuration/Projects.js';
 import {
-    ProjectManager,
+    type Project,
     type Task,
-} from '../../data/Configuration/Projects';
-import { type Project } from '../../data/Configuration/Projects';
-import { Av1an, Av1anManager, type Av1anStatus } from '../../utils/Av1an/Av1an';
+} from '../../../../shared/src/data/Projects.js';
+import { type Av1anStatus } from '../../../../shared/src/data/Types/Status.js';
+import {
+    Av1an,
+    Av1anManager,
+} from '../../utils/Av1an/Av1an.js';
 
 export function registerSDK(window: BrowserWindow) {
     return {
@@ -36,8 +41,8 @@ export function registerSDK(window: BrowserWindow) {
         'create-queue-item': (_event: IpcMainInvokeEvent) => {
             return ProjectManager.instance.createTask();
         },
-        'create-task': (_event: IpcMainInvokeEvent, task: Task, options: Task['item']['Av1an'], environment: DependencyPaths) => {
-            return Av1anManager.instance.addAv1an(task.id, task.inputFileName, task.outputFileName, options, environment, task.statusHistory);
+        'create-task': (_event: IpcMainInvokeEvent, task: Task, options: Task['item'], environment: DependencyPaths) => {
+            return Av1anManager.instance.addAv1an(task.id, options, environment, task.statusHistory);
         },
         'update-task': (_event: IpcMainInvokeEvent, task: Task) => {
             const av1an = Av1anManager.instance.av1anMap.get(task.id);
@@ -50,13 +55,13 @@ export function registerSDK(window: BrowserWindow) {
                 };
             }
         },
-        'start-task': async (_event: IpcMainInvokeEvent, task: Task, options: Task['item']['Av1an'], environment: DependencyPaths) => {
+        'start-task': async (_event: IpcMainInvokeEvent, task: Task, options: Task['item'], environment: DependencyPaths) => {
             const existingAv1an = Av1anManager.instance.av1anMap.get(task.id);
             if (existingAv1an) {
                 Av1anManager.instance.removeAv1an(task.id);
             }
 
-            const av1an = Av1anManager.instance.addAv1an(task.id, options.input, options.output, options, environment, task.statusHistory);
+            const av1an = Av1anManager.instance.addAv1an(task.id, options, environment, task.statusHistory);
             
             av1an.on('status', (status: Av1anStatus) => {
                 window.webContents.send('task-status', {
@@ -86,8 +91,8 @@ export function registerSDK(window: BrowserWindow) {
                 await av1an.cancel();
             }
         },
-        'build-task-av1an-arguments': async (_event: IpcMainInvokeEvent, options: Task['item']['Av1an']) => {
-            return Av1an.BuildArguments(options.input, options.output, options);
+        'build-task-av1an-arguments': async (_event: IpcMainInvokeEvent, options: Task['item']) => {
+            return Av1an.BuildArguments(options);
         },
         'task-av1an-frame-count': async (_event: IpcMainInvokeEvent, task: Task) => {
             const av1an = Av1anManager.instance.av1anMap.get(task.id);

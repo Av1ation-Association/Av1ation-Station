@@ -17,13 +17,9 @@ import {
 } from '@vicons/carbon';
 import { useGlobalStore } from '../../stores/global';
 import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from './ConfigurationDefaults.vue';
-import {
     type Project,
-    type Task,
-} from '../../../../main/src/data/Configuration/Projects';
+    // type Task,
+} from '../../../../shared/src/data/Projects';
 import type { FormInputComponent } from '../Av1an/library';
 import { ref } from 'vue';
 
@@ -31,7 +27,6 @@ const store = useGlobalStore();
 const { config } = storeToRefs(store);
 
 const model = defineModel<{
-    defaultsFormValue: PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>;
     project?: Project;
 }>();
 const { sections } = defineProps<{
@@ -41,7 +36,7 @@ const { sections } = defineProps<{
     }[];
 }>();
 
-const showButton = ref<Record<string, { pinned?: boolean; disable?: boolean; reset?: boolean }>>({});
+const showButton = ref<Record<string, boolean>>({});
 
 function getDefaultPreferences () {
     return {
@@ -71,9 +66,16 @@ function getDefaultPreferences () {
                     v-if="!component.advanced || config.preferences.showAdvanced"
                     :label="component.label"
                     :path="component.path"
+                    :span="component.span ?? 1"
+                    :onmouseenter="() => {
+                        showButton[component.path] = true;
+                    }"
+                    :onmouseleave="() => {
+                        showButton[component.path] = false;
+                    }"
                 >
                     <template #label>
-                        {{ component.label }}
+                        {{ `${component.label}${component.isModified() ? '*' : ''}` }}
                         <!-- Sacrificial Button workaround for button inheriting sibling/parent label when using "text" option and causing double click -->
                         <NButton text />
                         <NTooltip
@@ -81,54 +83,45 @@ function getDefaultPreferences () {
                             :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
-                                <NButton
-                                    text
-                                    size="tiny"
-                                    :onmouseenter="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-            
-                                        showButton[component.path].pinned = true;
-                                    }"
-                                    :onmouseleave="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-                
-                                        showButton[component.path].pinned = false;
-                                    }"
-                                    @click="() => {
-                                        if (model?.project) {
-                                            if (model.project.preferences.defaults[component.path] !== 'pinned') {
-                                                model.project.preferences.defaults[component.path] = 'pinned';
-                                            } else {
-                                                // delete model.project.preferences.defaults[component.path];
-                                                model.project.preferences.defaults[component.path] = 'none';
-                                            }
-                                        } else {
-                                            if (config.preferences.defaults[component.path] !== 'pinned') {
-                                                config.preferences.defaults[component.path] = 'pinned';
-                                            } else {
-                                                // delete config.preferences.defaults[component.path];
-                                                config.preferences.defaults[component.path] = 'none';
-                                            }
-                                        }
-                                    }"
+                                <Transition
+                                    name="toolbar"
                                 >
-                                    <template #icon>
-                                        <NIcon
-                                            :color="getDefaultPreferences()[component.path] === 'pinned' ? '#22BBFF' : undefined"
-                                        >
-                                            <PinnedIcon v-if="getDefaultPreferences()[component.path] === 'pinned'" />
-                                            <template
-                                                v-if="showButton[component.path] && showButton[component.path].pinned"
+                                    <NButton
+                                        v-if="showButton[component.path]"
+                                        text
+                                        size="tiny"
+                                        @click="() => {
+                                            if (model?.project) {
+                                                if (model.project.preferences.defaults[component.path] !== 'pinned') {
+                                                    model.project.preferences.defaults[component.path] = 'pinned';
+                                                } else {
+                                                    // delete model.project.preferences.defaults[component.path];
+                                                    model.project.preferences.defaults[component.path] = 'none';
+                                                }
+                                            } else {
+                                                if (config.preferences.defaults[component.path] !== 'pinned') {
+                                                    config.preferences.defaults[component.path] = 'pinned';
+                                                } else {
+                                                    // delete config.preferences.defaults[component.path];
+                                                    config.preferences.defaults[component.path] = 'none';
+                                                }
+                                            }
+                                        }"
+                                    >
+                                        <template #icon>
+                                            <NIcon
+                                                :color="getDefaultPreferences()[component.path] === 'pinned' ? '#22BBFF' : undefined"
                                             >
-                                                <PinIcon v-if="getDefaultPreferences()[component.path] !== 'pinned'" />
-                                            </template>
-                                        </NIcon>
-                                    </template>
-                                </NButton>
+                                                <PinnedIcon v-if="getDefaultPreferences()[component.path] === 'pinned'" />
+                                                <template
+                                                    v-if="showButton[component.path]"
+                                                >
+                                                    <PinIcon v-if="getDefaultPreferences()[component.path] !== 'pinned'" />
+                                                </template>
+                                            </NIcon>
+                                        </template>
+                                    </NButton>
+                                </Transition>
                             </template>
                             {{ getDefaultPreferences()[component.path] === 'pinned' ? 'Unpin' : 'Pin' }}
                         </NTooltip>
@@ -137,33 +130,24 @@ function getDefaultPreferences () {
                             :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
-                                <NButton
-                                    text
-                                    size="tiny"
-                                    :onmouseenter="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-
-                                        showButton[component.path].reset = true;
-                                    }"
-                                    :onmouseleave="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-
-                                        showButton[component.path].reset = false;
-                                    }"
-                                    @click="() => {
-                                        component.reset();
-                                    }"
+                                <Transition
+                                    name="toolbar"
                                 >
-                                    <template #icon>
-                                        <NIcon>
-                                            <ResetIcon v-if="showButton[component.path] && showButton[component.path].reset" />
-                                        </NIcon>
-                                    </template>
-                                </NButton>
+                                    <NButton
+                                        v-if="showButton[component.path]"
+                                        text
+                                        size="tiny"
+                                        @click="() => {
+                                            component.reset();
+                                        }"
+                                    >
+                                        <template #icon>
+                                            <NIcon>
+                                                <ResetIcon v-if="showButton[component.path]" />
+                                            </NIcon>
+                                        </template>
+                                    </NButton>
+                                </Transition>
                             </template>
                             Reset
                         </NTooltip>
@@ -173,44 +157,35 @@ function getDefaultPreferences () {
                             :style="{ padding: '5px', paddingTop: '2px', paddingBottom: '2px' }"
                         >
                             <template #trigger>
-                                <NButton
-                                    text
-                                    size="tiny"
-                                    :disabled="component.disabled()"
-                                    :onmouseenter="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-
-                                        showButton[component.path].disable = true;
-                                    }"
-                                    :onmouseleave="() => {
-                                        if (!showButton[component.path]) {
-                                            showButton[component.path] = {};
-                                        }
-
-                                        showButton[component.path].disable = false;
-                                    }"
-                                    @click="() => {
-                                        if (!component.disable) {
-                                            return;
-                                        }
-                                        component.disable();
-                                    }"
+                                <Transition
+                                    name="toolbar"
                                 >
-                                    <template #icon>
-                                        <NIcon
-                                            :color="component.disabled() ? '#FF0000' : undefined"
-                                        >
-                                            <DisableIcon v-if="component.disabled()" />
-                                            <template
-                                                v-if="showButton[component.path] && showButton[component.path].disable"
+                                    <NButton
+                                        v-if="showButton[component.path]"
+                                        text
+                                        size="tiny"
+                                        :disabled="component.disabled()"
+                                        @click="() => {
+                                            if (!component.disable) {
+                                                return;
+                                            }
+                                            component.disable();
+                                        }"
+                                    >
+                                        <template #icon>
+                                            <NIcon
+                                                :color="component.disabled() ? '#FF0000' : undefined"
                                             >
-                                                <DisableIcon v-if="!component.disabled()" />
-                                            </template>
-                                        </NIcon>
-                                    </template>
-                                </NButton>
+                                                <DisableIcon v-if="component.disabled()" />
+                                                <template
+                                                    v-if="showButton[component.path]"
+                                                >
+                                                    <DisableIcon v-if="!component.disabled()" />
+                                                </template>
+                                            </NIcon>
+                                        </template>
+                                    </NButton>
+                                </Transition>
                             </template>
                             {{ component.disabled() ? 'Disabled' : 'Disable' }}
                         </NTooltip>
@@ -224,3 +199,17 @@ function getDefaultPreferences () {
         </NGrid>
     </template>
 </template>
+
+<style>
+.toolbar-enter-active {
+    transition: opacity 0.2s ease-in;
+}
+.toolbar-leave-active {
+    transition: opacity 0.2s ease-out;
+}
+
+.toolbar-enter-from,
+.toolbar-leave-to {
+    opacity: 0;
+}
+</style>

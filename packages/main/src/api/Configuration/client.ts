@@ -1,8 +1,11 @@
 import {
     ipcRenderer,
 } from 'electron';
-import type { ClientAPI, OmitFirstArg } from '../index';
-import { type registerSDK } from './sdk';
+import {
+    type ClientAPI,
+    type OmitFirstArg,
+} from '../index.js';
+import { type registerSDK } from './sdk.js';
 
 export const api = {
     'get-config': (..._args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['get-config']>>) => {
@@ -80,5 +83,9 @@ export const api = {
     'copy-to-clipboard': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['copy-to-clipboard']>>) => {
         return ipcRenderer.invoke('copy-to-clipboard', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['copy-to-clipboard']>>;
+    },
+    'notify': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['notify']>>) => {
+        return ipcRenderer.invoke('notify', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['notify']>>;
     },
 } satisfies ClientAPI<ReturnType<typeof registerSDK>>;

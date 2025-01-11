@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
         "allowSyntheticDefaultImports": true,
-        "module": "esnext",
-        "target": "esnext",
+        "module": "NodeNext",
+        "target": "ESNext",
         "sourceMap": false,
-        "moduleResolution": "Node",
+        "moduleResolution": "NodeNext",
         "skipLibCheck": true,
         "strict": true,
         "isolatedModules": true,
@@ -13,8 +13,14 @@
         ],
         "baseUrl": ".",
         "paths": {
-            "/@/*": [
-                "./src/*"
+            "@av1ation-station/preload": [
+                "../preload"
+            ],
+            "@av1ation-station/renderer": [
+                "../renderer-backup"
+            ],
+            "@av1ation-station/shared": [
+                "../shared"
             ]
         }
     },

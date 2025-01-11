@@ -2,8 +2,13 @@ import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { defaultAv1anConfiguration } from './Av1anConfiguration';
-import { type Configuration, StartUpBehavior, Theme, DependencyType } from './Types/Configuration';
+import { defaultAv1anConfiguration } from '../../../../shared/src/data/Av1anConfiguration.js';
+import {
+    type Configuration,
+    StartUpBehavior,
+    Theme,
+    DependencyType,
+} from '../../../../shared/src/data/Configuration.js';
 
 const isWindows = os.platform() === 'win32';
 
@@ -49,6 +54,10 @@ const defaultConfig: Configuration = {
             vpx: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
             x264: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
             x265: { type: isWindows ? DependencyType.Packaged : DependencyType.System },
+        },
+        notifications: {
+            os: false,
+            app: true,
         },
     },
 };
@@ -103,8 +112,8 @@ export class ConfigurationManager {
         };
 
         // Merge preferences
-        const { defaults: preferencesDefaults, showHidden, showAdvanced, dependencyPaths } = preferences;
-        const { defaults: defaultPreferencesDefaults, showHidden: defaultShowHidden, showAdvanced: defaultShowAdvanced, dependencyPaths: defaultDependencyPaths } = defaultPreferences;
+        const { defaults: preferencesDefaults, showHidden, showAdvanced, dependencyPaths, notifications } = preferences;
+        const { defaults: defaultPreferencesDefaults, showHidden: defaultShowHidden, showAdvanced: defaultShowAdvanced, dependencyPaths: defaultDependencyPaths, notifications: defaultNotifications } = defaultPreferences;
 
         const mergedPreferences: Configuration['preferences'] = {
             defaults: preferencesDefaults ?? defaultPreferencesDefaults,
@@ -113,6 +122,10 @@ export class ConfigurationManager {
             dependencyPaths: {
                 ...defaultDependencyPaths,
                 ...dependencyPaths,
+            },
+            notifications: {
+                ...defaultNotifications,
+                ...notifications,
             },
         };
 

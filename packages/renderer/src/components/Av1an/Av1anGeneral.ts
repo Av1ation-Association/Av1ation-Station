@@ -1,20 +1,23 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NInputNumber,
     NSelect,
 } from 'naive-ui';
 import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
-import { FFmpegPixelFormat, LogLevel, Verbosity } from '../../../../main/src/data/Av1an/Types/Options';
+    FFmpegPixelFormat,
+    LogLevel,
+    LogLevelToString,
+    Verbosity,
+} from '../../../../shared/src/data/Types/Options';
 import { type FormInputComponent } from './library';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
+import { ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../stores/configurations';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const verbosity: FormInputComponent = {
         label: 'Verbosity',
         path: 'verbosity',
@@ -22,36 +25,44 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.verbosity,
+                value: configurationsStore.defaults.Av1an.verbosity,
                 clearable: true,
                 options: [
                     { label: 'Quiet', value: Verbosity.quiet },
                     { label: 'Verbose', value: Verbosity.verbose },
                 ],
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.verbosity,
+                placeholder: parentAv1an.verbosity === Verbosity.quiet ? 'Quiet' : parentAv1an.verbosity === Verbosity.verbose ? 'Verbose' : 'None',
                 onUpdateValue: (value?: Verbosity) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.verbosity === value) {
-                            delete formValueRef.value.verbosity;
+                        if (configurationsStore.configurationType !== ConfigurationType.Config && parentAv1an.verbosity === value) {
+                            delete configurationsStore.defaults.Av1an.verbosity;
                         } else {
-                            formValueRef.value.verbosity = value;
+                            configurationsStore.defaults.Av1an.verbosity = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.verbosity;
+                    delete configurationsStore.defaults.Av1an.verbosity;
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.verbosity = null;
+            configurationsStore.defaults.Av1an.verbosity = null;
         },
         disabled: () => {
-            return formValueRef.value.verbosity === null;
+            return configurationsStore.defaults.Av1an.verbosity === null;
         },
         reset: () => {
-            delete formValueRef.value.verbosity;
+            delete configurationsStore.defaults.Av1an.verbosity;
+        },
+        isModified: () => {
+            if (!previousAv1an.verbosity) {
+                return configurationsStore.defaults.Av1an.verbosity !== undefined;
+            } else if (previousAv1an.verbosity !== configurationsStore.defaults.Av1an.verbosity) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -62,7 +73,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.logging?.level,
+                value: configurationsStore.defaults.Av1an.logging?.level,
                 clearable: true,
                 options: [
                     { label: 'Error', value: LogLevel.error },
@@ -71,38 +82,46 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     { label: 'Debug', value: LogLevel.debug },
                     { label: 'Trace', value: LogLevel.trace },
                 ],
-                placeholder: 'Debug',
-                defaultValue: parentAv1anValue?.logging?.level,
+                placeholder: LogLevelToString(parentAv1an.logging?.level ?? LogLevel.debug),
+                // defaultValue: parentAv1an.logging?.level,
                 onUpdateValue: (value?: LogLevel) => {
                     if (value !== null) {
-                        if (!formValueRef.value.logging) {
-                            formValueRef.value.logging = {};
-                        }
-
-                        if (parentAv1anValue?.logging?.level === value) {
-                            delete formValueRef.value.logging?.level;
+                        if (configurationsStore.configurationType !== ConfigurationType.Config && parentAv1an.logging?.level === value) {
+                            delete configurationsStore.defaults.Av1an.logging?.level;
                         } else {
-                            formValueRef.value.logging.level = value;
+                            if (!configurationsStore.defaults.Av1an.logging) {
+                                configurationsStore.defaults.Av1an.logging = {};
+                            }
+                            configurationsStore.defaults.Av1an.logging.level = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.logging?.level;
+                    delete configurationsStore.defaults.Av1an.logging?.level;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.logging) {
-                formValueRef.value.logging = {};
+            if (!configurationsStore.defaults.Av1an.logging) {
+                configurationsStore.defaults.Av1an.logging = {};
             }
 
-            formValueRef.value.logging.level = null;
+            configurationsStore.defaults.Av1an.logging.level = null;
         },
         disabled: () => {
-            return formValueRef.value.logging?.level === null;
+            return configurationsStore.defaults.Av1an.logging?.level === null;
         },
         reset: () => {
-            delete formValueRef.value.logging?.level;
+            delete configurationsStore.defaults.Av1an.logging?.level;
+        },
+        isModified: () => {
+            if (!previousAv1an.logging || previousAv1an.logging.level === undefined) {
+                return configurationsStore.defaults.Av1an.logging?.level !== undefined;
+            } else if (previousAv1an.logging.level !== configurationsStore.defaults.Av1an.logging?.level) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -112,33 +131,42 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.maxTries,
+                value: configurationsStore.defaults.Av1an.maxTries,
                 clearable: true,
                 min: 0,
-                placeholder: '3',
-                defaultValue: parentAv1anValue?.maxTries,
+                placeholder: parentAv1an.maxTries?.toString() ?? '3',
+                // defaultValue: parentAv1an.maxTries,
                 onUpdateValue: (value) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.maxTries === value) {
-                            delete formValueRef.value.maxTries;
+                        if (configurationsStore.configurationType !== ConfigurationType.Config && parentAv1an.maxTries === value) {
+                            delete configurationsStore.defaults.Av1an.maxTries;
                         } else {
-                            formValueRef.value.maxTries = value;
+                            configurationsStore.defaults.Av1an.maxTries = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.maxTries;
+                    delete configurationsStore.defaults.Av1an.maxTries;
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.maxTries = null;
+            configurationsStore.defaults.Av1an.maxTries = null;
         },
         disabled: () => {
-            return formValueRef.value.maxTries === null;
+            return configurationsStore.defaults.Av1an.maxTries === null;
         },
         reset: () => {
-            delete formValueRef.value.maxTries;
+            delete configurationsStore.defaults.Av1an.maxTries;
+        },
+        isModified: () => {
+            if (previousAv1an.maxTries === undefined) {
+                return configurationsStore.defaults.Av1an.maxTries !== undefined;
+            } else if (previousAv1an.maxTries !== configurationsStore.defaults.Av1an.maxTries) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -148,33 +176,42 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.workers,
+                value: configurationsStore.defaults.Av1an.workers,
                 clearable: true,
                 min: 0,
-                placeholder: 'Auto (0)',
-                defaultValue: parentAv1anValue?.workers,
+                placeholder: parentAv1an.workers?.toString() ?? 'Auto (0)',
+                // defaultValue: parentAv1an.workers,
                 onUpdateValue: (value) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.workers === value) {
-                            delete formValueRef.value.workers;
+                        if (parentAv1an.workers === value) {
+                            delete configurationsStore.defaults.Av1an.workers;
                         } else {
-                            formValueRef.value.workers = value;
+                            configurationsStore.defaults.Av1an.workers = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.workers;
+                    delete configurationsStore.defaults.Av1an.workers;
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.workers = null;
+            configurationsStore.defaults.Av1an.workers = null;
         },
         disabled: () => {
-            return formValueRef.value.workers === null;
+            return configurationsStore.defaults.Av1an.workers === null;
         },
         reset: () => {
-            delete formValueRef.value.workers;
+            delete configurationsStore.defaults.Av1an.workers;
+        },
+        isModified: () => {
+            if (previousAv1an.workers === undefined) {
+                return configurationsStore.defaults.Av1an.workers !== undefined;
+            } else if (previousAv1an.workers !== configurationsStore.defaults.Av1an.workers) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -184,33 +221,42 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.threadAffinity,
+                value: configurationsStore.defaults.Av1an.threadAffinity,
                 clearable: true,
                 min: 1,
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.threadAffinity,
+                placeholder: parentAv1an.threadAffinity?.toString() ?? 'None',
+                // defaultValue: parentAv1an.threadAffinity,
                 onUpdateValue: (value) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.threadAffinity === value) {
-                            delete formValueRef.value.threadAffinity;
+                        if (parentAv1an.threadAffinity === value) {
+                            delete configurationsStore.defaults.Av1an.threadAffinity;
                         } else {
-                            formValueRef.value.threadAffinity = value;
+                            configurationsStore.defaults.Av1an.threadAffinity = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.threadAffinity;
+                    delete configurationsStore.defaults.Av1an.threadAffinity;
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.threadAffinity = null;
+            configurationsStore.defaults.Av1an.threadAffinity = null;
         },
         disabled: () => {
-            return formValueRef.value.threadAffinity === null;
+            return configurationsStore.defaults.Av1an.threadAffinity === null;
         },
         reset: () => {
-            delete formValueRef.value.threadAffinity;
+            delete configurationsStore.defaults.Av1an.threadAffinity;
+        },
+        isModified: () => {
+            if (previousAv1an.threadAffinity === undefined) {
+                return configurationsStore.defaults.Av1an.threadAffinity !== undefined;
+            } else if (previousAv1an.threadAffinity !== configurationsStore.defaults.Av1an.threadAffinity) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -220,36 +266,45 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.pixelFormat,
+                value: configurationsStore.defaults.Av1an.pixelFormat,
                 clearable: true,
                 options: [
                     { label: 'yuv420p10le', value: FFmpegPixelFormat.yuv420p10le },
                     // { label: 'yuv420p', value: FFmpegPixelFormat.YUV420P },
                 ],
-                defaultValue: parentAv1anValue?.pixelFormat,
                 placeholder: 'yuv420p10le',
+                // defaultValue: parentAv1an.pixelFormat,
                 onUpdateValue: (value?: FFmpegPixelFormat) => {
                     if (value !== null) {
-                        if (parentAv1anValue?.pixelFormat === value) {
-                            delete formValueRef.value.pixelFormat;
+                        if (parentAv1an.pixelFormat === value) {
+                            delete configurationsStore.defaults.Av1an.pixelFormat;
                         } else {
-                            formValueRef.value.pixelFormat = value;
+                            configurationsStore.defaults.Av1an.pixelFormat = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.pixelFormat;
+                    delete configurationsStore.defaults.Av1an.pixelFormat;
                 },
             },
         ),
         disable: () => {
-            formValueRef.value.pixelFormat = null;
+            configurationsStore.defaults.Av1an.pixelFormat = null;
         },
         disabled: () => {
-            return formValueRef.value.pixelFormat === null;
+            return configurationsStore.defaults.Av1an.pixelFormat === null;
         },
         reset: () => {
-            delete formValueRef.value.pixelFormat;
+            delete configurationsStore.defaults.Av1an.pixelFormat;
+        },
+        isModified: () => {
+            if (previousAv1an.pixelFormat === undefined) {
+                return configurationsStore.defaults.Av1an.pixelFormat !== undefined;
+            } else if (previousAv1an.pixelFormat !== configurationsStore.defaults.Av1an.pixelFormat) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

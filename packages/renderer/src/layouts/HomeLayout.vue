@@ -182,10 +182,9 @@ async function openExistingProject() {
                         >
                             <NTimelineItem
                                 type="success"
-                                title="Created"
                                 :time="(new Date(project.createdAt)).toLocaleString()"
                             >
-                                <template #footer>
+                                <template #header>
                                     <NPopover
                                         trigger="hover"
                                         :delay="500"
@@ -199,6 +198,7 @@ async function openExistingProject() {
                                                 type="relative"
                                             />
                                         </template>
+                                        Created
                                         <NTime
                                             :time="new Date(project.createdAt)"
                                         />
@@ -208,10 +208,9 @@ async function openExistingProject() {
                             <NTimelineItem
                                 v-if="project.updatedAt !== project.createdAt"
                                 type="info"
-                                title="Updated"
                                 :time="(new Date(project.updatedAt)).toLocaleString()"
                             >
-                                <template #footer>
+                                <template #header>
                                     <NPopover
                                         trigger="hover"
                                         :delay="500"
@@ -225,6 +224,7 @@ async function openExistingProject() {
                                                 type="relative"
                                             />
                                         </template>
+                                        Last updated
                                         <NTime
                                             :time="new Date(project.updatedAt)"
                                         />
@@ -233,10 +233,9 @@ async function openExistingProject() {
                             </NTimelineItem>
                             <NTimelineItem
                                 v-if="config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)"
-                                title="Accessed"
                                 :time="(new Date(config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)).toLocaleString()"
                             >
-                                <template #footer>
+                                <template #header>
                                     <NPopover
                                         trigger="hover"
                                         :delay="500"
@@ -250,6 +249,7 @@ async function openExistingProject() {
                                                 type="relative"
                                             />
                                         </template>
+                                        Last opened
                                         <NTime
                                             :time="new Date(config.recentlyOpenedProjects.find((recentProject) => recentProject.id === project.id)!.accessedAt)"
                                         />

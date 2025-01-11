@@ -5,45 +5,28 @@ import Watcher from 'watcher';
 // import * as url from 'url';
 import type { ChildProcessByStdio} from 'child_process';
 import { spawn } from 'child_process';
-import type { Readable, Writable } from 'stream';
-import type { Options } from '../../data/Av1an/Types/Options.js';
-import { Encoder, OutputOverwrite, Verbosity } from '../../data/Av1an/Types/Options.js';
-import { parseDoneJsonFile } from '../../data/Av1an/Types/Done.js';
-import type { Parameters as SVTParameters } from '../../data/Av1an/Types/SVT.js';
-import type { Parameters as AOMParameters } from '../../data/Av1an/Types/AOM.js';
-import type { Parameters as Rav1eParameters } from '../../data/Av1an/Types/Rav1e.js';
-import type { Parameters as VpxParameters } from '../../data/Av1an/Types/Vpx.js';
-import type { Chunk } from '../../data/Av1an/Types/Chunks.js';
-import { parseChunksJsonFile } from '../../data/Av1an/Types/Chunks.js';
+import {
+    type Readable,
+    type Writable,
+} from 'stream';
+import { type Options } from '../../../../shared/src/data/Types/Options.js';
+import { Encoder, OutputOverwrite, Verbosity } from '../../../../shared/src/data/Types/Options.js';
+import { parseDoneJsonFile } from '../../../../shared/src/data/Types/Done.js';
+import type { Parameters as SVTParameters } from '../../../../shared/src/data/Types/SVT.js';
+import type { Parameters as AOMParameters } from '../../../../shared/src/data/Types/AOM.js';
+import type { Parameters as Rav1eParameters } from '../../../../shared/src/data/Types/Rav1e.js';
+import type { Parameters as VpxParameters } from '../../../../shared/src/data/Types/Vpx.js';
+import type { Chunk } from '../../../../shared/src/data/Types/Chunks.js';
+import { parseChunksJsonFile } from '../../../../shared/src/data/Types/Chunks.js';
 import {
     type DependencyPaths,
     DependencyType,
-} from '../../data/Configuration/Types/Configuration.js';
-import { type Task } from '../../data/Configuration/Projects';
-// import { Parameters as AOMParameters } from './Types/AOM.js';
-// import { Parameters as Rav1eParameters } from './Types/Rav1e.js';
+} from '../../../../shared/src/data/Configuration.js';
+import { type Task } from '../../../../shared/src/data/Projects.js'; 
+import { type Av1anStatus } from '../../../../shared/src/data/Types/Status.js';
 // import commandExists from "command-exists";
 
-export interface Av1anStatus {
-    time: Date;
-    state: 'idle' | 'paused' | 'scene-detection' | 'encoding' | 'done' | 'cancelled' | 'error';
-    progress?: {
-        chunk: {
-            id: string;
-            framesCompleted: number;
-            bytesCompleted: number;
-            framesPerSecond: number;
-            bitrate: number;
-        };
-        framesCompleted: number;
-        bytesCompleted: number;
-        framesPerSecond: number;
-        bitrate: number;
-        estimatedSeconds: number;
-        estimatedSizeInBytes: number;
-    }
-    error?: unknown;
-}
+type Av1anOptions = Task['item'] & { Av1an: Options };
 
 export class Av1anManager {
     private static _instance: Av1anManager;
@@ -59,8 +42,8 @@ export class Av1anManager {
         return this._instance;
     }
 
-    public addAv1an(id: Task['id'], input: Task['inputFileName'], output: Task['outputFileName'], options: Task['item']['Av1an'], environment: DependencyPaths, history: Task['statusHistory']) {
-        const av1an = new Av1an(input, output, options, environment, history);
+    public addAv1an(id: Task['id'], options: Av1anOptions, environment: DependencyPaths, history: Task['statusHistory']) {
+        const av1an = new Av1an(options, environment, history);
         this.av1anMap.set(id, av1an);
         return av1an;
     }
@@ -82,12 +65,19 @@ export class Av1an extends EventEmitter {
     private temporaryFolderWatcher?: Watcher;
     private totalFrames = 0;
     private chunks: Chunk[] = [];
-    private log: string = '';
+    public log: string = '';
     private previouslyCompletedChunkIds: string[] = [];
     private recentlyCompletedChunkIds: string[] = [];
 
-    constructor(public input: string, public output: string, public options: Options, public environment: DependencyPaths, private readonly previousStatusHistory: Av1anStatus[] = []) {
+    public input: string;
+    public output: string;
+
+    constructor(public options: Av1anOptions, public environment: DependencyPaths, previousStatusHistory: Av1anStatus[] = []) {
         super();
+
+        this.input = options.Av1an.input;
+        this.output = options.Av1an.output;
+
         // Todo: Ensure input file exists
         // Todo: Ensure temporary folder exists if in options.temp
         // Todo: Ensure output folder exists
@@ -103,19 +93,19 @@ export class Av1an extends EventEmitter {
         }
     }
 
-    public static BuildArguments(input: string, output: string, options?: Options) {
+    public static BuildArguments(options: Av1anOptions) {
         const av1anArguments = [
-            '-i', input,
-            '-o', output,
+            '-i', options.Av1an.input,
+            '-o', options.Av1an.output,
         ];
         const av1anPrintFriendlyArguments = [
-            '-i', `"${input}"`,
-            '-o', `"${output}"`,
+            '-i', `"${options.Av1an.input}"`,
+            '-o', `"${options.Av1an.output}"`,
         ];
 
-        if (options) {
-            if (options.overwriteOutput) {
-                const arg = options.overwriteOutput === OutputOverwrite.yes ? '-y' : '-n';
+        if (options.Av1an) {
+            if (options.Av1an.overwriteOutput) {
+                const arg = options.Av1an.overwriteOutput === OutputOverwrite.yes ? '-y' : '-n';
                 av1anArguments.push(arg);
                 av1anPrintFriendlyArguments.push(arg);
             } else {
@@ -123,107 +113,107 @@ export class Av1an extends EventEmitter {
                 av1anArguments.push('-y');
                 av1anPrintFriendlyArguments.push('-y');
             }
-            if (options.verbosity) {
-                const arg = options.verbosity === Verbosity.verbose ? '--verbose' : '--quiet';
+            if (options.Av1an.verbosity) {
+                const arg = options.Av1an.verbosity === Verbosity.verbose ? '--verbose' : '--quiet';
                 av1anArguments.push(arg);
                 av1anPrintFriendlyArguments.push(arg);
             }
-            if (options.help) {
+            if (options.Av1an.help) {
                 av1anArguments.push('--help');
                 av1anPrintFriendlyArguments.push('--help');
             }
-            if (options.version) {
+            if (options.Av1an.version) {
                 av1anArguments.push('--version');
                 av1anPrintFriendlyArguments.push('--version');
             }
-            if (options.logging && Object.keys(options.logging).length) {
-                if (options.logging.path) {
-                    av1anArguments.push('--log-file', options.logging.path);
-                    av1anPrintFriendlyArguments.push('--log-file', `"${options.logging.path}"`);
+            if (options.Av1an.logging && Object.keys(options.Av1an.logging).length) {
+                if (options.Av1an.logging.path) {
+                    av1anArguments.push('--log-file', options.Av1an.logging.path);
+                    av1anPrintFriendlyArguments.push('--log-file', `"${options.Av1an.logging.path}"`);
                 }
-                if (options.logging.level) {
-                    av1anArguments.push('--log-level', options.logging.level);
-                    av1anPrintFriendlyArguments.push('--log-level', options.logging.level);
+                if (options.Av1an.logging.level) {
+                    av1anArguments.push('--log-level', options.Av1an.logging.level);
+                    av1anPrintFriendlyArguments.push('--log-level', options.Av1an.logging.level);
                 }
             }
 
-            if (options.temporary && Object.keys(options.temporary).length) {
-                if (options.temporary.path) {
-                    av1anArguments.push('--temp', options.temporary.path);
-                    av1anPrintFriendlyArguments.push('--temp', `"${options.temporary.path}"`);
+            if (options.Av1an.temporary && Object.keys(options.Av1an.temporary).length) {
+                if (options.Av1an.temporary.path) {
+                    av1anArguments.push('--temp', options.Av1an.temporary.path);
+                    av1anPrintFriendlyArguments.push('--temp', `"${options.Av1an.temporary.path}"`);
                 }
-                if (options.temporary.keep) {
+                if (options.Av1an.temporary.keep) {
                     av1anArguments.push('--keep');
                     av1anPrintFriendlyArguments.push('--keep');
                 }
-                if (options.temporary.resume) {
+                if (options.Av1an.temporary.resume) {
                     av1anArguments.push('--resume');
                     av1anPrintFriendlyArguments.push('--resume');
                 }
             }
 
-            if (options.maxTries) {
-                av1anArguments.push('--max-tries', `${options.maxTries}`);
-                av1anPrintFriendlyArguments.push('--max-tries', `${options.maxTries}`);
+            if (options.Av1an.maxTries) {
+                av1anArguments.push('--max-tries', `${options.Av1an.maxTries}`);
+                av1anPrintFriendlyArguments.push('--max-tries', `${options.Av1an.maxTries}`);
             }
-            if (options.workers) {
-                av1anArguments.push('-w', `${options.workers}`);
-                av1anPrintFriendlyArguments.push('-w', `${options.workers}`);
+            if (options.Av1an.workers) {
+                av1anArguments.push('-w', `${options.Av1an.workers}`);
+                av1anPrintFriendlyArguments.push('-w', `${options.Av1an.workers}`);
             }
-            if (options.threadAffinity) {
-                av1anArguments.push('--set-thread-affinity', `${options.threadAffinity}`);
-                av1anPrintFriendlyArguments.push('--set-thread-affinity', `${options.threadAffinity}`);
+            if (options.Av1an.threadAffinity) {
+                av1anArguments.push('--set-thread-affinity', `${options.Av1an.threadAffinity}`);
+                av1anPrintFriendlyArguments.push('--set-thread-affinity', `${options.Av1an.threadAffinity}`);
             }
-            if (options.scaler) {
-                av1anArguments.push('--scaler', options.scaler);
-                av1anPrintFriendlyArguments.push('--scaler', options.scaler);
+            if (options.Av1an.scaler) {
+                av1anArguments.push('--scaler', options.Av1an.scaler);
+                av1anPrintFriendlyArguments.push('--scaler', options.Av1an.scaler);
             }
 
-            if (options.scenes && Object.keys(options.scenes).length) {
-                if (options.scenes.path) {
-                    av1anArguments.push('--scenes', options.scenes.path);
-                    av1anPrintFriendlyArguments.push('--scenes', `"${options.scenes.path}"`);
+            if (options.Av1an.scenes && Object.keys(options.Av1an.scenes).length) {
+                if (options.Av1an.scenes.path) {
+                    av1anArguments.push('--scenes', options.Av1an.scenes.path);
+                    av1anPrintFriendlyArguments.push('--scenes', `"${options.Av1an.scenes.path}"`);
                 }
-                if (options.scenes.splitMethod) {
-                    av1anArguments.push('--split-method', options.scenes.splitMethod);
-                    av1anPrintFriendlyArguments.push('--split-method', options.scenes.splitMethod);
+                if (options.Av1an.scenes.splitMethod) {
+                    av1anArguments.push('--split-method', options.Av1an.scenes.splitMethod);
+                    av1anPrintFriendlyArguments.push('--split-method', options.Av1an.scenes.splitMethod);
                 }
-                if (options.scenes.detectionMethod) {
-                    av1anArguments.push('--sc-method', options.scenes.detectionMethod);
-                    av1anPrintFriendlyArguments.push('--sc-method', options.scenes.detectionMethod);
+                if (options.Av1an.scenes.detectionMethod) {
+                    av1anArguments.push('--sc-method', options.Av1an.scenes.detectionMethod);
+                    av1anPrintFriendlyArguments.push('--sc-method', options.Av1an.scenes.detectionMethod);
                 }
-                if (options.scenes.detectionDownscaleHeight) {
-                    av1anArguments.push('--sc-downscale-height', `${options.scenes.detectionDownscaleHeight}`);
-                    av1anPrintFriendlyArguments.push('--sc-downscale-height', `${options.scenes.detectionDownscaleHeight}`);
+                if (options.Av1an.scenes.detectionDownscaleHeight) {
+                    av1anArguments.push('--sc-downscale-height', `${options.Av1an.scenes.detectionDownscaleHeight}`);
+                    av1anPrintFriendlyArguments.push('--sc-downscale-height', `${options.Av1an.scenes.detectionDownscaleHeight}`);
                 }
-                if (options.scenes.detectionPixelFormat) {
-                    av1anArguments.push('--sc-pix-format', options.scenes.detectionPixelFormat);
-                    av1anPrintFriendlyArguments.push('--sc-pix-format', options.scenes.detectionPixelFormat);
+                if (options.Av1an.scenes.detectionPixelFormat) {
+                    av1anArguments.push('--sc-pix-format', options.Av1an.scenes.detectionPixelFormat);
+                    av1anPrintFriendlyArguments.push('--sc-pix-format', options.Av1an.scenes.detectionPixelFormat);
                 }
-                if (options.scenes.detectionOnly) {
+                if (options.Av1an.scenes.detectionOnly) {
                     av1anArguments.push('--sc-only');
                     av1anPrintFriendlyArguments.push('--sc-only');
                 }
-                if (options.scenes.maximumSceneLengthFrames) {
-                    av1anArguments.push('--extra-split', `${options.scenes.maximumSceneLengthFrames}`);
-                    av1anPrintFriendlyArguments.push('--extra-split', `${options.scenes.maximumSceneLengthFrames}`);
+                if (options.Av1an.scenes.maximumSceneLengthFrames) {
+                    av1anArguments.push('--extra-split', `${options.Av1an.scenes.maximumSceneLengthFrames}`);
+                    av1anPrintFriendlyArguments.push('--extra-split', `${options.Av1an.scenes.maximumSceneLengthFrames}`);
                 }
-                if (options.scenes.maximumSceneLengthSeconds) {
-                    av1anArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLengthSeconds}`);
-                    av1anPrintFriendlyArguments.push('--extra-split-sec', `${options.scenes.maximumSceneLengthSeconds}`);
+                if (options.Av1an.scenes.maximumSceneLengthSeconds) {
+                    av1anArguments.push('--extra-split-sec', `${options.Av1an.scenes.maximumSceneLengthSeconds}`);
+                    av1anPrintFriendlyArguments.push('--extra-split-sec', `${options.Av1an.scenes.maximumSceneLengthSeconds}`);
                 }
-                if (options.scenes.minimumSceneLengthFrames) {
-                    av1anArguments.push('--min-scene-len', `${options.scenes.minimumSceneLengthFrames}`);
-                    av1anPrintFriendlyArguments.push('--min-scene-len', `${options.scenes.minimumSceneLengthFrames}`);
+                if (options.Av1an.scenes.minimumSceneLengthFrames) {
+                    av1anArguments.push('--min-scene-len', `${options.Av1an.scenes.minimumSceneLengthFrames}`);
+                    av1anPrintFriendlyArguments.push('--min-scene-len', `${options.Av1an.scenes.minimumSceneLengthFrames}`);
                 }
-                if (options.scenes.ignoreFrameMismatch) {
+                if (options.Av1an.scenes.ignoreFrameMismatch) {
                     av1anArguments.push('--ignore-frame-mismatch');
                     av1anPrintFriendlyArguments.push('--ignore-frame-mismatch');
                 }
             }
 
-            if (options.encoding && Object.keys(options.encoding).length) {
-                const { encoder, force, passes, FFmpegAudioParameters, FFmpegFilterOptions, ...encoderParameters } = options.encoding;
+            if (options.Av1an.encoding && Object.keys(options.Av1an.encoding).length) {
+                const { encoder, force, passes, FFmpegAudioParameters, FFmpegFilterOptions, ...encoderParameters } = options.Av1an.encoding;
 
                 if (encoder) {
                     av1anArguments.push('--encoder', encoder);
@@ -243,110 +233,158 @@ export class Av1an extends EventEmitter {
                 }
                 if (FFmpegFilterOptions) {
                     av1anArguments.push('--ffmpeg', FFmpegFilterOptions);
-                    av1anPrintFriendlyArguments.push('--ffmpeg', `"${options.encoding.FFmpegFilterOptions}"`);
+                    av1anPrintFriendlyArguments.push('--ffmpeg', `"${options.Av1an.encoding.FFmpegFilterOptions}"`);
                 }
+
+                if (options.Av1anCustom.encoding) {
+                    Object.entries(options.Av1anCustom.encoding).forEach(([key, value]) => {
+                        if (value.type === 'boolean') {
+                            if (value.value) {
+                                av1anArguments.push(`${value.flagPrefix}${key}`);
+                                av1anPrintFriendlyArguments.push(`${value.flagPrefix}${key}`);
+                            }
+                        }
+                    });
+                }
+
+                if (options.Av1anCustom.encoding) {
+                    // Remove parameters in encoderParameters with the same name as in options.Av1anCustom.encoding
+                    Object.entries(options.Av1anCustom.encoding).forEach(([name, _value]) => {
+                        if (name in encoderParameters) {
+                            delete (encoderParameters as Record<string, unknown>)[name];
+                        }
+                    });
+                }
+
+                let videoParams = '';
 
                 switch (encoder) {
                     case Encoder.svt: {
-                        const svtParameters = Object.entries(encoderParameters as SVTParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
-                        av1anArguments.push('--video-params', svtParameters);
-                        av1anPrintFriendlyArguments.push('--video-params', `"${svtParameters}"`);
+                        videoParams = Object.entries(encoderParameters as unknown as SVTParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
                         break;
                     }
                     case Encoder.rav1e: {
-                        const rav1eParameters = Object.entries(encoderParameters as Rav1eParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
-                        av1anArguments.push('--video-params', rav1eParameters);
-                        av1anPrintFriendlyArguments.push('--video-params', `"${rav1eParameters}"`);
+                        videoParams = Object.entries(encoderParameters as Rav1eParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
                         break;
                     }
                     case Encoder.vpx: {
-                        const vpxParameters = Object.entries(encoderParameters as VpxParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
-                        av1anArguments.push('--video-params', vpxParameters);
-                        av1anPrintFriendlyArguments.push('--video-params', `"${vpxParameters}"`);
+                        videoParams = Object.entries(encoderParameters as VpxParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
                         break;
                     }
                     default:
                     case Encoder.aom: {
-                        const aomParameters = Object.entries(encoderParameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
-                        av1anArguments.push('--video-params', aomParameters);
-                        av1anPrintFriendlyArguments.push('--video-params', `"${aomParameters}"`);
+                        videoParams = Object.entries(encoderParameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
                         break;
                     }
                 }
+
+                // Add custom encoder parameters
+                Object.entries(options.Av1anCustom.encoding ?? {}).forEach(([key, value]) => {
+                    if (value.type === 'boolean' && value.value) {
+                        videoParams = `${videoParams} ${value.flagPrefix}${key}`;
+                    } else {
+                        videoParams = `${videoParams} ${value.flagPrefix}${key}${value.delimiter}${value.value}`;
+                    }
+                });
+
+                av1anArguments.push('--video-params', videoParams);
+                av1anPrintFriendlyArguments.push('--video-params', `"${videoParams}"`);
+
             }
 
-            if (options.chunking && Object.keys(options.chunking).length) {
-                if (options.chunking.method) {
-                    av1anArguments.push('--chunk-method', options.chunking.method);
-                    av1anPrintFriendlyArguments.push('--chunk-method', options.chunking.method);
+            if (options.Av1an.chunking && Object.keys(options.Av1an.chunking).length) {
+                if (options.Av1an.chunking.method) {
+                    av1anArguments.push('--chunk-method', options.Av1an.chunking.method);
+                    av1anPrintFriendlyArguments.push('--chunk-method', options.Av1an.chunking.method);
                 }
-                if (options.chunking.order) {
-                    av1anArguments.push('--chunk-order', options.chunking.order);
-                    av1anPrintFriendlyArguments.push('--chunk-order', options.chunking.order);
+                if (options.Av1an.chunking.order) {
+                    av1anArguments.push('--chunk-order', options.Av1an.chunking.order);
+                    av1anPrintFriendlyArguments.push('--chunk-order', options.Av1an.chunking.order);
                 }
-                if (options.chunking.concatenater) {
-                    av1anArguments.push('--concat', options.chunking.concatenater);
-                    av1anPrintFriendlyArguments.push('--concat', options.chunking.concatenater);
+                if (options.Av1an.chunking.concatenater) {
+                    av1anArguments.push('--concat', options.Av1an.chunking.concatenater);
+                    av1anPrintFriendlyArguments.push('--concat', options.Av1an.chunking.concatenater);
                 }
             }
-            if (options.pixelFormat) {
-                av1anArguments.push('--pix-format', options.pixelFormat);
-                av1anPrintFriendlyArguments.push('--pix-format', options.pixelFormat);
+            if (options.Av1an.pixelFormat) {
+                av1anArguments.push('--pix-format', options.Av1an.pixelFormat);
+                av1anPrintFriendlyArguments.push('--pix-format', options.Av1an.pixelFormat);
             }
-            if (options.photonNoise) {
-                av1anArguments.push('--photon-noise', `${options.photonNoise}`);
-                av1anPrintFriendlyArguments.push('--photon-noise', `${options.photonNoise}`);
-            }
-
-            if (options.zones) {
-                av1anArguments.push('--zones', options.zones);
-                av1anPrintFriendlyArguments.push('--zones', `"${options.zones}"`);
+            if (options.Av1an.photonNoise) {
+                av1anArguments.push('--photon-noise', `${options.Av1an.photonNoise}`);
+                av1anPrintFriendlyArguments.push('--photon-noise', `${options.Av1an.photonNoise}`);
             }
 
-            if (options.vmaf && Object.keys(options.vmaf).length) {
-                if (options.vmaf.path) {
-                    av1anArguments.push('--vmaf', options.vmaf.path);
-                    av1anPrintFriendlyArguments.push('--vmaf', `"${options.vmaf.path}"`);
+            if (options.Av1an.zones) {
+                av1anArguments.push('--zones', options.Av1an.zones);
+                av1anPrintFriendlyArguments.push('--zones', `"${options.Av1an.zones}"`);
+            }
+
+            if (options.Av1an.vmaf && Object.keys(options.Av1an.vmaf).length) {
+                if (options.Av1an.vmaf.path) {
+                    av1anArguments.push('--vmaf', options.Av1an.vmaf.path);
+                    av1anPrintFriendlyArguments.push('--vmaf', `"${options.Av1an.vmaf.path}"`);
                 }
-                if (options.vmaf.resolution) {
-                    av1anArguments.push('--vmaf-res', options.vmaf.resolution);
-                    av1anPrintFriendlyArguments.push('--vmaf-res', `"${options.vmaf.resolution}"`);
+                if (options.Av1an.vmaf.resolution) {
+                    av1anArguments.push('--vmaf-res', options.Av1an.vmaf.resolution);
+                    av1anPrintFriendlyArguments.push('--vmaf-res', `"${options.Av1an.vmaf.resolution}"`);
                 }
-                if (options.vmaf.threads) {
-                    av1anArguments.push('--vmaf-threads', `${options.vmaf.threads}`);
-                    av1anPrintFriendlyArguments.push('--vmaf-threads', `${options.vmaf.threads}`);
+                if (options.Av1an.vmaf.threads) {
+                    av1anArguments.push('--vmaf-threads', `${options.Av1an.vmaf.threads}`);
+                    av1anPrintFriendlyArguments.push('--vmaf-threads', `${options.Av1an.vmaf.threads}`);
                 }
-                if (options.vmaf.filter) {
-                    av1anArguments.push('--vmaf-filter', options.vmaf.filter);
-                    av1anPrintFriendlyArguments.push('--vmaf-filter', `"${options.vmaf.filter}"`);
+                if (options.Av1an.vmaf.filter) {
+                    av1anArguments.push('--vmaf-filter', options.Av1an.vmaf.filter);
+                    av1anPrintFriendlyArguments.push('--vmaf-filter', `"${options.Av1an.vmaf.filter}"`);
                 }
             }
 
-            if (options.targetQuality && Object.keys(options.targetQuality).length) {
-                av1anArguments.push('--target-quality', `${options.targetQuality.targetVMAFScore}`);
-                av1anPrintFriendlyArguments.push('--target-quality', `${options.targetQuality.targetVMAFScore}`);
+            if (options.Av1an.targetQuality && Object.keys(options.Av1an.targetQuality).length) {
+                av1anArguments.push('--target-quality', `${options.Av1an.targetQuality.targetVMAFScore}`);
+                av1anPrintFriendlyArguments.push('--target-quality', `${options.Av1an.targetQuality.targetVMAFScore}`);
 
-                if (options.targetQuality.maximumProbes) {
-                    av1anArguments.push('--probes', `${options.targetQuality.maximumProbes}`);
-                    av1anPrintFriendlyArguments.push('--probes', `${options.targetQuality.maximumProbes}`);
+                if (options.Av1an.targetQuality.maximumProbes) {
+                    av1anArguments.push('--probes', `${options.Av1an.targetQuality.maximumProbes}`);
+                    av1anPrintFriendlyArguments.push('--probes', `${options.Av1an.targetQuality.maximumProbes}`);
                 }
-                if (options.targetQuality.probingFrameRate) {
-                    av1anArguments.push('--probing-rate', `${options.targetQuality.probingFrameRate}`);
-                    av1anPrintFriendlyArguments.push('--probing-rate', `${options.targetQuality.probingFrameRate}`);
+                if (options.Av1an.targetQuality.probingFrameRate) {
+                    av1anArguments.push('--probing-rate', `${options.Av1an.targetQuality.probingFrameRate}`);
+                    av1anPrintFriendlyArguments.push('--probing-rate', `${options.Av1an.targetQuality.probingFrameRate}`);
                 }
-                if (options.targetQuality.probeSlow) {
+                if (options.Av1an.targetQuality.probeSlow) {
                     av1anArguments.push('--probe-slow');
                     av1anPrintFriendlyArguments.push('--probe-slow');
                 }
-                if (options.targetQuality.minimumQ) {
-                    av1anArguments.push('--min-q', `${options.targetQuality.minimumQ}`);
-                    av1anPrintFriendlyArguments.push('--min-q', `${options.targetQuality.minimumQ}`);
+                if (options.Av1an.targetQuality.minimumQ) {
+                    av1anArguments.push('--min-q', `${options.Av1an.targetQuality.minimumQ}`);
+                    av1anPrintFriendlyArguments.push('--min-q', `${options.Av1an.targetQuality.minimumQ}`);
                 }
-                if (options.targetQuality.maximumQ) {
-                    av1anArguments.push('--max-q', `${options.targetQuality.maximumQ}`);
-                    av1anPrintFriendlyArguments.push('--max-q', `${options.targetQuality.maximumQ}`);
+                if (options.Av1an.targetQuality.maximumQ) {
+                    av1anArguments.push('--max-q', `${options.Av1an.targetQuality.maximumQ}`);
+                    av1anPrintFriendlyArguments.push('--max-q', `${options.Av1an.targetQuality.maximumQ}`);
                 }
             }
+        }
+
+        if (options.Av1anCustom) {
+            const { encoding: _encoding, ...av1anCustom } = options.Av1anCustom;
+
+            Object.entries(av1anCustom).forEach(([name, value]) => {
+                if (value.type === 'boolean') {
+                    av1anArguments.push(`${value.flagPrefix}${name}`);
+                    av1anPrintFriendlyArguments.push(`${value.flagPrefix}${name}`);
+                } else if (value.type === 'string') {
+                    av1anArguments.push(`${value.flagPrefix}${name}`);
+                    av1anPrintFriendlyArguments.push(`${value.flagPrefix}${name}`);
+                    if ((value.value as string).length) {
+                        av1anArguments.push(`${value.delimiter}${value.value}`);
+                        av1anPrintFriendlyArguments.push(`${value.delimiter}"${value.value}"`);
+                    }
+                } else {
+                    av1anArguments.push(`${value.flagPrefix}${name}`, `${value.delimiter}${value.value}`);
+                    av1anPrintFriendlyArguments.push(`${value.flagPrefix}${name}`, `${value.delimiter}${value.value}`);
+                }
+            });
         }
 
         return {
@@ -432,7 +470,7 @@ export class Av1an extends EventEmitter {
     }
 
     public get command() {
-        return `av1an ${Av1an.BuildArguments(this.input, this.output, this.options).printFriendlyArguments.join(' ')}`;
+        return `av1an ${Av1an.BuildArguments(this.options).printFriendlyArguments.join(' ')}`;
     }
 
     public get statusHistory() {
@@ -465,8 +503,8 @@ export class Av1an extends EventEmitter {
     }
 
     private get doneJson() {
-        if (this.options?.temporary?.path) {
-            const doneJsonPath = path.join(this.options.temporary.path, 'done.json');
+        if (this.options.Av1an.temporary?.path) {
+            const doneJsonPath = path.join(this.options.Av1an.temporary.path, 'done.json');
 
             return parseDoneJsonFile(doneJsonPath);
         }
@@ -480,9 +518,9 @@ export class Av1an extends EventEmitter {
     //     }
     // }
 
-    private get completedChunkIds() {
-        return Object.keys(this.doneJson?.done ?? {});
-    }
+    // private get completedChunkIds() {
+    //     return Object.keys(this.doneJson?.done ?? {});
+    // }
 
     private get framerate() {
         // Get framerate from first chunk or assume 23.976
@@ -521,8 +559,8 @@ export class Av1an extends EventEmitter {
 
     public async start() {
         // Ensure temporary folder exists
-        if (this.options?.temporary?.path && !fs.existsSync(this.options.temporary.path)) {
-            await fs.promises.mkdir(this.options.temporary.path, { recursive: true });
+        if (this.options.Av1an.temporary?.path && !fs.existsSync(this.options.Av1an.temporary.path)) {
+            await fs.promises.mkdir(this.options.Av1an.temporary.path, { recursive: true });
         }
         // Ensure output folder exists
         if (!fs.existsSync(path.dirname(this.output))) {
@@ -530,7 +568,7 @@ export class Av1an extends EventEmitter {
         }
 
         // Check if the scenes.json exists
-        const scenesJSONExists = this.options?.scenes?.path && fs.existsSync(this.options.scenes.path);
+        const scenesJSONExists = this.options.Av1an.scenes?.path && fs.existsSync(this.options.Av1an.scenes.path);
 
         if (!scenesJSONExists) {
             await this.sceneDetection();
@@ -541,7 +579,7 @@ export class Av1an extends EventEmitter {
         }
 
         return new Promise<void>((resolve, reject) => {
-            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
+            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
 
             this.childProcess.on('close', (code) => {
                 switch (code) {
@@ -612,8 +650,8 @@ export class Av1an extends EventEmitter {
                 console.log(`[Av1an STDERR]: ${data.toString()}`);
             });
 
-            if (this.options?.temporary?.path) {
-                const temporaryPath = this.options.temporary.path;
+            if (this.options.Av1an.temporary?.path) {
+                const temporaryPath = this.options.Av1an.temporary.path;
                 const doneJsonFilePath = path.resolve(temporaryPath, 'done.json');
                 const chunksJsonFilePath = path.resolve(temporaryPath, 'chunks.json');
                 const logFilePath = path.resolve(temporaryPath, 'log.log');
@@ -632,7 +670,7 @@ export class Av1an extends EventEmitter {
                 }
 
                 // Watch the done.json file and check for new chunks
-                this.temporaryFolderWatcher = new Watcher(temporaryPath, {  }, (targetEvent, targetPath) => {
+                this.temporaryFolderWatcher = new Watcher(temporaryPath, {  }, (targetEvent: string, targetPath: string) => {
                     if (targetEvent === 'change' && targetPath === doneJsonFilePath) {
                         try {
                             const { frames, done } = parseDoneJsonFile(doneJsonFilePath);
@@ -690,7 +728,7 @@ export class Av1an extends EventEmitter {
                                     },
                                 });
                             }
-                        } catch (error) {
+                        } catch (_error) {
                             // Av1an writes to done.json multiple times with invalid json - ignore these instances
                             return;
                         }
@@ -771,15 +809,18 @@ export class Av1an extends EventEmitter {
 
     public async sceneDetection() {
         return new Promise<void>((resolve, reject) => {
-            const sceneDetectionOptions: Options = {
-                ...this.options,
-                scenes: {
-                    ...this.options?.scenes,
-                    detectionOnly: true,
+            const sceneDetectionOptions: Av1anOptions = {
+                Av1anCustom: this.options.Av1anCustom,
+                Av1an: {
+                    ...this.options.Av1an,
+                    scenes: {
+                        ...this.options.Av1an.scenes,
+                        detectionOnly: true,
+                    },
                 },
             };
 
-            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
+            this.childProcess = spawn('av1an', Av1an.BuildArguments(sceneDetectionOptions).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
             // spawn('av1an', Av1an.BuildArguments(this.input, this.output, sceneDetectionOptions).arguments, { stdio: ['pipe', 'inherit', 'inherit'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
 
             this.childProcess.on('close', (code) => {

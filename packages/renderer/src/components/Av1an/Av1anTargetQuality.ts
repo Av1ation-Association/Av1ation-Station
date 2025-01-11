@@ -1,61 +1,70 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NInputNumber,
     NSlider,
     NSwitch,
 } from 'naive-ui';
-import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../stores/configurations';
 import { type FormInputComponent } from './library';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const targetVMAFScore = {
         label: 'Target VMAF Score',
         path: 'targetQuality.targetVMAFScore',
         component: h(
             NSlider,
             {
-                value: formValueRef.value.targetQuality?.targetVMAFScore ?? undefined,
+                value: configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore ?? undefined,
                 min: 0,
                 max: 100,
                 step: 1,
-                defaultValue: parentAv1anValue?.targetQuality?.targetVMAFScore ?? undefined,
+                defaultValue: parentAv1an.targetQuality?.targetVMAFScore ?? undefined,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.targetQuality) {
-                        formValueRef.value.targetQuality = {};
+                    if (!configurationsStore.defaults.Av1an.targetQuality) {
+                        configurationsStore.defaults.Av1an.targetQuality = {
+                            targetVMAFScore: value,
+                        };
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.targetQuality?.targetVMAFScore === value) {
-                            delete formValueRef.value.targetQuality?.targetVMAFScore;
+                        if (parentAv1an.targetQuality?.targetVMAFScore === value) {
+                            delete configurationsStore.defaults.Av1an.targetQuality.targetVMAFScore;
                         } else {
-                            formValueRef.value.targetQuality.targetVMAFScore = value;
+                            configurationsStore.defaults.Av1an.targetQuality.targetVMAFScore = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.targetQuality?.targetVMAFScore;
+                    delete configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.targetQuality) {
-                formValueRef.value.targetQuality = {};
+            if (!configurationsStore.defaults.Av1an.targetQuality) {
+                configurationsStore.defaults.Av1an.targetQuality = {};
             }
 
-            formValueRef.value.targetQuality.targetVMAFScore = null;
+            configurationsStore.defaults.Av1an.targetQuality.targetVMAFScore = null;
         },
         disabled: () => {
-            return formValueRef.value.targetQuality?.targetVMAFScore === null;
+            return configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore === null;
         },
         reset: () => {
-            delete formValueRef.value.targetQuality?.targetVMAFScore;
+            delete configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore;
+        },
+        isModified: () => {
+            if (!previousAv1an.targetQuality || previousAv1an.targetQuality.targetVMAFScore === undefined) {
+                return configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore !== undefined;
+            } else if (previousAv1an.targetQuality.targetVMAFScore !== configurationsStore.defaults.Av1an.targetQuality?.targetVMAFScore) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -65,41 +74,50 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.targetQuality?.maximumProbes,
+                value: configurationsStore.defaults.Av1an.targetQuality?.maximumProbes,
                 min: 1,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.targetQuality) {
-                        formValueRef.value.targetQuality = {};
+                    if (!configurationsStore.defaults.Av1an.targetQuality) {
+                        configurationsStore.defaults.Av1an.targetQuality = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.targetQuality?.maximumProbes === value) {
-                            delete formValueRef.value.targetQuality?.maximumProbes;
+                        if (parentAv1an.targetQuality?.maximumProbes === value) {
+                            delete configurationsStore.defaults.Av1an.targetQuality?.maximumProbes;
                         } else {
-                            formValueRef.value.targetQuality.maximumProbes = value;
+                            configurationsStore.defaults.Av1an.targetQuality.maximumProbes = value;
                         }
                     }
                 },
-                placeholder: '4',
-                defaultValue: parentAv1anValue?.targetQuality?.maximumProbes,
+                placeholder: parentAv1an.targetQuality?.maximumProbes?.toString() ?? '4',
+                // defaultValue: parentAv1an.targetQuality?.maximumProbes,
                 onClear: () => {
-                    delete formValueRef.value.targetQuality?.maximumProbes;
+                    delete configurationsStore.defaults.Av1an.targetQuality?.maximumProbes;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.targetQuality) {
-                formValueRef.value.targetQuality = {};
+            if (!configurationsStore.defaults.Av1an.targetQuality) {
+                configurationsStore.defaults.Av1an.targetQuality = {};
             }
 
-            formValueRef.value.targetQuality.maximumProbes = null;
+            configurationsStore.defaults.Av1an.targetQuality.maximumProbes = null;
         },
         disabled: () => {
-            return formValueRef.value.targetQuality?.maximumProbes === null;
+            return configurationsStore.defaults.Av1an.targetQuality?.maximumProbes === null;
         },
         reset: () => {
-            delete formValueRef.value.targetQuality?.maximumProbes;
+            delete configurationsStore.defaults.Av1an.targetQuality?.maximumProbes;
+        },
+        isModified: () => {
+            if (!previousAv1an.targetQuality || previousAv1an.targetQuality.maximumProbes === undefined) {
+                return configurationsStore.defaults.Av1an.targetQuality?.maximumProbes !== undefined;
+            } else if (previousAv1an.targetQuality.maximumProbes !== configurationsStore.defaults.Av1an.targetQuality?.maximumProbes) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -109,39 +127,48 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.targetQuality?.probeSlow ?? undefined,
+                value: configurationsStore.defaults.Av1an.targetQuality?.probeSlow ?? undefined,
                 clearable: true,
-                defaultValue: parentAv1anValue?.targetQuality?.probeSlow ?? undefined,
+                defaultValue: parentAv1an.targetQuality?.probeSlow ?? undefined,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.targetQuality) {
-                        formValueRef.value.targetQuality = {};
+                    if (!configurationsStore.defaults.Av1an.targetQuality) {
+                        configurationsStore.defaults.Av1an.targetQuality = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.targetQuality?.probeSlow === value) {
-                            delete formValueRef.value.targetQuality?.probeSlow;
+                        if (parentAv1an.targetQuality?.probeSlow === value) {
+                            delete configurationsStore.defaults.Av1an.targetQuality?.probeSlow;
                         } else {
-                            formValueRef.value.targetQuality.probeSlow = value;
+                            configurationsStore.defaults.Av1an.targetQuality.probeSlow = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.targetQuality?.probeSlow;
+                    delete configurationsStore.defaults.Av1an.targetQuality?.probeSlow;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.targetQuality) {
-                formValueRef.value.targetQuality = {};
+            if (!configurationsStore.defaults.Av1an.targetQuality) {
+                configurationsStore.defaults.Av1an.targetQuality = {};
             }
 
-            formValueRef.value.targetQuality.probeSlow = null;
+            configurationsStore.defaults.Av1an.targetQuality.probeSlow = null;
         },
         disabled: () => {
-            return formValueRef.value.targetQuality?.probeSlow === null;
+            return configurationsStore.defaults.Av1an.targetQuality?.probeSlow === null;
         },
         reset: () => {
-            delete formValueRef.value.targetQuality?.probeSlow;
+            delete configurationsStore.defaults.Av1an.targetQuality?.probeSlow;
+        },
+        isModified: () => {
+            if (!previousAv1an.targetQuality || previousAv1an.targetQuality.probeSlow === undefined) {
+                return configurationsStore.defaults.Av1an.targetQuality?.probeSlow !== undefined;
+            } else if (previousAv1an.targetQuality.probeSlow !== configurationsStore.defaults.Av1an.targetQuality?.probeSlow) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -151,41 +178,50 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.targetQuality?.minimumQ,
+                value: configurationsStore.defaults.Av1an.targetQuality?.minimumQ,
                 min: 0,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.targetQuality) {
-                        formValueRef.value.targetQuality = {};
+                    if (!configurationsStore.defaults.Av1an.targetQuality) {
+                        configurationsStore.defaults.Av1an.targetQuality = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.targetQuality?.minimumQ === value) {
-                            delete formValueRef.value.targetQuality?.minimumQ;
+                        if (parentAv1an.targetQuality?.minimumQ === value) {
+                            delete configurationsStore.defaults.Av1an.targetQuality?.minimumQ;
                         } else {
-                            formValueRef.value.targetQuality.minimumQ = value;
+                            configurationsStore.defaults.Av1an.targetQuality.minimumQ = value;
                         }
                     }
                 },
-                placeholder: '',
-                defaultValue: parentAv1anValue?.targetQuality?.minimumQ,
+                placeholder: parentAv1an.targetQuality?.minimumQ?.toString() ?? '',
+                // defaultValue: parentAv1an.targetQuality?.minimumQ,
                 onClear: () => {
-                    delete formValueRef.value.targetQuality?.minimumQ;
+                    delete configurationsStore.defaults.Av1an.targetQuality?.minimumQ;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.targetQuality) {
-                formValueRef.value.targetQuality = {};
+            if (!configurationsStore.defaults.Av1an.targetQuality) {
+                configurationsStore.defaults.Av1an.targetQuality = {};
             }
 
-            formValueRef.value.targetQuality.minimumQ = null;
+            configurationsStore.defaults.Av1an.targetQuality.minimumQ = null;
         },
         disabled: () => {
-            return formValueRef.value.targetQuality?.minimumQ === null;
+            return configurationsStore.defaults.Av1an.targetQuality?.minimumQ === null;
         },
         reset: () => {
-            delete formValueRef.value.targetQuality?.minimumQ;
+            delete configurationsStore.defaults.Av1an.targetQuality?.minimumQ;
+        },
+        isModified: () => {
+            if (!previousAv1an.targetQuality || previousAv1an.targetQuality.minimumQ === undefined) {
+                return configurationsStore.defaults.Av1an.targetQuality?.minimumQ !== undefined;
+            } else if (previousAv1an.targetQuality.minimumQ !== configurationsStore.defaults.Av1an.targetQuality?.minimumQ) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -195,41 +231,50 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.targetQuality?.maximumQ,
+                value: configurationsStore.defaults.Av1an.targetQuality?.maximumQ,
                 min: 0,
                 clearable: true,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.targetQuality) {
-                        formValueRef.value.targetQuality = {};
+                    if (!configurationsStore.defaults.Av1an.targetQuality) {
+                        configurationsStore.defaults.Av1an.targetQuality = {};
                     }
-                    
+
                     if (value !== null) {
-                        if (parentAv1anValue?.targetQuality?.maximumQ === value) {
-                            delete formValueRef.value.targetQuality?.maximumQ;
+                        if (parentAv1an.targetQuality?.maximumQ === value) {
+                            delete configurationsStore.defaults.Av1an.targetQuality?.maximumQ;
                         } else {
-                            formValueRef.value.targetQuality.maximumQ = value;
+                            configurationsStore.defaults.Av1an.targetQuality.maximumQ = value;
                         }
                     }
                 },
-                placeholder: '',
-                defaultValue: parentAv1anValue?.targetQuality?.maximumQ,
+                placeholder: parentAv1an.targetQuality?.maximumQ?.toString() ?? '',
+                // defaultValue: parentAv1an.targetQuality?.maximumQ,
                 onClear: () => {
-                    delete formValueRef.value.targetQuality?.maximumQ;
+                    delete configurationsStore.defaults.Av1an.targetQuality?.maximumQ;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.targetQuality) {
-                formValueRef.value.targetQuality = {};
+            if (!configurationsStore.defaults.Av1an.targetQuality) {
+                configurationsStore.defaults.Av1an.targetQuality = {};
             }
 
-            formValueRef.value.targetQuality.maximumQ = null;
+            configurationsStore.defaults.Av1an.targetQuality.maximumQ = null;
         },
         disabled: () => {
-            return formValueRef.value.targetQuality?.maximumQ === null;
+            return configurationsStore.defaults.Av1an.targetQuality?.maximumQ === null;
         },
         reset: () => {
-            delete formValueRef.value.targetQuality?.maximumQ;
+            delete configurationsStore.defaults.Av1an.targetQuality?.maximumQ;
+        },
+        isModified: () => {
+            if (!previousAv1an.targetQuality || previousAv1an.targetQuality.maximumQ === undefined) {
+                return configurationsStore.defaults.Av1an.targetQuality?.maximumQ !== undefined;
+            } else if (previousAv1an.targetQuality.maximumQ !== configurationsStore.defaults.Av1an.targetQuality?.maximumQ) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

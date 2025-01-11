@@ -29,7 +29,7 @@ import {
     DocumentView as ViewLogsIcon,
     Reset as ResetIconCircle,
 } from '@vicons/carbon';
-import { type Project, type Task } from '../../../../main/src/data/Configuration/Projects';
+import { type Project, type Task } from '../../../../shared/src/data/Projects';
 import { useProjectsStore } from '../../stores/projects';
 import TaskProgress from './TaskProgress.vue';
 

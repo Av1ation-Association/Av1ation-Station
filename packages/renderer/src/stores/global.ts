@@ -4,7 +4,7 @@ import {
     darkTheme,
 } from 'naive-ui';
 import { defineStore } from 'pinia';
-import { Theme, type Configuration } from '../../../main/src/data/Configuration/Types/Configuration';
+import { Theme, type Configuration } from '../../../shared/src/data/Configuration';
 
 export const useGlobalStore = defineStore(`global`, {
     state: () => {
@@ -18,6 +18,10 @@ export const useGlobalStore = defineStore(`global`, {
     },
     actions: {
         async getConfig() {
+            if (Object.keys(this.config).length) {
+                return this.config;
+            }
+
             const config = await window.configurationsApi['get-config']();
             this.config = config;
             return config;

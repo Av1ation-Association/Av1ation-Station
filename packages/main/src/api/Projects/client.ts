@@ -1,10 +1,16 @@
 import {
     ipcRenderer,
 } from 'electron';
-import type { ClientAPI, OmitFirstArg } from '../index';
-import type { registerSDK } from './sdk';
-import { type Av1anStatus } from '../../utils/Av1an/Av1an';
-import { type Project, type Task } from '../../data/Configuration/Projects';
+import {
+    type ClientAPI,
+    type OmitFirstArg,
+} from '../index.js';
+import { type  registerSDK } from './sdk.js';
+import { type Av1anStatus } from '../../../../shared/src/data/Types/Status.js'; 
+import {
+    type Project,
+    type Task,
+} from '../../../../shared/src/data/Projects.js';
 
 export interface StatusChange {
     projectId: Project['id'];

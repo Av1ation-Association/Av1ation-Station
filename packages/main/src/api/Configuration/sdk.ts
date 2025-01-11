@@ -4,20 +4,18 @@ import * as path from 'node:path';
 import {
     type BrowserWindow,
     type IpcMainInvokeEvent,
-    // ipcRenderer,
     app,
     dialog,
     shell,
     clipboard,
+    Notification,
 } from 'electron';
 import {
     type AppCommand,
     type ClientSDK,
-    // type ClientAPI,
-    // OmitFirstArg,
-} from '../index';
-import { ConfigurationManager } from '../../data/Configuration/Configuration';
-import { type Configuration } from '../../data/Configuration/Types/Configuration';
+} from '../index.js';
+import { ConfigurationManager } from '../../data/Configuration/Configuration.js';
+import { type Configuration } from '../../../../shared/src/data/Configuration.js';
 
 
 export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: AppCommand) => void) {
@@ -106,6 +104,14 @@ export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: 
         },
         'copy-to-clipboard': (_event: IpcMainInvokeEvent, text: string) => {
             clipboard.writeText(text);
+        },
+        'notify': (_event: IpcMainInvokeEvent, title: string, description: string) => {
+            const notification = new Notification({
+                title,
+                body: description,
+            });
+
+            notification.show();
         },
     } satisfies ClientSDK;
 }

@@ -1,17 +1,24 @@
 import { toRaw } from 'vue';
 import { defineStore } from 'pinia';
-import { type Project, type Task } from '../../../main/src/data/Configuration/Projects';
-import { type Av1anStatus } from '../../../main/src/utils/Av1an/Av1an';
-import { Av1anInputLocationType, Av1anOutputLocationType, Av1anTemporaryLocationType } from '../../../main/src/data/Configuration/Av1anConfiguration';
+import {
+    type Project,
+    type Task,
+} from '../../../shared/src/data/Projects';
+import { type Av1anStatus } from '../../../shared/src/data/Types/Status';
+import {
+    Av1anInputLocationType,
+    Av1anOutputLocationType,
+    Av1anTemporaryLocationType,
+} from '../../../shared/src/data/Av1anConfiguration';
 import { useGlobalStore } from './global';
+import { type Defaults } from '../../../shared/src/data/Configuration';
 
 export const useProjectsStore = defineStore('projects', {
     state: () => {
         return {
             projects: [] as Project[],
             projectQueueMap: {} as {
-                [projectId: Project['id']]:
-                { 
+                [projectId: Project['id']]: {
                     taskId?: Task['id'];
                     status: 'idle' | 'paused' | 'processing' | 'done' | 'cancelled' | 'error';
                 };
@@ -37,17 +44,17 @@ export const useProjectsStore = defineStore('projects', {
                 };
                 for (const task of project.tasks) {
                     const lastStatus = task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle';
-                
+
                     if (lastStatus !== 'idle') {
                         map[project.id] = {
                             taskId: task.id,
                             status: 'paused',
                         };
-        
+
                         break;
                     }
                 }
-        
+
                 return map;
             }, {} as typeof this.projectQueueMap);
         },
@@ -91,7 +98,7 @@ export const useProjectsStore = defineStore('projects', {
                         const lastStatus = task.statusHistory[task.statusHistory.length - 1];
 
                         if (['encoding', 'scene-detection'].includes(lastStatus.state)) {
-                            task.statusHistory.push({ state: 'cancelled', time: new Date() });
+                            task.statusHistory.push({ state: 'cancelled', time: new Date(lastStatus.time) });
                         }
 
                         return task;
@@ -140,7 +147,7 @@ export const useProjectsStore = defineStore('projects', {
             // Remove project from recently opened projects
             const configStore = await useGlobalStore();
             const projectIndex = configStore.config.recentlyOpenedProjects.findIndex(recent => recent.id === project.id);
-            
+
             if (projectIndex !== -1) {
                 configStore.config.recentlyOpenedProjects.splice(projectIndex, 1);
             }
@@ -227,10 +234,10 @@ export const useProjectsStore = defineStore('projects', {
 
             return tasks;
         },
-        async getDefaultTaskInputDirectory(project: Project) {
+        async getDefaultTaskInputDirectory(project?: Project) {
             const configStore = useGlobalStore();
 
-            const defaultInput = project.defaults.Av1an.input.type ?? configStore.config.defaults.Av1an.input.type;
+            const defaultInput = (project && project.defaults.Av1an.input?.type) ?? configStore.config.defaults.Av1an.input.type;
             // Tremendous Ternary
             return defaultInput === Av1anInputLocationType.Videos
                 ? await window.configurationsApi['get-path']('videos')
@@ -239,8 +246,8 @@ export const useProjectsStore = defineStore('projects', {
                     : defaultInput === Av1anInputLocationType.Desktop
                         ? await window.configurationsApi['get-path']('desktop')
                         : defaultInput === Av1anInputLocationType.Custom
-                            ? project.defaults.Av1an.input.customFolder ?? configStore.config.defaults.Av1an.input.customFolder
-                            : project.path;
+                            ? ((project && project.defaults.Av1an.input) as { type: Av1anInputLocationType.Custom, customFolder: string; }).customFolder ?? (configStore.config.defaults.Av1an.input as { type: Av1anInputLocationType.Custom, customFolder: string; }).customFolder
+                            : (project && project.path); // Should not occur
         },
         async buildDefaultTaskPaths(project: Project, taskId: Task['id'], inputFilePath: string) {
             const configStore = useGlobalStore();
@@ -248,12 +255,13 @@ export const useProjectsStore = defineStore('projects', {
             const inputFileDirectory = await window.configurationsApi['path-dirname'](inputFilePath ?? this.projects[projectIndex]);
             const inputFileName = await window.configurationsApi['path-basename'](inputFilePath ?? this.projects[projectIndex], true);
 
-            const defaultOutput = this.projects[projectIndex].defaults.Av1an.output.type ?? configStore.config.defaults.Av1an.output.type;
+            const defaultOutput = this.projects[projectIndex].defaults.Av1an.output?.type ?? configStore.config.defaults.Av1an.output.type;
             let outputFilePath: string;
-            const outputFileExtension = this.projects[projectIndex].defaults.Av1an.output.extension ?? configStore.config.defaults.Av1an.output.extension;
+            const outputFileExtension = this.projects[projectIndex].defaults.Av1an.output?.extension ?? configStore.config.defaults.Av1an.output.extension;
 
             // Splendiferous Switch - But which is best?
             switch (defaultOutput) {
+                default:
                 case Av1anOutputLocationType.InputAdjacent:
                     outputFilePath = await window.configurationsApi['resolve-path'](inputFileDirectory, `${inputFileName}.av1an.${outputFileExtension}`);
                     break;
@@ -276,14 +284,15 @@ export const useProjectsStore = defineStore('projects', {
                     break;
                 }
                 case Av1anOutputLocationType.Custom: {
-                    outputFilePath = await window.configurationsApi['resolve-path'](this.projects[projectIndex].defaults.Av1an.output.customFolder ?? configStore.config.defaults.Av1an.output.customFolder ?? inputFileDirectory, `${inputFileName}.${outputFileExtension}`);
+                    outputFilePath = await window.configurationsApi['resolve-path']((this.projects[projectIndex].defaults.Av1an.output as { type: Av1anOutputLocationType.Custom, customFolder: string; }).customFolder ?? (configStore.config.defaults.Av1an.output as { type: Av1anOutputLocationType.Custom, customFolder: string; }).customFolder ?? inputFileDirectory, `${inputFileName}.${outputFileExtension}`);
                     break;
                 }
             }
 
             let temporaryFolderPath: string;
-    
-            switch (project.defaults.Av1an.temporary.type ?? configStore.config.defaults.Av1an.temporary.type) {
+
+            switch (project.defaults.Av1an.temporary?.type ?? configStore.config.defaults.Av1an.temporary.type) {
+                default:
                 case Av1anTemporaryLocationType.InputAdjacentAv1anFolder:
                     temporaryFolderPath = await window.configurationsApi['resolve-path'](inputFileDirectory, 'Av1ation Station', taskId, 'temporary');
                     break;
@@ -293,7 +302,7 @@ export const useProjectsStore = defineStore('projects', {
                     break;
                 }
                 case Av1anTemporaryLocationType.Custom:
-                    temporaryFolderPath = await window.configurationsApi['resolve-path'](project.defaults.Av1an.temporary.customFolder ?? configStore.config.defaults.Av1an.temporary.customFolder ?? inputFileDirectory, 'Av1ation Station', taskId, 'temporary');
+                    temporaryFolderPath = await window.configurationsApi['resolve-path']((project.defaults.Av1an.temporary as {  type: Av1anTemporaryLocationType.Custom, customFolder: string;}).customFolder ?? (configStore.config.defaults.Av1an.temporary as {  type: Av1anTemporaryLocationType.Custom, customFolder: string;}).customFolder ?? inputFileDirectory, 'Av1ation Station', taskId, 'temporary');
                     break;
             }
 
@@ -359,29 +368,33 @@ export const useProjectsStore = defineStore('projects', {
                 output: _configOutput,
                 temporary: _configTemporary,
                 ...configDefaults
-            } = toRaw(configStore.config.defaults.Av1an);
+            } = structuredClone(toRaw(configStore.config.defaults.Av1an));
             const {
                 input: _projectInput,
                 output: _projectOutput,
                 temporary: _projectTemporary,
                 ...projectDefaults
-            } = toRaw(project.defaults.Av1an);
+            } = structuredClone(toRaw(project.defaults.Av1an));
 
             // Initial Av1an Options
             const configOptions: Task['item']['Av1an'] = {
-                input: task.inputFileName,
-                output: task.outputFileName,
+                input: task.item.Av1an.input ?? task.inputFileName,
+                output: task.item.Av1an.output ?? task.outputFileName,
                 temporary: toRaw(task).item.Av1an.temporary,
                 ...configDefaults,
             };
-            // Apply Av1an Defaults - Config -> Project -> Task
-            const configCustomOptions = this.applyAv1anOptions(configOptions, configStore.config.defaults.Av1anCustom);
-            const projectOptions = this.applyAv1anOptions(configCustomOptions, projectDefaults);
-            const projectCustomOptions = this.applyAv1anOptions(projectOptions, project.defaults.Av1anCustom);
-            const taskOptions = this.applyAv1anOptions(projectCustomOptions, task.item.Av1an);
-            const taskCustomOptions = this.applyAv1anOptions(taskOptions, task.item.Av1anCustom);
 
-            return taskCustomOptions;
+            // Apply Av1an Defaults - Config -> Project -> Task
+            const projectOptions = this.applyAv1anOptions(configOptions, projectDefaults);
+            const taskOptions = this.applyAv1anOptions(projectOptions, structuredClone(task.item.Av1an));
+            // Merge Av1an Custom Options - Config -> Project -> Task
+            const projectCustomOptions = this.mergeAv1anCustomOptions(structuredClone(toRaw(configStore.config.defaults.Av1anCustom)), structuredClone(toRaw(project.defaults.Av1anCustom)));
+            const taskCustomOptions = this.mergeAv1anCustomOptions(projectCustomOptions, structuredClone(task.item.Av1anCustom));
+
+            return {
+                Av1an: taskOptions,
+                Av1anCustom: taskCustomOptions,
+            };
         },
         applyAv1anOptions(options: Task['item']['Av1an'], av1anCustom: Record<string, unknown>) {
             return Object.entries(av1anCustom).reduce((opts, [parameterName, parameterValue]) => {
@@ -401,9 +414,46 @@ export const useProjectsStore = defineStore('projects', {
                 } else {
                     (opts as Record<string, unknown>)[parameterName] = parameterValue;
                 }
-    
+
                 return opts;
-            }, options);
+            }, options ?? {});
+        },
+        mergeAv1anCustomOptions(parent: Defaults['Av1anCustom'], child: Defaults['Av1anCustom']) {
+            // Initial Av1an Custom Options
+            const { encoding: parentEncoding, ...parentAv1an } = parent;
+            const { encoding: childEncoding, ...childAv1an } = child;
+
+            const combinedEncoding = Object.entries(childEncoding ?? {}).reduce((opts, [parameterName, parameterValue]) => {
+                if (parameterValue.value === null) {
+                    delete opts[parameterName];
+                } else {
+                    if (!opts[parameterName]) {
+                        opts[parameterName] = parameterValue;
+                    }
+
+                    opts[parameterName].value = parameterValue.value;
+                }
+
+                return opts;
+            }, parentEncoding ?? {});
+            const combinedAv1an = Object.entries(childAv1an ?? {}).reduce((opts, [parameterName, parameterValue]) => {
+                if (parameterValue.value === null) {
+                    delete opts[parameterName];
+                } else {
+                    if (!opts[parameterName]) {
+                        opts[parameterName] = parameterValue;
+                    }
+
+                    opts[parameterName].value = parameterValue.value;
+                }
+
+                return opts;
+            }, parentAv1an ?? {});
+
+            return {
+                ...combinedAv1an,
+                encoding: combinedEncoding,
+            } as Defaults['Av1anCustom'];
         },
         async resetTask(task: Task, saveProject = true) {
             const taskIndex = this.projects[this.projects.findIndex(p => p.id === task.projectId)].tasks.findIndex(pTask => pTask.id === task.id);
@@ -413,7 +463,7 @@ export const useProjectsStore = defineStore('projects', {
             }
 
             const projectIndex = this.projects.findIndex(p => p.id === task.projectId);
-            
+
             // Reset total frames, Status History, and delete temporary files
             this.projects[projectIndex].tasks[taskIndex].totalFrames = 0;
             this.projects[projectIndex].tasks[taskIndex].statusHistory = [{
@@ -423,7 +473,7 @@ export const useProjectsStore = defineStore('projects', {
             await window.projectsApi['task-delete-temporary-files'](toRaw(this.projects[projectIndex].tasks[taskIndex]));
             // Reset updatedAt
             this.projects[projectIndex].tasks[taskIndex].updatedAt = new Date();
-        
+
             // Save Project File
             if (saveProject) {
                 await this.saveProject(toRaw(this.projects[projectIndex]), false);
@@ -462,20 +512,51 @@ export const useProjectsStore = defineStore('projects', {
                 await this.saveProject(toRaw(this.projects[projectIndex]));
             }
         },
+        async deleteAllTasks(project: Project) {
+            const projectIndex = this.projects.findIndex(p => p.id === project.id);
+            if (projectIndex === -1) {
+                return;
+            }
+
+            // Delete all temporary files
+            const deleteResults = await Promise.allSettled(this.projects[projectIndex].tasks.map(task => {
+                return window.projectsApi['task-delete-temporary-files'](toRaw(task));
+            }));
+
+            // Remove all tasks except the ones that failed to delete
+            const deleteFailedIndexes = deleteResults.reduce((indexes, result, index) => {
+                if (result.status === 'rejected') {
+                    indexes.push(index);
+                }
+
+                return indexes;
+            }, [] as number[]);
+            this.projects[projectIndex].tasks = this.projects[projectIndex].tasks
+                .filter((_, index) => deleteFailedIndexes.includes(index))
+                .map(task => toRaw(task));
+
+            // Reset Task Queue
+            this.projectQueueMap[this.projects[projectIndex].id] = {
+                status: 'idle',
+            };
+
+            // Save Project File
+            await this.saveProject(toRaw(this.projects[projectIndex]), false);
+        },
         taskProgressStatus(task: Task): 'info' | 'success' | 'error' | 'default' | 'warning' {
             const lastStatus: Av1anStatus = task.statusHistory[task.statusHistory.length - 1];
-        
+
             if (!lastStatus) {
                 return 'default';
             }
-        
+
             switch (lastStatus.state) {
                 case 'done':
                     return 'success';
                 case 'cancelled':
                     return 'warning';
                 case 'error':
-                    return 'error'; 
+                    return 'error';
                 case 'idle':
                     return 'info';
                 case 'scene-detection':
@@ -491,7 +572,7 @@ export const useProjectsStore = defineStore('projects', {
         },
         taskProgressEstimatedSeconds(task: Task) {
             const lastStatus = [...task.statusHistory].reverse().find(status => status.progress);
-    
+
             if (!lastStatus || !lastStatus.progress) {
                 return;
             }

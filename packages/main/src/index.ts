@@ -1,100 +1,48 @@
-import { app } from 'electron';
-import './security-restrictions';
-import { restoreOrCreateWindow } from '/@/mainWindow';
-import { platform } from 'node:process';
-import updater from 'electron-updater';
-import { ConfigurationManager } from './data/Configuration/Configuration';
-import { type AppCommand } from './api';
+import type { AppInitConfig } from './AppInitConfig.js';
+import { createModuleRunner } from './ModuleRunner.js';
+import { disallowMultipleAppInstance } from './modules/SingleInstanceApp.js';
+import { createWindowManagerModule } from './modules/WindowManager.js';
+import { terminateAppOnLastWindowClose } from './modules/ApplicationTerminatorOnLastWindowClose.js';
+import { hardwareAccelerationMode } from './modules/HardwareAccelerationModule.js';
+import { autoUpdater } from './modules/AutoUpdater.js';
+import { allowInternalOrigins } from './modules/BlockNotAllowdOrigins.js';
+import { allowExternalUrls } from './modules/ExternalUrls.js';
+// import { chromeDevToolsExtension } from './modules/ChromeDevToolsExtension.js';
+import { ConfigurationManager } from './data/Configuration/Configuration.js';
 
-/**
- * Initialize Application Configuration Manager
- */
-const configManager = ConfigurationManager.instance;
 
-function appCommand(command: AppCommand) {
-    switch (command) {
-        case 'restart':
-            app.relaunch();
-            app.quit();
-            break;
-        default:
-            break;
-    }
-}
+export async function initApp(initConfig: AppInitConfig) {
+    const moduleRunner = createModuleRunner()
+        .init(createWindowManagerModule({initConfig, openDevTools: import.meta.env.DEV}))
+        .init(disallowMultipleAppInstance())
+        .init(terminateAppOnLastWindowClose())
+        .init(hardwareAccelerationMode({ enable: ConfigurationManager.instance.configuration.appearance.enableHardwareAcceleration ?? false }))
+        .init(autoUpdater())
 
-/**
- * Prevent electron from running multiple instances.
- */
-const isSingleInstance = app.requestSingleInstanceLock();
-if (!isSingleInstance) {
-    app.quit();
-    process.exit(0);
-}
-app.on('second-instance', () => restoreOrCreateWindow(appCommand));
+    // Install DevTools extension if needed
+    // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))
 
-/**
- * Disable Hardware Acceleration to save more system resources.
- */
-if (!configManager.configuration.appearance.enableHardwareAcceleration) {
-    app.disableHardwareAcceleration();
-}
+    // Security
+        .init(allowInternalOrigins(
+            new Set(initConfig.renderer instanceof URL ? [initConfig.renderer.origin] : []),
+        ))
+        .init(allowExternalUrls(
+            new Set(
+                initConfig.renderer instanceof URL
+                    ? [
+                        // 'https://vite.dev',
+                        // 'https://developer.mozilla.org',
+                        // 'https://solidjs.com',
+                        // 'https://qwik.dev',
+                        // 'https://lit.dev',
+                        // 'https://react.dev',
+                        // 'https://preactjs.com',
+                        // 'https://www.typescriptlang.org',
+                        // 'https://vuejs.org',
+                    ]
+                    : [],
+            )),
+        );
 
-/**
- * Shut down background process if all windows were closed
- */
-app.on('window-all-closed', () => {
-    if (platform !== 'darwin') {
-        app.quit();
-    }
-});
-
-/**
- * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
- */
-app.on('activate', () => restoreOrCreateWindow(appCommand));
-
-/**
- * Create the application window when the background process is ready.
- */
-app
-    .whenReady()
-    .then(() => restoreOrCreateWindow(appCommand))
-    .catch(e => console.error('Failed create window:', e));
-
-/**
- * Install Vue.js or any other extension in development mode only.
- * Note: You must install `electron-devtools-installer` manually
- */
-// if (import.meta.env.DEV) {
-//   app
-//     .whenReady()
-//     .then(() => import('electron-devtools-installer'))
-//     .then(module => {
-//       const {default: installExtension, VUEJS3_DEVTOOLS} =
-//         // @ts-expect-error Hotfix for https://github.com/cawa-93/vite-electron-builder/issues/915
-//         typeof module.default === 'function' ? module : (module.default as typeof module);
-//
-//       return installExtension(VUEJS3_DEVTOOLS, {
-//         loadExtensionOptions: {
-//           allowFileAccess: true,
-//         },
-//       });
-//     })
-//     .catch(e => console.error('Failed install extension:', e));
-// }
-
-/**
- * Check for app updates, install it in background and notify user that new version was installed.
- * No reason run this in non-production build.
- * @see https://www.electron.build/auto-update.html#quick-setup-guide
- *
- * Note: It may throw "ENOENT: no such file app-update.yml"
- * if you compile production app without publishing it to distribution server.
- * Like `npm run compile` does. It's ok 😅
- */
-if (import.meta.env.PROD) {
-    app
-        .whenReady()
-        .then(() => updater.autoUpdater.checkForUpdatesAndNotify())
-        .catch(e => console.error('Failed check and install updates:', e));
+    await moduleRunner;
 }

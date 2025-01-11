@@ -8,7 +8,7 @@ import {
     NTime,
     NTooltip,
 } from 'naive-ui';
-import { type Project, type Task } from '../../../../main/src/data/Configuration/Projects';
+import { type Project, type Task } from '../../../../shared/src/data/Projects';
 import { useProjectsStore } from '../../stores/projects';
 
 const projectsStore = useProjectsStore();

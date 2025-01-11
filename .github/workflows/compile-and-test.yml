@@ -1,0 +1,80 @@
+name: Compile and test
+
+on:
+  workflow_call:
+    inputs:
+      app-version:
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: 'bash'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  NODE_NO_WARNINGS: 1
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+  npm_config_audit: false
+  npm_config_fund: false
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run typecheck --if-present
+
+  compile:
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+          - macos-13
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm version "${{inputs.app-version}}" --no-git-tag-version
+
+      - name: Make envfile
+        uses: SpicyPizza/create-envfile@v2.0.3
+        with:
+          envkey_VAPOURSYNTH_URL: ${{ vars.VAPOURSYNTH_URL }}
+          envkey_FFMS2_URL: ${{ vars.FFMS2_URL }}
+          envkey_LSMASH_URL: ${{ vars.LSMASH_URL }}
+          envkey_BESTSOURCE_URL: ${{ vars.BESTSOURCE_URL }}
+          envkey_AV1AN_URL: ${{ vars.AV1AN_URL }}
+          envkey_FFMPEG_URL: ${{ vars.FFMPEG_URL }}
+          envkey_MKVTOOLNIX_URL: ${{ vars.MKVTOOLNIX_URL }}
+          envkey_AOM_URL: ${{ vars.AOM_URL }}
+          envkey_SVT_URL: ${{ vars.SVT_URL }}
+          envkey_RAV1E_URL: ${{ vars.RAV1E_URL }}
+          envkey_VPX_URL: ${{ vars.VPX_URL }}
+          envkey_X264_URL: ${{ vars.X264_URL }}
+          envkey_X265_URL: ${{ vars.X265_URL }}
+          file_name: .env.local
+
+      - if: ${{ matrix.os == 'windows-latest' }}
+        run: npm run package
+
+      - run: npm run compile -- -p never
+
+      - run: npm run test --if-present
+
+      - uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "dist/root*, dist/latest*.yml"
+
+      - name: Upload compiled app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: dist

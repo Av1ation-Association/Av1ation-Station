@@ -12,6 +12,7 @@ import ProjectBreadcrumb from '../components/ProjectBreadcrumb.vue';
 import ProjectDetail from '../components/Projects/ProjectDetail.vue';
 import TaskQueue from '../components/Projects/TaskQueue.vue';
 import ConfigurationDefaults from '../components/Configuration/ConfigurationDefaults.vue';
+import ConfigurationFloatingButtons from '../components/Configuration/ConfigurationFloatingButtons.vue';
 import { onBeforeMount, toRaw } from 'vue';
 
 const router = useRouter();
@@ -77,4 +78,7 @@ const project = projectsStore.projects[projectIndex];
             />
         </NFlex>
     </NLayout>
+    <ConfigurationFloatingButtons
+        :project-id="project.id"
+    />
 </template>

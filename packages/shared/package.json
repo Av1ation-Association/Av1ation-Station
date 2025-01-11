@@ -1,0 +1,15 @@
+{
+    "name": "@av1ation-station/shared",
+    "type": "module",
+    "scripts": {
+    },
+    "exports": {
+        ".": {
+            "default": "./dist/index.js",
+            "types": "./src/index.ts"
+        }
+    },
+    "devDependencies": {
+        "typescript": "^5.6.3"
+    }
+}

@@ -18,6 +18,7 @@ import {
     NSwitch,
     NUl,
     NLi,
+    NH3,
 } from 'naive-ui';
 import {
     ResetAlt as ResetIcon,
@@ -25,7 +26,10 @@ import {
 } from '@vicons/carbon';
 import { useGlobalStore } from '../stores/global';
 import ConfigurationDefaults from '../components/Configuration/ConfigurationDefaults.vue';
-import { Theme } from '../../../main/src/data/Configuration/Types/Configuration';
+import ConfigurationFloatingButtons from '../components/Configuration/ConfigurationFloatingButtons.vue';
+import {
+    Theme,
+} from '../../../shared/src/data/Configuration';
 import { useProjectsStore } from '../stores/projects';
 
 const configStore = useGlobalStore();
@@ -85,14 +89,37 @@ async function restartAv1ationStation() {
                     </NSelect>
                 </NFormItem>
                 <NFormItem
-                    label="Hardware Acceleration"
+                    label="Hardware Acceleration (UI only)"
                 >
                     <NSwitch
                         v-model:value="config.appearance.enableHardwareAcceleration"
-                        @update:value="async (value: boolean) => {
+                        @update:value="async (_value: boolean) => {
                             await configStore.setConfig(toRaw(configStore.config), true);
-                            
+
                             showRestartModal = true;
+                        }"
+                    >
+                    </NSwitch>
+                </NFormItem>
+                <NH3>Notifications</NH3>
+                <NFormItem
+                    label="Application"
+                >
+                    <NSwitch
+                        v-model:value="config.preferences.notifications.app"
+                        @update:value="async (_value: boolean) => {
+                            await configStore.setConfig(toRaw(configStore.config), true);
+                        }"
+                    >
+                    </NSwitch>
+                </NFormItem>
+                <NFormItem
+                    label="Operating System"
+                >
+                    <NSwitch
+                        v-model:value="config.preferences.notifications.os"
+                        @update:value="async (_value: boolean) => {
+                            await configStore.setConfig(toRaw(configStore.config), true);
                         }"
                     >
                     </NSwitch>
@@ -168,4 +195,5 @@ async function restartAv1ationStation() {
             @positive-click="restartAv1ationStation"
         />
     </NLayout>
+    <ConfigurationFloatingButtons />
 </template>

@@ -1,40 +1,11 @@
 {
-    "compilerOptions": {
-        "module": "esnext",
-        "target": "esnext",
-        "sourceMap": false,
-        "moduleResolution": "Node",
-        "skipLibCheck": true,
-        "strict": true,
-        "isolatedModules": true,
-        "jsx": "preserve",
-        "types": [
-            "node"
-        ],
-        "baseUrl": ".",
-        "paths": {
-            "#preload": [
-                "../preload/src/index"
-            ],
-            "/@/*": [
-                "./src/*"
-            ]
+    "files": [],
+    "references": [
+        {
+            "path": "./tsconfig.app.json"
         },
-        "lib": [
-            "ESNext",
-            "dom",
-            "dom.iterable"
-        ]
-    },
-    "include": [
-        "src/**/*.vue",
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "types/**/*.d.ts",
-        "../../types/**/*.d.ts"
-    ],
-    "exclude": [
-        "**/*.spec.ts",
-        "**/*.test.ts"
+        {
+            "path": "./tsconfig.node.json"
+        }
     ]
 }

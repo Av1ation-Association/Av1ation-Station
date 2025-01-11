@@ -1,5 +1,4 @@
 import {
-    type Ref,
     h,
     toRaw,
 } from 'vue';
@@ -12,61 +11,72 @@ import {
     NSwitch,
 } from 'naive-ui';
 import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../Configuration/ConfigurationDefaults.vue';
-import {
     SceneDetectionMethod,
     SplitMethod,
-} from '../../../../main/src/data/Av1an/Types/Options';
-import { type FormInputComponent } from './library';
-import { type Task } from '../../../../main/src/data/Configuration/Projects';
+} from '../../../../shared/src/data/Types/Options';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { type Task } from '../../../../shared/src/data/Projects';
 import { useProjectsStore } from '../../stores/projects';
+import { useConfigurationsStore } from '../../stores/configurations';
+import { type FormInputComponent } from './library';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration, task?: Task): FormInputComponent[] {
+export function getComponents(task?: Task): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
     const splitMethod: FormInputComponent = {
         label: 'Split Method',
         path: 'splitMethod',
         component: h(
             NSelect,
             {
-                value: formValueRef.value.scenes?.splitMethod,
+                value: configurationsStore.defaults.Av1an.scenes?.splitMethod,
                 clearable: true,
                 options: [
                     { label: 'AV Scene Change', value: SplitMethod.avSceneChange },
                     { label: 'None', value: SplitMethod.none },
                 ],
-                placeholder: 'AV Scene Change',
-                defaultValue: parentAv1anValue?.scenes?.splitMethod,
+                placeholder: parentAv1an.scenes?.splitMethod === SplitMethod.none ? 'None' :  'AV Scene Change',
+                // defaultValue: parentAv1an.scenes?.splitMethod,
                 onUpdateValue: (value?: SplitMethod) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.splitMethod === value) {
-                            delete formValueRef.value.scenes.splitMethod;
+                        if (parentAv1an.scenes?.splitMethod === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.splitMethod;
                         } else {
-                            formValueRef.value.scenes.splitMethod = value;
+                            configurationsStore.defaults.Av1an.scenes.splitMethod = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.splitMethod;
+                    delete configurationsStore.defaults.Av1an.scenes?.splitMethod;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.splitMethod = null;
+            configurationsStore.defaults.Av1an.scenes.splitMethod = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.splitMethod === null;
+            return configurationsStore.defaults.Av1an.scenes?.splitMethod === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.splitMethod;
+            delete configurationsStore.defaults.Av1an.scenes?.splitMethod;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.splitMethod === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.splitMethod !== undefined;
+            } else if (previousAv1an.scenes.splitMethod !== configurationsStore.defaults.Av1an.scenes?.splitMethod) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -82,19 +92,19 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                 () => [
                     h(
                         NInput, {
-                            value: formValueRef.value.vmaf?.path,
+                            value: configurationsStore.defaults.Av1an.vmaf?.path,
                             clearable: true,
                             onUpdateValue: (value) => {
-                                if (!formValueRef.value.scenes) {
-                                    formValueRef.value.scenes = {};
+                                if (!configurationsStore.defaults.Av1an.scenes) {
+                                    configurationsStore.defaults.Av1an.scenes = {};
                                 }
-    
+
                                 if (value) {
-                                    formValueRef.value.scenes.path = value;
+                                    configurationsStore.defaults.Av1an.scenes.path = value;
                                 }
                             },
-                            placeholder: formValueRef.value.scenes?.path ?? 'Scene Detection File Path',
-                            defaultValue: formValueRef.value.scenes?.path ?? undefined,
+                            placeholder: configurationsStore.defaults.Av1an.scenes?.path ?? 'Scene Detection File Path',
+                            // defaultValue: configurationsStore.defaults.Av1an.scenes?.path ?? undefined,
                             onClear: async () => {
                                 const projectsStore = useProjectsStore();
                                 const projectIndex = projectsStore.projects.findIndex(p => p.id === task.projectId);
@@ -102,11 +112,11 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                                 // Reset to default
                                 const { scenesFilePath } = await projectsStore.buildDefaultTaskPaths(toRaw(projectsStore.projects[projectIndex]), projectsStore.projects[projectIndex].tasks[taskIndex].id, projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an.input);
 
-                                if (!formValueRef.value.scenes) {
-                                    formValueRef.value.scenes = {};
+                                if (!configurationsStore.defaults.Av1an.scenes) {
+                                    configurationsStore.defaults.Av1an.scenes = {};
                                 }
 
-                                formValueRef.value.scenes.path = scenesFilePath;
+                                configurationsStore.defaults.Av1an.scenes.path = scenesFilePath;
                             },
                         },
                     ),
@@ -115,14 +125,14 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                         {
                             type: 'primary',
                             onClick: async () => {
-                                const defaultPath = formValueRef.value.scenes?.path;
+                                const defaultPath = configurationsStore.defaults.Av1an.scenes?.path;
                                 const sceneDetectionFilePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Av1an Scene Detection File');
                                 if (sceneDetectionFilePath) {
-                                    if (!formValueRef.value.scenes) {
-                                        formValueRef.value.scenes = {};
+                                    if (!configurationsStore.defaults.Av1an.scenes) {
+                                        configurationsStore.defaults.Av1an.scenes = {};
                                     }
 
-                                    formValueRef.value.scenes.path = sceneDetectionFilePath;
+                                    configurationsStore.defaults.Av1an.scenes.path = sceneDetectionFilePath;
                                 }
                             },
                         },
@@ -139,11 +149,20 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                 // Reset to default
                 const { scenesFilePath } = await projectsStore.buildDefaultTaskPaths(toRaw(projectsStore.projects[projectIndex]), projectsStore.projects[projectIndex].tasks[taskIndex].id, projectsStore.projects[projectIndex].tasks[taskIndex].item.Av1an.input);
 
-                if (!formValueRef.value.scenes) {
-                    formValueRef.value.scenes = {};
+                if (!configurationsStore.defaults.Av1an.scenes) {
+                    configurationsStore.defaults.Av1an.scenes = {};
                 }
 
-                formValueRef.value.scenes.path = scenesFilePath;
+                configurationsStore.defaults.Av1an.scenes.path = scenesFilePath;
+            },
+            isModified: () => {
+                if (!previousAv1an.scenes || previousAv1an.scenes.path === undefined) {
+                    return configurationsStore.defaults.Av1an.scenes?.path !== undefined;
+                } else if (previousAv1an.scenes.path !== configurationsStore.defaults.Av1an.scenes?.path) {
+                    return true;
+                } else {
+                    return false;
+                }
             },
         };
     }
@@ -154,36 +173,45 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.scenes?.detectionOnly ?? undefined,
-                defaultValue: parentAv1anValue?.scenes?.detectionOnly ?? undefined,
+                value: configurationsStore.defaults.Av1an.scenes?.detectionOnly ?? undefined,
+                defaultValue: parentAv1an.scenes?.detectionOnly ?? undefined,
                 onUpdateValue: (value?: boolean) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.detectionOnly === value) {
-                            delete formValueRef.value.scenes.detectionOnly;
+                        if (parentAv1an.scenes?.detectionOnly === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.detectionOnly;
                         } else {
-                            formValueRef.value.scenes.detectionOnly = value;
+                            configurationsStore.defaults.Av1an.scenes.detectionOnly = value;
                         }
                     } else {
-                        delete formValueRef.value.scenes.detectionOnly;
+                        delete configurationsStore.defaults.Av1an.scenes.detectionOnly;
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.detectionOnly = null;
+            configurationsStore.defaults.Av1an.scenes.detectionOnly = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.detectionOnly === null;
+            return configurationsStore.defaults.Av1an.scenes?.detectionOnly === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.detectionOnly;
+            delete configurationsStore.defaults.Av1an.scenes?.detectionOnly;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.detectionOnly === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.detectionOnly !== undefined;
+            } else if (previousAv1an.scenes.detectionOnly !== configurationsStore.defaults.Av1an.scenes?.detectionOnly) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -193,43 +221,52 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.scenes?.detectionMethod,
+                value: configurationsStore.defaults.Av1an.scenes?.detectionMethod,
                 clearable: true,
                 options: [
                     { label: 'Fast', value: SceneDetectionMethod.fast },
                     { label: 'Standard', value: SceneDetectionMethod.standard },
                 ],
-                placeholder: 'Standard',
-                defaultValue: parentAv1anValue?.scenes?.detectionMethod,
+                placeholder: parentAv1an.scenes?.detectionMethod === SceneDetectionMethod.fast ? 'Fast' : 'Standard',
+                // defaultValue: parentAv1an.scenes?.detectionMethod,
                 onUpdateValue: (value?: SceneDetectionMethod) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.detectionMethod === value) {
-                            delete formValueRef.value.scenes.detectionMethod;
+                        if (parentAv1an.scenes?.detectionMethod === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.detectionMethod;
                         } else {
-                            formValueRef.value.scenes.detectionMethod = value;
+                            configurationsStore.defaults.Av1an.scenes.detectionMethod = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.detectionMethod;
+                    delete configurationsStore.defaults.Av1an.scenes?.detectionMethod;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.detectionMethod = null;
+            configurationsStore.defaults.Av1an.scenes.detectionMethod = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.detectionMethod === null;
+            return configurationsStore.defaults.Av1an.scenes?.detectionMethod === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.detectionMethod;
+            delete configurationsStore.defaults.Av1an.scenes?.detectionMethod;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.detectionMethod === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.detectionMethod !== undefined;
+            } else if (previousAv1an.scenes.detectionOnly !== configurationsStore.defaults.Av1an.scenes?.detectionMethod) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -239,40 +276,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.scenes?.detectionDownscaleHeight,
+                value: configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight,
                 clearable: true,
                 placeholder: 'Auto',
-                defaultValue: parentAv1anValue?.scenes?.detectionDownscaleHeight,
+                defaultValue: parentAv1an.scenes?.detectionDownscaleHeight,
                 min: 1,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.detectionDownscaleHeight === value) {
-                            delete formValueRef.value.scenes.detectionDownscaleHeight;
+                        if (parentAv1an.scenes?.detectionDownscaleHeight === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.detectionDownscaleHeight;
                         } else {
-                            formValueRef.value.scenes.detectionDownscaleHeight = value;
+                            configurationsStore.defaults.Av1an.scenes.detectionDownscaleHeight = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.detectionDownscaleHeight;
+                    delete configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.detectionDownscaleHeight = null;
+            configurationsStore.defaults.Av1an.scenes.detectionDownscaleHeight = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.detectionDownscaleHeight === null;
+            return configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.detectionDownscaleHeight;
+            delete configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.detectionDownscaleHeight === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight !== undefined;
+            } else if (previousAv1an.scenes.detectionDownscaleHeight !== configurationsStore.defaults.Av1an.scenes?.detectionDownscaleHeight) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -282,42 +328,51 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.scenes?.detectionPixelFormat,
+                value: configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat,
                 clearable: true,
                 options: [
                     { label: 'yuv420p10le', value: 'yuv420p10le' },
                 ],
                 placeholder: 'yuv420p10le',
-                defaultValue: parentAv1anValue?.scenes?.detectionPixelFormat,
+                defaultValue: parentAv1an.scenes?.detectionPixelFormat,
                 onUpdateValue: (value?: string) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.detectionPixelFormat === value) {
-                            delete formValueRef.value.scenes.detectionPixelFormat;
+                        if (parentAv1an.scenes?.detectionPixelFormat === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.detectionPixelFormat;
                         } else {
-                            formValueRef.value.scenes.detectionPixelFormat = value;
+                            configurationsStore.defaults.Av1an.scenes.detectionPixelFormat = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.detectionPixelFormat;
+                    delete configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.detectionPixelFormat = null;
+            configurationsStore.defaults.Av1an.scenes.detectionPixelFormat = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.detectionPixelFormat === null;
+            return configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.detectionPixelFormat;
+            delete configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.detectionPixelFormat === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat !== undefined;
+            } else if (previousAv1an.scenes.detectionPixelFormat !== configurationsStore.defaults.Av1an.scenes?.detectionPixelFormat) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -327,40 +382,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.scenes?.minimumSceneLengthFrames,
+                value: configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames,
                 clearable: true,
-                placeholder: '24',
-                defaultValue: parentAv1anValue?.scenes?.minimumSceneLengthFrames,
+                placeholder: parentAv1an.scenes?.minimumSceneLengthFrames?.toString() ?? '24',
+                // defaultValue: parentAv1an.scenes?.minimumSceneLengthFrames,
                 min: 1,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.minimumSceneLengthFrames === value) {
-                            delete formValueRef.value.scenes.minimumSceneLengthFrames;
+                        if (parentAv1an.scenes?.minimumSceneLengthFrames === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.minimumSceneLengthFrames;
                         } else {
-                            formValueRef.value.scenes.minimumSceneLengthFrames = value;
+                            configurationsStore.defaults.Av1an.scenes.minimumSceneLengthFrames = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.minimumSceneLengthFrames;
+                    delete configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.minimumSceneLengthFrames = null;
+            configurationsStore.defaults.Av1an.scenes.minimumSceneLengthFrames = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.minimumSceneLengthFrames === null;
+            return configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.minimumSceneLengthFrames;
+            delete configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.minimumSceneLengthFrames === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames !== undefined;
+            } else if (previousAv1an.scenes.minimumSceneLengthFrames !== configurationsStore.defaults.Av1an.scenes?.minimumSceneLengthFrames) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -370,40 +434,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.scenes?.maximumSceneLengthFrames,
+                value: configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames,
                 clearable: true,
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.scenes?.maximumSceneLengthFrames,
+                placeholder: parentAv1an.scenes?.maximumSceneLengthFrames?.toString() ?? 'None',
+                defaultValue: parentAv1an.scenes?.maximumSceneLengthFrames,
                 min: 0,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.maximumSceneLengthFrames === value) {
-                            delete formValueRef.value.scenes.maximumSceneLengthFrames;
+                        if (parentAv1an.scenes?.maximumSceneLengthFrames === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.maximumSceneLengthFrames;
                         } else {
-                            formValueRef.value.scenes.maximumSceneLengthFrames = value;
+                            configurationsStore.defaults.Av1an.scenes.maximumSceneLengthFrames = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.maximumSceneLengthFrames;
+                    delete configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.maximumSceneLengthFrames = null;
+            configurationsStore.defaults.Av1an.scenes.maximumSceneLengthFrames = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.maximumSceneLengthFrames === null;
+            return configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.maximumSceneLengthFrames;
+            delete configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.maximumSceneLengthFrames === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames !== undefined;
+            } else if (previousAv1an.scenes.maximumSceneLengthFrames !== configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthFrames) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -413,40 +486,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NInputNumber,
             {
-                value: formValueRef.value.scenes?.maximumSceneLengthSeconds,
+                value: configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds,
                 clearable: true,
-                placeholder: 'None',
-                defaultValue: parentAv1anValue?.scenes?.maximumSceneLengthSeconds,
+                placeholder: parentAv1an.scenes?.maximumSceneLengthSeconds?.toString() ?? 'None',
+                defaultValue: parentAv1an.scenes?.maximumSceneLengthSeconds,
                 min: 0,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.maximumSceneLengthSeconds === value) {
-                            delete formValueRef.value.scenes.maximumSceneLengthSeconds;
+                        if (parentAv1an.scenes?.maximumSceneLengthSeconds === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.maximumSceneLengthSeconds;
                         } else {
-                            formValueRef.value.scenes.maximumSceneLengthSeconds = value;
+                            configurationsStore.defaults.Av1an.scenes.maximumSceneLengthSeconds = value;
                         }
                     }
                 },
                 onClear: () => {
-                    delete formValueRef.value.scenes?.maximumSceneLengthSeconds;
+                    delete configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds;
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.maximumSceneLengthSeconds = null;
+            configurationsStore.defaults.Av1an.scenes.maximumSceneLengthSeconds = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.maximumSceneLengthSeconds === null;
+            return configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.maximumSceneLengthSeconds;
+            delete configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.maximumSceneLengthSeconds === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds !== undefined;
+            } else if (previousAv1an.scenes.maximumSceneLengthSeconds !== configurationsStore.defaults.Av1an.scenes?.maximumSceneLengthSeconds) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -456,36 +538,45 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSwitch,
             {
-                value: formValueRef.value.scenes?.ignoreFrameMismatch ?? undefined,
-                defaultValue: parentAv1anValue?.scenes?.ignoreFrameMismatch ?? undefined,
+                value: configurationsStore.defaults.Av1an.scenes?.ignoreFrameMismatch ?? undefined,
+                defaultValue: parentAv1an.scenes?.ignoreFrameMismatch ?? undefined,
                 onUpdateValue: (value) => {
-                    if (!formValueRef.value.scenes) {
-                        formValueRef.value.scenes = {};
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
                     }
                     if (value !== null) {
-                        if (parentAv1anValue?.scenes?.ignoreFrameMismatch === value) {
-                            delete formValueRef.value.scenes.ignoreFrameMismatch;
+                        if (parentAv1an.scenes?.ignoreFrameMismatch === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.ignoreFrameMismatch;
                         } else {
-                            formValueRef.value.scenes.ignoreFrameMismatch = value;
+                            configurationsStore.defaults.Av1an.scenes.ignoreFrameMismatch = value;
                         }
                     } else {
-                        delete formValueRef.value.scenes.ignoreFrameMismatch;
+                        delete configurationsStore.defaults.Av1an.scenes.ignoreFrameMismatch;
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.scenes) {
-                formValueRef.value.scenes = {};
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
             }
 
-            formValueRef.value.scenes.ignoreFrameMismatch = null;
+            configurationsStore.defaults.Av1an.scenes.ignoreFrameMismatch = null;
         },
         disabled: () => {
-            return formValueRef.value.scenes?.ignoreFrameMismatch === null;
+            return configurationsStore.defaults.Av1an.scenes?.ignoreFrameMismatch === null;
         },
         reset: () => {
-            delete formValueRef.value.scenes?.ignoreFrameMismatch;
+            delete configurationsStore.defaults.Av1an.scenes?.ignoreFrameMismatch;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.ignoreFrameMismatch === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.ignoreFrameMismatch !== undefined;
+            } else if (previousAv1an.scenes.ignoreFrameMismatch !== configurationsStore.defaults.Av1an.scenes?.ignoreFrameMismatch) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 

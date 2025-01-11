@@ -1,16 +1,12 @@
-/**
- * @module preload
- */
-
 import * as path from 'node:path';
 import { contextBridge } from 'electron';
 
 import {
     api as configurationsAPI,
-} from '../../main/src/api/Configuration/client';
+} from '../../main/src/api/Configuration/client.js';
 import {
     api as projectsAPI,
-} from '../../main/src/api/Projects/client';
+} from '../../main/src/api/Projects/client.js';
 
 export const getEnvironmentVariable = (name: string) => {
     return process.env[name];

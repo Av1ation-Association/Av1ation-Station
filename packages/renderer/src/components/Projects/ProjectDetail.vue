@@ -21,7 +21,7 @@ import {
     OverflowMenuVertical,
     TagEdit as EditNameIcon,
 } from '@vicons/carbon';
-import { type Project } from '../../../../main/src/data/Configuration/Projects';
+import { type Project } from '../../../../shared/src/data/Projects';
 import { useProjectsStore } from '../../stores/projects';
 
 const projectsStore = useProjectsStore();

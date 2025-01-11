@@ -1,20 +1,18 @@
-import {
-    type Ref,
-    h,
-} from 'vue';
+import { h } from 'vue';
 import {
     NSelect,
     NSlider,
+    NSwitch,
 } from 'naive-ui';
-import {
-    type PartialChildren,
-    type PartialAv1anConfiguration,
-} from '../../Configuration/ConfigurationDefaults.vue';
-import { type SVTEncoding, Encoder } from '../../../../../main/src/data/Av1an/Types/Options';
+import { Encoder } from '../../../../../shared/src/data/Types/Options';
+import { type ConfigurationType } from '../../../../../shared/src/data/Configuration';
+import { useConfigurationsStore } from '../../../stores/configurations';
 import { type FormInputComponent } from '../library';
-import { type Task } from '../../../../../main/src/data/Configuration/Projects';
 
-export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | PartialChildren<Task['item']['Av1an']>>, parentAv1anValue?: PartialAv1anConfiguration): FormInputComponent[] {
+export function getComponents(): FormInputComponent[] {
+    const configurationsStore = useConfigurationsStore<ConfigurationType.Task, Encoder.svt>();
+    const parentAv1an = configurationsStore.parentAv1an;
+    const previousAv1an = configurationsStore.previousDefaults.Av1an;
 
     const crf = {
         label: 'Constant Rate Factor (CRF)',
@@ -22,45 +20,54 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: (formValueRef.value.encoding as SVTEncoding)?.crf ?? undefined,
+                value: configurationsStore.defaults.Av1an.encoding?.crf ?? undefined,
                 min: 0,
                 max: 63,
                 step: 1,
                 marks: {
                     35: 'Default',
                 },
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)?.crf ?? 35 : 35,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding?.crf ?? 35 : 35,
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding).crf === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding).crf;
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding.crf === value) {
+                            delete configurationsStore.defaults.Av1an.encoding.crf;
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding).crf = value;
+                            configurationsStore.defaults.Av1an.encoding.crf = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding).crf = null;
+            configurationsStore.defaults.Av1an.encoding.crf = null;
         },
         disabled: () => {
-            return (formValueRef.value.encoding as SVTEncoding)?.crf === null;
+            return configurationsStore.defaults.Av1an.encoding?.crf === null;
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['crf'];
+            delete configurationsStore.defaults.Av1an.encoding?.crf;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.crf === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.crf !== undefined;
+            } else if (previousAv1an.encoding.crf !== configurationsStore.defaults.Av1an.encoding?.crf) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -70,7 +77,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['aq-mode'] : undefined,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['aq-mode'] : undefined,
                 clearable: true,
                 options: [
                     { label: 'Off (0)', value: 0 },
@@ -78,41 +85,49 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
                     { label: 'DeltaQ Pred Efficiency (2)', value: 2 },
                 ],
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['aq-mode'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['aq-mode'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['aq-mode'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['aq-mode'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['aq-mode'] = value;
+                            configurationsStore.defaults.Av1an.encoding['aq-mode'] = value;
                         }
                     }
                 },
-                placeholder: 'DeltaQ Pred Efficiency (2)',
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['aq-mode'] : undefined,
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['aq-mode'] === 0 ? 'Off (0)' : parentAv1an?.encoding['aq-mode'] === 1 ? 'Variance base using AV1 segments (1)' : 'DeltaQ Pred Efficiency (2)' : 'DeltaQ Pred Efficiency (2)',
                 onClear: () => {
-                    delete (formValueRef.value.encoding as SVTEncoding)['aq-mode'];
+                    delete configurationsStore.defaults.Av1an.encoding?.['aq-mode'];
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['aq-mode'] = null;
+            configurationsStore.defaults.Av1an.encoding['aq-mode'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['aq-mode']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['aq-mode']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['aq-mode'];
+            delete configurationsStore.defaults.Av1an.encoding?.['aq-mode'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['aq-mode'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['aq-mode'] !== undefined;
+            } else if (previousAv1an.encoding['aq-mode'] !== configurationsStore.defaults.Av1an.encoding?.['aq-mode']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -122,51 +137,58 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSelect,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['enable-qm'] : undefined,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['enable-qm'] : undefined,
                 clearable: true,
                 options: [
                     { label: 'No (0)', value: 0 },
                     { label: 'Yes (1)', value: 1 },
                 ],
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['enable-qm'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['enable-qm'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['enable-qm'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['enable-qm'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['enable-qm'] = value;
+                            configurationsStore.defaults.Av1an.encoding['enable-qm'] = value;
                         }
                     }
                 },
-                placeholder: 'Yes (1)',
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['enable-qm'] : undefined,
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['enable-qm'] === 0 ? 'No (0)' : 'Yes (1)' : 'Yes (1)',
                 onClear: () => {
-                    delete (formValueRef.value.encoding as SVTEncoding)['enable-qm'];
+                    delete configurationsStore.defaults.Av1an.encoding?.['enable-qm'];
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['enable-qm'] = null;
+            configurationsStore.defaults.Av1an.encoding['enable-qm'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['enable-qm']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['enable-qm']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['enable-qm'];
+            delete configurationsStore.defaults.Av1an.encoding?.['enable-qm'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['enable-qm'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['enable-qm'] !== undefined;
+            } else if (previousAv1an.encoding['enable-qm'] !== configurationsStore.defaults.Av1an.encoding?.['enable-qm']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
-
 
     const qmMin = {
         label: 'Minimum Quant Matrix Flatness',
@@ -174,45 +196,54 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['qm-min'] ?? undefined : undefined,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['qm-min'] ?? undefined : undefined,
                 min: 0,
                 max: 15,
                 step: 1,
                 marks: {
                     0: 'Default',
                 },
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['qm-min'] ?? undefined : undefined,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['qm-min'] ?? undefined : undefined,
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['qm-min'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['qm-min'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['qm-min'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['qm-min'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['qm-min'] = value;
+                            configurationsStore.defaults.Av1an.encoding['qm-min'] = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['qm-min'] = null;
+            configurationsStore.defaults.Av1an.encoding['qm-min'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['qm-min']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['qm-min']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['qm-min'];
+            delete configurationsStore.defaults.Av1an.encoding?.['qm-min'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['qm-min'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['qm-min'] !== undefined;
+            } else if (previousAv1an.encoding['qm-min'] !== configurationsStore.defaults.Av1an.encoding?.['qm-min']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -222,45 +253,106 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['qm-max'] ?? undefined : undefined,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['qm-max'] ?? undefined : undefined,
                 min: 0,
                 max: 15,
                 step: 1,
                 marks: {
                     15: 'Default',
                 },
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['qm-max'] ?? 15 : 15,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['qm-max'] ?? 15 : 15,
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['qm-max'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['qm-max'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['qm-max'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['qm-max'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['qm-max'] = value;
+                            configurationsStore.defaults.Av1an.encoding['qm-max'] = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['qm-max'] = null;
+            configurationsStore.defaults.Av1an.encoding['qm-max'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['qm-max']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['qm-max']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['qm-max'];
+            delete configurationsStore.defaults.Av1an.encoding?.['qm-max'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['qm-max'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['qm-max'] !== undefined;
+            } else if (previousAv1an.encoding['qm-max'] !== configurationsStore.defaults.Av1an.encoding?.['qm-max']) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
+    const enableVarianceBoost = {
+        label: 'Enable Variance Boost',
+        path: `encoding['enable-variance-boost']`,
+        component: h(
+            NSwitch,
+            {
+                value: (configurationsStore.defaults.Av1an.encoding?.['enable-variance-boost'] ?? undefined) ? true : false,
+                defaultValue: parentAv1an.encoding?.encoder === Encoder.svt ? parentAv1an.encoding['enable-variance-boost'] ? true : false : false,
+                onUpdateValue: (value?: boolean) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
+                            encoder: Encoder.svt,
+                        };
+                    }
+                    if (value !== null) {
+                        if (parentAv1an.encoding?.encoder === Encoder.svt && parentAv1an.encoding['enable-variance-boost'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['enable-variance-boost'];
+                        } else {
+                            configurationsStore.defaults.Av1an.encoding['enable-variance-boost'] = value ? 1 : 0;
+                        }
+                    } else {
+                        delete configurationsStore.defaults.Av1an.encoding['enable-variance-boost'];
+                    }
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+    
+            configurationsStore.defaults.Av1an.encoding['enable-variance-boost'] = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.encoding?.['enable-variance-boost'] === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.encoding?.['enable-variance-boost'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['enable-variance-boost'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['enable-variance-boost'] !== undefined;
+            } else if (previousAv1an.encoding['enable-variance-boost'] !== configurationsStore.defaults.Av1an.encoding?.['enable-variance-boost']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -270,45 +362,54 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['variance-boost-strength'] ?? undefined : undefined,
-                min: 0,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['variance-boost-strength'] ?? undefined : undefined,
+                min: 1,
                 max: 4,
                 step: 1,
                 marks: {
                     2: 'Default',
                 },
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['variance-boost-strength'] ?? 2 : 2,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['variance-boost-strength'] ?? 2 : 2,
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['variance-boost-strength'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['variance-boost-strength'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['variance-boost-strength'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['variance-boost-strength'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['variance-boost-strength'] = value;
+                            configurationsStore.defaults.Av1an.encoding['variance-boost-strength'] = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['variance-boost-strength'] = null;
+            configurationsStore.defaults.Av1an.encoding['variance-boost-strength'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['variance-boost-strength']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['variance-boost-strength']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['variance-boost-strength'];
+            delete configurationsStore.defaults.Av1an.encoding?.['variance-boost-strength'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['variance-boost-strength'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['variance-boost-strength'] !== undefined;
+            } else if (previousAv1an.encoding['variance-boost-strength'] !== configurationsStore.defaults.Av1an.encoding?.['variance-boost-strength']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -318,45 +419,54 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         component: h(
             NSlider,
             {
-                value: formValueRef.value.encoding ? (formValueRef.value.encoding as SVTEncoding)['variance-octile'] ?? undefined : undefined,
-                min: 0,
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['variance-octile'] ?? undefined : undefined,
+                min: 1,
                 max: 8,
                 step: 1,
                 marks: {
                     6: 'Default',
                 },
-                defaultValue: parentAv1anValue?.encoding?.encoder === Encoder.svt ? (parentAv1anValue?.encoding as SVTEncoding)['variance-octile'] ?? 6 : 6,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['variance-octile'] ?? 6 : 6,
                 onUpdateValue: (value?: number) => {
-                    if (!formValueRef.value.encoding) {
-                        formValueRef.value.encoding = {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
                             encoder: Encoder.svt,
                         };
                     }
 
                     if (value !== null) {
-                        if (parentAv1anValue?.encoding?.encoder === Encoder.svt && (parentAv1anValue.encoding as SVTEncoding)['variance-octile'] === value) {
-                            delete (formValueRef.value.encoding as SVTEncoding)['variance-octile'];
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['variance-octile'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['variance-octile'];
                         } else {
-                            (formValueRef.value.encoding as SVTEncoding)['variance-octile'] = value;
+                            configurationsStore.defaults.Av1an.encoding['variance-octile'] = value;
                         }
                     }
                 },
             },
         ),
         disable: () => {
-            if (!formValueRef.value.encoding) {
-                formValueRef.value.encoding = {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
                     encoder: Encoder.svt,
                 };
             }
 
-            (formValueRef.value.encoding as SVTEncoding)['variance-octile'] = null;
+            configurationsStore.defaults.Av1an.encoding['variance-octile'] = null;
         },
         disabled: () => {
-            return !!formValueRef.value.encoding && JSON.stringify((formValueRef.value.encoding as SVTEncoding)['variance-octile']) === JSON.stringify(null);
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['variance-octile']) === JSON.stringify(null);
         },
         reset: () => {
-            delete (formValueRef.value.encoding as SVTEncoding)['variance-octile'];
+            delete configurationsStore.defaults.Av1an.encoding?.['variance-octile'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['variance-octile'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['variance-octile'] !== undefined;
+            } else if (previousAv1an.encoding['variance-octile'] !== configurationsStore.defaults.Av1an.encoding?.['variance-octile']) {
+                return true;
+            } else {
+                return false;
+            }
         },
     };
 
@@ -366,6 +476,7 @@ export function getComponents(formValueRef: Ref<PartialAv1anConfiguration | Part
         enableqm,
         qmMin,
         qmMax,
+        enableVarianceBoost,
         varianceBoostStrength,
         varianceOctile,
     ];

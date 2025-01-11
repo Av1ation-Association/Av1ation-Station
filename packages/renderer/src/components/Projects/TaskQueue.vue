@@ -14,7 +14,13 @@ import {
     NTooltip,
     NInput,
     NModal,
+    useModal,
 } from 'naive-ui';
+import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
+import {
+    // type Project,
+    type Task,
+} from '../../../../shared/src/data/Projects';
 import {
     Add,
     VolumeFileStorage as RevealIcon,
@@ -31,14 +37,14 @@ import {
 } from '@vicons/carbon';
 import { useGlobalStore } from '../../stores/global';
 import { useProjectsStore } from '../../stores/projects';
-import {
-    // type Project,
-    type Task,
-} from '../../../../main/src/data/Configuration/Projects';
+import { useConfigurationsStore } from '../../stores/configurations';
+import { NotificationType, useNotificationsStore } from '../../stores/notifications';
 import TaskProgress from './TaskProgress.vue';
 
 const configStore = useGlobalStore();
 const projectsStore = useProjectsStore();
+const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
+const notificationsStore = useNotificationsStore();
 const { projectQueueMap, projects } = storeToRefs(projectsStore);
 
 const { projectId } = defineProps<{
@@ -47,6 +53,7 @@ const { projectId } = defineProps<{
 
 const projectIndex = projectsStore.projects.findIndex(project => project.id === projectId);
 
+const modal = useModal();
 const showBatchAv1anCommandModal = ref(false);
 const showAv1anPrintFriendlyCommand = ref(false);
 let batchAv1anCommand = { batchCommand: '', printFriendlyBatchCommand: '' };
@@ -90,14 +97,7 @@ async function handleDropdownSelect(key: string) {
             break;
         }
         case 'delete-all': {
-            await Promise.all(projectsStore.projects[projectIndex].tasks.map(task => projectsStore.deleteTask(toRaw(task), false)));
-
-            // Reset QueueMap
-            projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
-                status: 'idle',
-            };
-
-            await projectsStore.saveProject(toRaw(projectsStore.projects[projectIndex]), false);
+            await projectsStore.deleteAllTasks(toRaw(projectsStore.projects[projectIndex]));
             break;
         }
         case 'reset-all': {
@@ -110,7 +110,7 @@ async function handleDropdownSelect(key: string) {
             // TODO: Adjust for bash, powershell, etc. Comment out skipped tasks
             const taskAv1anArgs = (await Promise.all(projectsStore.projects[projectIndex].tasks.map(task => buildAv1anArgs(task)))).filter(args => args) as { arguments: string[]; printFriendlyArguments: string[] }[];
             batchAv1anCommand.batchCommand = taskAv1anArgs.map(args => `av1an ${args.arguments.join(' ')}`).join('\n');
-            batchAv1anCommand.printFriendlyBatchCommand = taskAv1anArgs.map(args => `av1an ${args.printFriendlyArguments.join(' ')} --print-friendly`).join('\n');
+            batchAv1anCommand.printFriendlyBatchCommand = taskAv1anArgs.map(args => `av1an ${args.printFriendlyArguments.join(' ')}`).join('\n');
             showBatchAv1anCommandModal.value = true;
             break;
         }
@@ -227,6 +227,57 @@ async function buildAv1anArgs(taskOrId: Task['id'] | Task) {
     return window.projectsApi['build-task-av1an-arguments'](builtOptions);
 }
 
+async function startProcessingQueue() {
+    if (projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing') {
+        return;
+    }
+
+    if (Object.values(configurationsStore.modifiedComponents).some(components => components.length)) {
+        const aModal = modal.create({
+            preset: 'dialog',
+            title: 'Unsaved Project Configuration Changes',
+            content: `Project ${projectsStore.projects[projectIndex].name ?? projectsStore.projects[projectIndex].id} has unsaved Configuration changes. Save and continue or cancel and go back?`,
+            positiveText: 'Save and Continue',
+            negativeText: 'Cancel',
+            onPositiveClick: async () => {
+                await configurationsStore.applyChanges(projectsStore.projects[projectIndex].id);
+                aModal.destroy();
+                await start();
+            },
+            // onNegativeClick: () => {
+            //     aModal.destroy();
+            // },
+        });
+    } else {
+        await start();
+    }
+
+    async function start() {
+        // Send Notification
+        notificationsStore.notify({
+            title: NotificationType.TaskQueueStarted,
+            projectId: projectsStore.projects[projectIndex].id,
+        });
+
+        // Get first/next task
+        const queueTaskIndex = projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId ? projectsStore.projects[projectIndex].tasks.findIndex(task => task.id === projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId) : -1;
+        const remainingTasks = projectsStore.projects[projectIndex].tasks.slice(queueTaskIndex > -1 ? queueTaskIndex : 0).filter(task => !task.skip);
+        const nextTask = remainingTasks.find(task => ['idle', 'paused', 'cancelled'].includes(task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'));
+
+        if (!nextTask) {
+            // Nothing to process
+            projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
+                ...(projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] ?? {}),
+                status: 'done',
+            };
+
+            return;
+        }
+
+        await processQueue(nextTask);
+    }
+}
+
 async function processQueue(currentTask: Task) {
     if (['cancelled'].includes(projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status)) {
         return;
@@ -236,7 +287,7 @@ async function processQueue(currentTask: Task) {
         ...toRaw(configStore.config.preferences.dependencyPaths),
         ...toRaw(projectsStore.projects[projectIndex].preferences.dependencyPaths),
     };
-    const taskOptions = projectsStore.buildTaskAv1anOptions(currentTask);
+    const taskOptions = projectsStore.buildTaskAv1anOptions(toRaw(currentTask));
     if (!taskOptions) {
         projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
             taskId: currentTask.id,
@@ -252,12 +303,25 @@ async function processQueue(currentTask: Task) {
         status: 'processing',
     };
 
+    // Send Notification
+    notificationsStore.notify({
+        title: NotificationType.TaskStarted,
+        projectId: projectsStore.projects[projectIndex].id,
+        taskId: currentTask.id,
+    });
+
     await window.projectsApi['start-task'](toRaw(currentTask), taskOptions, taskEnvironment);
 
     // Check if queue status has changed (cancelled, paused, error)
     if (projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status !== 'processing') {
         return;
     }
+
+    notificationsStore.notify({
+        title: NotificationType.TaskCompleted,
+        projectId: projectsStore.projects[projectIndex].id,
+        taskId: currentTask.id,
+    });
 
     projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
         taskId: currentTask.id,
@@ -274,6 +338,12 @@ async function processQueue(currentTask: Task) {
             // taskId: currentTask.id,
             status: 'done',
         };
+
+        // Send Notification
+        notificationsStore.notify({
+            title: NotificationType.TaskQueueCompleted,
+            projectId: projectsStore.projects[projectIndex].id,
+        });
 
         return;
     }
@@ -297,6 +367,13 @@ async function cancelTask() {
     projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id] = {
         status: 'idle',
     };
+
+    // Send Notification
+    notificationsStore.notify({
+        title: NotificationType.TaskStopped,
+        projectId: projectsStore.projects[projectIndex].id,
+        taskId: task.id,
+    });
 }
 
 // #endregion Task Lifecycle
@@ -351,28 +428,7 @@ async function copyToClipboard(text: string) {
                             size="small"
                             tertiary
                             type="success"
-                            @click="async () => {
-                                if (projectQueueMap[projects[projectIndex].id].status === 'processing') {
-                                    return;
-                                }
-        
-                                // Get first/next task
-                                const queueTaskIndex = projectQueueMap[projects[projectIndex].id].taskId ? projects[projectIndex].tasks.findIndex(task => task.id === projectQueueMap[projects[projectIndex].id].taskId) : -1;
-                                const remainingTasks = projects[projectIndex].tasks.slice(queueTaskIndex > -1 ? queueTaskIndex : 0).filter(task => !task.skip);
-                                const nextTask = remainingTasks.find(task => ['idle', 'paused', 'cancelled'].includes(task.statusHistory.length ? task.statusHistory[task.statusHistory.length - 1].state : 'idle'));
-        
-                                if (!nextTask) {
-                                    // Nothing to process
-                                    projectsStore.projectQueueMap[projects[projectIndex].id] = {
-                                        ...(projectsStore.projectQueueMap[projects[projectIndex].id] ?? {}),
-                                        status: 'done',
-                                    };
-        
-                                    return;
-                                }
-        
-                                await processQueue(nextTask);
-                            }"
+                            @click="startProcessingQueue"
                         >
                             <template #icon>
                                 <NIcon>
