@@ -46,6 +46,10 @@ jobs:
         with:
           cache: npm
 
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
       - run: npm version "${{inputs.app-version}}" --no-git-tag-version
 
       - name: Make envfile
