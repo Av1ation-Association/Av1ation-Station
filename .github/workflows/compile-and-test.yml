@@ -74,14 +74,24 @@ jobs:
       - if: ${{ matrix.os == 'windows-latest' }}
         run: npm run package
 
-      - run: npm run compile -- --publish ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'always' || 'never' }}
+      - name: Compile
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 6
+          retry_wait_seconds: 15
+          retry_on: error
+          shell: 'bash'
+          # Due to this issue https://github.com/electron-userland/electron-builder/issues/6411 the build with npx when rebuilding native dependencies hangs forever
+          # see https://github.com/cawa-93/vite-electron-builder/pull/953
+          command: npm run compile -- --publish ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'always' || 'never' }}
         env:
-            # Code Signing params
-            # See https://www.electron.build/code-signing
-            # CSC_LINK: ''
-            # CSC_KEY_PASSWORD: ''
-            # Publishing artifacts
-            GH_TOKEN: ${{ secrets.github_token }} # GitHub token, automatically provided (No need to define this secret in the repo settings)
+          # Code Signing params
+          # See https://www.electron.build/code-signing
+          # CSC_LINK: ''
+          # CSC_KEY_PASSWORD: ''
+          # Publishing artifacts
+          GH_TOKEN: ${{ secrets.github_token }} # GitHub token, automatically provided (No need to define this secret in the repo settings)
 
       # - run: npm run test --if-present
 
