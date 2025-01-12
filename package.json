@@ -36,6 +36,7 @@
         "electron-builder": "^26.0.0-alpha.8",
         "eslint": "^9.18.0",
         "eslint-plugin-vue": "^9.32.0",
+        "glob": "^11.0.1",
         "globals": "^15.14.0",
         "playwright": "1.49.0",
         "typescript-eslint": "^8.19.1"
