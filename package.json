@@ -5,7 +5,8 @@
     "private": true,
     "type": "module",
     "author": {
-        "name": "Boats"
+        "name": "Boats",
+        "email": "142189976+BoatsMcGee@users.noreply.github.com"
     },
     "main": "packages/entry-point.js",
     "workspaces": [
