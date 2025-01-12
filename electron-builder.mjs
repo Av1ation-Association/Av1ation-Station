@@ -34,6 +34,9 @@ export default /** @type import('electron-builder').Configuration */
             },
         ],
     },
+    portable: {
+        artifactName: '${productName}-${version}-${os}-${arch}-portable.${ext}',
+    },
     nsis: {
         oneClick: false,
         perMachine: false,
