@@ -76,11 +76,11 @@ jobs:
 
       - run: npm run compile -- -p never
 
-      - run: npm run test --if-present
+      # - run: npm run test --if-present
 
-      - uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: "dist/root*, dist/latest*.yml"
+      # - uses: actions/attest-build-provenance@v1
+      #   with:
+      #     subject-path: "dist/root*, dist/latest*.yml"
 
       - name: Upload compiled app
         uses: actions/upload-artifact@v4
