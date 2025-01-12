@@ -33,11 +33,6 @@ export default /** @type import('electron-builder').Configuration */
                 ],
             },
         ],
-        publish: {
-            provider: 'github',
-            protocol: 'https',
-            timeout: (3 * 60) * 1000, // Default is 3 minutes, extend to 5 minutes
-        },
     },
     nsis: {
         oneClick: false,
