@@ -33,6 +33,9 @@ export default /** @type import('electron-builder').Configuration */
                 ],
             },
         ],
+        publish: {
+            timeout: (5 * 60) * 1000, // Default is 2 minutes, extend to 5 minutes
+        },
     },
     nsis: {
         oneClick: false,
