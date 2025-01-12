@@ -74,7 +74,14 @@ jobs:
       - if: ${{ matrix.os == 'windows-latest' }}
         run: npm run package
 
-      - run: npm run compile -- -p never
+      - run: npm run compile -- --publish ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'always' || 'never' }}
+        env:
+            # Code Signing params
+            # See https://www.electron.build/code-signing
+            # CSC_LINK: ''
+            # CSC_KEY_PASSWORD: ''
+            # Publishing artifacts
+            GH_TOKEN: ${{ secrets.github_token }} # GitHub token, automatically provided (No need to define this secret in the repo settings)
 
       # - run: npm run test --if-present
 

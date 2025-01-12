@@ -55,16 +55,16 @@ jobs:
     with:
       app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
 
-  deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-    needs:
-      - prepare
-      - compile-and-test
-    uses: ./.github/workflows/deploy.yml
-    with:
-      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
+  # deploy:
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   permissions:
+  #     contents: write
+  #   needs:
+  #     - prepare
+  #     - compile-and-test
+  #   uses: ./.github/workflows/deploy.yml
+  #   with:
+  #     app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
 
   dependabot:
     permissions:
