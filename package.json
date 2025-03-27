@@ -30,7 +30,7 @@
     "devDependencies": {
         "@eslint/js": "^9.22.0",
         "@npmcli/map-workspaces": "^4.0.2",
-        "@playwright/test": "1.51.0",
+        "@playwright/test": "1.51.1",
         "@types/node": "22.13.10",
         "electron": "^35.1.1",
         "electron-builder": "^25.1.8",
