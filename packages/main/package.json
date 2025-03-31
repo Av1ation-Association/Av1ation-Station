@@ -15,7 +15,7 @@
         "@av1ation-station/preload": "*",
         "@av1ation-station/renderer": "*",
         "@av1ation-station/shared": "*",
-        "electron-updater": "6.3.9",
+        "electron-updater": "6.6.2",
         "terminate": "^2.8.0",
         "watcher": "^2.3.1"
     },
