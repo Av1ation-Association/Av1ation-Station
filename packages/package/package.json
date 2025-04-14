@@ -17,7 +17,7 @@
         "typescript": "^5.8.3"
     },
     "dependencies": {
-        "7zip-min": "^2.0.0",
+        "7zip-min": "^2.1.0",
         "decompress": "^4.2.1",
         "win-7zip": "^0.1.1"
     }
