@@ -34,7 +34,7 @@
         "@types/node": "22.15.18",
         "electron": "^36.2.1",
         "electron-builder": "^26.0.12",
-        "eslint": "^9.26.0",
+        "eslint": "^9.27.0",
         "eslint-plugin-vue": "^10.1.0",
         "glob": "^11.0.2",
         "globals": "^16.1.0",
