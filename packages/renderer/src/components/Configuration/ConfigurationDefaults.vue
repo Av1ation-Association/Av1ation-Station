@@ -257,7 +257,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="aom"
                 tab="AOM"
-                :disabled="(configurationsStore.parentAv1an.encoding?.encoder&& configurationsStore.parentAv1an.encoding.encoder !== Encoder.aom) || configurationsStore.defaults.Av1an.encoding?.encoder !== Encoder.aom || !configurationsStore.defaults.Av1an.encoding?.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.aom"
             >
                 <DefaultsFormGrid
                     :model-value="{
@@ -272,7 +272,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="svt"
                 tab="SVT"
-                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined && configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.svt) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.svt) || !configurationsStore.parentAv1an.encoding.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.svt"
             >
                 <DefaultsFormGrid
                     :model-value="{
@@ -293,7 +293,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="rav1e"
                 tab="rav1e"
-                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined &&configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.rav1e) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.rav1e) || !configurationsStore.parentAv1an.encoding.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.rav1e"
             >
                 <DefaultsFormGrid
                     :model-value="{
@@ -308,7 +308,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="vpx"
                 tab="VPX"
-                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined &&configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.vpx) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.vpx) || !configurationsStore.parentAv1an.encoding.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.vpx"
             >
                 <DefaultsFormGrid
                     :model-value="{
@@ -323,7 +323,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="x264"
                 tab="x264"
-                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined &&configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.x264) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.x264) || !configurationsStore.parentAv1an.encoding.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.x264"
             >
                 <DefaultsFormGrid
                     :model-value="{
@@ -338,7 +338,7 @@ async function copyToClipboard(text: string) {
             <NTabPane
                 name="x265"
                 tab="x265"
-                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined &&configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.x265) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.x265) || !configurationsStore.parentAv1an.encoding.encoder"
+                :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder ?? configurationsStore.parentAv1an.encoding?.encoder ?? Encoder.aom) !== Encoder.x265"
             >
                 <DefaultsFormGrid
                     :model-value="{
