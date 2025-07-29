@@ -69,6 +69,10 @@ jobs:
           envkey_VPX_URL: ${{ vars.VPX_URL }}
           envkey_X264_URL: ${{ vars.X264_URL }}
           envkey_X265_URL: ${{ vars.X265_URL }}
+          envkey_VSHIP_NVIDIA_URL: ${{ vars.VSHIP_NVIDIA_URL }}
+          envkey_VSHIP_AMD_URL: ${{ vars.VSHIP_AMD_URL }}
+          envkey_VSZIP_URL: ${{ vars.VSZIP_URL }}
+          envkey_JULEK_URL: ${{ vars.JULEK_URL }}
           file_name: .env.local
 
       - if: ${{ matrix.os == 'windows-latest' }}
