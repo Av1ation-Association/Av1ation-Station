@@ -35,7 +35,7 @@
         "electron": "^36.5.0",
         "electron-builder": "^26.0.12",
         "eslint": "^9.29.0",
-        "eslint-plugin-vue": "^10.2.0",
+        "eslint-plugin-vue": "^10.3.0",
         "glob": "^11.0.3",
         "globals": "^16.2.0",
         "playwright": "1.53.1",
