@@ -1,4 +1,5 @@
 import { get } from 'node:https';
+import { get as getHttp } from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -25,6 +26,12 @@ const lsmashUrl = process.env.LSMASH_URL;
 const bestsourceUrl = process.env.BESTSOURCE_URL;
 const dgdecnvUrl = process.env.DGDECNV_URL; // Not bundled until there is a licensing agreement
 
+// Av1an Target Quality VapourSynth Plugins
+const vshipNvidiaUrl = process.env.VSHIP_NVIDIA_URL;
+const vshipAMDUrl = process.env.VSHIP_AMD_URL;
+const vszipUrl = process.env.VSZIP_URL;
+const julekUrl = process.env.JULEK_URL;
+
 // Encoders
 const aomUrl = process.env.AOM_URL;
 const svtUrl = process.env.SVT_URL;
@@ -47,7 +54,8 @@ async function downloadRetry(filePath: string, url: string, redirectCount = 0) {
     }
 
     return new Promise<void>((resolve, reject) => {
-        const req = get(url, (res) => {
+        const protocol = new URL(url).protocol;
+        const req = (protocol === 'http:' ? getHttp : get)(url, (res) => {
             if (!res.statusCode) {
                 return reject(new Error(`Failed to download ${url}: no status code`));
             }
@@ -141,20 +149,24 @@ async function downloadAll() {
         bestsourceUrl ? download(path.resolve(downloadsPath, 'bestsource.7z'), bestsourceUrl) : Promise.resolve(),
         dgdecnvUrl ? download(path.resolve(downloadsPath, 'dgdecnv.zip'), dgdecnvUrl, true) : Promise.resolve(),
         aomUrl ? download(path.resolve(downloadsPath, 'aom.7z'), aomUrl) : Promise.resolve(),
-        // svtUrl ? download(path.resolve(downloadsPath, 'svtav1.7z'), svtUrl) : Promise.resolve(),
-        svtUrl ? download(path.resolve(downloadsPath, 'svtav1.zip'), svtUrl) : Promise.resolve(),
+        svtUrl ? download(path.resolve(downloadsPath, 'svtav1.7z'), svtUrl) : Promise.resolve(),
+        // svtUrl ? download(path.resolve(downloadsPath, 'svtav1.zip'), svtUrl) : Promise.resolve(),
         rav1eUrl ? download(path.resolve(av1anPath, 'encoders', 'rav1e', 'rav1e.exe'), rav1eUrl) : Promise.resolve(),
         rav1eUrl ? download(path.resolve(av1anPath, 'encoders', 'rav1e', 'LICENSE'), 'https://raw.githubusercontent.com/xiph/rav1e/refs/heads/master/LICENSE') : Promise.resolve(),
         vpxUrl ? download(path.resolve(downloadsPath, 'vpx.7z'), vpxUrl) : Promise.resolve(),
         x264Url ? download(path.resolve(av1anPath, 'encoders', 'x264', 'x264.exe'), x264Url) : Promise.resolve(),
         // x265Url ? download(path.resolve(downloadsPath, 'x265.zip'), x265Url) : Promise.resolve(),
         x265Url ? download(path.resolve(downloadsPath, 'x265.7z'), x265Url) : Promise.resolve(),
+        vshipNvidiaUrl ? download(path.resolve(downloadsPath, 'vship_NVIDIA.dll'), vshipNvidiaUrl) : Promise.resolve(),
+        vshipAMDUrl ? download(path.resolve(downloadsPath, 'vship_AMD.dll'), vshipAMDUrl) : Promise.resolve(),
+        vszipUrl ? download(path.resolve(downloadsPath, 'vszip.zip'), vszipUrl) : Promise.resolve(),
+        julekUrl ? download(path.resolve(downloadsPath, 'julek.7z'), julekUrl) : Promise.resolve(),
     ]);
 };
 
 async function executeVapourSynthPowerShellScript() {
     return new Promise<void>((resolve, reject) => {
-        const powershell = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.resolve(downloadsPath, 'vapoursynth.ps1'), '70', vapoursynthPath, '-Unattended'], { stdio: ['inherit', 'inherit', 'inherit'] });
+        const powershell = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.resolve(downloadsPath, 'vapoursynth.ps1'), '-VSVersion', '72', '-TargetFolder', vapoursynthPath, '-Unattended'], { stdio: ['inherit', 'inherit', 'inherit'] });
 
         powershell.on('exit', (code) => {
             if (code !== 0) {
@@ -181,7 +193,7 @@ async function installFFMS2() {
     // Move ffms2-2.40-mvsc/x64 to vapoursynthPath/vs-plugins
     await fs.promises.cp(path.resolve(downloadsPath, 'ffms2', 'ffms2-5.0-msvc', 'x64'), vapoursynthPluginsPath, { recursive: true });
     // Copy License
-    await fs.promises.rename(path.resolve(downloadsPath, 'ffms2', 'ffms2-5.0-msvc', 'COPYING.GPLv3'), path.resolve(vapoursynthPluginsPath, 'COPYING.GPLv3'));
+    await fs.promises.rename(path.resolve(downloadsPath, 'ffms2', 'ffms2-5.0-msvc', 'COPYING.GPLv3'), path.resolve(vapoursynthPluginsPath, 'FFMS2.COPYING.GPLv3'));
 
     console.log('FFMS2 installed');
 };
@@ -193,7 +205,7 @@ async function installLSmash() {
     // Move lsmash to vapoursynthPath/vs-plugins
     await fs.promises.cp(path.resolve(downloadsPath, 'lsmash', 'x64'), vapoursynthPluginsPath, { recursive: true });
     // Copy License
-    await fs.promises.rename(path.resolve(downloadsPath, 'lsmash', 'VapourSynth', 'LICENSE'), path.resolve(vapoursynthPluginsPath, 'LICENSE'));
+    await fs.promises.rename(path.resolve(downloadsPath, 'lsmash', 'VapourSynth', 'LICENSE'), path.resolve(vapoursynthPluginsPath, 'LSMASHWorks.LICENSE'));
 
     console.log('LSMASH installed');
 };
@@ -205,7 +217,7 @@ async function installBestSource() {
     // Move bestsource to vapoursynthPath/vs-plugins
     await fs.promises.rename(path.resolve(downloadsPath, 'bestsource', 'BestSource.dll'), path.resolve(vapoursynthPluginsPath, 'BestSource.dll'));
     // Copy License
-    await fs.promises.rename(path.resolve(downloadsPath, 'bestsource', 'LICENSE'), path.resolve(vapoursynthPluginsPath, 'LICENSE'));
+    await fs.promises.rename(path.resolve(downloadsPath, 'bestsource', 'LICENSE'), path.resolve(vapoursynthPluginsPath, 'BestSource.LICENSE'));
 
     console.log('BestSource installed');
 };
@@ -277,18 +289,20 @@ async function installAOM() {
 async function installSVTAV1() {
     console.log('Installing SVT-AV1-PSY');
 
-    // await extract(path.resolve(downloadsPath, 'svtav1.7z'), path.resolve(downloadsPath, 'svtav1'));
-    await extract(path.resolve(downloadsPath, 'svtav1.zip'), path.resolve(downloadsPath, 'svtav1-binaries'));
-    const archiveName = fs.readdirSync(path.resolve(downloadsPath, 'svtav1-binaries')).filter(file => file.endsWith('.7z'))[0];
-    await extract(path.resolve(downloadsPath, 'svtav1-binaries', archiveName), path.resolve(downloadsPath, 'svtav1'));
+    await extract(path.resolve(downloadsPath, 'svtav1.7z'), path.resolve(downloadsPath, 'svtav1'));
+    // await extract(path.resolve(downloadsPath, 'svtav1.zip'), path.resolve(downloadsPath, 'svtav1-binaries'));
+    // const archiveName = fs.readdirSync(path.resolve(downloadsPath, 'svtav1-binaries')).filter(file => file.endsWith('.7z'))[0];
+    // await extract(path.resolve(downloadsPath, 'svtav1-binaries', archiveName), path.resolve(downloadsPath, 'svtav1'));
     // Move svtav1 to av1anPath/encoders/svtav1
     if (!fs.existsSync(path.resolve(av1anPath, 'encoders', 'svtav1'))) {
         await fs.promises.mkdir(path.resolve(av1anPath, 'encoders', 'svtav1'), { recursive: true });
     }
     // await fs.promises.cp(path.resolve(downloadsPath, 'svtav1'/*, 'SVT-PSY', 'Generic'*/), path.resolve(av1anPath, 'encoders', 'svtav1'), { recursive: true });
-    await fs.promises.cp(path.resolve(downloadsPath, 'svtav1', 'x86-64'), path.resolve(av1anPath, 'encoders', 'svtav1'), { recursive: true });
+    // await fs.promises.cp(path.resolve(downloadsPath, 'svtav1', 'x86-64'), path.resolve(av1anPath, 'encoders', 'svtav1'), { recursive: true });
+    await fs.promises.cp(path.resolve(downloadsPath, 'svtav1'), path.resolve(av1anPath, 'encoders', 'svtav1'), { recursive: true });
+    await fs.promises.rename(path.resolve(av1anPath, 'encoders', 'svtav1', 'SvtAv1EncApp-PSY.exe'), path.resolve(av1anPath, 'encoders', 'svtav1', 'SvtAv1EncApp.exe'));
     // Download the license file
-    await download(path.resolve(av1anPath, 'encoders', 'svtav1', 'LICENSE.md'), 'https://raw.githubusercontent.com/gianni-rosato/svt-av1-psy/refs/heads/master/LICENSE.md');
+    await download(path.resolve(av1anPath, 'encoders', 'svtav1', 'LICENSE.md'), 'https://raw.githubusercontent.com/BlueSwordM/svt-av1-psyex/refs/tags/v3.0.2/LICENSE.md');
 
     console.log('SVT-AV1-PSY installed');
 };
@@ -309,16 +323,61 @@ async function installVpx() {
 async function installX265() {
     console.log('Installing X265');
 
-    await extract(path.resolve(downloadsPath, 'x265.7z'), path.resolve(av1anPath, 'encoders', 'x265'));
+    // await extract(path.resolve(downloadsPath, 'x265.7z'), path.resolve(av1anPath, 'encoders', 'x265'));
     // await extract(path.resolve(downloadsPath, 'x265.zip'), path.resolve(downloadsPath, 'x265'));
-    // // Move x265 to av1anPath/encoders/x265
-    // if (!fs.existsSync(path.resolve(av1anPath, 'encoders', 'x265'))) {
-    //     await fs.promises.mkdir(path.resolve(av1anPath, 'encoders', 'x265'), { recursive: true });
-    // }
+    await extract(path.resolve(downloadsPath, 'x265.7z'), path.resolve(downloadsPath, 'x265'));
+    // Move x265 to av1anPath/encoders/x265
+    if (!fs.existsSync(path.resolve(av1anPath, 'encoders', 'x265'))) {
+        await fs.promises.mkdir(path.resolve(av1anPath, 'encoders', 'x265'), { recursive: true });
+    }
+    await fs.promises.rename(path.resolve(downloadsPath, 'x265', 'x265.exe'), path.resolve(av1anPath, 'encoders', 'x265', 'x265.exe'));
     // await fs.promises.cp(path.resolve(downloadsPath, 'x265', 'x265_64-12bit[gcc].exe'), path.resolve(av1anPath, 'encoders', 'x265', 'x265.exe'), { recursive: true });
 
     console.log('X265 installed');
 };
+
+async function installVShip() {
+    console.log('Installing VapourSynth-HIP');
+
+    // Create a folder for vship in vapoursynthPath/vs-plugins
+    await fs.promises.mkdir(path.resolve(vapoursynthPluginsPath, 'vship'), { recursive: true });
+    // Move vszip to vapoursynthPath/vs-plugins/vship (Does not install as this needs to be determined client-side)
+    if (fs.existsSync(path.resolve(downloadsPath, 'vship_NVIDIA.dll'))) {
+        await fs.promises.rename(path.resolve(downloadsPath, 'vship_NVIDIA.dll'), path.resolve(vapoursynthPluginsPath, 'vship',  'vship_NVIDIA.dll'));
+    }
+    if (fs.existsSync(path.resolve(downloadsPath, 'vship_AMD.dll'))) {
+        await fs.promises.rename(path.resolve(downloadsPath, 'vship_AMD.dll'), path.resolve(vapoursynthPluginsPath, 'vship',  'vship_AMD.dll'));
+    }
+    // Download the license file
+    await download(path.resolve(vapoursynthPluginsPath, 'vship', 'LICENSE'), 'https://raw.githubusercontent.com/Line-fr/Vship/refs/tags/v3.0.1/LICENSE');
+
+    console.log('VapourSynth-HIP installed');
+}
+
+async function installVSZip() {
+    console.log('Installing VapourSynth Zig Image Process');
+
+    await extract(path.resolve(downloadsPath, 'vszip.zip'), path.resolve(downloadsPath, 'vszip'));
+    // Move vszip to vapoursynthPath/vs-plugins
+    await fs.promises.rename(path.resolve(downloadsPath, 'vszip', 'vszip.dll'), path.resolve(vapoursynthPluginsPath, 'vszip.dll'));
+    // Download the license file
+    await download(path.resolve(vapoursynthPluginsPath, 'VSZIP.LICENSE'), 'https://raw.githubusercontent.com/dnjulek/vapoursynth-zip/refs/tags/R7/LICENSE');
+
+    console.log('VapourSynth Zig Image Process installed');
+}
+
+async function installJulek() {
+    console.log('Installing vapoursynth-julek-plugin');
+
+    await extract(path.resolve(downloadsPath, 'julek.7z'), path.resolve(downloadsPath, 'julek'));
+    // Move julek to vapoursynthPath/vs-plugins
+    await fs.promises.rename(path.resolve(downloadsPath, 'julek', 'julek.dll'), path.resolve(vapoursynthPluginsPath, 'julek.dll'));
+    // Download the license file
+    await download(path.resolve(vapoursynthPluginsPath, 'julek.LICENSE'), 'https://raw.githubusercontent.com/dnjulek/vapoursynth-julek-plugin/refs/tags/r3/LICENSE');
+
+    console.log('vapoursynth-julek-plugin installed');
+}
+
 
 (async () => {
     try {
@@ -346,6 +405,9 @@ async function installX265() {
             ...(svtUrl ? [installSVTAV1()] : []),
             ...(vpxUrl ? [installVpx()] : []),
             ...(x265Url ? [installX265()] : []),
+            ...(vshipNvidiaUrl ?? vshipAMDUrl ? [installVShip()] : []),
+            ...(vszipUrl ? [installVSZip()] : []),
+            ...(julekUrl ? [installJulek()] : []),
         ]);
 
         console.log('Dependencies installed');

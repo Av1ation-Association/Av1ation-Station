@@ -1,5 +1,8 @@
 import { h } from 'vue';
 import {
+    NButton,
+    NInput,
+    NInputGroup,
     NInputNumber,
     NSelect,
 } from 'naive-ui';
@@ -11,12 +14,71 @@ import {
 } from '../../../../shared/src/data/Types/Options';
 import { type FormInputComponent } from './library';
 import { ConfigurationType } from '../../../../shared/src/data/Configuration';
+import { type Task } from '../../../../shared/src/data/Projects';
 import { useConfigurationsStore } from '../../stores/configurations';
 
-export function getComponents(): FormInputComponent[] {
+export function getComponents(task?: Task): FormInputComponent[] {
     const configurationsStore = useConfigurationsStore<ConfigurationType.Task>();
     const parentAv1an = configurationsStore.parentAv1an;
     const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
+    let proxy: FormInputComponent | undefined = undefined;
+
+    if (task) {
+        proxy = {
+            label: 'Proxy File Path',
+            path: 'proxy',
+            component: h(
+                NInputGroup,
+                undefined,
+                () => [
+                    h(
+                        NInput, {
+                            value: configurationsStore.defaults.Av1an.proxy,
+                            clearable: true,
+                            onUpdateValue: (value) => {
+                                if (value) {
+                                    configurationsStore.defaults.Av1an.proxy = value;
+                                }
+                            },
+                            placeholder: configurationsStore.defaults.Av1an.proxy ?? 'Proxy File Path',
+                            onClear: async () => {
+                                delete configurationsStore.defaults.Av1an.proxy;
+                            },
+                        },
+                    ),
+                    h(
+                        NButton,
+                        {
+                            type: 'primary',
+                            onClick: async () => {
+                                const defaultPath = configurationsStore.defaults.Av1an.proxy;
+                                const filePath = await window.configurationsApi['save-file'](defaultPath ?? undefined, 'Av1an Proxy Input File');
+                                if (filePath) {
+                                    configurationsStore.defaults.Av1an.proxy = filePath;
+                                }
+                            },
+                        },
+                        () => [
+                            'Select',
+                        ],
+                    ),
+                ],
+            ),
+            reset: () => {
+                delete configurationsStore.defaults.Av1an.proxy;
+            },
+            isModified: () => {
+                if (!previousAv1an.proxy) {
+                    return configurationsStore.defaults.Av1an.proxy !== undefined;
+                } else if (previousAv1an.proxy !== configurationsStore.defaults.Av1an.proxy) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+        };
+    }
 
     const verbosity: FormInputComponent = {
         label: 'Verbosity',
@@ -308,12 +370,46 @@ export function getComponents(): FormInputComponent[] {
         },
     };
 
+    const vspipeArgs = {
+        label: 'VapourSynth VSPipe Arguments',
+        path: `vspipeArguments`,
+        component: h(
+            NInput, {
+                value: configurationsStore.defaults.Av1an.vspipeArguments,
+                clearable: true,
+                onUpdateValue: (value) => {
+                    if (value) {
+                        configurationsStore.defaults.Av1an.vspipeArguments = value;
+                    }
+                },
+                placeholder: configurationsStore.defaults.Av1an.vspipeArguments ?? '',
+                onClear: async () => {
+                    delete configurationsStore.defaults.Av1an.vspipeArguments;
+                },
+            },
+        ),
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.vspipeArguments;
+        },
+        isModified: () => {
+            if (!previousAv1an.vspipeArguments) {
+                return configurationsStore.defaults.Av1an.vspipeArguments !== undefined;
+            } else if (previousAv1an.vspipeArguments !== configurationsStore.defaults.Av1an.vspipeArguments) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };    
+
     return [
-        verbosity,
-        logLevel,
-        maxTries,
+        ...(proxy ? [proxy] : []),
+        vspipeArgs,
         workers,
         threadAffinity,
+        maxTries,
         pixelFormat,
+        verbosity,
+        logLevel,
     ];
 }

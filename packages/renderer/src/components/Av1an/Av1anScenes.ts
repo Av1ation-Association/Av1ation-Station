@@ -580,6 +580,56 @@ export function getComponents(task?: Task): FormInputComponent[] {
         },
     };
 
+    const forcedKeyframes: FormInputComponent = {
+        label: 'Forced Keyframes',
+        path: 'scenes.forcedKeyframes',
+        component: h(
+            NInput,
+            {
+                value: configurationsStore.defaults.Av1an.scenes?.forcedKeyframes,
+                clearable: true,
+                placeholder: parentAv1an.scenes?.forcedKeyframes ?? '',
+                onUpdateValue: (value) => {
+                    if (!configurationsStore.defaults.Av1an.scenes) {
+                        configurationsStore.defaults.Av1an.scenes = {};
+                    }
+                    if (value !== null) {
+                        if (parentAv1an.scenes?.forcedKeyframes === value) {
+                            delete configurationsStore.defaults.Av1an.scenes.forcedKeyframes;
+                        } else {
+                            configurationsStore.defaults.Av1an.scenes.forcedKeyframes = value;
+                        }
+                    }
+                },
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.scenes?.forcedKeyframes;
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.scenes) {
+                configurationsStore.defaults.Av1an.scenes = {};
+            }
+
+            configurationsStore.defaults.Av1an.scenes.forcedKeyframes = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.scenes?.forcedKeyframes === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.scenes?.forcedKeyframes;
+        },
+        isModified: () => {
+            if (!previousAv1an.scenes || previousAv1an.scenes.forcedKeyframes === undefined) {
+                return configurationsStore.defaults.Av1an.scenes?.forcedKeyframes !== undefined;
+            } else if (previousAv1an.scenes.forcedKeyframes !== configurationsStore.defaults.Av1an.scenes?.forcedKeyframes) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
     return [
         splitMethod,
         ...(sceneFilePath ? [sceneFilePath] : []),
@@ -590,6 +640,7 @@ export function getComponents(task?: Task): FormInputComponent[] {
         minimumSceneLengthFrames,
         maximumSceneLengthFrames,
         maximumSceneLengthSeconds,
+        forcedKeyframes,
         ignoreFrameMismatch,
     ];
 }

@@ -29,6 +29,7 @@ import ConfigurationDefaults from '../components/Configuration/ConfigurationDefa
 import ConfigurationFloatingButtons from '../components/Configuration/ConfigurationFloatingButtons.vue';
 import {
     Theme,
+    VSHIPBackend,
 } from '../../../shared/src/data/Configuration';
 import { useProjectsStore } from '../stores/projects';
 
@@ -100,6 +101,24 @@ async function restartAv1ationStation() {
                         }"
                     >
                     </NSwitch>
+                </NFormItem>
+                <NH3>VapourSynth</NH3>
+                <NFormItem
+                    label="Target Quality Vapoursynth-HIP Hardware Acceleration Backend"
+                >
+                    <NSelect
+                        v-model:value="config.preferences.vship"
+                        :options="[
+                            { label: 'Disabled', value: VSHIPBackend.Disabled },
+                            { label: 'NVIDIA', value: VSHIPBackend.NVIDIA },
+                            { label: 'AMD', value: VSHIPBackend.AMD },
+                        ]"
+                        @update:value="async (value: VSHIPBackend) => {
+                            await configStore.updateVshipBackend(value);
+                            await configStore.setConfig(toRaw(configStore.config), true);
+                        }"
+                    >
+                    </NSelect>
                 </NFormItem>
                 <NH3>Notifications</NH3>
                 <NFormItem

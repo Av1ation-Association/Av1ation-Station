@@ -4,6 +4,7 @@ import {
     darkTheme,
 } from 'naive-ui';
 import { defineStore } from 'pinia';
+import type { VSHIPBackend} from '../../../shared/src/data/Configuration';
 import { Theme, type Configuration } from '../../../shared/src/data/Configuration';
 
 export const useGlobalStore = defineStore(`global`, {
@@ -65,6 +66,9 @@ export const useGlobalStore = defineStore(`global`, {
                     this.theme = darkTheme;
                     break;
             }
+        },
+        async updateVshipBackend(backend: VSHIPBackend) {
+            await window.configurationsApi['configure-vship-install'](backend);
         },
     },
 });

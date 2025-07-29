@@ -6,6 +6,7 @@ import {
     NSlider,
     NInputGroup,
     NButton,
+    NInputNumber,
 } from 'naive-ui';
 import { type ConfigurationType } from '../../../../shared/src/data/Configuration';
 import {
@@ -233,6 +234,54 @@ export function getComponents(): FormInputComponent[] {
         },
     };
 
+    const noDefaults = {
+        label: 'No Defaults',
+        path: 'encoding.noDefaults',
+        advanced: true,
+        component: h(
+            NSwitch,
+            {
+                value: configurationsStore.defaults.Av1an.encoding?.noDefaults ?? undefined,
+                defaultValue: parentAv1an.encoding?.noDefaults ?? undefined,
+                onUpdateValue: (value?: boolean) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {};
+                    }
+
+                    if (value !== null) {
+                        if (parentAv1an.encoding?.noDefaults === value) {
+                            delete configurationsStore.defaults.Av1an.encoding?.noDefaults;
+                        } else {
+                            configurationsStore.defaults.Av1an.encoding.noDefaults = value;
+                        }
+                    }
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {};
+            }
+
+            configurationsStore.defaults.Av1an.encoding.noDefaults = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.encoding?.noDefaults === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.encoding?.noDefaults;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.noDefaults === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.noDefaults !== undefined;
+            } else if (previousAv1an.encoding.noDefaults !== configurationsStore.defaults.Av1an.encoding?.noDefaults) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
     const passes = {
         label: 'Passes',
         path: 'encoding.passes',
@@ -331,6 +380,138 @@ export function getComponents(): FormInputComponent[] {
         },
     };
 
+    const chromaNoise = {
+        label: 'Chroma Noise',
+        path: 'chromaNoise',
+        component: h(
+            NSlider,
+            {
+                value: configurationsStore.defaults.Av1an.chromaNoise ?? undefined,
+                min: 0,
+                max: 63,
+                step: 1,
+                defaultValue: parentAv1an.chromaNoise ?? undefined,
+                onUpdateValue: (value?: number) => {
+                    if (value !== null) {
+                        if (parentAv1an.chromaNoise === value) {
+                            delete configurationsStore.defaults.Av1an.chromaNoise;
+                        } else {
+                            configurationsStore.defaults.Av1an.chromaNoise = value;
+                        }
+                    }
+                },
+            },
+        ),
+        disable: () => {
+            configurationsStore.defaults.Av1an.chromaNoise = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.chromaNoise === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.chromaNoise;
+        },
+        isModified: () => {
+            if (!previousAv1an || previousAv1an.chromaNoise === undefined) {
+                return configurationsStore.defaults.Av1an.chromaNoise !== undefined;
+            } else if (previousAv1an.chromaNoise !== configurationsStore.defaults.Av1an.chromaNoise) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
+    const photonNoiseWidth: FormInputComponent = {
+        label: 'Photon Noise Width',
+        path: 'photonNoiseWidth',
+        component: h(
+            NInputNumber,
+            {
+                value: configurationsStore.defaults.Av1an.photonNoiseWidth,
+                clearable: true,
+                placeholder: 'Auto',
+                defaultValue: parentAv1an.photonNoiseWidth,
+                min: 1,
+                onUpdateValue: (value) => {
+                    if (value !== null) {
+                        if (parentAv1an.photonNoiseWidth === value) {
+                            delete configurationsStore.defaults.Av1an.photonNoiseWidth;
+                        } else {
+                            configurationsStore.defaults.Av1an.photonNoiseWidth = value;
+                        }
+                    }
+                },
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.photonNoiseWidth;
+                },
+            },
+        ),
+        disable: () => {
+            configurationsStore.defaults.Av1an.photonNoiseWidth = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.photonNoiseWidth === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.photonNoiseWidth;
+        },
+        isModified: () => {
+            if (!previousAv1an || previousAv1an.photonNoiseWidth === undefined) {
+                return configurationsStore.defaults.Av1an.photonNoiseWidth !== undefined;
+            } else if (previousAv1an.photonNoiseWidth !== configurationsStore.defaults.Av1an.photonNoiseWidth) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
+    const photonNoiseHeight: FormInputComponent = {
+        label: 'Photon Noise Height',
+        path: 'photonNoiseHeight',
+        component: h(
+            NInputNumber,
+            {
+                value: configurationsStore.defaults.Av1an.photonNoiseHeight,
+                clearable: true,
+                placeholder: 'Auto',
+                defaultValue: parentAv1an.photonNoiseHeight,
+                min: 1,
+                onUpdateValue: (value) => {
+                    if (value !== null) {
+                        if (parentAv1an.photonNoiseHeight === value) {
+                            delete configurationsStore.defaults.Av1an.photonNoiseHeight;
+                        } else {
+                            configurationsStore.defaults.Av1an.photonNoiseHeight = value;
+                        }
+                    }
+                },
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.photonNoiseHeight;
+                },
+            },
+        ),
+        disable: () => {
+            configurationsStore.defaults.Av1an.photonNoiseHeight = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.photonNoiseHeight === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.photonNoiseHeight;
+        },
+        isModified: () => {
+            if (!previousAv1an || previousAv1an.photonNoiseHeight === undefined) {
+                return configurationsStore.defaults.Av1an.photonNoiseHeight !== undefined;
+            } else if (previousAv1an.photonNoiseHeight !== configurationsStore.defaults.Av1an.photonNoiseHeight) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
     const zones = {
         label: 'Zones',
         path: 'zones',
@@ -402,11 +583,15 @@ export function getComponents(): FormInputComponent[] {
 
     return [
         encoder,
+        noDefaults,
         force,
         passes,
         ffmpegFilterOptions,
         ffmpegAudioParameters,
         photonNoise,
+        chromaNoise,
+        photonNoiseWidth,
+        photonNoiseHeight,
         zones,
     ];
 }

@@ -8,6 +8,7 @@ import {
     StartUpBehavior,
     Theme,
     DependencyType,
+    VSHIPBackend,
 } from '../../../../shared/src/data/Configuration.js';
 
 const isWindows = os.platform() === 'win32';
@@ -59,6 +60,7 @@ const defaultConfig: Configuration = {
             os: false,
             app: true,
         },
+        vship: VSHIPBackend.Disabled,
     },
 };
 
@@ -112,8 +114,8 @@ export class ConfigurationManager {
         };
 
         // Merge preferences
-        const { defaults: preferencesDefaults, showHidden, showAdvanced, dependencyPaths, notifications } = preferences;
-        const { defaults: defaultPreferencesDefaults, showHidden: defaultShowHidden, showAdvanced: defaultShowAdvanced, dependencyPaths: defaultDependencyPaths, notifications: defaultNotifications } = defaultPreferences;
+        const { defaults: preferencesDefaults, showHidden, showAdvanced, dependencyPaths, notifications, vship } = preferences;
+        const { defaults: defaultPreferencesDefaults, showHidden: defaultShowHidden, showAdvanced: defaultShowAdvanced, dependencyPaths: defaultDependencyPaths, notifications: defaultNotifications, vship: defaultVship } = defaultPreferences;
 
         const mergedPreferences: Configuration['preferences'] = {
             defaults: preferencesDefaults ?? defaultPreferencesDefaults,
@@ -127,6 +129,7 @@ export class ConfigurationManager {
                 ...defaultNotifications,
                 ...notifications,
             },
+            vship: vship ?? defaultVship,
         };
 
         return {

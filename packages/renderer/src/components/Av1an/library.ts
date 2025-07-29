@@ -18,6 +18,7 @@ import {
 // import { getComponents as getAOMGlobalComponents } from './AOM/AOMGlobal';
 
 import { getComponents as getSVTGeneralComponents } from './SVT/SVTGeneral';
+import { getComponents as getSVTColorComponents } from './SVT/SVTColor';
 import { getComponents as getSVTGlobalComponents } from './SVT/SVTGlobal';
 import { getComponents as getSVTGOPComponents } from './SVT/SVTGOP';
 import { getComponents as getSVTRateControlComponents } from './SVT/SVTRateControl';
@@ -48,6 +49,7 @@ export {
     getAv1anEncodingCustomComponents,
     getAddAv1anEncodingCustomComponents,
     getSVTGeneralComponents,
+    getSVTColorComponents,
     getSVTGlobalComponents,
     getSVTGOPComponents,
     getSVTRateControlComponents,

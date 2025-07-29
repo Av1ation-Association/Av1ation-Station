@@ -120,7 +120,7 @@ export function registerSDK(window: BrowserWindow) {
             if (!fs.existsSync(task.item.Av1an.temporary.path)) {
                 return '';
             }
-            return fs.promises.readFile(path.resolve(task.item.Av1an.temporary.path, 'log.log'), 'utf-8');
+            return fs.promises.readFile(task.item.Av1an.logging?.path ?? path.resolve(task.item.Av1an.temporary.path, '../av1an.log'), 'utf-8');
         },
     } satisfies ClientSDK;
 }

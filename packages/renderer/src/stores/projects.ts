@@ -194,7 +194,7 @@ export const useProjectsStore = defineStore('projects', {
             const tasks = await Promise.all(inputFilePaths.map(async inputFilePath => {
                 const newTask = await window.projectsApi['create-queue-item']();
                 const inputFileName = await window.configurationsApi['path-basename'](inputFilePath, true);
-                const { outputFilePath, temporaryFolderPath, scenesFilePath } = await this.buildDefaultTaskPaths(project, newTask.id, inputFilePath);
+                const { outputFilePath, temporaryFolderPath, scenesFilePath, logsFilePath } = await this.buildDefaultTaskPaths(project, newTask.id, inputFilePath);
                 const outputFileName = await window.configurationsApi['path-basename'](outputFilePath, true);
                 const task: Task = {
                     ...newTask,
@@ -218,6 +218,9 @@ export const useProjectsStore = defineStore('projects', {
                             },
                             scenes: {
                                 path: scenesFilePath,
+                            },
+                            logging: {
+                                path: logsFilePath,
                             },
                         },
                         Av1anCustom: {},
@@ -307,11 +310,13 @@ export const useProjectsStore = defineStore('projects', {
             }
 
             const scenesFilePath = await window.configurationsApi['resolve-path'](temporaryFolderPath, '../scenes.json');
+            const logsFilePath = await window.configurationsApi['resolve-path'](temporaryFolderPath, '../av1an.log');
 
             return {
                 outputFilePath,
                 temporaryFolderPath,
                 scenesFilePath,
+                logsFilePath,
             };
         },
         async registerTaskListeners() {
@@ -454,6 +459,27 @@ export const useProjectsStore = defineStore('projects', {
                 ...combinedAv1an,
                 encoding: combinedEncoding,
             } as Defaults['Av1anCustom'];
+        },
+        async resetTaskState(task: Task) {
+            const taskIndex = this.projects[this.projects.findIndex(p => p.id === task.projectId)].tasks.findIndex(pTask => pTask.id === task.id);
+    
+            if (taskIndex === -1) {
+                return;
+            }
+    
+            const projectIndex = this.projects.findIndex(p => p.id === task.projectId);
+
+            // Add new status with the state 'cancelled'
+            this.projects[projectIndex].tasks[taskIndex].statusHistory.push({
+                state: 'cancelled',
+                time: new Date(),
+            });
+
+            // Reset updatedAt
+            this.projects[projectIndex].tasks[taskIndex].updatedAt = new Date();
+
+            // Save Project File
+            await this.saveProject(toRaw(this.projects[projectIndex]), false);
         },
         async resetTask(task: Task, saveProject = true) {
             const taskIndex = this.projects[this.projects.findIndex(p => p.id === task.projectId)].tasks.findIndex(pTask => pTask.id === task.id);

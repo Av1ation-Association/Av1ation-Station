@@ -88,4 +88,8 @@ export const api = {
         return ipcRenderer.invoke('notify', ...args) as
             Promise<ReturnType<ReturnType<typeof registerSDK>['notify']>>;
     },
+    'configure-vship-install': (...args: Parameters<OmitFirstArg<ReturnType<typeof registerSDK>['configure-vship-install']>>) => {
+        return ipcRenderer.invoke('configure-vship-install', ...args) as
+            Promise<ReturnType<ReturnType<typeof registerSDK>['configure-vship-install']>>;
+    },
 } satisfies ClientAPI<ReturnType<typeof registerSDK>>;

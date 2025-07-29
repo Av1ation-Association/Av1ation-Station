@@ -26,7 +26,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: configurationsStore.defaults.Av1an.input?.type,
+                value: configurationsStore.defaults.Av1an.input?.type === Av1anInputLocationType.Custom ? configurationsStore.defaults.Av1an.input.customFolder : configurationsStore.defaults.Av1an.input?.type,
                 clearable: !!project,
                 options: [
                     {  label: 'Videos', value: Av1anInputLocationType.Videos },
@@ -93,7 +93,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: configurationsStore.defaults.Av1an.output?.type,
+                value: configurationsStore.defaults.Av1an.output?.type === Av1anOutputLocationType.Custom ? configurationsStore.defaults.Av1an.output.customFolder : configurationsStore.defaults.Av1an.output?.type,
                 clearable: !!project,
                 options: [
                     { label: 'Input Adjacent', value: Av1anOutputLocationType.InputAdjacent },
@@ -171,7 +171,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         component: h(
             NSelect,
             {
-                value: configurationsStore.defaults.Av1an.temporary?.type,
+                value: configurationsStore.defaults.Av1an.temporary?.type === Av1anTemporaryLocationType.Custom ? configurationsStore.defaults.Av1an.temporary.customFolder : configurationsStore.defaults.Av1an.temporary?.type,
                 clearable: !!project,
                 options: [
                     { label: 'Input Adjacent Av1an Folder', value: Av1anTemporaryLocationType.InputAdjacentAv1anFolder },

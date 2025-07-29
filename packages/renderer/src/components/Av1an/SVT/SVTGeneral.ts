@@ -355,6 +355,9 @@ export function getComponents(): FormInputComponent[] {
                 },
                 // placeholder: 'None (0)',
                 placeholder: parentAv1an.encoding?.encoder === Encoder.svt ? parentAv1an.encoding.progress === 0 ? 'None (0)' : parentAv1an.encoding.progress === 1 ? 'Default (1)' : parentAv1an.encoding.progress === 2 ? 'AOM Style (2)' : 'PSY Style (3)' : 'None (0)',
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.encoding?.progress;
+                },
             },
         ),
         disable: () => {

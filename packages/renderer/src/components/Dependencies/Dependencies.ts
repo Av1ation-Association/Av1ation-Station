@@ -65,6 +65,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customDgdecnvPath = configurationsStore.preferences.dependencyPaths.dgdecnv?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.dgdecnv.path : undefined;
     const dgdecnv: FormInputComponent = {
         label: 'DGDecNv',
         path: 'dgdecnv',
@@ -75,7 +76,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customDgdecnvPath ? ` (${customDgdecnvPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.dgdecnv.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -131,6 +132,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    // const customAv1anPath = configurationsStore.preferences.dependencyPaths.av1an?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.av1an.path : undefined;
     const av1an: FormInputComponent = {
         label: 'Av1an',
         path: 'av1an',
@@ -141,7 +143,8 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    // { label: `Custom${customAv1anPath ? ` (${customAv1anPath})`: ''}`, value: DependencyType.Custom },
+                    { label: `Custom`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.av1an.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -196,6 +199,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customFFmpegPath = configurationsStore.preferences.dependencyPaths.ffmpeg?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.ffmpeg.path : undefined;
     const ffmpeg: FormInputComponent = {
         label: 'FFmpeg',
         path: 'ffmpeg',
@@ -206,7 +210,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customFFmpegPath ? ` (${customFFmpegPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.ffmpeg.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -261,6 +265,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customMKVToolNixPath = configurationsStore.preferences.dependencyPaths.mkvtoolnix?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.mkvtoolnix.path : undefined;
     const mkvtoolnix: FormInputComponent = {
         label: 'MKVToolNix',
         path: 'mkvtoolnix',
@@ -271,7 +276,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customMKVToolNixPath ? ` (${customMKVToolNixPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.mkvtoolnix.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -326,6 +331,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customAomPath = configurationsStore.preferences.dependencyPaths.aom?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.aom.path : undefined;
     const aom: FormInputComponent = {
         label: 'AOM',
         path: 'aom',
@@ -336,7 +342,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customAomPath ? ` (${customAomPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.aom.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -391,6 +397,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customSVTPath = configurationsStore.preferences.dependencyPaths.svt?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.svt.path : undefined;
     const svt: FormInputComponent = {
         label: 'SVT',
         path: 'svt',
@@ -401,7 +408,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customSVTPath ? ` (${customSVTPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.svt.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -456,6 +463,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customRav1ePath = configurationsStore.preferences.dependencyPaths.rav1e?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.rav1e.path : undefined;
     const rav1e: FormInputComponent = {
         label: 'Rav1e',
         path: 'rav1e',
@@ -466,7 +474,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customRav1ePath ? ` (${customRav1ePath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.rav1e.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -521,6 +529,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customVPXPath = configurationsStore.preferences.dependencyPaths.vpx?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.vpx.path : undefined;
     const vpx: FormInputComponent = {
         label: 'VPX',
         path: 'vpx',
@@ -531,7 +540,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customVPXPath ? ` (${customVPXPath})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.vpx.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -586,6 +595,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customX264Path = configurationsStore.preferences.dependencyPaths.x264?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.x264.path : undefined;
     const x264: FormInputComponent = {
         label: 'x264',
         path: 'x264',
@@ -596,7 +606,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customX264Path ? ` (${customX264Path})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.x264.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {
@@ -651,6 +661,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
         },
     };
 
+    const customX265Path = configurationsStore.preferences.dependencyPaths.x265?.type === DependencyType.Custom ? configurationsStore.preferences.dependencyPaths.x265.path : undefined;
     const x265: FormInputComponent = {
         label: 'x265',
         path: 'x265',
@@ -661,7 +672,7 @@ export function getComponents(project?: Project): FormInputComponent[] {
                 options: [
                     { label: 'System', value: DependencyType.System },
                     { label: 'Packaged', value: DependencyType.Packaged },
-                    { label: 'Custom', value: DependencyType.Custom },
+                    { label: `Custom${customX265Path ? ` (${customX265Path})`: ''}`, value: DependencyType.Custom },
                 ],
                 placeholder: DependencyTypeToString(configStore.config.preferences.dependencyPaths.x265.type),
                 onUpdateValue: async (value?: DependencyType.System | DependencyType.Packaged | DependencyType.Custom) => {

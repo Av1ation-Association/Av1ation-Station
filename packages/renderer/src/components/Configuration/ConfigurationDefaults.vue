@@ -42,6 +42,7 @@ import {
     getAv1anEncodingCustomComponents,
     getAddAv1anEncodingCustomComponents,
     getSVTGeneralComponents,
+    getSVTColorComponents,
     getSVTGlobalComponents,
     getSVTGOPComponents,
     getSVTRateControlComponents,
@@ -242,7 +243,7 @@ async function copyToClipboard(text: string) {
                         project: project ? projects[projectIndex] : undefined,
                     }"
                     :sections="[
-                        { label: 'General', formInputComponents: getAv1anGeneralComponents() },
+                        { label: 'General', formInputComponents: getAv1anGeneralComponents(task) },
                         { label: 'Scenes', formInputComponents: getAv1anScenesComponents(task) },
                         { label: 'Encoding', formInputComponents: getAv1anEncodingComponents() },
                         { label: 'Chunking', formInputComponents: getAv1anChunkingComponents() },
@@ -279,6 +280,7 @@ async function copyToClipboard(text: string) {
                     }"
                     :sections="[
                         { label: 'General', formInputComponents: getSVTGeneralComponents() },
+                        { label: 'Color', formInputComponents: getSVTColorComponents() },
                         { label: 'Global', formInputComponents: getSVTGlobalComponents() },
                         { label: 'Rate Control', formInputComponents: getSVTRateControlComponents() },
                         { label: 'GOP', formInputComponents: getSVTGOPComponents() },
@@ -290,7 +292,7 @@ async function copyToClipboard(text: string) {
             </NTabPane>
             <NTabPane
                 name="rav1e"
-                tab="RAV1E"
+                tab="rav1e"
                 :disabled="(configurationsStore.defaults.Av1an.encoding?.encoder !== undefined &&configurationsStore.defaults.Av1an.encoding.encoder !== Encoder.rav1e) || (configurationsStore.parentAv1an.encoding?.encoder !== Encoder.rav1e) || !configurationsStore.parentAv1an.encoding.encoder"
             >
                 <DefaultsFormGrid
@@ -371,7 +373,7 @@ async function copyToClipboard(text: string) {
         <NInput
             :value="`av1an ${(showAv1anPrintFriendlyCommand ? av1anCommand.printFriendlyArguments : av1anCommand.arguments).join(' ')}`"
             type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
+            :autosize="{ minRows: 10, maxRows: 20 }"
             readonly
         >
             <template #suffix>

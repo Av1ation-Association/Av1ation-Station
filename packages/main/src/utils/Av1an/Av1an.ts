@@ -104,6 +104,14 @@ export class Av1an extends EventEmitter {
         ];
 
         if (options.Av1an) {
+            if (options.Av1an.proxy) {
+                av1anArguments.push('--proxy', options.Av1an.proxy);
+                av1anPrintFriendlyArguments.push('--proxy', `"${options.Av1an.proxy}"`);
+            }
+            if (options.Av1an.vspipeArguments) {
+                av1anArguments.push('--vspipe-args', options.Av1an.vspipeArguments);
+                av1anPrintFriendlyArguments.push('--vspipe-args', options.Av1an.vspipeArguments);
+            }
             if (options.Av1an.overwriteOutput) {
                 const arg = options.Av1an.overwriteOutput === OutputOverwrite.yes ? '-y' : '-n';
                 av1anArguments.push(arg);
@@ -206,6 +214,10 @@ export class Av1an extends EventEmitter {
                     av1anArguments.push('--min-scene-len', `${options.Av1an.scenes.minimumSceneLengthFrames}`);
                     av1anPrintFriendlyArguments.push('--min-scene-len', `${options.Av1an.scenes.minimumSceneLengthFrames}`);
                 }
+                if (options.Av1an.scenes.forcedKeyframes) {
+                    av1anArguments.push('--force-keyframes', options.Av1an.scenes.forcedKeyframes);
+                    av1anPrintFriendlyArguments.push('--force-keyframes', options.Av1an.scenes.forcedKeyframes);
+                }
                 if (options.Av1an.scenes.ignoreFrameMismatch) {
                     av1anArguments.push('--ignore-frame-mismatch');
                     av1anPrintFriendlyArguments.push('--ignore-frame-mismatch');
@@ -213,11 +225,15 @@ export class Av1an extends EventEmitter {
             }
 
             if (options.Av1an.encoding && Object.keys(options.Av1an.encoding).length) {
-                const { encoder, force, passes, FFmpegAudioParameters, FFmpegFilterOptions, ...encoderParameters } = options.Av1an.encoding;
+                const { encoder, noDefaults, force, passes, FFmpegAudioParameters, FFmpegFilterOptions, ...encoderParameters } = options.Av1an.encoding;
 
                 if (encoder) {
                     av1anArguments.push('--encoder', encoder);
                     av1anPrintFriendlyArguments.push('--encoder', encoder);
+                }
+                if (noDefaults) {
+                    av1anArguments.push('--no-defaults');
+                    av1anPrintFriendlyArguments.push('--no-defaults');
                 }
                 if (force) {
                     av1anArguments.push('--force');
@@ -314,6 +330,18 @@ export class Av1an extends EventEmitter {
                 av1anArguments.push('--photon-noise', `${options.Av1an.photonNoise}`);
                 av1anPrintFriendlyArguments.push('--photon-noise', `${options.Av1an.photonNoise}`);
             }
+            if (options.Av1an.photonNoiseWidth) {
+                av1anArguments.push('--photon-noise-width', `${options.Av1an.photonNoiseWidth}`);
+                av1anPrintFriendlyArguments.push('--photon-noise-width', `${options.Av1an.photonNoiseWidth}`);
+            }
+            if (options.Av1an.photonNoiseHeight) {
+                av1anArguments.push('--photon-noise-height', `${options.Av1an.photonNoiseHeight}`);
+                av1anPrintFriendlyArguments.push('--photon-noise-height', `${options.Av1an.photonNoiseHeight}`);
+            }
+            if (options.Av1an.chromaNoise) {
+                av1anArguments.push('--chroma-noise', `${options.Av1an.chromaNoise}`);
+                av1anPrintFriendlyArguments.push('--chroma-noise', `${options.Av1an.chromaNoise}`);
+            }
 
             if (options.Av1an.zones) {
                 av1anArguments.push('--zones', options.Av1an.zones);
@@ -340,8 +368,14 @@ export class Av1an extends EventEmitter {
             }
 
             if (options.Av1an.targetQuality && Object.keys(options.Av1an.targetQuality).length) {
-                av1anArguments.push('--target-quality', `${options.Av1an.targetQuality.targetVMAFScore}`);
-                av1anPrintFriendlyArguments.push('--target-quality', `${options.Av1an.targetQuality.targetVMAFScore}`);
+                if (options.Av1an.targetQuality.target) {
+                    av1anArguments.push('--target-quality', `${options.Av1an.targetQuality.target.minimum}-${options.Av1an.targetQuality.target.maximum}`);
+                    av1anPrintFriendlyArguments.push('--target-quality', `${options.Av1an.targetQuality.target.minimum}-${options.Av1an.targetQuality.target.maximum}`);
+                }
+                if (options.Av1an.targetQuality.metric) {
+                    av1anArguments.push('--target-metric', `${options.Av1an.targetQuality.metric}`);
+                    av1anPrintFriendlyArguments.push('--target-metric', `${options.Av1an.targetQuality.metric}`);
+                }
 
                 if (options.Av1an.targetQuality.maximumProbes) {
                     av1anArguments.push('--probes', `${options.Av1an.targetQuality.maximumProbes}`);
@@ -351,17 +385,57 @@ export class Av1an extends EventEmitter {
                     av1anArguments.push('--probing-rate', `${options.Av1an.targetQuality.probingFrameRate}`);
                     av1anPrintFriendlyArguments.push('--probing-rate', `${options.Av1an.targetQuality.probingFrameRate}`);
                 }
-                if (options.Av1an.targetQuality.probeSlow) {
-                    av1anArguments.push('--probe-slow');
-                    av1anPrintFriendlyArguments.push('--probe-slow');
+                if (options.Av1an.targetQuality.probeVideoParameters) {
+                    if (options.Av1an.targetQuality.probeVideoParameters.copy) {
+                        av1anArguments.push('--probe-video-params', 'copy');
+                        av1anPrintFriendlyArguments.push('--probe-video-params', 'copy');
+                    } else {
+                        let videoParams = '';
+
+                        switch (options.Av1an.encoding?.encoder) {
+                            case Encoder.svt: {
+                                videoParams = Object.entries(options.Av1an.targetQuality.probeVideoParameters.parameters as unknown as SVTParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
+                                break;
+                            }
+                            case Encoder.rav1e: {
+                                videoParams = Object.entries(options.Av1an.targetQuality.probeVideoParameters.parameters as Rav1eParameters).map(([key, value]) => `--${key} ${value}`).join(' ');
+                                break;
+                            }
+                            case Encoder.vpx: {
+                                videoParams = Object.entries(options.Av1an.targetQuality.probeVideoParameters.parameters as VpxParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
+                                break;
+                            }
+                            default:
+                            case Encoder.aom: {
+                                videoParams = Object.entries(options.Av1an.targetQuality.probeVideoParameters.parameters as AOMParameters).map(([key, value]) => `--${key}=${value}`).join(' ');
+                                break;
+                            }
+                        }
+
+                        av1anArguments.push('--probe-video-params', videoParams);
+                        av1anPrintFriendlyArguments.push('--probe-video-params', `"${videoParams}"`);
+                    }
                 }
-                if (options.Av1an.targetQuality.minimumQ) {
-                    av1anArguments.push('--min-q', `${options.Av1an.targetQuality.minimumQ}`);
-                    av1anPrintFriendlyArguments.push('--min-q', `${options.Av1an.targetQuality.minimumQ}`);
+                if (options.Av1an.targetQuality.quantizerRange) {
+                    av1anArguments.push('--qp-range', `${options.Av1an.targetQuality.quantizerRange.minimum}-${options.Av1an.targetQuality.quantizerRange.maximum}`);
+                    av1anPrintFriendlyArguments.push('--qp-range', `${options.Av1an.targetQuality.quantizerRange.minimum}-${options.Av1an.targetQuality.quantizerRange.maximum}`);
                 }
-                if (options.Av1an.targetQuality.maximumQ) {
-                    av1anArguments.push('--max-q', `${options.Av1an.targetQuality.maximumQ}`);
-                    av1anPrintFriendlyArguments.push('--max-q', `${options.Av1an.targetQuality.maximumQ}`);
+                if (options.Av1an.targetQuality.probeResolution) {
+                    av1anArguments.push('--probe-res', `${options.Av1an.targetQuality.probeResolution}`);
+                    av1anPrintFriendlyArguments.push('--probe-res', `${options.Av1an.targetQuality.probeResolution}`);
+                }
+                if (options.Av1an.targetQuality.probeStatistic) {
+                    av1anArguments.push('--probing-stat', `${options.Av1an.targetQuality.probeStatistic.name}${options.Av1an.targetQuality.probeStatistic.value ? `=${options.Av1an.targetQuality.probeStatistic.value}` : ``}`);
+                    av1anPrintFriendlyArguments.push('--probing-stat', `${options.Av1an.targetQuality.probeStatistic.name}${options.Av1an.targetQuality.probeStatistic.value ? `=${options.Av1an.targetQuality.probeStatistic.value}` : ``}`);
+                }
+                if (options.Av1an.targetQuality.interpolationMethod) {
+                    av1anArguments.push('--interp-method', `${options.Av1an.targetQuality.interpolationMethod.pass4}-${options.Av1an.targetQuality.interpolationMethod.pass5}`);
+                    av1anPrintFriendlyArguments.push('--interp-method', `${options.Av1an.targetQuality.interpolationMethod.pass4}-${options.Av1an.targetQuality.interpolationMethod.pass5}`);
+                }
+                if (options.Av1an.targetQuality.VMAFFeatures) {
+                    const features = Array.from(options.Av1an.targetQuality.VMAFFeatures);
+                    av1anArguments.push('--probing-vmaf-features', ...features);
+                    av1anPrintFriendlyArguments.push('--probing-vmaf-features', ...features);
                 }
             }
         }
@@ -579,7 +653,7 @@ export class Av1an extends EventEmitter {
         }
 
         return new Promise<void>((resolve, reject) => {
-            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) } });
+            this.childProcess = spawn('av1an', Av1an.BuildArguments(this.options).arguments, { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, Path: Av1an.BuildEnvironmentPath(this.environment) }, cwd: path.resolve(this.options.Av1an.temporary.path, '../') });
 
             this.childProcess.on('close', (code) => {
                 switch (code) {
@@ -654,7 +728,7 @@ export class Av1an extends EventEmitter {
                 const temporaryPath = this.options.Av1an.temporary.path;
                 const doneJsonFilePath = path.resolve(temporaryPath, 'done.json');
                 const chunksJsonFilePath = path.resolve(temporaryPath, 'chunks.json');
-                const logFilePath = path.resolve(temporaryPath, 'log.log');
+                const logFilePath = this.options.Av1an.logging?.path ?? path.resolve(temporaryPath, '../log.log');
 
                 // Instantiate chunks.json and done.json in case temporary folder already exists (resuming a previous run)
                 if (fs.existsSync(chunksJsonFilePath)) {
@@ -728,6 +802,7 @@ export class Av1an extends EventEmitter {
                                     },
                                 });
                             }
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         } catch (_error) {
                             // Av1an writes to done.json multiple times with invalid json - ignore these instances
                             return;

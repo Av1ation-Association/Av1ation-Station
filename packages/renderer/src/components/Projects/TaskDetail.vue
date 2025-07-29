@@ -28,6 +28,7 @@ import {
     ResetAlt as ResetIcon,
     DocumentView as ViewLogsIcon,
     Reset as ResetIconCircle,
+    Redo as ResetStateIcon,
 } from '@vicons/carbon';
 import { type Project, type Task } from '../../../../shared/src/data/Projects';
 import { useProjectsStore } from '../../stores/projects';
@@ -100,6 +101,13 @@ async function handleDropdownSelect(key: string) {
 function generateProgressDropdownOptions(): DropdownOption[] {
     return [
         {
+            label: 'Reset Progress State',
+            key: 'reset-state',
+            disabled: (projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing' && projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId === projectsStore.projects[projectIndex].tasks[taskIndex].id) || projectsStore.projects[projectIndex].tasks[taskIndex].statusHistory[projectsStore.projects[projectIndex].tasks[taskIndex].statusHistory.length - 1].state !== 'error',
+            icon: () => h(NIcon, null, { default: () => h(ResetStateIcon) }),
+
+        },
+        {
             label: 'Reset Progress',
             key: 'reset',
             disabled: projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing' && projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId === projectsStore.projects[projectIndex].tasks[taskIndex].id,
@@ -115,6 +123,9 @@ function generateProgressDropdownOptions(): DropdownOption[] {
 }
 async function handleProgressDropdownSelect(key: string) {
     switch (key) {
+        case 'reset-state':
+            await projectsStore.resetTaskState(projectsStore.projects[projectIndex].tasks[taskIndex]);
+            break;
         case 'reset':
             await projectsStore.resetTask(projectsStore.projects[projectIndex].tasks[taskIndex]);
             break;

@@ -31,6 +31,7 @@ import {
     CheckboxIndeterminate,
     CheckboxChecked,
     ResetAlt,
+    Redo as ResetState,
     Code as ScriptIcon,
     PlayFilledAlt as StartIcon,
     StopFilledAlt as StopIcon,
@@ -144,6 +145,12 @@ function generateTaskDropdownOptions(task: Task): DropdownOption[] {
             icon: () => h(NIcon, null, { default: () => h(CopyIcon) }),
         },
         {
+            label: 'Reset State',
+            key: 'resetstate',
+            disabled: (projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing' && projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId === task.id) || task.statusHistory[task.statusHistory.length - 1].state !== 'error',
+            icon: () => h(NIcon, null, { default: () => h(ResetState) }),
+        },
+        {
             label: 'Reset Progress',
             key: 'resetprogress',
             disabled: projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].status === 'processing' && projectsStore.projectQueueMap[projectsStore.projects[projectIndex].id].taskId === task.id,
@@ -173,6 +180,10 @@ async function handleTaskDropdownSelect(task: Task, key: string) {
             }
 
             await window.configurationsApi['copy-to-clipboard'](`av1an ${args.printFriendlyArguments.join(' ')}`);
+            break;
+        }
+        case 'resetstate': {
+            await projectsStore.resetTaskState(task);
             break;
         }
         case 'resetprogress': {

@@ -2,6 +2,7 @@ import { h } from 'vue';
 import {
     NInputNumber,
     NSelect,
+    NSlider,
 } from 'naive-ui';
 import { type ConfigurationType } from '../../../../../shared/src/data/Configuration';
 import { Encoder } from '../../../../../shared/src/data/Types/Options';
@@ -12,6 +13,67 @@ export function getComponents(): FormInputComponent[] {
     const configurationsStore = useConfigurationsStore<ConfigurationType.Task, Encoder.svt>();
     const parentAv1an = configurationsStore.parentAv1an;
     const previousAv1an = configurationsStore.previousDefaults.Av1an;
+
+    const profile = {
+        label: 'Profile',
+        path: 'encoding.profile',
+        advanced: true,
+        component: h(
+            NSelect,
+            {
+                value: configurationsStore.defaults.Av1an.encoding?.profile,
+                clearable: true,
+                options: [
+                    { label: 'Main (0)', value: 0 },
+                    { label: 'High (1)', value: 1 },
+                    { label: 'Professional (2)', value: 2 },
+                ],
+                onUpdateValue: (value?: number) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
+                            encoder: Encoder.svt,
+                        };
+                    }
+
+                    if (value !== null) {
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding.tune === value) {
+                            delete configurationsStore.defaults.Av1an.encoding.tune;
+                        } else {
+                            configurationsStore.defaults.Av1an.encoding.tune = value;
+                        }
+                    }
+                },
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding?.profile === 0 ? 'Main (0)' : parentAv1an?.encoding?.profile === 1 ? 'High (1)' : parentAv1an?.encoding?.profile === 2 ? 'Professional (2)' : 'Main (0)' : 'Main (0)',
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.encoding?.profile;
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            configurationsStore.defaults.Av1an.encoding.profile = null;
+        },
+        disabled: () => {
+            return configurationsStore.defaults.Av1an.encoding?.profile === null;
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.encoding?.profile;
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding.profile === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.profile !== undefined;
+            } else if (previousAv1an.encoding.profile !== configurationsStore.defaults.Av1an.encoding?.profile) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
 
     const tune = {
         label: 'Tune',
@@ -74,8 +136,8 @@ export function getComponents(): FormInputComponent[] {
         },
     };
 
-    const logicalProcessors = {
-        label: 'Logical Processors',
+    const levelOfParallelism = {
+        label: 'Level of Parallelism',
         path: 'encoding.lp',
         component: h(
             NInputNumber,
@@ -83,6 +145,7 @@ export function getComponents(): FormInputComponent[] {
                 value: configurationsStore.defaults.Av1an.encoding?.lp,
                 clearable: true,
                 min: 0,
+                max: 6,
                 // defaultValue: configurationsStore.defaults.Av1an.threadAffinity ?? 0,
                 onUpdateValue: (value) => {
                     if (!configurationsStore.defaults.Av1an.encoding) {
@@ -99,7 +162,7 @@ export function getComponents(): FormInputComponent[] {
                         }
                     }
                 },
-                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding?.lp?.toString() ?? '0 (all)' : '0 (all)',
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding?.lp?.toString() ?? 'Based on CPU Core Count' : 'Based on CPU Core Count',
                 onClear: () => {
                     delete configurationsStore.defaults.Av1an.encoding?.lp;
                 },
@@ -134,6 +197,7 @@ export function getComponents(): FormInputComponent[] {
     const inputDepth = {
         label: 'Input Depth',
         path: `encoding['input-depth']`,
+        advanced: true,
         component: h(
             NSelect,
             {
@@ -367,6 +431,7 @@ export function getComponents(): FormInputComponent[] {
     const fps = {
         label: 'Framerate (FPS)',
         path: 'encoding.fps',
+        advanced: true,
         component: h(
             NInputNumber,
             {
@@ -481,7 +546,7 @@ export function getComponents(): FormInputComponent[] {
     };
 
     const fastDecode = {
-        label: 'Enable Fast Decode',
+        label: 'Fast Decode',
         path: `encoding['fast-decode']`,
         component: h(
             NSelect,
@@ -489,8 +554,9 @@ export function getComponents(): FormInputComponent[] {
                 value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['fast-decode'] : undefined,
                 clearable: true,
                 options: [
-                    { label: 'No (0)', value: 0 },
-                    { label: 'Yes (1)', value: 1 },
+                    { label: 'Off (0)', value: 0 },
+                    { label: 'Fast (1)', value: 1 },
+                    { label: 'Faster (2)', value: 2 },
                 ],
                 onUpdateValue: (value?: number) => {
                     if (!configurationsStore.defaults.Av1an.encoding) {
@@ -507,7 +573,7 @@ export function getComponents(): FormInputComponent[] {
                         }
                     }
                 },
-                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['fast-decode'] === 1 ? 'Yes (1)' : 'No (0)' : 'No (0)',
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['fast-decode'] === 1 ? 'Fast (1)' : parentAv1an.encoding['fast-decode'] === 2 ? 'Faster (2)' : 'Off (0)' : 'Off (0)',
                 onClear: () => {
                     delete configurationsStore.defaults.Av1an.encoding?.['fast-decode'];
                 },
@@ -539,9 +605,125 @@ export function getComponents(): FormInputComponent[] {
         },
     };
 
+    const max32TxSize = {
+        label: 'Maximum 32x32 Block Transform Size (PSY Only)',
+        path: `encoding['max-32-tx-size']`,
+        advanced: true,
+        component: h(
+            NSelect,
+            {
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['max-32-tx-size'] : undefined,
+                clearable: true,
+                options: [
+                    { label: 'Disabled (0)', value: 0 },
+                    { label: 'Enabled (1)', value: 1 },
+                ],
+                onUpdateValue: (value?: number) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
+                            encoder: Encoder.svt,
+                        };
+                    }
+
+                    if (value !== null) {
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['max-32-tx-size'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['max-32-tx-size'];
+                        } else {
+                            configurationsStore.defaults.Av1an.encoding['max-32-tx-size'] = value;
+                        }
+                    }
+                },
+                placeholder: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['max-32-tx-size'] === 1 ? 'Enabled (1)' : 'Disabled (0)' : 'Disabled (0)',
+                onClear: () => {
+                    delete configurationsStore.defaults.Av1an.encoding?.['max-32-tx-size'];
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+
+            configurationsStore.defaults.Av1an.encoding['max-32-tx-size'] = null;
+        },
+        disabled: () => {
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['max-32-tx-size']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.encoding?.['max-32-tx-size'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['max-32-tx-size'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['max-32-tx-size'] !== undefined;
+            } else if (previousAv1an.encoding['max-32-tx-size'] !== configurationsStore.defaults.Av1an.encoding?.['max-32-tx-size']) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
+    const noiseNormStrength = {
+        label: 'Noise Norm Strength (PSY Only)',
+        path: `encoding['noise-norm-strength']`,
+        advanced: true,
+        component: h(
+            NSlider,
+            {
+                value: configurationsStore.defaults.Av1an.encoding ? configurationsStore.defaults.Av1an.encoding['noise-norm-strength'] ?? undefined : undefined,
+                min: 0,
+                max: 4,
+                step: 1,
+                defaultValue: parentAv1an?.encoding?.encoder === Encoder.svt ? parentAv1an?.encoding['noise-norm-strength'] ?? 0 : 0,
+                onUpdateValue: (value?: number) => {
+                    if (!configurationsStore.defaults.Av1an.encoding) {
+                        configurationsStore.defaults.Av1an.encoding = {
+                            encoder: Encoder.svt,
+                        };
+                    }
+    
+                    if (value !== null) {
+                        if (parentAv1an?.encoding?.encoder === Encoder.svt && parentAv1an.encoding['noise-norm-strength'] === value) {
+                            delete configurationsStore.defaults.Av1an.encoding['noise-norm-strength'];
+                        } else {
+                            configurationsStore.defaults.Av1an.encoding['noise-norm-strength'] = value;
+                        }
+                    }
+                },
+            },
+        ),
+        disable: () => {
+            if (!configurationsStore.defaults.Av1an.encoding) {
+                configurationsStore.defaults.Av1an.encoding = {
+                    encoder: Encoder.svt,
+                };
+            }
+    
+            configurationsStore.defaults.Av1an.encoding['noise-norm-strength'] = null;
+        },
+        disabled: () => {
+            return !!configurationsStore.defaults.Av1an.encoding && JSON.stringify(configurationsStore.defaults.Av1an.encoding['noise-norm-strength']) === JSON.stringify(null);
+        },
+        reset: () => {
+            delete configurationsStore.defaults.Av1an.encoding?.['noise-norm-strength'];
+        },
+        isModified: () => {
+            if (!previousAv1an.encoding || previousAv1an.encoding['noise-norm-strength'] === undefined) {
+                return configurationsStore.defaults.Av1an.encoding?.['noise-norm-strength'] !== undefined;
+            } else if (previousAv1an.encoding['noise-norm-strength'] !== configurationsStore.defaults.Av1an.encoding?.['noise-norm-strength']) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+    };
+
     return [
+        profile,
         tune,
-        logicalProcessors,
+        levelOfParallelism,
         inputDepth,
         skip,
         bufferedInput,
@@ -549,5 +731,7 @@ export function getComponents(): FormInputComponent[] {
         fps,
         enableStatReport,
         fastDecode,
+        max32TxSize,
+        noiseNormStrength,
     ];
 }

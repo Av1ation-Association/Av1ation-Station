@@ -15,7 +15,7 @@ import {
     type ClientSDK,
 } from '../index.js';
 import { ConfigurationManager } from '../../data/Configuration/Configuration.js';
-import { type Configuration } from '../../../../shared/src/data/Configuration.js';
+import { VSHIPBackend, type Configuration } from '../../../../shared/src/data/Configuration.js';
 
 
 export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: AppCommand) => void) {
@@ -112,6 +112,43 @@ export function registerSDK(browserWindow: BrowserWindow, appCommand: (command: 
             });
 
             notification.show();
+        },
+        'configure-vship-install': async (_event: IpcMainInvokeEvent, backend: VSHIPBackend) => {
+            // Windows only
+            if (process.platform !== 'win32') {
+                return;
+            }
+
+            // Set resources if in development mode
+            const resourcesPath = import.meta.env.DEV ? path.resolve(app.getAppPath(), 'buildResources', 'win') : process.resourcesPath;
+
+            if (!fs.existsSync(path.resolve(resourcesPath, 'vapoursynth', 'vs-plugins'))) {
+                // No VapourSynth install or plugins folder found
+                return;
+            }
+
+            async function uninstallPrevious() {
+                // Delete the vship dll from Packaged VapourSynth install
+                await fs.promises.rm(path.resolve(resourcesPath, 'vapoursynth', 'vs-plugins', 'vship_NVIDIA.dll'), { force: true });
+                await fs.promises.rm(path.resolve(resourcesPath, 'vapoursynth', 'vs-plugins', 'vship_AMD.dll'), { force: true });
+            }
+
+            if (backend === VSHIPBackend.Disabled) {
+                await uninstallPrevious();
+            } else {
+                const vshipFileName = backend === VSHIPBackend.NVIDIA
+                    ? 'vship_NVIDIA.dll'
+                    : backend === VSHIPBackend.AMD
+                        ? 'vship_AMD.dll'
+                        : 'vship.dll';
+                const vshipFilePath = path.resolve(resourcesPath, 'vapoursynth', 'vs-plugins', 'vship', vshipFileName);
+
+                await uninstallPrevious();
+                if (fs.existsSync(vshipFilePath)) {
+                    // Copy DLL to vs-plugins
+                    await fs.promises.copyFile(vshipFilePath, path.resolve(resourcesPath, 'vapoursynth', 'vs-plugins', vshipFileName));
+                }
+            }
         },
     } satisfies ClientSDK;
 }

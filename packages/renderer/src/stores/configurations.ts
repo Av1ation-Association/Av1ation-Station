@@ -29,6 +29,7 @@ import {
     getSVTGlobalComponents,
     getSVTGOPComponents,
     getSVTRateControlComponents,
+    getSVTColorComponents,
 } from '../components/Av1an/library.js';
 import { type Encoder } from '../../../shared/src/data/Types/Options.js';
 import { useProjectsStore } from './projects.js';
@@ -50,6 +51,7 @@ interface ModifiedComponents {
     svtGOPComponents: FormInputComponent[];
     svtRateControlComponents: FormInputComponent[];
     svtAV1SpecificComponents: FormInputComponent[];
+    svtColorComponents: FormInputComponent[];
 }
 
 export const useConfigurationsStore = <T extends ConfigurationType, U extends Encoder = Encoder.aom>() => defineStore('configurations', {
@@ -81,6 +83,7 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
                 svtGOPComponents: [],
                 svtRateControlComponents: [],
                 svtAV1SpecificComponents: [],
+                svtColorComponents: [],
             } as ModifiedComponents,
         };
     },
@@ -180,9 +183,10 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
 
             const projectIndex = projectsStore.projects.findIndex(p => p.id === projectId);
             const taskIndex = projectIndex !== -1 ? projectsStore.projects[projectIndex].tasks.findIndex(t => t.id === taskId) : -1;
+            const task = taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined;
 
-            const av1anGeneralComponents = getAv1anGeneralComponents().filter(component => component.isModified());
-            const av1anScenesComponents = getAv1anScenesComponents(taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined).filter(component => component.isModified());
+            const av1anGeneralComponents = getAv1anGeneralComponents(task).filter(component => component.isModified());
+            const av1anScenesComponents = getAv1anScenesComponents(task).filter(component => component.isModified());
             const av1anChunkingComponents = getAv1anChunkingComponents().filter(component => component.isModified());
             const av1anVMAFComponents = getAv1anVMAFComponents().filter(component => component.isModified());
             const av1anTargetQualityComponents = getAv1anTargetQualityComponents().filter(component => component.isModified());
@@ -195,6 +199,7 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
             const svtGOPComponents = getSVTGOPComponents().filter(component => component.isModified());
             const svtRateControlComponents = getSVTRateControlComponents().filter(component => component.isModified());
             const svtAV1SpecificComponents = getSVTAV1SpecificComponents().filter(component => component.isModified());
+            const svtColorComponents = getSVTColorComponents().filter(component => component.isModified());
 
             if (taskIndex !== -1) {
                 return {
@@ -213,6 +218,7 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
                     svtGOPComponents,
                     svtRateControlComponents,
                     svtAV1SpecificComponents,
+                    svtColorComponents,
                 };
             } else {
                 // Evaluate FileLocations
@@ -238,6 +244,7 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
                     svtGOPComponents,
                     svtRateControlComponents,
                     svtAV1SpecificComponents,
+                    svtColorComponents,
                 };
             }
         },
@@ -259,6 +266,7 @@ export const useConfigurationsStore = <T extends ConfigurationType, U extends En
                 svtGOPComponents: modifiedComponents.svtGOPComponents,
                 svtRateControlComponents: modifiedComponents.svtRateControlComponents,
                 svtAV1SpecificComponents: modifiedComponents.svtAV1SpecificComponents,
+                svtColorComponents: modifiedComponents.svtColorComponents,
             };
 
             return this.modifiedComponents;

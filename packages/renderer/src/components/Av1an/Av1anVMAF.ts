@@ -139,7 +139,7 @@ export function getComponents(): FormInputComponent[] {
         isModified: () => {
             if (!previousAv1an.vmaf || previousAv1an.vmaf.resolution === undefined) {
                 return configurationsStore.defaults.Av1an.vmaf?.resolution !== undefined;
-            } else if (previousAv1an.vmaf.path !== configurationsStore.defaults.Av1an.vmaf?.resolution) {
+            } else if (previousAv1an.vmaf.resolution !== configurationsStore.defaults.Av1an.vmaf?.resolution) {
                 return true;
             } else {
                 return false;

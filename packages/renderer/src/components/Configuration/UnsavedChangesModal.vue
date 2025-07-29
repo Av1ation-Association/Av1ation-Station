@@ -38,6 +38,7 @@ import {
     getSVTGOPComponents,
     getSVTRateControlComponents,
     getSVTAV1SpecificComponents,
+    getSVTColorComponents,
 } from '../Av1an/library';
 
 const configStore = useGlobalStore();
@@ -55,6 +56,8 @@ const model = defineModel<{
 }>();
 
 const projectIndex = projectsStore.projects.findIndex(p => p.id === projectId);
+const taskIndex = projectIndex !== -1 ? projectsStore.projects[projectIndex].tasks.findIndex(t => t.id === taskId) : -1;
+const task = taskIndex !== -1 ? projectsStore.projects[projectIndex].tasks[taskIndex] : undefined;
 
 const configurationsStore = taskId
     ? useConfigurationsStore<ConfigurationType.Task>()
@@ -133,8 +136,8 @@ const configurationsStore = taskId
                         project: projectId ? projects[projectIndex] : undefined,
                     }"
                     :sections="[
-                        ...(configurationsStore.modifiedComponents.av1anGeneralComponents.length ? [{ label: 'General', formInputComponents: getAv1anGeneralComponents().filter(component => component.isModified()) }] : []),
-                        ...(configurationsStore.modifiedComponents.av1anScenesComponents.length ? [{ label: 'Scenes', formInputComponents: getAv1anScenesComponents().filter(component => component.isModified()) }] : []),
+                        ...(configurationsStore.modifiedComponents.av1anGeneralComponents.length ? [{ label: 'General', formInputComponents: getAv1anGeneralComponents(task).filter(component => component.isModified()) }] : []),
+                        ...(configurationsStore.modifiedComponents.av1anScenesComponents.length ? [{ label: 'Scenes', formInputComponents: getAv1anScenesComponents(task).filter(component => component.isModified()) }] : []),
                         ...(configurationsStore.modifiedComponents.av1anChunkingComponents.length ? [{ label: 'Chunking', formInputComponents: getAv1anChunkingComponents().filter(component => component.isModified()) }] : []),
                         ...(configurationsStore.modifiedComponents.av1anVMAFComponents.length ? [{ label: 'VMAF', formInputComponents: getAv1anVMAFComponents().filter(component => component.isModified()) }] : []),
                         ...(configurationsStore.modifiedComponents.av1anTargetQualityComponents.length ? [{ label: 'Target Quality', formInputComponents: getAv1anTargetQualityComponents().filter(component => component.isModified()) }] : []),
@@ -161,6 +164,7 @@ const configurationsStore = taskId
                         }"
                         :sections="[
                             ...(configurationsStore.modifiedComponents.svtGeneralComponents.length ? [{ label: 'General', formInputComponents: getSVTGeneralComponents().filter(component => component.isModified()) }] : []),
+                            ...(configurationsStore.modifiedComponents.svtColorComponents.length ? [{ label: 'Color', formInputComponents: getSVTColorComponents().filter(component => component.isModified()) }] : []),
                             ...(configurationsStore.modifiedComponents.svtGlobalComponents.length ? [{ label: 'Global', formInputComponents: getSVTGlobalComponents().filter(component => component.isModified()) }] : []),
                             ...(configurationsStore.modifiedComponents.svtRateControlComponents.length ? [{ label: 'Rate Control', formInputComponents: getSVTRateControlComponents().filter(component => component.isModified()) }] : []),
                             ...(configurationsStore.modifiedComponents.svtGOPComponents.length ? [{ label: 'GOP', formInputComponents: getSVTGOPComponents().filter(component => component.isModified()) }] : []),

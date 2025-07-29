@@ -38,6 +38,12 @@ export enum ConfigurationType {
     Task = 'Task',
 }
 
+export enum VSHIPBackend {
+    Disabled = 'disabled',
+    NVIDIA = 'NVIDIA',
+    AMD = 'AMD',
+}
+
 export interface CustomOption<T extends string | number | boolean | null | undefined = string | number | boolean | null | undefined> {
     name: string;
     flagPrefix: '-' | '--' | '' | string;
@@ -105,6 +111,7 @@ export interface ConfigPreferences extends Preferences<ConfigurationType.Config>
         os: boolean;
         app: boolean;
     };
+    vship: VSHIPBackend;
 }
 
 export interface Configuration {
