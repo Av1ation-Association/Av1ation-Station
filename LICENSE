@@ -1,0 +1,51 @@
+Av1ation Station is licensed under the GNU General Public License v3.0.
+
+The full text of the license is available at:
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+---
+
+Copyright (C) 2026 Av1ation Association
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+## Why GPL-3.0
+
+Av1ation Station links `andean-condor`, which is licensed under the
+GNU General Public License v3.0. Statically or dynamically linking a
+GPL-licensed library into an application makes the combined work a
+derivative work, which must be distributed under the same license.
+
+See docs/decisions.md (D12) for the full rationale.
+
+## Third-party components
+
+This application depends on the following GPL-licensed components:
+
+- andean-condor (BoatsMcGee/Av1an) — GPL-3.0
+- av-decoders — GPL-3.0
+- av-scenechange — GPL-3.0
+- av-metrics-vmaf, av-metrics-vship, av-metrics-fmetrics — GPL-3.0
+
+Each retains its own copyright and license notice. The source code for
+each is available from its respective upstream repository.
+
+## Source code offer
+
+The complete corresponding source code for this application, including
+all modifications, is available at:
+
+https://github.com/Av1ation-Association/Av1ation-Station

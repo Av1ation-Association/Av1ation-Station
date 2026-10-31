@@ -1,0 +1,74 @@
+# ---- Rust ----
+/target
+**/target
+Cargo.lock.bak
+*.pdb
+*.rlib
+
+# ---- Node ----
+node_modules/
+.pnp/
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Build output ----
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ---- Tauri ----
+/src-tauri/target
+/src-tauri/gen/schemas
+
+# ---- Test output ----
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+*.lcov
+.nyc_output/
+
+# ---- Editors / OS ----
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Local env / secrets ----
+.env
+.env.*
+!.env.example
+*.local
+*.key
+*.pem
+*.p12
+*.pfx
+!buildResources/**/*.p12
+
+# ---- Logs and caches ----
+*.log
+logs/
+.cache/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+
+# ---- Generated contracts (committed, but never hand-edited) ----
+# schema/ and packages/contracts/src/generated/ ARE committed — see docs/contracts.md
+
+# ---- Spikes (deleted once verdicts are recorded) ----
+spikes/*/target
+spikes/*/node_modules
+
+# ---- Vendor fallback for the engine dependency ----
+# vendor/av1an is committed if we reach that fallback — see docs/backend.md §2

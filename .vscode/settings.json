@@ -1,0 +1,57 @@
+{
+    "chat.disableAIFeatures": false,
+
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer",
+        "editor.formatOnSave": true
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+
+    "eslint.experimental.flatConfig": true,
+    "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+
+    "rust-analyzer.linkedProjects": [
+        "Cargo.toml",
+        "crates/engine/Cargo.toml",
+        "crates/service/Cargo.toml",
+        "crates/contracts/Cargo.toml"
+    ],
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.procMacro.enable": true,
+
+    "tailwindCSS.experimental.classRegex": [
+        ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+        ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    ],
+
+    "files.associations": {
+        "*.vpy": "python",
+        "*.rs": "rust"
+    },
+    "files.exclude": {
+        "**/target": true,
+        "**/node_modules": true,
+        "**/dist": true
+    },
+    "search.exclude": {
+        "**/target": true,
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/schema": true,
+        "**/packages/contracts/src/generated": true
+    },
+
+    "testing.automaticallyOpenTestResults": "never",
+    "vitest.enable": true,
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
+}

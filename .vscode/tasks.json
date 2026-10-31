@@ -1,0 +1,81 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "vite:dev",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*)\\((\\d+),(\\d+)\\): (error|warning) (.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "ready in"
+        }
+      },
+      "presentation": { "group": "dev", "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "service:headless",
+      "type": "cargo",
+      "command": "run",
+      "args": ["-p", "av1ation-service", "--bin", "av1ation-service", "--", "--headless", "--port", "0", "--fake-engine"],
+      "isBackground": true,
+      "problemMatcher": ["$rustc"],
+      "presentation": { "group": "dev", "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "contracts:generate",
+      "type": "npm",
+      "script": "contracts",
+      "problemMatcher": ["$tsc"],
+      "presentation": { "group": "build" }
+    },
+    {
+      "label": "test:unit",
+      "type": "npm",
+      "script": "test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "group": "test", "reveal": "always" }
+    },
+    {
+      "label": "test:e2e",
+      "type": "npm",
+      "script": "test:e2e",
+      "problemMatcher": [],
+      "presentation": { "group": "test", "reveal": "always" }
+    },
+    {
+      "label": "test:screenshots",
+      "type": "npm",
+      "script": "test:screenshots",
+      "problemMatcher": [],
+      "presentation": { "group": "test", "reveal": "always" }
+    },
+    {
+      "label": "lint:all",
+      "type": "shell",
+      "command": "npm run lint && cargo clippy --workspace --all-targets -- -D warnings",
+      "problemMatcher": ["$eslint-stylish", "$rustc"],
+      "presentation": { "group": "build" }
+    },
+    {
+      "label": "doctor",
+      "type": "npm",
+      "script": "doctor",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    }
+  ]
+}

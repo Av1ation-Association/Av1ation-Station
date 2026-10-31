@@ -1,0 +1,85 @@
+{
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Debug: Full Stack (Tauri + Vite + Service)",
+      "configurations": ["Debug Rust (Tauri)", "Debug Frontend (Chrome)"],
+      "stopAll": true,
+      "presentation": { "group": "fullstack", "order": 1 }
+    },
+    {
+      "name": "Debug: Headless Service + Frontend",
+      "configurations": ["Debug Service (headless)", "Debug Frontend (Chrome)"],
+      "stopAll": true,
+      "presentation": { "group": "fullstack", "order": 2 }
+    }
+  ],
+  "configurations": [
+    {
+      "name": "Debug Rust (Tauri)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--manifest-path", "./apps/desktop/src-tauri/Cargo.toml"],
+        "filter": { "name": "av1ation-desktop", "kind": "bin" }
+      },
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "RUST_BACKTRACE": "1",
+        "AV1ATION_LOG": "debug"
+      },
+      "preLaunchTask": "vite:dev",
+      "presentation": { "group": "fullstack" }
+    },
+    {
+      "name": "Debug Service (headless)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--manifest-path", "./crates/service/Cargo.toml", "--bin", "av1ation-service"],
+        "filter": { "name": "av1ation-service", "kind": "bin" }
+      },
+      "cwd": "${workspaceFolder}",
+      "args": ["--headless", "--port", "0", "--fake-engine"],
+      "env": {
+        "RUST_BACKTRACE": "1",
+        "AV1ATION_LOG": "debug",
+        "AV1ATION_DATA_DIR": "${workspaceFolder}/.dev-data"
+      },
+      "presentation": { "group": "fullstack" }
+    },
+    {
+      "name": "Debug Frontend (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:1420",
+      "webRoot": "${workspaceFolder}/apps/desktop",
+      "sourceMapPathOverrides": {
+        "webpack:///./~/*": "${workspaceFolder}/node_modules/*",
+        "webpack:///./*": "${workspaceFolder}/apps/desktop/*"
+      },
+      "skipFiles": ["**/node_modules/**"],
+      "presentation": { "group": "fullstack" }
+    },
+    {
+      "name": "Debug Frontend (LAN browser)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/apps/web",
+      "sourceMapPathOverrides": {
+        "webpack:///./~/*": "${workspaceFolder}/node_modules/*",
+        "webpack:///./*": "${workspaceFolder}/apps/web/*"
+      },
+      "skipFiles": ["**/node_modules/**"],
+      "presentation": { "group": "fullstack" }
+    },
+    {
+      "name": "Attach to Rust (Tauri dev)",
+      "type": "lldb",
+      "request": "attach",
+      "pid": "${command:pickProcess}",
+      "presentation": { "group": "fullstack" }
+    }
+  ]
+}

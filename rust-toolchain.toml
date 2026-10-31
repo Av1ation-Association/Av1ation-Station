@@ -1,0 +1,11 @@
+[toolchain]
+# Pinned because andean-condor requires edition 2024 (Rust 1.85+) and
+# declares rust-version = "1.97". See docs/backend.md §2.
+channel = "1.97"
+
+# Components needed for the workspace.
+components = ["rustfmt", "clippy", "rust-src"]
+
+# Only the host target is needed for development; release builds add
+# cross-compilation targets in Phase 6.
+targets = []
