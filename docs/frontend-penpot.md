@@ -40,7 +40,7 @@ Penpot pages have no per-file cap and no rate limit on the hosted service.
 
 | Page | Contents |
 | --- | --- |
-| `00 Foundations` | colour ramps, finishes, type scale, spacing, radius, elevation, motion, icon set, logo mark |
+| `00 Foundations` | colour ramps, finishes, type scale, spacing, radius, elevation, motion, icon set, logo mark, and the 1280×640 brand lockup |
 | `01 Components` | primitives and composed components with all variants and states |
 | `02 Shell` | top bar (way back, mark and wordmark, breadcrumb, actions), content outlet, command palette, toast region |
 | `03 Home` | whole-row project list, empty state, create, delete confirm |
@@ -134,11 +134,14 @@ to the app's Home board set rather than to a second marketing mock. The website 
 round is deferred out of Phase 0 to Phase 6; until that round approves the boards,
 the drawn set is a draft and no page is implemented from it.
 
-Foundations carries seven boards: `Colour`, `Finishes`, `Type`, `Spacing`, `Radius`,
-`Motion`, and `Logo`. The `Logo` board is the only place the app mark's path, clear space,
-minimum size and lockup are specified; the mark is recoloured per theme, never redrawn. `Finishes` is not optional — the brushed aluminium treatment is defined by tokens, and the
-board is the only place its gradient stops, specular placement, and grain density are
-specified.
+Foundations carries eight boards: `Colour`, `Finishes`, `Type`, `Spacing`, `Radius`,
+`Motion`, `Logo`, and `Brand lockup`. The `Logo` board is the only place the app mark's
+path, clear space and minimum size are specified; the mark is recoloured per theme, never
+redrawn. `Brand lockup` is the approved 1280×640 image lockup — mark right-aligned, two
+trails fading from its rear points, `Av1ation` above and `Station` below — and closes the
+page on its own row at its native size. `Finishes` is not optional — the brushed
+aluminium treatment is defined by tokens, and the board is the only place its gradient
+stops, specular placement, and grain density are specified.
 
 `11 Website` is a separate surface family: the public landing page, the documentation
 shell/index/article, and the demo shell that mounts the same SPA with `MockTransport`.

@@ -44,6 +44,7 @@ gate, and do not add new boards as ad-hoc calls.
 | Script | Boards | Page |
 | --- | --- | --- |
 | `boards/chrome-refresh.js` | the `chrome /` layers of any application board, from the crumbs already there | `02`–`07`, `10` |
+| `boards/brand-lockup.js` | `Brand lockup` | `00 Foundations` |
 | `boards/configuration-general-detection.js` | `General`, `Scene detection`, `Noise generation` | `10 Configuration` |
 | `boards/configuration-encode-quality.js` | `Encoding`, `Target quality`, `Concatenation`, `Quality check` | `10 Configuration` |
 | `boards/components-filter-composer.js` | `Components / Filter composer` | `01 Components` |
@@ -106,7 +107,7 @@ generators place the board at its final coordinate, and the set scripts apply th
 
 | Page | Reading order (`/` starts a row) |
 | --- | --- |
-| `00 Foundations` | Colour, Finishes / Type, Spacing / Radius, Motion / Logo. The 1276 px boards fill the left column and the 1320 px boards the right; mixing widths closes the 64 px gutter to 20. |
+| `00 Foundations` | Colour, Finishes / Type, Spacing / Radius, Motion / Logo / Brand lockup. The 1276 px boards fill the left column and the 1320 px boards the right; mixing widths closes the 64 px gutter to 20. Brand lockup is the native 1280×640 asset and closes the page on its own row. |
 | `01 Components` | Buttons, Inputs / Status, Navigation / Rows, Accessibility / Input types (collections and ranges), Input types (unknown descriptor) / Icon actions, Filter composer / Parameter info. |
 | `02 Shell` | Chrome, Narrow / States. |
 | `03 Home` | Populated, Empty / Loading, Error / Narrow, Wide. The width pair shares a row. |

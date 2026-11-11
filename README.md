@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="apps/desktop/icon.svg" alt="Av1ation Station icon" width="128">
+  <img src="design/brand/av1ation-station-1280x640.png" alt="Av1ation Station" width="1280">
 </p>
-
-<h1 align="center">Av1ation Station</h1>
 
 <p align="center">
   A desktop workspace for scene-aware, quality-targeted video encoding with
