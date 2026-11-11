@@ -1,0 +1,847 @@
+//! HTTP tests for the `run` route family.
+
+use crate::common::*;
+
+#[tokio::test]
+async fn a_second_encode_is_rejected_and_config_is_locked() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Runner").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["code"], "BUSY");
+    // The refusal names the video that owns the singleton, so a start from another project
+    // says what to wait for instead of naming a run id the page cannot show.
+    assert_eq!(
+        body["message"],
+        "source.mkv is still encoding in Runner; only one encode runs at a time."
+    );
+
+    let (status, body) = send(app.clone(), config_request(&project_id)).await;
+    assert_eq!(status, StatusCode::LOCKED);
+    assert_eq!(body["code"], "LOCKED");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn a_queue_batch_reports_active_work_and_refuses_a_second_batch() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Batch").await;
+    let first = add_video(app.clone(), &project_id, &dir).await;
+    let second = add_video(app.clone(), &project_id, &dir).await;
+
+    let start = Request::post(format!("/api/projects/{project_id}/queue"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "video_ids": [first.clone(), second.clone()] }).to_string(),
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), start).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    assert_eq!(body["active"], true);
+    assert_eq!(body["total"], 2);
+    assert_eq!(
+        body["current_video_id"].as_str(),
+        None,
+        "the batch has not taken its first video yet"
+    );
+
+    // The queue drives the same singleton an explicit run does, so a second batch is
+    // refused exactly as a second encode is.
+    let again = Request::post(format!("/api/projects/{project_id}/queue"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "video_ids": [first, second] }).to_string(),
+        ))
+        .unwrap();
+    let (status, _) = send(app.clone(), again).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    let stop = Request::delete(format!("/api/projects/{project_id}/queue"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, stop).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_queue_batch_without_a_video_is_unprocessable() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Empty").await;
+
+    let start = Request::post(format!("/api/projects/{project_id}/queue"))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"video_ids":[]}"#))
+        .unwrap();
+    let (status, body) = send(app, start).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["code"], "INVALID_CONFIG");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_start_reads_only_the_scripts_the_requested_sequence_will_open() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Scripts").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+    let missing = dir.join("missing.vpy");
+    let script = serde_json::json!({
+        "VapourSynthScript": {
+            "source": { "Path": missing.display().to_string() },
+            "variables": {},
+            "index": 0,
+            "filters": [],
+            "stream_concurrently": true
+        }
+    });
+
+    // An override for a sequence that is not in this request is not read, so Scene
+    // Detector still starts with Parallel Encoder pointing at an unreadable script.
+    let overrides = Request::put(format!(
+        "/api/projects/{project_id}/videos/{video_id}/overrides"
+    ))
+    .header("content-type", "application/json")
+    .body(Body::from(
+        serde_json::json!({
+            "fields": { "sequences.parallel_encoder.input": script.clone() }
+        })
+        .to_string(),
+    ))
+    .unwrap();
+    let (status, _) = send(app.clone(), overrides).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let run = Request::post(format!("/api/projects/{project_id}/videos/{video_id}/run"))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"sequence":"SceneDetector"}"#))
+        .unwrap();
+    let (status, body) = send(app.clone(), run).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let _ = send(app.clone(), cancel).await;
+    wait_for_config_write(app.clone(), &project_id).await;
+
+    // The same request now names the sequence that owns that override, so the unreadable
+    // script is read before the singleton is reserved.
+    let overrides = Request::put(format!(
+        "/api/projects/{project_id}/videos/{video_id}/overrides"
+    ))
+    .header("content-type", "application/json")
+    .body(Body::from(
+        serde_json::json!({
+            "fields": { "sequences.scene_detector.input": script }
+        })
+        .to_string(),
+    ))
+    .unwrap();
+    let (status, _) = send(app.clone(), overrides).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let run = Request::post(format!("/api/projects/{project_id}/videos/{video_id}/run"))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"sequence":"SceneDetector"}"#))
+        .unwrap();
+    let (status, body) = send(app, run).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("could not be read")),
+        "{body}"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn cancelling_a_run_releases_the_singleton() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Runner").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    // The lock is released by the terminal event, not by the 202 response.
+    wait_for_config_write(app.clone(), &project_id).await;
+    let next_id = wait_for_start(app.clone(), &project_id, &video_id).await;
+
+    let cancel = Request::delete(format!("/api/runs/{next_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_cancel(&dir);
+}
+
+/// The first measurements of a noise run are gone from the event stream by the time a page
+/// mounts, and the sequence checkpoints them only when it ends. A scene-table read during
+/// the run must therefore carry the values the run has already reported.
+#[tokio::test]
+async fn a_scene_read_during_a_noise_run_contains_the_earlier_measurements() {
+    let dir = project_dir();
+    let (release, hold) = std::sync::mpsc::channel();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(LiveNoiseRunner {
+            release: std::sync::Mutex::new(Some(hold)),
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Live noise").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    // One detected scene that has not been measured: the table a page opened mid-run reads.
+    let document = dir
+        .join("projects")
+        .join(&project_id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("the video document"))
+            .expect("video json");
+    let encoder = av1ation_engine::default_project_config()["encoder"].clone();
+    let mut scene = saved_scene(encoder);
+    scene["sequence_data"]["noise_detection"] = Value::Null;
+    record["condor"] = serde_json::json!({ "scenes": [scene] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let (status, list) = send(
+            app.clone(),
+            Request::get(format!(
+                "/api/projects/{project_id}/videos/{video_id}/scenes"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{list}");
+        if list["scenes"][0]["noise"].as_f64() == Some(0.0032) {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the measurement never reached the scene table: {list}"
+        );
+        tokio::task::yield_now().await;
+    }
+
+    drop(release);
+    wait_for_config_write(app, &project_id).await;
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn cancelling_a_run_keeps_the_scenes_already_checkpointed() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(CheckpointingRunner),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Checkpoint").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, state) = send(
+        app.clone(),
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/state"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(state["scene_count"], 2, "the checkpoint was persisted");
+
+    let (status, _) = send(
+        app.clone(),
+        Request::delete(format!("/api/runs/{run_id}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project_id).await;
+
+    let (status, state) = send(
+        app,
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/state"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        state["scene_count"], 2,
+        "cancelling must not discard detected scenes"
+    );
+    assert_eq!(state["sequences"][0]["status"], "complete");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_run_that_fails_before_any_sequence_reports_its_reason() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(FailingRunner),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Failure").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, started) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    // The terminal event releases the lock before the forwarder finishes, so the state is
+    // polled rather than assumed to contain the timeline record on the first read.
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let state = loop {
+        let (status, state) = send(
+            app.clone(),
+            Request::get(format!(
+                "/api/projects/{project_id}/videos/{video_id}/state"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        if state["failure"].is_object() {
+            break state;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the failed run was never reported: {state}"
+        );
+        tokio::task::yield_now().await;
+    };
+
+    assert_eq!(
+        state["failure"]["message"],
+        "the input could not be opened: no such file"
+    );
+    assert_eq!(
+        state["failure"]["run_id"].as_str(),
+        Some(run_id.as_str()),
+        "the reason names the failed run"
+    );
+    assert!(
+        state["failure"].get("sequence").is_some_and(Value::is_null),
+        "a failure before the first sequence serializes an explicit null"
+    );
+    assert_eq!(
+        state["sequences"][0]["status"], "never_run",
+        "a failure before the first sequence does not invent a failed sequence"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_closed_event_stream_releases_the_singleton() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(SilentRunner),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Silent").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, _) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    wait_for_start(app, &project_id, &video_id).await;
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn unknown_run_cannot_be_cancelled() {
+    let app = router(AppState::new(None));
+    let request = Request::delete("/api/runs/missing")
+        .body(Body::empty())
+        .unwrap();
+    let (status, body) = send(app, request).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["code"], "NOT_FOUND");
+}
+
+#[tokio::test]
+async fn event_stream_reports_start_and_cancel() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Events").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+    let response = app
+        .clone()
+        .oneshot(Request::get("/api/events").body(Body::empty()).unwrap())
+        .await
+        .expect("SSE response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut events = response.into_body();
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let started = next_sse_event(&mut events).await;
+    assert!(started.contains("event: encode"));
+    assert!(started.contains("\"kind\":\"started\""));
+    assert!(
+        started.contains(&format!("\"project_id\":\"{project_id}\"")),
+        "the stream event must name its project: {started}"
+    );
+    assert!(
+        started.contains(&format!("\"video_id\":\"{video_id}\"")),
+        "the stream event must name its video: {started}"
+    );
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    // The fake runner reports one progress tick before holding. Consume it here so the
+    // cancellation assertion still checks the next frame, and assert the tick's shape.
+    let progress = next_sse_event(&mut events).await;
+    assert!(progress.contains("event: encode"));
+    assert!(progress.contains("\"kind\":\"progress\""));
+    assert!(progress.contains("\"progress\":42.0"));
+
+    let cancelled = next_sse_event(&mut events).await;
+    assert!(cancelled.contains("event: encode"));
+    assert!(cancelled.contains("\"kind\":\"cancelled\""));
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let second_id = body["run_id"].as_str().expect("second run id").to_owned();
+
+    let cancel = Request::delete(format!("/api/runs/{second_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let second_cancelled = next_event_of_kind(&mut events, "cancelled").await;
+    assert!(second_cancelled.contains("\"kind\":\"cancelled\""));
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn event_stream_resumes_after_last_event_id_or_since() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Resume").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+    let response = app
+        .clone()
+        .oneshot(Request::get("/api/events").body(Body::empty()).unwrap())
+        .await
+        .expect("SSE response");
+    let mut events = response.into_body();
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let started = next_sse_event(&mut events).await;
+    assert!(started.contains("\"kind\":\"started\""), "{started}");
+    let id = started
+        .lines()
+        .find_map(|line| line.strip_prefix("id: "))
+        .expect("SSE id")
+        .to_owned();
+
+    let resumed = app
+        .clone()
+        .oneshot(
+            Request::get("/api/events")
+                .header("last-event-id", &id)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("resumed SSE response");
+    assert_eq!(resumed.status(), StatusCode::OK);
+    let replayed = next_sse_event(&mut resumed.into_body()).await;
+    assert!(
+        replayed.contains("\"kind\":\"started\""),
+        "the replayed frame was {replayed}"
+    );
+
+    let queried = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/events?since={id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("queried SSE response");
+    assert_eq!(queried.status(), StatusCode::OK);
+    let replayed_by_query = next_sse_event(&mut queried.into_body()).await;
+    assert!(
+        replayed_by_query.contains("\"kind\":\"started\""),
+        "the queried replay frame was {replayed_by_query}"
+    );
+
+    let run_id = body["run_id"].as_str().expect("run id");
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app, &project_id).await;
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_config_write_during_a_run_is_locked() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Config").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(app.clone(), config_request(&id)).await;
+    assert_eq!(status, StatusCode::LOCKED);
+    assert_eq!(body["code"], "LOCKED");
+    assert_eq!(
+        body["message"],
+        "Configuration is read-only while an encode is running."
+    );
+
+    // Only the project that owns the run is frozen. Another project's configuration has
+    // nothing to do with this encode, and locking it would invent a global switch as well
+    // as a reason for the UI to disable every field on every screen.
+    let other = create_project(app.clone(), "Unrelated").await;
+    let (status, body) = send(app.clone(), config_request(&other)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    // The cancelled worker keeps writing its log until it publishes the terminal event;
+    // removing the directory first fails with `DirectoryNotEmpty` on a slow machine.
+    wait_for_config_write(app, &id).await;
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// One run freezes the project it belongs to and the video it is encoding, but not the
+/// other videos in that project. A sibling's overrides, an ordinary queue row, and a
+/// template are all writable while the worker holds the singleton.
+#[tokio::test]
+async fn only_the_encoding_video_and_its_project_configuration_are_locked() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Per video").await;
+    let active = add_video(app.clone(), &project_id, &dir).await;
+    let sibling = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &active)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    // The project document is inherited by every video, so it stays read-only.
+    let (status, _) = send(app.clone(), config_request(&project_id)).await;
+    assert_eq!(status, StatusCode::LOCKED);
+
+    let lock_probe = |video_id: &str| {
+        Request::put(format!(
+            "/api/projects/{project_id}/videos/{video_id}/overrides"
+        ))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"fields":{"sequences.parallel_encoder.workers":8}}"#,
+        ))
+        .unwrap()
+    };
+
+    let (status, body) = send(app.clone(), lock_probe(&active)).await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let (status, body) = send(app.clone(), lock_probe(&sibling)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["values"]["sequences.parallel_encoder.workers"]["value"],
+        8
+    );
+
+    // The active row cannot move; a sibling may. The reorder request is a full order, so
+    // this also proves the service rejects a list that would shift the running video.
+    let reorder = Request::patch(format!("/api/projects/{project_id}/videos/order"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "video_ids": [sibling.clone(), active.clone()] }).to_string(),
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), reorder).await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let remove_active = Request::post(format!("/api/projects/{project_id}/videos/remove"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "video_ids": [active.clone()] }).to_string(),
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), remove_active).await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let remove_sibling = Request::post(format!("/api/projects/{project_id}/videos/remove"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "video_ids": [sibling] }).to_string(),
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), remove_sibling).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Templates are not per-project; editing one cannot change the snapshot this run owns.
+    let create_template = Request::post("/api/settings/templates")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"name":"During run"}"#))
+        .unwrap();
+    let (status, body) = send(app.clone(), create_template).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    wait_for_config_write(app, &project_id).await;
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn an_encode_for_an_unknown_project_is_not_found_and_leaves_the_lock_free() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let missing = uuid::Uuid::new_v4();
+
+    let (status, body) = send(app.clone(), start_request(&missing.to_string(), "v1")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["code"], "NOT_FOUND");
+
+    // The rejected request never reserved the singleton, so a real project can still encode.
+    let project_id = create_project(app.clone(), "Real").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+    let (status, _) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn an_encode_for_an_unknown_video_is_not_found_and_leaves_the_lock_free() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Queue").await;
+
+    let (status, body) = send(
+        app.clone(),
+        start_request(&id, &uuid::Uuid::new_v4().to_string()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["code"], "NOT_FOUND");
+
+    let video_id = add_video(app.clone(), &id, &dir).await;
+    let (status, _) = send(app, start_request(&id, &video_id)).await;
+    assert_eq!(
+        status,
+        StatusCode::ACCEPTED,
+        "a rejected request must not reserve the singleton"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn the_current_runs_events_can_be_replayed() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Replay").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    // The fake runner always emits `started` first, so a replay with no cursor must
+    // contain it once the bridge has forwarded it.
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let replayed = loop {
+        let (status, body) = send(
+            app.clone(),
+            Request::get(format!("/api/runs/{run_id}/events"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let events = body.as_array().cloned().unwrap_or_default();
+        if events.iter().any(|event| event["kind"] == "started") {
+            break events;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the run never published `started`"
+        );
+        tokio::task::yield_now().await;
+    };
+    assert_eq!(replayed[0]["run_id"], run_id.as_str());
+
+    let (status, body) = send(
+        app.clone(),
+        Request::get(format!("/api/runs/{run_id}/events?since=1"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.as_array()
+            .is_some_and(|events| events.iter().all(|event| event["seq"].as_u64() != Some(0))),
+        "the cursor was not applied"
+    );
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn cancelling_the_encode_of_another_video_is_not_found() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Cancel").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(
+        app.clone(),
+        Request::delete(format!("/api/projects/{id}/videos/someone-else/encode"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["code"], "NOT_FOUND");
+
+    let (status, _) = send(
+        app.clone(),
+        Request::delete(format!("/api/projects/{id}/videos/{video_id}/encode"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let _ = send(app, cancel).await;
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn an_encode_without_free_space_is_507_and_leaves_the_lock_free() {
+    let dir = project_dir();
+    // The state can still create the project and add the video; only the encode is refused.
+    let app = router(project_state(&dir).with_fixed_free_space(0));
+    let id = create_project(app.clone(), "No space").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, body) = send(app.clone(), start_request(&id, &video_id)).await;
+    assert_eq!(status, StatusCode::INSUFFICIENT_STORAGE);
+    assert_eq!(body["code"], "DISK_FULL");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("scratch"))
+    );
+
+    // A refusal before the lock is acquired must not leave the singleton held.
+    let (status, _) = send(
+        app,
+        Request::delete(format!("/api/projects/{id}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
