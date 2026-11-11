@@ -114,7 +114,7 @@ const SIDE_W = 392;
 // --------------------------------------------------------------- Encoding
 if (!ONLY || ONLY === 'encoding') {
   const b = K.board(null, 'Configuration / Encoding', 1504, 964, sw, 1060);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Encoding'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Encoding'));
   K.sectionRail(b, 1060, 'Encoding');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);
@@ -241,7 +241,7 @@ K.icon(b, 'ffmpeg filter reset', 1352, 532, 12, { color: 'color.text.muted' });
 // ---------------------------------------------------------- Target quality
 if (!ONLY || ONLY === 'target') {
   const b = K.board(null, 'Configuration / Target quality', 0, 2088, sw, 1320);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Target quality'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Target quality'));
   K.sectionRail(b, 1320, 'Target quality');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);
@@ -371,7 +371,7 @@ if (!ONLY || ONLY === 'target') {
 // ------------------------------------------------------------ Concatenation
 if (!ONLY || ONLY === 'concatenation') {
   const b = K.board(null, 'Configuration / Concatenation', 1504, 2088, sw, 860);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Concatenation'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Concatenation'));
   K.sectionRail(b, 860, 'Concatenation');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);
@@ -439,7 +439,7 @@ if (!ONLY || ONLY === 'concatenation') {
 // -------------------------------------------------------------- Quality check
 if (!ONLY || ONLY === 'quality') {
   const b = K.board(null, 'Configuration / Quality check', 0, 3472, sw, 800);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Quality check'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Quality check'));
   K.sectionRail(b, 800, 'Quality check');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);

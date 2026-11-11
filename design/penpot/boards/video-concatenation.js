@@ -1,235 +1,265 @@
-// Video / Track map — the child screen of the video's Concatenation section.
-// It makes the engine's track model visible: the encoded scenes own the only
-// video track, and every other output stream comes from the video's input.
+// Video / Concatenation — the video's Concatenation section.
+//
+// The Method card carries the method radios and the selected method's grouped track
+// map, because the method decides which streams can be mapped. Chapters, metadata and
+// extra inputs are separate engine fields and separate cards. The live board is the
+// authority; this generator is its checked-in source.
+//
 // Run after kit.js. Idempotent by board name.
 const K = storage.K;
 const page = penpot.currentFile.pages.find((p) => p.name === '06 Video');
 if (penpot.currentPage.id !== page.id) await penpot.openPage(page);
 
-const NAME = 'Video / Track map';
-const old = page.findShapes({ type: 'board' }).find((b) => b.name === NAME);
-if (old) old.remove();
+const NAME = 'Video / Concatenation';
+for (const oldName of [NAME, 'Video / Track map']) {
+  const old = page.findShapes({ type: 'board' }).find((b) => b.name === oldName);
+  if (old) old.remove();
+}
 
 const W = 1440;
-const H = 960;
+const H = 1660;
 const b = K.board(null, NAME, 1504, 2048, W, H);
 K.chrome(b, W, [
   { label: 'Projects' },
-  { label: 'Big Buck Bunny' },
-  { label: 'bunny_2160p.mkv' },
-  { label: 'Concatenation' },
-  { label: 'Track map', current: true },
+  { label: 'Demo Project' },
+  { label: 'bunny_1080p.mkv' },
+  { label: 'Concatenation', current: true },
 ]);
 
-const tw = (s, size) => Math.round(String(s).length * size * 0.56);
 const text = (name, value, x, y, w, o) => K.text(b, name, value, x, y, w, o);
 const note = (name, value, x, y, w, h) =>
-  K.text(b, name, value, x, y, w, { size: 10, color: 'color.text.muted', h: h || 16, lh: 1.5 });
+  K.text(b, name, value, x, y, w, { size: 10, color: 'color.text.muted', h: h || 16, lh: 1.45 });
 const label = (name, value, x, y, w) =>
   K.text(b, name, value, x, y, w, { size: 9.5, weight: 'medium', color: 'color.text.secondary', h: 14 });
 const card = (name, x, y, w, h) =>
-  K.rect(b, name, x, y, w, h, { fill: 'color.bg.surface', r: 10, stroke: 'color.border.subtle' });
+  K.rect(b, name, x, y, w, h, { fill: 'color.bg.surface', r: 10, stroke: 'color.border.default' });
 
-// Top bar draft controls.
-K.rect(b, 'topbar dot', 976, 25, 6, 6, { fill: 'color.state.warning', r: 3 });
-text('topbar status', 'Unsaved changes', 990, 0, 126, { size: 10.5, color: 'color.text.secondary', valign: 'center', h: 56 });
-K.rect(b, 'topbar cancel', 1128, 12, 76, 32, { fill: null, r: 5 });
-text('topbar cancel t', 'Cancel', 1128, 12, 76, { size: 11, color: 'color.text.secondary', align: 'center', valign: 'center', h: 32 });
-K.rect(b, 'topbar save', 1212, 12, 76, 32, { fill: 'color.brand.default', r: 5 });
-text('topbar save t', 'Save', 1212, 12, 76, { size: 11, weight: 'semibold', color: 'color.text.on-brand', align: 'center', valign: 'center', h: 32 });
-
-// Local rail: the video's Configuration sections, not the project queue.
-const SECTIONS = ['General', 'Scene detection', 'Noise generation', 'Target quality', 'Encoding', 'Concatenation', 'Quality check'];
-K.rect(b, 'rail', 0, 56, 232, H - 56, { fill: 'color.bg.surface' });
-K.rect(b, 'rail edge', 231, 56, 1, H - 56, { fill: 'color.border.default', r: 0 });
-label('rail caption', 'CONFIGURATION', 20, 88, 180);
-note('rail sub', 'Video overrides', 20, 104, 180, 14);
-SECTIONS.forEach((name, i) => {
-  const y = 144 + i * 40;
-  const on = name === 'Concatenation';
-  if (on) K.rect(b, 'rail active ' + i, 8, y, 216, 34, { fill: 'color.bg.raised', r: 5 });
-  K.rect(b, 'rail dot ' + i, 20, y + 13, 8, 8, {
-    fill: i <= 5 ? 'color.state.success' : 'color.border.strong',
-    r: 4,
-  });
-  text('rail label ' + i, name, 42, y, 150, {
-    size: 11.5,
-    weight: on ? 'medium' : 'regular',
-    color: on ? 'color.text.primary' : 'color.text.secondary',
-    valign: 'center',
-    h: 34,
-  });
-  text('rail status ' + i, i <= 5 ? 'Done' : '—', 158, y, 72, {
-    size: 9,
-    family: 'JetBrains Mono',
-    color: 'color.text.muted',
-    align: 'right',
-    valign: 'center',
-    h: 34,
-  });
-});
-K.rect(b, 'rail sep', 20, 438, 192, 1, { fill: 'color.border.subtle', r: 0 });
-note(
-  'rail note',
-  'The project chooses the method. This track map belongs to this video, because it describes these encoded streams.',
-  20,
-  456,
-  192,
-  60,
-);
-text('rail reset', 'Reset track map', 42, 550, 150, { size: 11, color: 'color.brand.text', h: 18 });
-note('rail lock', 'Encoding is locked while a run is active.', 20, 578, 192, 28);
-
-// Header.
-text('title', 'Track map', 264, 80, 400, { size: 20, weight: 'semibold', h: 28 });
-note(
-  'subtitle',
-  'Choose what travels with the encoded video. The video track is already decided by the encoded scenes; audio, subtitles and attachments come from the input.',
-  264,
-  112,
-  760,
-  32,
-);
-K.rect(b, 'method chip', 1112, 86, 296, 26, { fill: 'color.bg.raised', r: 999, stroke: 'color.border.default' });
-K.icon(b, 'method icon', '<path d="M4 7h16M4 12h16M4 17h10"/>', 1126, 92, 14, { color: 'color.text.secondary' });
-text('method t', 'mkvmerge · inherited from project', 1148, 86, 250, {
-  size: 10.5,
-  color: 'color.text.secondary',
-  valign: 'center',
-  h: 26,
+K.rect(b, 'btn Start', 1228, 12, 92, 32, { fill: 'color.brand.default', r: 5 });
+text('btn t Start', 'Start', 1228, 12, 92, {
+  size: 11, weight: 'semibold', color: 'color.text.on-brand',
+  align: 'center', valign: 'center', h: 32,
 });
 
-// The encoded video track is a fact, not a choice.
-card('video row', 264, 160, 1144, 74);
-K.icon(
-  b,
-  'video lock',
-  '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-  288,
-  188,
-  16,
-  { color: 'color.text.secondary' },
-);
-text('video title', 'Video · from encoded scenes', 318, 174, 440, { size: 13, weight: 'medium', h: 20 });
-note(
-  'video sub',
-  'AV1 · 10-bit · 4:2:0 · every encoded chunk is concatenated into this one track. The source video is never copied.',
-  318,
-  196,
-  820,
-  20,
-);
-K.rect(b, 'video chip', 1292, 178, 92, 22, { fill: 'color.state.success-bg', r: 999, stroke: 'color.state.success' });
-text('video chip t', 'Locked', 1302, 178, 72, { size: 10, color: 'color.state.success', valign: 'center', h: 22 });
-
-// Left: virtualized track list.
-card('track list', 264, 250, 704, 592);
-text('list head', 'Tracks', 288, 270, 120, { size: 14, weight: 'semibold', h: 20 });
-note('list count', '5 included · 9 total', 360, 273, 220, 16);
-text('list propose', 'Probe again', 840, 272, 104, { size: 10.5, color: 'color.brand.text', align: 'right', h: 16 });
-K.rect(b, 'list rule', 288, 298, 656, 1, { fill: 'color.border.subtle', r: 0 });
-
-const TRACKS = [
-  ['Video · encoded', 'AV1 10-bit · from encoded chunks', 'locked'],
-  ['Audio 1 · English 5.1', 'Input · AAC 48 kHz · 6 ch', 'on', true],
-  ['Audio 2 · Commentary', 'Input · AAC 48 kHz · 2 ch', 'on'],
-  ['Subtitle 3 · English SDH', 'Input · SubRip · forced', 'on'],
-  ['Subtitle 4 · Français', 'Input · SubRip', 'off'],
-  ['Attachment 5 · cover.jpg', 'Input · JPEG · 480 KB', 'on'],
-  ['Extra file · commentary.m4a', 'Added file · AAC stereo', 'on'],
+const TABS = [
+  ['Configuration', 32, 107],
+  ['Scenes', 176, 56],
+  ['History', 262, 58],
+  ['Logs', 338, 41],
 ];
-TRACKS.forEach(([name, sub, state, selected], i) => {
-  const y = 304 + i * 58;
-  if (selected) K.rect(b, 'tr sel ' + i, 280, y, 672, 54, { fill: 'color.brand.subtle', r: 6 });
-  if (state === 'locked') {
-    K.icon(b, 'tr lock ' + i, '<rect width="12" height="8" x="2" y="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/>', 292, y + 19, 16, { color: 'color.text.muted' });
-  } else {
-    const on = state === 'on';
-    K.rect(b, 'tr toggle ' + i, 292, y + 18, 18, 18, {
-      fill: on ? 'color.brand.default' : null,
-      r: 4,
-      stroke: on ? 'color.brand.default' : 'color.border.strong',
-    });
-    if (on) K.icon(b, 'tr check ' + i, '<path d="m5 12 4 4 10-10"/>', 295, y + 21, 12, { color: 'color.text.on-brand', sw: 2.2 });
-  }
-  text('tr name ' + i, name, 324, y + 10, 430, {
-    size: 11.5,
-    weight: i === 0 ? 'regular' : 'medium',
-    color: i === 0 ? 'color.text.muted' : 'color.text.primary',
-    h: 18,
+K.rect(b, 'video tabs', 0, 56, W, 44, { fill: 'color.bg.base', r: 0 });
+TABS.forEach(([tab, x, width]) => {
+  text('tab ' + tab, tab, x, 56, width, {
+    size: 12.5, color: 'color.text.muted', align: 'center', valign: 'center', h: 44,
   });
-  note('tr sub ' + i, sub, 324, y + 29, 480, 14);
-  if (state === 'locked') {
-    K.rect(b, 'tr locked chip ' + i, 846, y + 17, 76, 20, { fill: 'color.state.neutral-bg', r: 999, stroke: 'color.state.neutral' });
-    text('tr locked t ' + i, 'Always', 853, y + 17, 62, { size: 9.5, color: 'color.state.neutral', valign: 'center', h: 20 });
-  } else {
-    K.icon(b, 'tr chevron ' + i, '<path d="m9 18 6-6-6-6"/>', 916, y + 20, 14, { color: 'color.text.muted' });
-  }
-  if (i < TRACKS.length - 1) K.rect(b, 'tr rule ' + i, 304, y + 56, 624, 1, { fill: 'color.border.subtle', r: 0 });
 });
-note('list foot', '7 of 9 tracks shown · the list is virtualized; 40-track remuxes stay one list.', 288, 728, 600, 16);
-text('list add', '+ Add an extra file', 288, 764, 180, { size: 10.5, color: 'color.brand.text', h: 16 });
-note('list tip', 'Select a row to edit its container metadata. Copy is the default for every source stream.', 288, 790, 640, 28);
+K.rect(b, 'tab edge', 0, 100, W, 1, { fill: 'color.border.default', r: 0 });
+text('tab note', '96 scenes · 3 overrides', 1088, 56, 320, {
+  size: 10, family: 'JetBrains Mono', color: 'color.text.muted',
+  align: 'right', valign: 'center', h: 44,
+});
 
-// Right: method-specific inspector.
-card('detail', 984, 250, 424, 592);
-text('detail head', 'Audio 1', 1008, 270, 200, { size: 15, weight: 'semibold', h: 22 });
-K.rect(b, 'detail chip', 1300, 270, 84, 20, { fill: 'color.state.success-bg', r: 999, stroke: 'color.state.success' });
-text('detail chip t', 'Included', 1310, 270, 64, { size: 9.5, color: 'color.state.success', valign: 'center', h: 20 });
-note('detail sub', 'English 5.1 · source stream 1 of 3 audio', 1008, 294, 376, 16);
+text('concat title', 'Concatenation', 32, 118, 160, { size: 20, weight: 'semibold', h: 28 });
+K.rect(b, 'concat inherited chip', 190, 120, 82, 22, {
+  fill: null, r: 999, stroke: 'color.border.strong',
+});
+text('concat inherited', 'INHERITED', 190, 120, 82, {
+  size: 8.5, family: 'JetBrains Mono', color: 'color.text.muted',
+  align: 'center', valign: 'center', h: 22,
+});
+note('concat description', 'Joins the encoded chunks into the final file.', 32, 150, 900, 20);
 
-label('NAME', 'NAME', 1008, 326, 200);
-K.rect(b, 'name box', 1008, 344, 376, 32, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
-text('name value', 'English 5.1 (main)', 1020, 344, 340, { size: 11, valign: 'center', h: 32 });
-label('LANGUAGE', 'LANGUAGE', 1008, 392, 160);
-K.rect(b, 'lang box', 1008, 410, 180, 32, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
-text('lang value', 'English (eng)', 1020, 410, 140, { size: 11, valign: 'center', h: 32 });
-K.icon(b, 'lang chev', '<path d="m6 9 6 6 6-6"/>', 1160, 420, 14, { color: 'color.text.muted' });
-label('DELAY', 'DELAY', 1204, 392, 160);
-K.rect(b, 'delay box', 1204, 410, 180, 32, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
-text('delay value', '0 ms', 1216, 410, 140, { size: 11, family: 'JetBrains Mono', valign: 'center', h: 32 });
+// ---- Method card -----------------------------------------------------------
+card('concat method card', 32, 192, 1040, 780);
+text('concat method title', 'Method', 52, 214, 300, { size: 16, weight: 'semibold', h: 24 });
+note('concat method sub', 'Default for every video; a video may choose a different method.', 52, 238, 760);
 
-label('FLAGS', 'FLAGS', 1008, 462, 100);
-text('more flags', 'More flags', 1284, 462, 100, { size: 10, color: 'color.brand.text', align: 'right', h: 14 });
-const FLAGS = [
-  ['Default', true],
-  ['Forced', false],
-  ['Enabled', true],
+const METHODS = [
+  ['mkvmerge', 'Matroska-native. Video is the encoded track; source audio, subtitles and attachments follow.', true],
+  ['FFmpeg', 'Broad format support. Video is the encoded track; source streams can be copied or filtered.', false],
+  ['IVF', 'Raw AV1 elementary stream. No container, no other streams, no chapters.', false],
 ];
-FLAGS.forEach(([name, on], i) => {
-  const x = 1008 + i * 126;
-  K.rect(b, 'flag toggle ' + i, x, 482, 28, 16, { fill: on ? 'color.brand.default' : 'color.bg.raised', r: 8, stroke: on ? null : 'color.border.strong' });
-  K.rect(b, 'flag knob ' + i, on ? x + 14 : x + 2, 484, 12, 12, { fill: 'color.text.on-brand', r: 6 });
-  text('flag name ' + i, name, x + 36, 480, 90, { size: 10.5, color: 'color.text.secondary', h: 20 });
+METHODS.forEach(([name, detail, on], i) => {
+  const x = 52 + i * 336;
+  K.rect(b, 'concat method ' + name, x, 274, 324, 112, {
+    fill: on ? 'color.brand.subtle' : 'color.bg.sunken',
+    r: 8,
+    stroke: on ? 'color.brand.default' : 'color.border.default',
+  });
+  K.rect(b, 'concat method radio ' + name, x + 16, 290, 14, 14, {
+    fill: on ? 'color.brand.default' : null, r: 7,
+    stroke: on ? 'color.brand.default' : 'color.border.strong',
+  });
+  if (on) K.rect(b, 'concat method dot ' + name, x + 20, 294, 6, 6, { fill: 'color.text.on-brand', r: 3 });
+  text('concat method label ' + name, name, x + 38, 286, 240, {
+    size: 11.5, weight: 'medium', color: on ? 'color.text.primary' : 'color.text.secondary', h: 22,
+  });
+  note('concat method detail ' + name, detail, x + 16, 314, 292, 56);
 });
 
-K.rect(b, 'detail rule 1', 1008, 518, 376, 1, { fill: 'color.border.subtle', r: 0 });
-text('mkv head', 'mkvmerge options', 1008, 532, 240, { size: 11.5, weight: 'semibold', h: 18 });
-label('SBR / CORE', 'AAC SBR', 1008, 560, 220);
-K.rect(b, 'sbr box', 1008, 578, 100, 32, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
-text('sbr value', 'Not set', 1020, 578, 74, { size: 11, valign: 'center', h: 32 });
-K.icon(b, 'sbr chev', '<path d="m6 9 6 6 6-6"/>', 1078, 588, 14, { color: 'color.text.muted' });
-label('reduce label', 'REDUCE TO CORE', 1120, 560, 220);
-K.rect(b, 'reduce toggle', 1120, 580, 28, 16, { fill: 'color.bg.raised', r: 8, stroke: 'color.border.strong' });
-K.rect(b, 'reduce knob', 1122, 582, 12, 12, { fill: 'color.text.on-brand', r: 6 });
-text('reduce state', 'Off', 1156, 578, 60, { size: 10.5, color: 'color.text.secondary', h: 20 });
-note('sbr note', 'mkvmerge only. Subtitle adds compression and charset; attachments are copy-only.', 1008, 614, 376, 14);
+K.rect(b, 'concat method rule', 52, 408, 1000, 1, { fill: 'color.border.subtle', r: 0 });
+text('concat track title', 'Track map', 52, 426, 200, { size: 13, weight: 'semibold', h: 22 });
+note('concat track note', 'Choose what travels with the encoded scenes. The encoded video is always included.', 52, 448, 700);
+text('concat reset action', 'Reset map', 792, 428, 100, {
+  size: 10, color: 'color.brand.text', align: 'right', h: 18,
+});
+text('concat probe', 'Probe again', 916, 428, 104, {
+  size: 10.5, color: 'color.brand.text', align: 'right', h: 18,
+});
+text('concat track count', '5 included · 6 total', 842, 448, 178, {
+  size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 18,
+});
 
-K.rect(b, 'detail rule 2', 1008, 626, 376, 1, { fill: 'color.border.subtle', r: 0 });
-K.rect(b, 'copy note', 1008, 646, 376, 82, { fill: 'color.bg.sunken', r: 8, stroke: 'color.border.subtle' });
-K.icon(b, 'copy note icon', '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>', 1024, 662, 16, { color: 'color.text.secondary' });
-text('copy note head', 'Copied, not re-encoded', 1050, 658, 300, { size: 11.5, weight: 'medium', h: 18 });
-note('copy note body', 'This pane writes container metadata. The audio codec and bitstream stay untouched. Re-encoding is an FFmpeg-only action.', 1024, 680, 344, 42);
+K.rect(b, 'concat tracks', 52, 492, 976, 396, {
+  fill: 'color.bg.sunken', r: 8, stroke: 'color.border.subtle',
+});
 
-note('detail foot', 'Track 1 · 6 channels · 48 kHz · 640 kb/s', 1008, 748, 376, 16);
-note('detail foot 2', 'FFmpeg shows copy / re-encode, codec, filter and parameters instead. Data streams copy automatically.', 1008, 772, 376, 30);
+const groupHeader = (name, count, y) => {
+  text('map chevron ' + name, '▾', 64, y + 6, 14, { size: 10, color: 'color.text.muted', h: 18 });
+  text('map group ' + name, name, 82, y, 160, { size: 11, weight: 'semibold', h: 30, valign: 'center' });
+  text('map count ' + name, count, 852, y, 156, {
+    size: 9, family: 'JetBrains Mono', color: 'color.text.muted',
+    align: 'right', valign: 'center', h: 30,
+  });
+};
 
-// Proposal actions; Save is still the commit.
-note('proposal note', 'Proposal read 9 source streams from ffprobe at 14:22. Nothing changes until Save.', 264, 872, 760, 32);
-K.rect(b, 'proposal reset', 1116, 866, 116, 32, { fill: null, r: 5 });
-text('proposal reset t', 'Reset proposal', 1116, 866, 116, { size: 10.5, color: 'color.text.secondary', align: 'center', valign: 'center', h: 32 });
-K.rect(b, 'proposal use', 1244, 866, 164, 32, { fill: 'color.bg.raised', r: 5, stroke: 'color.border.default' });
-text('proposal use t', 'Use proposal', 1244, 866, 164, { size: 10.5, color: 'color.text.primary', align: 'center', valign: 'center', h: 32 });
+// Shared Switch geometry: 36 x 20 track, 14 px thumb, 3 px off / 18 px on. The dropped
+// row exists to show both positions; the old bespoke switch pinned its thumb at 13 px.
+const toggle = (name, x, y, on) => {
+  K.rect(b, name + ' track', x, y, 36, 20, {
+    fill: on ? 'color.brand.default' : 'color.bg.raised', r: 999,
+    stroke: on ? 'color.brand.default' : 'color.border.strong',
+  });
+  K.rect(b, name + ' thumb', x + (on ? 18 : 3), y + 3, 14, 14, {
+    fill: on ? 'color.text.on-brand' : 'color.text.muted', r: 7,
+  });
+};
 
+const row = (name, y, detail, on) => {
+  K.rect(b, 'map rule ' + name, 52, y, 976, 1, { fill: 'color.border.subtle', r: 0 });
+  toggle('map switch ' + name, 66, y + 16, on);
+  text('map name ' + name, name, 116, y + 7, 600, { size: 11.5, weight: 'medium', h: 18 });
+  note('map sub ' + name, detail, 116, y + 24, 600, 16);
+  text('map state ' + name, on ? 'Copied' : 'Dropped', 880, y + 8, 84, {
+    size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 16,
+  });
+  text('map options ' + name, '▾', 1000, y + 6, 16, { size: 10, color: 'color.text.muted', h: 18 });
+};
+
+groupHeader('Audio', '2 / 2', 504);
+
+// The encoded video is locked at main-input scope; no source video row is offered.
+K.rect(b, 'map rule video', 52, 534, 976, 1, { fill: 'color.border.subtle', r: 0 });
+text('map name video', 'Video · encoded', 66, 541, 500, { size: 11.5, weight: 'medium', h: 18 });
+note('map sub video', 'From the encoded scenes · always included', 66, 558, 500, 16);
+K.rect(b, 'map always chip', 872, 549, 96, 20, { fill: null, r: 999, stroke: 'color.border.strong' });
+text('map always', 'ALWAYS', 872, 549, 96, {
+  size: 8.5, family: 'JetBrains Mono', color: 'color.text.muted',
+  align: 'center', valign: 'center', h: 20,
+});
+text('map options video', '▾', 1000, 541, 16, { size: 10, color: 'color.text.muted', h: 18 });
+
+row('Audio 1 · English · AAC · 5.1', 586, 'Input · AAC · 6 ch · eng · default', true);
+row('Audio 2 · Commentary · AAC · stereo', 638, 'Input · AAC · 2 ch · eng', true);
+
+groupHeader('Subtitles', '1 / 2', 690);
+row('Subtitle 1 · English · SRT', 720, 'Input · SRT · eng · default', true);
+row('Subtitle 2 · Signs · ASS', 772, 'Input · ASS · eng', false);
+
+groupHeader('Attachments', '1 source', 824);
+text('map attach kind', 'ATTACH', 66, 848, 44, {
+  size: 7.5, family: 'JetBrains Mono', color: 'color.text.muted', h: 14,
+});
+text('map attach name', 'cover.jpg', 116, 846, 300, { size: 11, weight: 'medium', h: 16 });
+note('map attach detail', 'image/jpeg · 42 KB · copied automatically', 116, 862, 420, 14);
+text('map attach state', 'Read-only', 880, 846, 84, {
+  size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 16,
+});
+
+note('concat track foot', 'Source streams come from the main input. The encoded video track is never replaced or dropped here.', 52, 898, 620);
+note('concat reset', 'Reset removes options and additions.', 690, 898, 338);
+
+// ---- Aside -----------------------------------------------------------------
+card('concat aside', 1096, 192, 312, 258);
+text('concat aside title', 'What it produces', 1116, 212, 240, { size: 13, weight: 'semibold', h: 22 });
+[
+  ['Final file', 'The encoded chunks joined in scene order.'],
+  ['Track metadata', 'Chapters, tracks and attachments as configured.'],
+  ['Muxer output', 'Written atomically; the chunks stay on disk.'],
+].forEach(([title, detail], i) => {
+  const y = 246 + i * 48;
+  text('concat output ' + i, title, 1116, y, 250, { size: 10.5, weight: 'medium', h: 16 });
+  note('concat output detail ' + i, detail, 1116, y + 17, 270, 28);
+});
+
+// ---- Chapters --------------------------------------------------------------
+card('concat chapters card', 32, 992, 1040, 170);
+text('chapters title', 'Chapters', 52, 1012, 240, { size: 14, weight: 'semibold', h: 22 });
+note('chapters sub', 'Copy the source chapter list into the output.', 52, 1034, 700);
+toggle('chapters switch', 52, 1068, true);
+text('chapters copy', 'Copy source chapters', 100, 1066, 320, { size: 11.5, weight: 'medium', h: 20 });
+text('chapters state', 'Copied · 12 chapters', 820, 1068, 200, {
+  size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 18,
+});
+label('chapters lang label', 'Language', 52, 1102, 120);
+label('chapters charset label', 'Charset', 268, 1102, 120);
+K.rect(b, 'chapters lang field', 52, 1118, 200, 28, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
+text('chapters lang value', 'eng', 62, 1118, 180, { size: 11, valign: 'center', h: 28 });
+K.rect(b, 'chapters charset field', 268, 1118, 200, 28, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
+text('chapters charset value', 'UTF-8', 278, 1118, 180, { size: 11, valign: 'center', h: 28 });
+note('chapters lang note', 'mkvmerge only; FFmpeg has no chapter language or charset.', 496, 1118, 480, 28);
+
+// ---- Metadata --------------------------------------------------------------
+card('concat metadata card', 32, 1182, 1040, 220);
+text('metadata title', 'Metadata', 52, 1202, 240, { size: 14, weight: 'semibold', h: 22 });
+note('metadata sub', 'Copy the source tags, or write this output title and tags.', 52, 1224, 760);
+toggle('metadata switch', 52, 1256, true);
+text('metadata copy', 'Copy source tags', 100, 1254, 320, { size: 11.5, weight: 'medium', h: 20 });
+text('metadata state', 'Copied', 820, 1256, 200, {
+  size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 18,
+});
+label('metadata title label', 'Title', 52, 1292, 300);
+K.rect(b, 'metadata title field', 52, 1308, 420, 28, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
+text('metadata title value', 'Big Buck Bunny', 62, 1308, 400, { size: 11, valign: 'center', h: 28 });
+text('metadata tags label', 'Tags', 500, 1292, 160, {
+  size: 9.5, weight: 'medium', color: 'color.text.secondary', h: 14,
+});
+text('metadata add tag', '+ Add tag', 900, 1292, 80, { size: 10, color: 'color.brand.text', align: 'right', h: 14 });
+const tagRow = (y, key, value) => {
+  K.rect(b, 'tag key ' + key, 500, y, 180, 26, { fill: 'color.bg.sunken', r: 4, stroke: 'color.border.default' });
+  text('tag key text ' + key, key, 508, y, 164, {
+    size: 9.5, family: 'JetBrains Mono', color: 'color.text.secondary', valign: 'center', h: 26,
+  });
+  K.rect(b, 'tag value ' + key, 688, y, 288, 26, { fill: 'color.bg.sunken', r: 4, stroke: 'color.border.default' });
+  text('tag value text ' + key, value, 696, y, 272, { size: 10, valign: 'center', h: 26 });
+};
+tagRow(1308, 'TITLE', 'Big Buck Bunny');
+tagRow(1340, 'ENCODER', 'Av1ation Station');
+note('metadata note', 'Keys replace an existing value; they are never duplicated.', 52, 1364, 420);
+
+// ---- Extra inputs ----------------------------------------------------------
+card('concat extra card', 32, 1422, 1040, 170);
+text('extra title', 'Extra inputs', 52, 1442, 240, { size: 14, weight: 'semibold', h: 22 });
+note('extra sub', 'Merged after the main input in list order. Each file is probed when its card is opened.', 52, 1464, 760);
+K.rect(b, 'extra add', 944, 1434, 104, 30, { fill: null, r: 5, stroke: 'color.border.strong' });
+text('extra add label', '+ Add file', 944, 1434, 104, {
+  size: 10.5, color: 'color.text.primary', align: 'center', valign: 'center', h: 30,
+});
+K.rect(b, 'extra row', 52, 1496, 976, 48, { fill: 'color.bg.sunken', r: 6, stroke: 'color.border.subtle' });
+text('extra chevron', '▸', 64, 1502, 14, { size: 10, color: 'color.text.muted', h: 18 });
+text('extra name', 'commentary.mka', 88, 1503, 320, { size: 11, weight: 'medium', h: 16 });
+note('extra path', 'D:/media/bunny/commentary.mka', 88, 1519, 420, 14);
+text('extra chip', 'MKVMERGE', 872, 1510, 96, {
+  size: 8, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 16,
+});
+text('extra move', '↑↓', 956, 1510, 40, {
+  size: 10, color: 'color.text.secondary', align: 'right', h: 16,
+});
+note('extra note', 'Changing a path clears the old track, chapter and metadata choices.', 52, 1556, 760);
+
+note('concat page note', 'Chunks are retained after concatenation unless Storage opts in to deleting them.', 32, 1612, 900);
 
 K.organize(page);
+return {
+  board: NAME,
+  children: page.findShapes({ type: 'board' }).find((x) => x.name === NAME)?.children.length,
+};

@@ -17,6 +17,7 @@ const BOARD_NAMES = [
   'Video / Source menu',
   'Video / Scene encoder',
   'Video / Logs',
+  'Video / History',
   'Video / Empty',
   'Video / Loading',
   'Video / Error',
@@ -235,7 +236,7 @@ function helpers(b) {
 }
 
 function topbar(b, w, opts = {}) {
-  const bar = K.chrome(b, w, crumbs('Projects', 'Big Buck Bunny', 'bunny_1080p.mkv'));
+  const bar = K.chrome(b, w, crumbs('Projects', 'Demo Project', 'bunny_1080p.mkv'));
   const C = helpers(b);
   // The primary action sits where Save sits on a configuration screen. There is
   // no second video header: clip info belongs to Configuration > General, and
@@ -255,7 +256,8 @@ function tabs(b, w, active, rightNote) {
   const items = [
     { label: 'Configuration', x: 32 },
     { label: 'Scenes', x: 176 },
-    { label: 'Logs', x: 262 },
+    { label: 'History', x: 262 },
+    { label: 'Logs', x: 338 },
   ];
   for (const item of items) {
     const on = item.label === active;
@@ -813,177 +815,245 @@ function details(b, x, y, w, h, opts = {}) {
 // ------------------------------------------------------- Video / Configuration
 if (!ONLY || ONLY === 'config') {
   const w = 1440;
-  const h = 960;
+  const h = 860;
   const b = K.board(null, 'Video / Configuration', 0, 0, w, h);
-  topbar(b, w, { actions: [{ label: 'Run encode', primary: true, w: 104 }] });
-  tabs(b, w, 'Configuration', '3 overrides · 7 sections');
-  const C = helpers(b);
+  const tw = (s, size) => Math.round(String(s).length * size * 0.56);
 
-  // Section rail
-  K.rect(b, 'rail', 0, 156, 248, h - 156, { fill: 'color.bg.surface' });
-  K.line(b, 'rail edge', 247, 156, 1, { color: 'color.border.default', h: h - 156 });
-  C.label('CONFIGURATION', 20, 180, 180);
-  C.note('Video overrides', 20, 198, 180, 14);
-  const sections = [
-    ['General', '3 overrides', 'info'],
-    ['Scene detection', 'Done', 'success'],
-    ['Noise generation', 'Done', 'success'],
-    ['Encoding', 'Done', 'success'],
-    ['Target quality', 'Done', 'success'],
-    ['Concatenation', 'Done', 'success'],
-    ['Quality check', '—', 'neutral'],
-  ];
-  sections.forEach(([name, status, tone], i) => {
-    const y = 226 + i * 40;
-    const on = i === 0;
-    if (on) {
-      K.rect(b, 'rail active ' + i, 8, y, 232, 34, { fill: 'color.bg.raised', r: 5 });
-      K.rect(b, 'rail marker ' + i, 8, y + 8, 2, 18, { fill: 'color.brand.default', r: 1 });
-    }
-    C.dot(22, y + 14, tone === 'neutral' ? 'neutral' : tone);
-    C.text(b, 'rail label ' + i, name, 38, y, 150, {
-      size: 11.5,
-      weight: on ? 'medium' : 'regular',
-      color: on ? 'color.text.primary' : 'color.text.secondary',
+  // Shell: the same 56 px chrome, then the video's own tab strip. The primary
+  // action is Start, because it begins whichever sequence is next.
+  const chrome = K.chrome(b, w, [
+    { label: 'Projects', current: false },
+    { label: 'Demo Project', current: false },
+    { label: 'bunny_1080p.mkv', current: true },
+  ]);
+  const startW = 92;
+  const startX = chrome.actionStart - startW;
+  K.rect(b, 'btn Start', startX, 12, startW, 32, { fill: 'color.brand.default', r: 5 });
+  K.text(b, 'btn t Start', 'Start', startX, 12, startW, {
+    size: 11,
+    weight: 'semibold',
+    color: 'color.text.on-brand',
+    align: 'center',
+    valign: 'center',
+    h: 32,
+  });
+
+  [
+    { label: 'Configuration', x: 32, on: true },
+    { label: 'Scenes', x: 176, on: false },
+    { label: 'History', x: 262, on: false },
+    { label: 'Logs', x: 338, on: false },
+  ].forEach((tab) => {
+    K.text(b, 'tab ' + tab.label, tab.label, tab.x, 56, tw(tab.label, 13) + 12, {
+      size: 13,
+      weight: tab.on ? 'semibold' : 'regular',
+      color: tab.on ? 'color.text.primary' : 'color.text.secondary',
       valign: 'center',
-      h: 34,
+      h: 44,
     });
-    C.text(b, 'rail status ' + i, status, 158, y, 72, {
-      size: 9,
-      color: tone === 'success' ? 'color.state.success' : tone === 'info' ? 'color.text.secondary' : 'color.text.muted',
-      align: 'right',
-      valign: 'center',
-      h: 34,
-    });
+    if (tab.on) K.rect(b, 'tab underline ' + tab.label, tab.x, 98, tw(tab.label, 13) + 10, 2, { fill: 'color.brand.default', r: 1 });
   });
-  C.divider(20, 516, 208);
-  C.note('Project defaults are shown as Inherited. Overrides write to this video only.', 20, 532, 208, 44);
-  C.divider(20, h - 78, 208);
-  C.link(20, h - 62, 'Reset all overrides', { w: 160, color: 'color.text.secondary' });
-  C.note('Encoding is locked while a run is active.', 20, h - 40, 208, 28);
-
-  // Content heading
-  const cx = 272;
-  const cw = 1136;
-  C.head('General', cx, 174, 300, { size: 22 });
-  C.sub('Resolved for this video. Fields that differ from the project are marked Video.', cx, 204, 720);
-  C.chip(cx + 892, 176, '3 overrides', 'info');
-  C.btn(cx + 1004, 174, 'Reset section', { w: 112, ghost: true });
-
-  // Resolved strip
-  C.card('resolved strip', cx, 238, cw, 44, { r: 8 });
-  K.icon(b, 'resolved check', ICONS.check, cx + 16, 252, 14, { color: 'color.state.success' });
-  C.text(b, 'resolved text', 'Input resolved · FFMS2 · 10-bit 4:2:0 · 1920×1080', cx + 38, 238, 620, {
+  K.line(b, 'tab edge', 0, 99, w, { color: 'color.border.default' });
+  K.text(b, 'tab note', '96 scenes · 3 overrides', w - 352, 56, 320, {
     size: 10.5,
-    color: 'color.text.secondary',
-    valign: 'center',
-    h: 44,
-  });
-  C.text(b, 'resolved right', '96 scenes encoded · output ready', cx + cw - 320, 238, 296, {
-    size: 10.5,
-    color: 'color.state.success',
-    align: 'right',
-    valign: 'center',
-    h: 44,
-  });
-
-  // Input card
-  C.card('config input card', cx, 298, 700, 292);
-  C.head('Input', cx + 24, 318, 80);
-  C.badge(cx + 78, 322, 'Inherited', 'neutral');
-  C.link(cx + 584, 320, 'Edit input', { w: 92, right: true });
-  C.note('FFMS2 decodes natively. A sequence can override this input below.', cx + 24, 344, 600, 16);
-  C.divider(cx + 24, 368, 652);
-  C.label('INPUT KIND', cx + 24, 382, 120);
-  C.seg(cx + 24, 400, ['FFMS2', 'VapourSynth', 'Script'], 0, { w: 112, h: 28, size: 10 });
-  C.label('FILTERS', cx + 24, 448, 100);
-  K.rect(b, 'config filter row', cx + 24, 466, 652, 46, { fill: 'color.bg.sunken', r: 6, stroke: 'color.border.subtle' });
-  K.icon(b, 'config filter grip', '<circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/>', cx + 34, 482, 14, { color: 'color.text.muted', solid: true });
-  C.text(b, 'config filter name', 'Output format', cx + 58, 466, 110, { size: 11.5, weight: 'medium', valign: 'center', h: 46 });
-  C.text(b, 'config filter summary', '10-bit · 4:2:0 · source geometry', cx + 172, 466, 380, {
-    size: 10.5,
-    color: 'color.text.secondary',
-    valign: 'center',
-    h: 46,
-  });
-  K.icon(b, 'config filter edit', '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>', cx + 616, 481, 14, { color: 'color.text.muted' });
-  C.btn(cx + 24, 522, 'Add filter', { w: 94 });
-  C.note('Add opens the filter sheet, preselected to this input kind.', cx + 128, 528, 470, 18);
-  C.note('The video input is the base for scene detection, noise generation, encoding and quality check.', cx + 24, 560, 640, 16);
-
-  // Clip info
-  C.card('clip card', 996, 298, 412, 292);
-  C.head('Clip info', 1020, 318, 160);
-  C.badge(1082, 322, 'Probed', 'neutral');
-  const clip = [
-    ['Resolution', '1920×1080'],
-    ['Frame rate', '23.976 fps'],
-    ['Frames', '14,304'],
-    ['Duration', '00:09:56'],
-    ['Pixel format', 'yuv420p10le'],
-    ['Colour', 'BT.709 · SDR'],
-  ];
-  clip.forEach(([k, v], i) => {
-    const y = 356 + i * 30;
-    C.text(b, 'clip k ' + i, k, 1020, y, 120, { size: 9.5, color: 'color.text.muted', h: 16 });
-    C.text(b, 'clip v ' + i, v, 1148, y, 220, { size: 10.5, family: 'JetBrains Mono', color: 'color.text.secondary', h: 16 });
-  });
-  C.note('Probed from the source file. Refresh after replacing it.', 1020, 548, 360, 16);
-
-  // Output card
-  C.card('config output card', cx, 606, 700, 136);
-  C.head('Output file', cx + 24, 624, 140);
-  C.badge(cx + 118, 628, 'Video', 'info');
-  C.link(cx + 580, 626, 'Reveal', { w: 72, right: true });
-  C.box(cx + 24, 656, 652, '/Volumes/Media/AV1/Big Buck Bunny - AV1.mkv', { h: 34, size: 10.5 });
-  K.icon(b, 'output folder', ICONS.folder, cx + 644, 666, 15, { color: 'color.text.muted' });
-  C.note('Chosen for this video. The project never supplies a file name.', cx + 24, 704, 600, 16);
-
-  // Working directory
-  C.card('config temp card', 996, 606, 412, 136);
-  C.head('Working directory', 1020, 624, 180);
-  C.link(1360, 626, 'Open', { w: 40, right: true });
-  C.box(1020, 654, 364, 'temp/01J8Z6K4…', { h: 30, size: 10, color: 'color.text.secondary' });
-  C.chip(1020, 696, '1.42 GB retained', 'success', { h: 20 });
-  C.chip(1148, 696, '39.2 GB free', 'neutral', { h: 20 });
-  C.note('Chunks stay after a successful run unless retention is turned off.', 1020, 722, 364, 14);
-
-  // Sequence status
-  C.card('sequence strip', cx, 758, cw, 130);
-  C.head('Sequence status', cx + 24, 772, 180, { size: 13 });
-  C.text(b, 'sequence strip note', 'Derived from engine data and the chunks on disk', cx + cw - 340, 776, 316, {
-    size: 10,
     color: 'color.text.muted',
     align: 'right',
-    h: 14,
-  });
-  const seqs = [
-    ['Scenes', '96 detected', 'success'],
-    ['Noise', '96 measured', 'success'],
-    ['Target Q', '96 tuned', 'success'],
-    ['Encode', '96 / 96', 'success'],
-    ['Mux', 'output.mkv', 'success'],
-    ['Quality', 'Not run', 'neutral'],
-  ];
-  seqs.forEach(([name, value, tone], i) => {
-    const sx = cx + 24 + i * 182;
-    K.rect(b, 'seq card ' + i, sx, 800, 174, 64, { fill: 'color.bg.sunken', r: 6, stroke: 'color.border.subtle' });
-    C.dot(sx + 12, 814, tone);
-    C.text(b, 'seq name ' + i, name, sx + 26, 806, 130, { size: 10, weight: 'medium', h: 16 });
-    C.text(b, 'seq value ' + i, value, sx + 12, 828, 150, {
-      size: 10.5,
-      family: 'JetBrains Mono',
-      color: tone === 'success' ? 'color.text.secondary' : 'color.text.muted',
-      h: 18,
-    });
+    valign: 'center',
+    h: 44,
   });
 
-  // The video header occupied y=56..112 and repeated clip info that the Clip
-  // info card already owns. Move the whole content block up into that band in one
-  // group operation rather than editing every row's y by hand.
-  const content = Array.from(b.children).filter((shape) => shape.y - b.y >= 110);
-  const group = penpot.group(content);
-  if (group) group.y -= 56;
+  const heading = (value, x, y, size, opts = {}) =>
+    K.text(b, 'head ' + value + x + y, value, x, y, opts.w || 600, {
+      size,
+      weight: opts.weight || 'semibold',
+      color: opts.color || 'color.text.primary',
+      h: opts.h || Math.round(size * 1.5),
+      align: opts.align || 'left',
+    });
+  const note = (value, x, y, width, opts = {}) =>
+    K.text(b, 'note ' + x + y, value, x, y, width, {
+      size: opts.size || 10.5,
+      color: opts.color || 'color.text.secondary',
+      h: opts.h || 16,
+      lh: opts.lh || 1.45,
+      align: opts.align || 'left',
+    });
+
+  // Pipeline heading, with the one page-level action: the grid is the only
+  // place a section is chosen, so a dirty draft can never be swapped here.
+  heading('Pipeline', 32, 118, 15, { h: 22 });
+  note(
+    'Each card owns its sequence settings, an individual start and stop, and the data that sequence produced. Click anywhere else on a card to edit its configuration; there is no draft to lose by switching.',
+    32,
+    144,
+    906,
+    { size: 11, h: 32, color: 'color.text.muted' },
+  );
+  K.rect(b, 'reset all', 1232, 118, 176, 30, { fill: null, r: 5 });
+  K.icon(b, 'reset all icon', '<path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 6"/>', 1242, 126, 13, { color: 'color.text.secondary' });
+  K.text(b, 'reset all label', 'Reset all overrides', 1260, 118, 140, {
+    size: 10.5,
+    color: 'color.text.secondary',
+    valign: 'center',
+    h: 30,
+  });
+
+  const COLS = [32, 494, 956];
+  const CW = 450;
+  const ROWS_Y = [196, 396, 596];
+  const CH = 188;
+
+  const card = (x, y, failed) =>
+    K.rect(b, 'card ' + x + y, x, y, CW, CH, {
+      fill: 'color.bg.surface',
+      r: 10,
+      stroke: failed ? 'color.state.danger' : 'color.border.subtle',
+    });
+
+  const title = (x, y, value, badge, tone, reset) => {
+    K.text(b, 'title ' + value, value, x + 20, y + 16, 250, {
+      size: 15,
+      weight: 'semibold',
+      color: 'color.text.primary',
+      h: 22,
+    });
+    const badgeW = tw(badge, 9) + 16;
+    const bx = x + CW - 20 - badgeW;
+    const [bg, fg] = tone === 'custom'
+      ? ['color.state.success-bg', 'color.state.success']
+      : ['color.bg.raised', 'color.text.muted'];
+    K.rect(b, 'badge ' + value, bx, y + 18, badgeW, 18, { fill: bg, r: 999, stroke: fg });
+    K.text(b, 'badge t ' + value, badge, bx, y + 18, badgeW, {
+      size: 8.5,
+      color: fg,
+      align: 'center',
+      valign: 'center',
+      h: 18,
+    });
+    if (reset) {
+      K.icon(b, 'reset icon ' + value, '<path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 6"/>', bx - 92, y + 23, 11, { color: 'color.text.muted' });
+      K.text(b, 'reset label ' + value, 'Reset config', bx - 74, y + 18, 66, {
+        size: 9.5,
+        color: 'color.text.muted',
+        valign: 'center',
+        h: 18,
+      });
+    }
+  };
+
+  const lines = (x, y, values) => {
+    values.forEach((value, i) => {
+      note(value, x + 20, y + i * 16, CW - 40, { size: 10.5, h: 16 });
+    });
+  };
+
+  // One sequence row: the id chip, the evidence line, and the two controls the
+  // card offers. Reset is drawn only for a sequence that produced data.
+  const sequenceRow = (x, y, value, detail, tone, reset) => {
+    const rowW = CW - 24;
+    K.rect(b, 'seq row ' + value, x + 12, y, rowW, 28, {
+      fill: 'color.bg.sunken',
+      r: 6,
+      stroke: 'color.border.subtle',
+    });
+    const [bg, fg] = {
+      success: ['color.state.success-bg', 'color.state.success'],
+      warning: ['color.state.warning-bg', 'color.state.warning'],
+      danger: ['color.state.danger-bg', 'color.state.danger'],
+      neutral: ['color.bg.raised', 'color.text.muted'],
+    }[tone];
+    const chipW = tw(value, 8.5) + 16;
+    K.rect(b, 'seq chip ' + value, x + 20, y + 5, chipW, 18, { fill: bg, r: 999, stroke: fg });
+    K.text(b, 'seq chip t ' + value, value, x + 20, y + 5, chipW, {
+      size: 8.5,
+      color: fg,
+      align: 'center',
+      valign: 'center',
+      h: 18,
+    });
+    K.text(b, 'seq detail ' + value, detail, x + 28 + chipW, y, rowW - chipW - 84, {
+      size: 9.5,
+      color: 'color.text.muted',
+      valign: 'center',
+      h: 28,
+    });
+    K.icon(b, 'seq run ' + value, '<path d="m6 3 14 9-14 9V3Z"/>', x + CW - 56, y + 8, 12, { color: 'color.text.secondary', solid: true });
+    if (reset) {
+      K.icon(b, 'seq reset ' + value, '<path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 6"/>', x + CW - 32, y + 8, 12, { color: 'color.state.warning' });
+    }
+  };
+
+  const progressTrack = (x, y) =>
+    K.rect(b, 'progress track ' + x + y, x + 1, y + CH - 4, CW - 2, 3, { fill: 'color.border.default' });
+
+  // General carries the run-level failure: a null sequence is a run that died
+  // opening this input or output, so this card owns it and the page banner is
+  // reserved for a sequence no card claims.
+  card(COLS[0], ROWS_Y[0], false);
+  title(COLS[0], ROWS_Y[0], 'General', 'VIDEO', 'custom', false);
+  K.text(b, 'general status title', 'General set.', COLS[0] + 20, ROWS_Y[0] + 52, CW - 40, {
+    size: 10.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
+  });
+  K.text(b, 'general status message', 'Source, decode and output are configured for this video.', COLS[0] + 20, ROWS_Y[0] + 67, CW - 40, {
+    size: 10.5,
+    color: 'color.text.muted',
+    h: 22,
+    lh: 1.3,
+  });
+  lines(COLS[0], ROWS_Y[0] + 102, [
+    'FFMS2 · 10-bit 4:2:0 · 1920×1080',
+    'D:/Media/AV1/big-buck-bunny.av1.mkv',
+    '39.2 GB retained · project directory',
+  ]);
+
+  card(COLS[1], ROWS_Y[0], false);
+  title(COLS[1], ROWS_Y[0], 'Scene detection', '1 OVERRIDE', 'custom', true);
+  lines(COLS[1], ROWS_Y[0] + 44, ['AVSceneChange · Standard · 24–240 frames', '96 scenes · median 168 f']);
+  sequenceRow(COLS[1], ROWS_Y[0] + 100, 'SceneDetector', '96 scenes · 14,304 frames', 'success', true);
+
+  card(COLS[2], ROWS_Y[0], false);
+  title(COLS[2], ROWS_Y[0], 'Noise generation', '1 OVERRIDE', 'custom', true);
+  lines(COLS[2], ROWS_Y[0] + 44, ['WNNM → WNNM · threshold 0.30', '96 measured · mean 0.41']);
+  sequenceRow(COLS[2], ROWS_Y[0] + 96, 'NoiseDetector', '96 scenes measured', 'success', true);
+  sequenceRow(COLS[2], ROWS_Y[0] + 128, 'NoiseScaler', '96 scenes · 63 above 0.30', 'success', true);
+
+  card(COLS[0], ROWS_Y[1], false);
+  title(COLS[0], ROWS_Y[1], 'Target quality', 'INHERITED', 'neutral', false);
+  lines(COLS[0], ROWS_Y[1] + 44, ['SSIMULACRA2 · CRF 26 · preset 6', '96 tuned · 2 repaired scenes']);
+  sequenceRow(COLS[0], ROWS_Y[1] + 92, 'TargetQuality', '96 quantizers resolved', 'success', true);
+  sequenceRow(COLS[0], ROWS_Y[1] + 124, 'SpeedScaler', '96 scenes · speeds written', 'warning', true);
+  sequenceRow(COLS[0], ROWS_Y[1] + 156, 'BitrateOptimizer', 'No outliers to repair', 'neutral', false);
+
+  card(COLS[1], ROWS_Y[1], false);
+  title(COLS[1], ROWS_Y[1], 'Encoding', '1 OVERRIDE', 'custom', true);
+  lines(COLS[1], ROWS_Y[1] + 44, ['SVT-AV1 · preset 6 · 10-bit', '96 / 96 chunks · 39.2 GB']);
+  sequenceRow(COLS[1], ROWS_Y[1] + 96, 'ParallelEncoder', '96 chunks on disk', 'success', true);
+  sequenceRow(COLS[1], ROWS_Y[1] + 128, 'Benchmarker', 'Auto → 8 workers', 'neutral', false);
+
+  card(COLS[2], ROWS_Y[1], false);
+  title(COLS[2], ROWS_Y[1], 'Concatenation', 'INHERITED', 'neutral', false);
+  lines(COLS[2], ROWS_Y[1] + 44, ['MKV · chapters kept', 'output.mkv · 1.42 GB']);
+  sequenceRow(COLS[2], ROWS_Y[1] + 100, 'SceneConcatenator', '96 of 96 scenes muxed', 'success', true);
+
+  card(COLS[0], ROWS_Y[2], false);
+  title(COLS[0], ROWS_Y[2], 'Quality check', 'INHERITED', 'neutral', false);
+  lines(COLS[0], ROWS_Y[2] + 44, ['SSIMULACRA2 · per scene', 'Not run for this output']);
+  sequenceRow(COLS[0], ROWS_Y[2] + 100, 'QualityCheck', 'Never run', 'neutral', false);
+
+  for (let i = 0; i < 7; i += 1) {
+    progressTrack(COLS[i % 3], ROWS_Y[Math.floor(i / 3)]);
+  }
+
+  note(
+    'Overrides apply to Demo Project only; every other video keeps the project’s configuration.',
+    32,
+    812,
+    940,
+    { size: 10.5, color: 'color.text.muted', h: 16 },
+  );
 }
 
 // ----------------------------------------------------------------- Video / Scenes
@@ -991,7 +1061,7 @@ if (!ONLY || ONLY === 'scenes') {
   const w = 1440;
   const h = 960;
   const b = K.board(null, 'Video / Scenes', 0, 1040, w, h);
-  topbar(b, w, { actions: [{ label: 'Run encode', primary: true, w: 104 }] });
+  topbar(b, w, { actions: [{ label: 'Start', primary: true, w: 84 }] });
   tabs(b, w, 'Scenes', '96 scenes · 14,304 frames');
 
   // Editor layout: compact scene rail, a resizable details/editor pane to the
@@ -1120,6 +1190,79 @@ if (!ONLY || ONLY === 'logs') {
   });
 }
 
+// ----------------------------------------------------------------- Video / History
+if (!ONLY || ONLY === 'history') {
+  const w = 1440;
+  const h = 960;
+  const b = K.board(null, 'Video / History', 3040, 0, w, h);
+  topbar(b, w, { actions: [{ label: 'Start', primary: true, w: 84 }] });
+  tabs(b, w, 'History', '2 runs · newest first');
+  const C = helpers(b);
+
+  C.head('History', 32, 124, 300, { size: 22 });
+  C.sub('Every sequence attempt, with the duration and outcome the engine recorded. Current state stays on Configuration.', 32, 154, 900);
+  C.btn(1296, 120, 'Refresh', { w: 112, ghost: true });
+
+  // One run card per run, newest first. The vertical connector is the same
+  // timeline an editor reads: dot, line, attempt, duration.
+  const runs = [
+    {
+      y: 196,
+      when: 'Oct 30, 14:22',
+      id: '01J8Z6K4',
+      outcome: 'Completed',
+      tone: 'success',
+      total: '18m 42s',
+      frames: '14,304 frames',
+      steps: [
+        ['Scene detector', '4m 12s', '14,304 frames', 'done'],
+        ['Noise detector', '2m 08s', '14,304 frames', 'done'],
+        ['Target quality', '6m 31s', '96 scenes', 'done'],
+        ['Parallel encoder', '5m 51s', '14,304 frames · 40.66 fps', 'done'],
+      ],
+      message: null,
+    },
+    {
+      y: 520,
+      when: 'Oct 30, 13:04',
+      id: '01J8Z5Q2',
+      outcome: 'Failed',
+      tone: 'danger',
+      total: '42s',
+      frames: '—',
+      steps: [['Scene detector', '38s', '2,048 frames', 'failed']],
+      message: 'FFMS2 could not index the source: the file is no longer at the recorded path.',
+    },
+  ];
+  for (const run of runs) {
+    const cardH = run.message ? 292 : 232;
+    K.rect(b, 'history card ' + run.id, 32, run.y, 1376, cardH, { fill: 'color.bg.surface', r: 10, stroke: 'color.border.subtle' });
+    K.rect(b, 'history card head ' + run.id, 33, run.y + 1, 1374, 52, { fill: 'color.bg.raised', r: 0 });
+    C.text(b, 'history when ' + run.id, 'Run · ' + run.when, 52, run.y + 10, 260, { size: 11.5, weight: 'medium', h: 16 });
+    C.text(b, 'history id ' + run.id, run.id, 52, run.y + 27, 260, { size: 9, family: 'JetBrains Mono', color: 'color.text.muted', h: 14 });
+    C.chip(1240, run.y + 16, run.outcome, run.tone, { h: 20 });
+    C.text(b, 'history total ' + run.id, run.total, 1320, run.y + 10, 72, { size: 10.5, family: 'JetBrains Mono', align: 'right', h: 16 });
+    C.text(b, 'history frames ' + run.id, run.frames, 1280, run.y + 27, 112, { size: 9, family: 'JetBrains Mono', color: 'color.text.muted', align: 'right', h: 14 });
+
+    run.steps.forEach(([name, duration, frames, outcome], i) => {
+      const sy = run.y + 76 + i * 34;
+      const dot = outcome === 'failed' ? 'color.state.danger' : 'color.state.success';
+      K.rect(b, 'history dot ' + run.id + i, 56, sy + 5, 8, 8, { fill: dot, r: 4 });
+      if (i < run.steps.length - 1) K.line(b, 'history line ' + run.id + i, 60, sy + 15, 1, { color: 'color.border.default', h: 24 });
+      C.text(b, 'history step ' + run.id + i, name, 76, sy, 220, { size: 11.5, weight: 'medium', h: 18 });
+      C.text(b, 'history dur ' + run.id + i, duration, 300, sy + 1, 90, { size: 10, family: 'JetBrains Mono', color: 'color.text.secondary', h: 16 });
+      C.text(b, 'history frames ' + run.id + i, frames, 398, sy + 1, 280, { size: 10, family: 'JetBrains Mono', color: 'color.text.muted', h: 16 });
+      if (outcome !== 'done') C.text(b, 'history outcome ' + run.id + i, outcome.toUpperCase(), 700, sy + 1, 80, { size: 9, weight: 'semibold', color: 'color.state.danger', h: 16 });
+    });
+
+    if (run.message) {
+      const my = run.y + cardH - 64;
+      K.rect(b, 'history message box ' + run.id, 52, my, 1336, 40, { fill: 'color.state.danger-bg', r: 6 });
+      C.text(b, 'history message ' + run.id, run.message, 66, my, 1300, { size: 10, family: 'JetBrains Mono', color: 'color.state.danger', valign: 'center', h: 40 });
+    }
+  }
+}
+
 // Clone the populated board for overlays. Rebuilding 300 shapes to draw a
 // popover or a sheet is what made the tab stall; a clone is one document op.
 function videoBackdrop(name, bx, by, opts = {}) {
@@ -1129,7 +1272,7 @@ function videoBackdrop(name, bx, by, opts = {}) {
   b.x = bx;
   b.y = by;
   if (!source) {
-    topbar(b, 1440, { actions: [{ label: 'Run encode', primary: true, w: 104 }] });
+    topbar(b, 1440, { actions: [{ label: 'Start', primary: true, w: 84 }] });
     tabs(b, 1440, 'Scenes', opts.tabNote || '96 scenes · 14,304 frames');
     sceneRail(b, 0, 100, 232, 860, { selected: 6, issue: '1 issue' });
     details(b, 248, 116, 320, 680);
@@ -1198,7 +1341,7 @@ if (!ONLY || ONLY === 'encoder') {
   C.divider(sx + 24, 430, sw - 48);
 
   C.label('PARAMETERS', sx + 24, 444, 120);
-  C.text(b, 'sheet param count', 'Scrolls · all parameters', sx + sw - 224, 444, 200, {
+  C.text(b, 'sheet param count', 'Scroll for all parameters', sx + sw - 224, 444, 200, {
     size: 9.5,
     color: 'color.text.muted',
     align: 'right',
@@ -1316,7 +1459,7 @@ if (!ONLY || ONLY === 'empty') {
     valign: 'center',
     h: 46,
   });
-  C.text(b, 'empty track foot', 'A running encode writes blocks here as it progresses.', 264, 910, 700, {
+  C.text(b, 'empty track foot', 'A running detection writes blocks here as it progresses.', 264, 910, 700, {
     size: 9.5,
     color: 'color.text.muted',
     h: 16,
@@ -1535,7 +1678,7 @@ if (!ONLY || ONLY === 'narrow') {
   topbar(b, w, {
     actions: [
       { label: 'Scenes', icon: 'list', w: 92 },
-      { label: 'Run encode', primary: true, w: 104 },
+      { label: 'Start', primary: true, w: 84 },
     ],
   });
   tabs(b, w, 'Scenes', '96 scenes · rail hidden');
@@ -1558,7 +1701,7 @@ if (!ONLY || ONLY === 'wide') {
   const w = 1920;
   const h = 1080;
   const b = K.board(null, 'Video / Wide', 4560, 0, w, h);
-  topbar(b, w, { actions: [{ label: 'Run encode', primary: true, w: 104 }] });
+  topbar(b, w, { actions: [{ label: 'Start', primary: true, w: 84 }] });
   tabs(b, w, 'Scenes', '96 scenes · 14,304 frames');
 
   sceneRail(b, 0, 100, 232, h - 100, { selected: 6, issue: '1 issue' });
@@ -1583,9 +1726,10 @@ const LAYOUT = {
   'Video / Configuration': [0, 0],
   'Video / Scenes': [1504, 0],
   'Video / Logs': [0, 1024],
+  'Video / History': [3040, 0],
   'Video / Source menu': [1504, 1024],
   'Video / Scene encoder': [0, 2048],
-  'Video / Track map': [1504, 2048],
+  'Video / Concatenation': [1504, 2048],
   'Video / Empty': [0, 3072],
   'Video / Loading': [1504, 3072],
   'Video / Error': [0, 4096],

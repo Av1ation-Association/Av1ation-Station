@@ -9,7 +9,7 @@ const old = page.findShapes({ type: 'board' }).find((b) => b.name === NAME);
 if (old) old.remove();
 
 const b = K.board(null, NAME, 1504, 4176, 1440, 900);
-const tabs = ['Appearance', 'Dependencies', 'Encoders', 'Project defaults', 'Storage', 'Network', 'About'];
+const tabs = ['Appearance', 'Dependencies', 'Encoders', 'Project Templates', 'Storage', 'Network', 'About'];
 const tw = (s, size) => Math.round(String(s).length * size * 0.56);
 const text = (name, value, x, y, w, o) => K.text(b, name, value, x, y, w, o);
 const note = (name, value, x, y, w, h) =>
@@ -87,7 +87,7 @@ states.forEach((state, i) => {
     hover: 'Raised fill on the tab only; the underline does not move until selection.',
     focus: '2px focus ring outside the 34px hit area. Arrow keys move selection, Home/End jump.',
     dirty: '5px warning dot: the encoder parameter draft is unsaved. Switching asks before discarding.',
-    disabled: 'About is disabled only while an update check owns the surface; the reason is in content.',
+    disabled: 'About is disabled only while an update check owns the surface; the reason is in the content.',
   };
   note('state note ' + state.key, captions[state.key], x + 20, y + 84, 630, 16);
 });

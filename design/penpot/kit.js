@@ -133,6 +133,23 @@ storage.K = (() => {
     return shape;
   }
 
+  // Penpot's SVG importer keeps a hidden `base-background` rectangle inside every
+  // imported icon group. It is never visible, but it doubles the node count of the
+  // densest boards and makes the tab slower to traverse. Remove it at the source so
+  // regenerated boards do not reintroduce the debris.
+  function stripImportedBackground(shape) {
+    const pending = [...(shape.children || [])];
+    while (pending.length) {
+      const child = pending.pop();
+      if (child.name === 'base-background' && (child.hidden || child.visible === false)) {
+        child.remove();
+        continue;
+      }
+      pending.push(...(child.children || []));
+    }
+    return shape;
+  }
+
   function icon(parent, name, inner, x, y, size, options = {}) {
     const strokeColor = color(options.color || 'color.text.secondary');
     const strokeWidth = options.sw == null ? 1.75 : options.sw;
@@ -147,7 +164,7 @@ storage.K = (() => {
     shape.x = p.x + x;
     shape.y = p.y + y;
     if (Math.abs(shape.width - size) > 0.5) shape.resize(size, size);
-    return shape;
+    return stripImportedBackground(shape);
   }
 
   // The brand mark: one path, play silhouette with a cockpit cut. The path is
@@ -165,30 +182,111 @@ storage.K = (() => {
     shape.x = p.x + x;
     shape.y = p.y + y;
     shape.resize(w, height);
+    return stripImportedBackground(shape);
+  }
+
+  // The way back is the station's own silhouette turned around, not a second icon
+  // language. The mirrored path uses the same MARK_PATH in a 153x180 box, flipped
+  // around the box centre (394 + 547).
+  function backMark(parent, x, y, height) {
+    const width = +(height * 153 / 180).toFixed(2);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="394 2788 153 180"><g transform="translate(941 0) scale(-1 1)"><path fill="${color('color.text.primary')}" fill-rule="evenodd" d="${MARK_PATH}"/></g></svg>`;
+    const shape = penpot.createShapeFromSvg(svg);
+    shape.name = 'chrome / back mark';
+    if (parent) parent.appendChild(shape);
+    const p = origin(parent);
+    shape.x = p.x + x;
+    shape.y = p.y + y;
+    shape.resize(width, height);
+    return stripImportedBackground(shape);
+  }
+
+  // One contrail. The fill fades to nothing at its tail, so the pair reads as motion
+  // rather than as a rule; a solid bar reads as an underline under the labels.
+  function contrail(parent, name, x, y, w, h) {
+    const shape = penpot.createRectangle();
+    shape.name = name;
+    if (parent) parent.appendChild(shape);
+    const p = origin(parent);
+    shape.x = p.x + x;
+    shape.y = p.y + y;
+    shape.resize(w, h);
+    shape.borderRadius = h / 2;
+    const ink = color('color.text.secondary');
+    shape.fills = [{
+      fillColorGradient: {
+        type: 'linear',
+        startX: 0,
+        startY: 0,
+        endX: 1,
+        endY: 0,
+        width: 1,
+        stops: [
+          { color: ink, opacity: 0.5, offset: 0 },
+          { color: ink, opacity: 0, offset: 1 },
+        ],
+      },
+    }];
     return shape;
   }
 
   const ACTION_ICONS = {
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
+    trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
     command: '<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>',
     gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   };
 
-  // The global chrome: 56px bar, mark, breadcrumb, three actions. There is no
-  // global sidebar. Global surfaces own the full width below y=56; project and
-  // configuration surfaces reserve their local rail inside that width.
+  // The global chrome: a 56 px bar with the way back at its head, then the mark and
+  // wordmark, then the trail, then the two global actions. There is no global sidebar.
+  // Global surfaces own the full width below y=56; project, video and configuration
+  // surfaces reserve their local rail inside that width.
   function chrome(parent, width, crumbs, options = {}) {
     const h = options.h || 56;
-    const margin = options.margin == null ? 24 : options.margin;
+    const margin = options.margin == null ? 16 : options.margin;
     rect(parent, 'chrome / topbar', 0, 0, width, h, { fill: 'color.bg.surface' });
     line(parent, 'chrome / topbar edge', 0, h - 1, width, { color: 'color.border.default' });
-    const markW = options.markW || 20;
-    mark(parent, margin, (h - markW * 180 / 153) / 2, markW, options.markColor);
 
-    let x = margin + markW + 16;
+    // The control is 94 px wide: a 4 px inset, the 20.4 px mirrored mark, a 4 px gap and
+    // the 64 px label block its two lines rise out of on hover. The root screen is the
+    // one trail that carries no way back, and it is the single Projects crumb. Without
+    // the control the brand starts at the bar's 16 px gutter, not at the control's -4 px
+    // inset, which is the one place the two layouts differ.
+    const hasBack = options.back !== false && !(crumbs.length === 1 && crumbs[0].label === 'Projects');
+    let x = hasBack ? margin - 4 : margin;
+    if (hasBack) {
+      backMark(parent, x, (h - 24) / 2, 24);
+      const trailX = x + 24.4;
+      contrail(parent, 'chrome / back trail 0', trailX, h / 2 - 2.5, 68, 1.5);
+      contrail(parent, 'chrome / back trail 1', trailX, h / 2 + 1, 68, 1.5);
+      x += 94 + 12;
+    }
+
+    const markH = 24;
+    mark(parent, x, (h - markH * 180 / 153) / 2, markH, options.markColor);
+    x += markH * 153 / 180 + 8;
+    // 112 px is the measured advance of the wordmark at 13 px semibold; a narrower box
+    // wraps it onto two lines, which the export shows immediately.
+    text(parent, 'chrome / wordmark', 'Av1ation Station', x, 0, 112, {
+      size: 13,
+      weight: 'semibold',
+      color: 'color.text.primary',
+      valign: 'center',
+      h,
+    });
+    // The box is 112 px so the wordmark cannot wrap, but the divider follows the
+    // measured advance (90.5 px at 13 px semibold), not the box.
+    x += 91 + 12;
+    rect(parent, 'chrome / divider', x, (h - 16) / 2, 1, 16, { fill: 'color.border.strong', r: 0 });
+    x += 1 + 12;
+
     let lastCrumb = null;
     crumbs.forEach((crumb, index) => {
-      const w = crumb.w || Math.round(crumb.label.length * 7.2);
+      const w = crumb.w || Math.round(crumb.label.length * 6) + 2;
       const crumbX = x;
       text(parent, 'chrome / crumb ' + index, crumb.label, x, 0, w + 4, {
         size: 13,
@@ -204,16 +302,26 @@ storage.K = (() => {
         x += 20;
       }
     });
-    const actions = options.actions || ['search', 'command', 'gear'];
+
+    const actions = options.actions || ['grid', 'gear'];
     const size = 32;
-    const gap = 8;
+    // The default pair sits 12 px apart, with the last one on the 16 px gutter. A
+    // settings draft puts Save and Discard beside the global pair, and the app's
+    // action strip is a 4 px rhythm at that width, so the caller can tighten it.
+    const gap = options.gap == null ? 12 : options.gap;
+    const muted = options.mutedActions || [];
+    const active = options.activeActions || [];
     const start = width - margin - actions.length * size - (actions.length - 1) * gap;
     actions.forEach((name, index) => {
       const ax = start + index * (size + gap);
-      rect(parent, 'chrome / action ' + name, ax, (h - size) / 2, size, size, { fill: null, r: 6 });
-      icon(parent, 'chrome / action icon ' + name, ACTION_ICONS[name] || ACTION_ICONS.gear, ax + 8, (h - size) / 2 + 8, 16, { color: 'color.text.secondary', sw: 1.75 });
+      const on = active.includes(name);
+      rect(parent, 'chrome / action ' + name, ax, (h - size) / 2, size, size, { fill: on ? 'color.bg.raised' : null, r: 6 });
+      icon(parent, 'chrome / action icon ' + name, ACTION_ICONS[name] || ACTION_ICONS.gear, ax + 8, (h - size) / 2 + 8, 16, {
+        color: muted.includes(name) ? 'color.text.muted' : 'color.text.secondary',
+        sw: 1.75,
+      });
     });
-    return { actionStart: start, lastCrumb, height: h };
+    return { actionStart: start, lastCrumb, backX: hasBack ? margin - 4 : null, height: h };
   }
 
   // The public website has its own 72px marketing header, not the app's 56px

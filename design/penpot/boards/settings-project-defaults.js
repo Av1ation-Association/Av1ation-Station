@@ -1,404 +1,584 @@
-// Settings / Project defaults — the template copied into every new project.
+// Settings / Project Templates and its Encoding detail.
+//
+// The manager is a list, not a grid of section summaries: a description, a search
+// field, an add action, and one row per template. The encoding detail is a subpage:
+// no Settings tab strip, one full-width stack, and Save/Discard in the top bar.
+//
 // Run after kit.js. Idempotent by board name.
 const K = storage.K;
 const page = penpot.currentFile.pages.find((p) => p.name === '04 Settings');
 if (penpot.currentPage.id !== page.id) await penpot.openPage(page);
 
-const NAME = 'Settings / Project defaults';
-const old = page.findShapes({ type: 'board' }).find((b) => b.name === NAME);
-if (old) old.remove();
+const OVERVIEW = 'Settings / Project Templates';
+const ENCODING = 'Settings / Project Templates / Encoding';
+const LEGACY = {
+  [OVERVIEW]: 'Settings / Project Template',
+  [ENCODING]: 'Settings / Project Template / Encoding',
+};
+
+function replaceBoard(name) {
+  for (const key of [name, LEGACY[name]].filter(Boolean)) {
+    const old = page.findShapes({ type: 'board' }).find((b) => b.name === key);
+    if (old) old.remove();
+  }
+}
 
 const W = 1440;
-const H = 980;
-const b = K.board(null, NAME, 1504, 1044, W, H);
-K.chrome(b, W, [{ label: 'Settings' }, { label: 'Project defaults', current: true }]);
-
+const GUTTER = 32;
+const CARD_GAP = 12;
 const tw = (s, size) => Math.round(String(s).length * size * 0.56);
-const text = (name, value, x, y, w, o) => K.text(b, name, value, x, y, w, o);
-const note = (name, value, x, y, w, h) =>
-  K.text(b, name, value, x, y, w, { size: 10, color: 'color.text.muted', h: h || 16, lh: 1.5 });
-const label = (name, value, x, y, w) =>
-  K.text(b, name, value, x, y, w, { size: 9.5, weight: 'medium', color: 'color.text.secondary', h: 14 });
 
-const TABS = ['Appearance', 'Dependencies', 'Encoders', 'Project defaults', 'Storage', 'Network', 'About'];
-const ACTIVE = 3;
-K.rect(b, 'settings tabs', 0, 56, W, 45, { fill: 'color.bg.base', r: 0 });
-let cx = 32;
-TABS.forEach((tab, i) => {
-  const on = i === ACTIVE;
-  const width = tw(tab, 12) + 20;
-  text('tab ' + tab, tab, cx, 56, width, {
-    size: 12,
-    weight: on ? 'semibold' : 'regular',
-    color: on ? 'color.text.primary' : 'color.text.secondary',
-    valign: 'center',
-    h: 45,
+// The settings chrome carries the draft controls the app shows at this width. The
+// draft group is four 26 px icon buttons at a 2 px rhythm; the two global actions keep
+// their 32 px boxes and 12 px gaps, exactly as the shell lays them out.
+function settingsChrome(board, width, crumbs) {
+  const bar = K.chrome(board, width, crumbs, {
+    actions: ['grid', 'gear'],
+    activeActions: ['grid', 'gear'],
   });
-  if (on) K.rect(b, 'tab underline ' + tab, cx, 99, tw(tab, 12) + 6, 2, { fill: 'color.brand.default', r: 1 });
-  cx += width + 16;
-});
-K.rect(b, 'tab edge', 0, 100, W, 1, { fill: 'color.border.default', r: 0 });
-
-function card(name, x, y, w, h) {
-  K.rect(b, 'card ' + name, x, y, w, h, { fill: 'color.bg.surface', r: 10, stroke: 'color.border.subtle' });
-}
-function chip(name, x, y, value, tone) {
-  const map = {
-    neutral: ['color.state.neutral-bg', 'color.state.neutral'],
-    success: ['color.state.success-bg', 'color.state.success'],
-    warning: ['color.state.warning-bg', 'color.state.warning'],
+  const icons = {
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+    discard: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
   };
-  const [bg, fg] = map[tone || 'neutral'];
-  const w = tw(value, 9.5) + 18;
-  K.rect(b, 'chip ' + name, x, y, w, 20, { fill: bg, r: 999, stroke: fg });
-  text('chip t ' + name, value, x + 9, y, w - 14, { size: 9.5, color: fg, valign: 'center', h: 20 });
-  return w;
+  const start = bar.actionStart - 12 - 110;
+  ['undo', 'redo', 'discard', 'save'].forEach((name, index) => {
+    const x = start + index * 28;
+    K.icon(board, 'draft ' + name, icons[name], x + 6, 21, 14, {
+      color: 'color.text.muted',
+      sw: 1.7,
+    });
+  });
+  return bar;
 }
-function action(name, x, y, value, width) {
-  const w = width || tw(value, 10.5) + 20;
-  K.rect(b, 'btn ' + name, x, y, w, 28, { fill: null, r: 5, stroke: 'color.border.default' });
-  text('btn t ' + name, value, x, y, w, {
-    size: 10.5,
-    color: 'color.text.secondary',
+
+function card(board, name, x, y, w, h) {
+  return K.rect(board, 'card ' + name, x, y, w, h, {
+    fill: 'color.bg.surface',
+    r: 8,
+    stroke: 'color.border.default',
+  });
+}
+
+function badge(board, name, x, y, value, tone) {
+  const map = {
+    set: ['color.text.success', 'color.state.success'],
+    neutral: ['color.text.muted', 'color.border.default'],
+  };
+  const [fg, stroke] = map[tone];
+  const w = Math.round(value.length * 5.3) + 18;
+  K.rect(board, 'badge ' + name, x, y, w, 20, {
+    fill: null,
+    r: 999,
+    stroke,
+  });
+  K.text(board, 'badge t ' + name, value.toUpperCase(), x, y, w, {
+    size: 8.5,
+    family: 'JetBrains Mono',
+    weight: 'medium',
+    color: fg,
     align: 'center',
     valign: 'center',
-    h: 28,
+    h: 20,
   });
-  return w;
 }
 
-// Hero: what the template is, and one reset action.
-text('eyebrow', 'PROJECT TEMPLATE', 32, 122, 300, { size: 10, weight: 'semibold', color: 'color.text.muted' });
-text('heading', 'Start new projects from a known configuration', 32, 140, 900, { size: 24, weight: 'semibold', h: 32 });
-note(
-  'intro',
-  'One complete ProjectConfig, copied into project.json when a project is created. Editing this template never changes an existing project; editing a project never changes the template.',
-  32,
-  180,
-  900,
-  40,
-);
-K.rect(b, 'reset all', 1016, 140, 392, 76, { fill: 'color.bg.surface', r: 8, stroke: 'color.border.subtle' });
-K.icon(
-  b,
-  'reset all icon',
-  '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
-  1036,
-  158,
-  16,
-  { color: 'color.text.secondary' },
-);
-text('reset all head', 'Reset all to engine defaults', 1062, 154, 300, { size: 11.5, weight: 'medium', h: 18 });
-note('reset all body', 'Resets this template only. Existing projects keep the values they were created with.', 1062, 174, 326, 30);
-K.text(b, 'reset all link', 'Reset', 1342, 154, 50, {
-  size: 10,
-  color: 'color.brand.text',
-  align: 'right',
-  h: 16,
-});
-
-// Section summary grid: seven section cards in pipeline reading order, then the
-// copy-boundary card. No section is edited here: Edit opens the same section
-// editor a project uses, at /settings/defaults/<section>.
-const CARDS = [
-  ['General', 'Custom', 'FFMS2 · native decode', 'Output next to input · MKV 10-bit'],
-  ['Scene detection', 'Custom', 'AVSceneChange · standard', '24–240 frames per scene'],
-  ['Noise generation', 'Engine default', 'WNNM reference + denoised', 'Threshold 0.01 · chroma scaling'],
-  ['Target quality', 'Custom', 'SSIMULACRA2 · 74–76', 'Speed scaling on · bitrate off'],
-  ['Encoding', 'Custom', 'SVT-AV1 · Auto workers', '5 of 41 parameters set · photon off'],
-  ['Concatenation', 'Custom', 'mkvmerge', 'Track map owned by each video'],
-  ['Quality check', 'Engine default', 'Off for new projects', 'SSIMULACRA2 · percentile 1'],
-];
-CARDS.forEach(([name, badge, one, two], i) => {
-  const x = 32 + (i % 2) * 688;
-  const y = 240 + Math.floor(i / 2) * 156;
-  const w = 680;
-  card(name, x, y, w, 140);
-  text('card head ' + name, name, x + 24, y + 20, 300, { size: 14, weight: 'semibold', h: 20 });
-  chip(name, x + w - 24 - (tw(badge, 9.5) + 18), y + 18, badge, badge === 'Engine default' ? 'neutral' : 'success');
-  text('card one ' + name, one, x + 24, y + 48, w - 48, { size: 11.5, h: 18 });
-  text('card two ' + name, two, x + 24, y + 68, w - 48, {
-    size: 10.5,
-    color: 'color.text.secondary',
-    family: 'JetBrains Mono',
-    h: 18,
+function sectionCard(board, name, x, y, w, title, lines, tone) {
+  card(board, name, x, y, w, 132);
+  K.text(board, 'card title ' + name, title, x + 20, y + 17, w - 90, {
+    size: 15,
+    weight: 'semibold',
+    color: 'color.text.primary',
+    h: 22,
   });
-  K.rect(b, 'card rule ' + name, x + 24, y + 96, w - 48, 1, { fill: 'color.border.subtle', r: 0 });
-  note('card foot ' + name, 'Edit opens this section in the defaults editor', x + 24, y + 108, 400, 16);
-  K.text(b, 'card edit ' + name, 'Edit', x + w - 24 - 36, y + 108, 36, {
-    size: 10.5,
-    color: 'color.brand.text',
-    align: 'right',
-    h: 16,
-  });
-});
-
-// Eighth card: the copy boundary, in the same grid position a section would use.
-{
-  const x = 32 + 688;
-  const y = 240 + 3 * 156;
-  const w = 680;
-  card('How edits work', x, y, w, 140);
-  text('how head', 'How these are edited', x + 24, y + 20, 300, { size: 14, weight: 'semibold', h: 20 });
-  note(
-    'how body',
-    'Edit opens the same section editor a project uses — same fields, filter composer, encoder descriptors and validation — scoped to defaults.',
-    x + 24,
-    y + 48,
-    w - 48,
-    32,
+  badge(board, name, x + w - 20 - (tone === 'set' ? 38 : 108), y + 15, tone === 'set' ? 'Set' : 'Engine default', tone);
+  lines.forEach((line, i) =>
+    K.text(board, 'card line ' + name + ' ' + i, line, x + 20, y + 47 + i * 19, w - 40, {
+      size: 11.5,
+      color: 'color.text.secondary',
+      h: 18,
+    }),
   );
-  K.rect(b, 'how path', x + 24, y + 92, w - 48, 28, { fill: 'color.bg.sunken', r: 5, stroke: 'color.border.default' });
-  text('how path t', 'Settings / Project defaults / Encoding', x + 36, y + 92, w - 72, {
-    size: 10,
-    family: 'JetBrains Mono',
-    color: 'color.text.secondary',
+}
+
+function buildOverview() {
+  replaceBoard(OVERVIEW);
+  const b = K.board(null, OVERVIEW, 1504, 1672, W, 900);
+  settingsChrome(b, W, [
+    { label: 'Settings' },
+    { label: 'Project Templates', current: true },
+  ]);
+
+  // 44 px tab strip, tabs at their measured advance and a 4 px gap.
+  const TABS = [
+    ['Appearance', 90],
+    ['Dependencies', 102],
+    ['Encoders', 74],
+    ['Project Templates', 120],
+    ['Storage', 66],
+    ['Network', 71],
+    ['About', 58],
+  ];
+  K.rect(b, 'settings tabs', 0, 56, W, 44, { fill: 'color.bg.base', r: 0 });
+  let cx = 32;
+  TABS.forEach(([tab, width], i) => {
+    const on = i === 3;
+    K.text(b, 'tab ' + tab, tab, cx, 56, width, {
+      size: 12.5,
+      weight: on ? 'semibold' : 'regular',
+      color: on ? 'color.text.primary' : 'color.text.muted',
+      align: 'center',
+      valign: 'center',
+      h: 44,
+    });
+    if (on) K.rect(b, 'tab underline ' + tab, cx, 98, width - 1, 2, {
+      fill: 'color.brand.default',
+      r: 0,
+    });
+    cx += width + 4;
+  });
+  K.rect(b, 'tab edge', 0, 100, W, 1, { fill: 'color.border.default', r: 0 });
+
+  K.text(
+    b,
+    'templates intro',
+    'A project template is a saved configuration and General section. New projects copy the template marked as default; existing projects are never changed.',
+    32,
+    128,
+    860,
+    { size: 12.5, color: 'color.text.secondary', h: 44, lh: 1.45 },
+  );
+  K.text(b, 'templates count', '3 templates', 936, 128, 86, {
+    size: 10.5,
+    color: 'color.text.muted',
+    h: 32,
     valign: 'center',
-    h: 28,
+  });
+
+  K.rect(b, 'templates search', 1038, 126, 214, 32, {
+    fill: 'color.bg.sunken',
+    r: 6,
+    stroke: 'color.border.default',
+  });
+  K.icon(
+    b,
+    'templates search icon',
+    '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    1050,
+    134,
+    14,
+    { color: 'color.text.muted', sw: 1.8 },
+  );
+  K.text(b, 'templates search placeholder', 'Search templates', 1070, 126, 170, {
+    size: 10.5,
+    color: 'color.text.muted',
+    h: 32,
+    valign: 'center',
+  });
+
+  K.rect(b, 'templates add', 1262, 126, 146, 32, { fill: 'color.brand.default', r: 6 });
+  K.icon(
+    b,
+    'templates add plus',
+    '<path d="M12 5v14M5 12h14"/>',
+    1274,
+    134,
+    14,
+    { color: 'color.text.on-brand', sw: 2 },
+  );
+  K.text(b, 'templates add label', 'Add template', 1292, 126, 108, {
+    size: 10.5,
+    weight: 'semibold',
+    color: 'color.text.on-brand',
+    h: 32,
+    valign: 'center',
+  });
+
+  K.rect(b, 'templates list', 32, 190, 1376, 194, {
+    fill: 'color.bg.surface',
+    r: 8,
+    stroke: 'color.border.default',
+  });
+
+  const ROWS = [
+    ['Default', 'New projects copy this template', true],
+    ['Animation', 'Open to edit its sections', false],
+    ['Archive', 'Open to edit its sections', false],
+  ];
+  ROWS.forEach(([name, detail, isDefault], i) => {
+    const y = 190 + i * 64;
+    if (i > 0) K.rect(b, 'templates rule ' + i, 32, y, 1376, 1, {
+      fill: 'color.border.subtle',
+      r: 0,
+    });
+    K.rect(b, 'templates star ' + i, 48, y + 18, 28, 28, {
+      fill: isDefault ? 'color.brand.subtle' : 'color.bg.raised',
+      r: 6,
+      stroke: isDefault ? 'color.brand.default' : 'color.border.subtle',
+    });
+    K.icon(
+      b,
+      'templates star icon ' + i,
+      '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>',
+      56,
+      y + 25,
+      14,
+      { color: isDefault ? 'color.brand.text' : 'color.text.muted', sw: 1.6 },
+    );
+    K.text(b, 'templates name ' + i, name, 90, y + 10, 520, {
+      size: 13,
+      weight: 'medium',
+      h: 20,
+    });
+    K.text(b, 'templates detail ' + i, detail, 90, y + 29, 620, {
+      size: 10.5,
+      color: 'color.text.muted',
+      h: 18,
+    });
+    if (isDefault) {
+      K.rect(b, 'templates default chip', 1230, y + 18, 84, 22, {
+        fill: 'color.brand.subtle',
+        r: 999,
+        stroke: 'color.brand.default',
+      });
+      K.icon(
+        b,
+        'templates default check',
+        '<path d="m5 12 4 4 10-10"/>',
+        1238,
+        y + 24,
+        11,
+        { color: 'color.brand.text', sw: 2 },
+      );
+      K.text(b, 'templates default label', 'Default', 1254, y + 18, 55, {
+        size: 10,
+        color: 'color.brand.text',
+        h: 22,
+        valign: 'center',
+      });
+    }
+    K.icon(
+      b,
+      'templates delete ' + i,
+      '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
+      1334,
+      y + 25,
+      15,
+      { color: 'color.text.secondary', sw: 1.6 },
+    );
+  });
+}
+function field(board, name, x, y, w, value, options = {}) {
+  const h = options.h || 32;
+  K.rect(board, 'field ' + name, x, y, w, h, {
+    fill: 'color.bg.sunken',
+    r: 6,
+    stroke: 'color.border.default',
+  });
+  if (value) {
+    K.text(board, 'field t ' + name, value, x + 12, y, w - 40, {
+      size: options.size || 11.5,
+      family: 'JetBrains Mono',
+      color: options.color || 'color.text.primary',
+      valign: 'center',
+      h,
+    });
+  }
+  if (options.chev) {
+    K.icon(
+      board,
+      'field chev ' + name,
+      '<path d="m6 9 6 6 6-6"/>',
+      x + w - 22,
+      y + h / 2 - 7,
+      14,
+      { color: 'color.text.muted', sw: 1.8 },
+    );
+  }
+  return h;
+}
+
+function toggle(board, name, x, y, on) {
+  K.rect(board, 'toggle ' + name, x, y, 34, 18, {
+    fill: on ? 'color.brand.default' : 'color.bg.raised',
+    r: 9,
+    stroke: on ? null : 'color.border.strong',
+  });
+  K.rect(board, 'toggle knob ' + name, on ? x + 18 : x + 2, y + 2, 14, 14, {
+    fill: on ? 'color.text.on-brand' : 'color.text.muted',
+    r: 7,
   });
 }
 
-text('page foot', 'Copied once at creation. No propagation, no live link, no apply-to-all action.', 32, 914, 1000, {
-  size: 10,
-  color: 'color.text.muted',
-  h: 16,
-});
-
-// ------------------------------------------- Settings / Project defaults / Encoding
-// A defaults section editor is not a project screen: no section rail, no
-// Settings tabs, and no duplicated page title. The breadcrumb names the scope,
-// the top bar owns Save/Cancel, and the field set is the same component the
-// project's Encoding section renders.
-{
-  const NAME2 = 'Settings / Project defaults / Encoding';
-  const old2 = page.findShapes({ type: 'board' }).find((b) => b.name === NAME2);
-  if (old2) old2.remove();
-
-  const W2 = 1440;
-  const H2 = 920;
-  const e = K.board(null, NAME2, 1504, 2088, W2, H2);
-  const bar = K.chrome(e, W2, [
+function buildEncoding() {
+  replaceBoard(ENCODING);
+  const b = K.board(null, ENCODING, 1504, 2636, W, 900);
+  settingsChrome(b, W, [
     { label: 'Settings' },
-    { label: 'Project defaults' },
+    { label: 'Project Templates' },
     { label: 'Encoding', current: true },
   ]);
 
-  const eText = (name, value, x, y, w, o) => K.text(e, name, value, x, y, w, o);
-  const eNote = (name, value, x, y, w, h) =>
-    K.text(e, name, value, x, y, w, { size: 10, color: 'color.text.muted', h: h || 16, lh: 1.5 });
-  const eLabel = (name, value, x, y, w) =>
-    K.text(e, name, value, x, y, w, { size: 9.5, weight: 'medium', color: 'color.text.secondary', h: 14 });
-  const eCard = (name, x, y, w, h) =>
-    K.rect(e, name, x, y, w, h, { fill: 'color.bg.surface', r: 10, stroke: 'color.border.subtle' });
-  const eChip = (name, x, y, value, tone) => {
-    const map = {
-      neutral: ['color.state.neutral-bg', 'color.state.neutral'],
-      success: ['color.state.success-bg', 'color.state.success'],
-      warning: ['color.state.warning-bg', 'color.state.warning'],
-      info: ['color.state.info-bg', 'color.state.info'],
-    };
-    const [bg, fg] = map[tone || 'neutral'];
-    const w = tw(value, 9.5) + 18;
-    K.rect(e, 'chip ' + name, x, y, w, 20, { fill: bg, r: 999, stroke: fg });
-    eText('chip t ' + name, value, x + 9, y, w - 14, { size: 9.5, color: fg, valign: 'center', h: 20 });
-    return w;
-  };
-  const eBtn = (name, x, y, value, o = {}) => {
-    const w = o.w || tw(value, 11) + 24;
-    const h = o.h || 30;
-    K.rect(e, 'btn ' + name, x, y, w, h, {
-      fill: o.primary ? 'color.brand.default' : o.ghost ? null : 'color.bg.raised',
-      r: 5,
-      stroke: o.primary || o.ghost ? null : 'color.border.default',
-    });
-    eText('btn t ' + name, value, x, y, w, {
-      size: 11,
-      weight: o.primary ? 'semibold' : 'regular',
-      color: o.primary ? 'color.text.on-brand' : 'color.text.secondary',
-      align: 'center',
-      valign: 'center',
-      h,
-    });
-    return w;
-  };
-  const eBox = (name, x, y, w, value, o = {}) => {
-    const h = o.h || 32;
-    K.rect(e, 'box ' + name, x, y, w, h, { fill: 'color.bg.sunken', stroke: 'color.border.default', r: 5 });
-    eText('box v ' + name, value, x + 10, y, w - 32, {
-      size: o.size || 11,
-      family: o.mono === false ? 'Inter' : 'JetBrains Mono',
-      color: o.color || 'color.text.primary',
-      valign: 'center',
-      h,
-    });
-    if (o.chev) K.icon(e, 'box c ' + name, '<path d="m6 9 6 6 6-6"/>', x + w - 22, y + h / 2 - 7, 14, { color: 'color.text.muted' });
-    return h;
-  };
-  const eToggle = (name, x, y, on) => {
-    K.rect(e, 'toggle ' + name, x, y, 34, 18, {
-      fill: on ? 'color.brand.default' : 'color.bg.raised',
-      r: 9,
-      stroke: on ? null : 'color.border.strong',
-    });
-    K.rect(e, 'toggle knob ' + name, on ? x + 18 : x + 2, y + 2, 14, 14, {
-      fill: on ? 'color.text.on-brand' : 'color.text.muted',
-      r: 7,
-    });
-  };
-  const eLink = (name, x, y, value, w, right) =>
-    K.text(e, 'link ' + name, value, x, y, w || 140, {
-      size: 10.5,
-      color: 'color.brand.text',
-      align: right ? 'right' : 'left',
-      h: 16,
-    });
-
-  // Scope strip. It is not a page title; it states what Save will write.
-  K.rect(e, 'scope strip', 0, 56, W2, 44, { fill: 'color.bg.base', r: 0 });
-  K.rect(e, 'scope strip edge', 0, 99, W2, 1, { fill: 'color.border.subtle', r: 0 });
-  K.icon(
-    e,
-    'scope icon',
-    '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-    32,
-    70,
-    14,
-    { color: 'color.text.secondary' },
+  K.text(
+    b,
+    'intro',
+    'Chooses the encoder and the command-line parameters every scene is encoded with.',
+    GUTTER,
+    82,
+    900,
+    { size: 13, color: 'color.text.secondary', h: 22 },
   );
-  eText('scope text', 'Applies to new projects only. Existing projects keep the configuration copied at creation; saving here never writes to a project.', 54, 56, 880, {
-    size: 10.5,
+
+  // Encoder selection card. The worker policy is its own panel at the trailing
+  // edge, because it is a policy for the build rather than a CLI argument.
+  card(b, 'encoder', GUTTER, 123, W - GUTTER * 2, 284);
+  K.text(b, 'encoder title', 'Encoder', GUTTER + 20, 139, 300, {
+    size: 16,
+    weight: 'semibold',
+    h: 24,
+  });
+  K.text(
+    b,
+    'encoder sub',
+    'The encoder a new project starts with. A project, a video, or an individual scene can choose another.',
+    GUTTER + 20,
+    165,
+    900,
+    { size: 11.5, color: 'color.text.muted', h: 18 },
+  );
+  K.rect(b, 'encoder rule', GUTTER, 200, W - GUTTER * 2, 1, {
+    fill: 'color.border.subtle',
+    r: 0,
+  });
+
+  K.text(b, 'encoder label', 'Encoder', GUTTER + 20, 282, 100, {
+    size: 9.5,
+    weight: 'medium',
     color: 'color.text.secondary',
-    valign: 'center',
-    h: 44,
+    h: 14,
   });
+  K.text(b, 'manage encoders', 'Manage encoders', GUTTER + 520, 282, 116, {
+    size: 10,
+    color: 'color.brand.text',
+    h: 16,
+  });
+  field(b, 'encoder', GUTTER + 20, 302, 582, 'SVT-AV1', { h: 36, chev: true });
 
-  // Save/Cancel live in the existing 56 px bar, before the global icon actions.
-  const saveW = 76;
-  const cancelW = 76;
-  const statusW = 128;
-  const saveX = bar.actionStart - 16 - saveW;
-  const cancelX = saveX - 8 - cancelW;
-  const statusX = cancelX - 12 - statusW;
-  K.rect(e, 'dirty dot', statusX, 25, 6, 6, { fill: 'color.state.warning', r: 3 });
-  eText('dirty text', 'Unsaved changes', statusX + 14, 0, statusW - 14, {
-    size: 10.5,
+  K.text(b, 'passes label', GUTTER + 614, 284, 60, {
+    size: 9.5,
+    weight: 'medium',
     color: 'color.text.secondary',
+    h: 14,
+  });
+  field(b, 'passes', GUTTER + 614, 307, 104, '1');
+
+  K.text(b, 'workers panel label', 762, 215, 614, {
+    size: 10.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 16,
+  });
+  K.rect(b, 'workers seg', 762, 236, 145, 29, {
+    fill: null,
+    r: 6,
+    stroke: 'color.border.default',
+  });
+  K.rect(b, 'workers seg auto', 762, 236, 72, 29, {
+    fill: 'color.bg.raised',
+    r: 5,
+    stroke: 'color.border.strong',
+  });
+  K.text(b, 'workers auto t', 'Auto', 762, 236, 72, {
+    size: 10,
+    color: 'color.text.primary',
+    align: 'center',
     valign: 'center',
-    h: 56,
+    h: 29,
   });
-  eBtn('cancel', cancelX, 12, 'Cancel', { w: cancelW, ghost: true, h: 32 });
-  eBtn('save', saveX, 12, 'Save', { w: saveW, primary: true, h: 32 });
-
-  const MX = 32;
-  const MW = 900;
-  const SX = 964;
-  const SW = 444;
-
-  // Encoder card
-  eCard('editor encoder', MX, 116, MW, 258);
-  eText('encoder head', 'Encoder', MX + 24, 136, 180, { size: 16, weight: 'semibold', h: 24 });
-  eChip('encoder badge', MX + 104, 139, 'New projects', 'neutral');
-  eNote('encoder sub', 'The default chooser and worker policy for every new project.', MX + 24, 160, 600, 16);
-
-  eLabel('encoder label', 'ENCODER', MX + 24, 190, 120);
-  eBox('encoder value', MX + 24, 208, 360, 'SVT-AV1 · 6.0.0', { chev: true, mono: false, size: 11.5 });
-  eLabel('workers label', 'WORKERS', MX + 416, 190, 120);
-  ['Auto', 'Manual'].forEach((label, i) => {
-    K.rect(e, 'workers seg ' + i, MX + 416 + i * 100, 208, 96, 32, {
-      fill: i === 0 ? 'color.bg.raised' : 'color.bg.sunken',
-      r: 4,
-      stroke: i === 0 ? 'color.border.strong' : 'color.border.default',
-    });
-    eText('workers seg t ' + i, label, MX + 416 + i * 100, 208, 96, {
-      size: 10.5,
-      weight: i === 0 ? 'semibold' : 'regular',
-      color: i === 0 ? 'color.text.primary' : 'color.text.secondary',
-      align: 'center',
-      valign: 'center',
-      h: 32,
-    });
+  K.text(b, 'workers manual t', 'Manual', 834, 236, 73, {
+    size: 10,
+    color: 'color.text.secondary',
+    align: 'center',
+    valign: 'center',
+    h: 29,
   });
-  eNote('workers note', 'Auto benchmarker · 3% speed gain per worker · memory cap off', MX + 24, 250, 620, 16);
-  K.line(e, 'encoder divider', MX + 24, 276, MW - 48, { color: 'color.border.subtle' });
-  eToggle('colour', MX + 24, 292, true);
-  eText('colour t', 'Append color data', MX + 68, 288, 220, { size: 11.5 });
-  eNote('colour n', 'Writes the source colour metadata into each chunk.', MX + 68, 306, 300, 14);
-  eToggle('photon', MX + 440, 292, false);
-  eText('photon t', 'Photon noise', MX + 484, 288, 180, { size: 11.5 });
-  eNote('photon n', 'SVT-AV1 only. Off means no synthesised grain.', MX + 484, 306, 320, 14);
-
-  // Parameter grid: the same descriptor-driven fields as the project editor,
-  // but wider because there is no section rail stealing 232 px.
-  eCard('editor params', MX, 390, MW, 250);
-  eText('params head', 'Encoder parameters', MX + 24, 410, 240, { size: 15, weight: 'semibold', h: 22 });
-  eChip('params count', MX + 206, 412, '5 of 41 set', 'neutral');
-  eLink('params preview', MX + MW - 152, 412, 'Preview command', 128, true);
-  eNote('params note', 'Defaults only. A project can override any field after it is created.', MX + 24, 436, 640, 16);
-
-  const FIELDS = [
-    ['CRF', '26', 'Constant rate factor', false],
-    ['Preset', '6 · medium', 'Speed and quality', true],
-    ['Tune', '0 · VQ', 'Psychovisual tune', true],
-    ['Pixel format', '10-bit 4:2:0', 'Required by SVT-AV1', true],
-    ['Film grain', 'Off', 'Preserve source grain', true],
-  ];
-  FIELDS.forEach(([label, value, help, chev], i) => {
-    const fx = MX + 24 + i * 170;
-    eLabel('f label ' + i, label.toUpperCase(), fx, 470, 158);
-    eBox('f ' + i, fx, 488, 158, value, { chev, size: 10, mono: false });
-    eNote('f help ' + i, help, fx, 526, 158, 28);
+  K.text(b, 'workers label', 'Workers', 762, 285, 160, {
+    size: 9.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
   });
-  K.line(e, 'params divider', MX + 24, 568, MW - 48, { color: 'color.border.subtle' });
-  eText('params advanced', 'Show advanced (36)', MX + 24, 582, 220, { size: 10.5, color: 'color.brand.text', h: 16 });
-  eNote('params advanced n', 'Hidden by default; a field set here becomes the inherited value in every new project.', MX + 24, 602, 760, 16);
+  field(b, 'workers', 762, 307, 160, '2');
 
-  // FFmpeg filter card
-  eCard('editor filter', MX, 656, MW, 140);
-  eText('filter head', 'FFmpeg filter', MX + 24, 676, 220, { size: 15, weight: 'semibold', h: 22 });
-  eChip('filter badge', MX + 158, 678, 'Optional', 'neutral');
-  eNote('filter note', 'Runs before the encoder receives each frame. Empty means no filter. Unavailable for the FFmpeg encoder, which filters through its own options.', MX + 24, 700, 820, 16);
-  eBox('filter value', MX + 24, 726, MW - 48, '', { h: 34, size: 10 });
-  K.icon(e, 'filter clear', '<path d="M18 6 6 18M6 6l12 12"/>', MX + MW - 50, 736, 14, { color: 'color.text.muted' });
-  eNote('filter warn', 'An active filter makes Quality Check score a different picture; scoring may be inaccurate.', MX + 24, 768, 820, 14);
-
-  // Side column: validation, reset, editor contract. The scope strip above
-  // already states the copy boundary, so it is not repeated in a card.
-  eCard('validation card', SX, 116, SW, 160);
-  eText('valid head', 'Validation', SX + 24, 136, 200, { size: 15, weight: 'semibold', h: 22 });
-  eChip('valid chip', SX + SW - 92, 138, 'Ready', 'neutral');
-  const checks = [
-    'Encoder exists and its descriptors load',
-    'No duplicate parameter key is active',
-    'Workers and filter values are valid',
-  ];
-  checks.forEach((c, i) => {
-    const y = 172 + i * 25;
-    K.icon(e, 'valid check ' + i, '<path d="m5 12 5 5L20 7"/>', SX + 24, y, 12, { color: 'color.text.secondary' });
-    eText('valid t ' + i, c, SX + 44, y - 2, SW - 68, { size: 10.5, color: 'color.text.secondary', h: 16 });
+  K.text(
+    b,
+    'encoder path',
+    'C:\\Tools\\Encoders\\SvtAv1EncApp.exe · SVT-AV1-Essential v4.0.1 (release)',
+    GUTTER + 20,
+    345,
+    446,
+    { size: 9.5, family: 'JetBrains Mono', color: 'color.text.muted', h: 16 },
+  );
+  K.rect(b, 'available badge', GUTTER + 474, 343, 67, 18, {
+    fill: 'color.state.success-bg',
+    r: 9,
+    stroke: 'color.state.success',
   });
-  eNote('valid note', 'Save stays enabled; the server performs the same checks before writing.', SX + 24, 246, SW - 48, 14);
-
-  eCard('reset card', SX, 292, SW, 156);
-  K.icon(e, 'reset icon', '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>', SX + 24, 312, 16, { color: 'color.text.secondary' });
-  eText('reset head', 'Reset section', SX + 50, 310, 260, { size: 13, weight: 'semibold', h: 20 });
-  eNote('reset body', 'Restores the engine defaults for this section in the template. Existing projects are untouched.', SX + 24, 338, SW - 48, 34);
-  eBtn('reset btn', SX + 24, 386, 'Reset Encoding', { w: 132, ghost: true, h: 30 });
-  eNote('reset hint', 'The action is confirmed before it writes.', SX + 168, 393, 250, 14);
-
-  eCard('contract card', SX, 464, SW, 190);
-  eText('contract head', 'Save and Cancel', SX + 24, 484, 260, { size: 15, weight: 'semibold', h: 22 });
-  const acts = [
-    ['Save', 'Writes the default template and returns. Ctrl/Cmd-S also works. No project is written.'],
-    ['Cancel', 'Discards the draft and returns. A dirty draft asks before it is dropped.'],
-    ['Leave', 'The same save / discard / stay guard applies to the breadcrumb and back button.'],
-  ];
-  acts.forEach(([k, v], i) => {
-    const y = 516 + i * 40;
-    eText('contract k ' + i, k, SX + 24, y, 70, { size: 10.5, weight: 'semibold', h: 16 });
-    eNote('contract v ' + i, v, SX + 96, y, SW - 120, 30);
+  K.text(b, 'available t', 'AVAILABLE', GUTTER + 474, 343, 67, {
+    size: 8.5,
+    family: 'JetBrains Mono',
+    weight: 'medium',
+    color: 'color.state.success',
+    align: 'center',
+    valign: 'center',
+    h: 18,
   });
+  K.text(b, 'encoder foot', 'Builds from Settings → Encoders appear in the same list.', GUTTER + 20, 371, 500, {
+    size: 10,
+    color: 'color.text.muted',
+    h: 16,
+  });
+
+  // Encoder settings: toggles first, then the ISO/resolution pair. The card is
+  // taller than the viewport, so the board clips it at 900 like the app does.
+  card(b, 'encoder settings', GUTTER, 421, W - GUTTER * 2, 519);
+  K.text(b, 'settings title', 'Encoder settings', GUTTER + 20, 437, 320, {
+    size: 16,
+    weight: 'semibold',
+    h: 24,
+  });
+  K.text(
+    b,
+    'settings sub',
+    'Options that are not CLI parameters. They belong to this encoder selection, not to every scene.',
+    GUTTER + 20,
+    463,
+    900,
+    { size: 11.5, color: 'color.text.muted', h: 18 },
+  );
+  K.rect(b, 'settings rule', GUTTER, 499, W - GUTTER * 2, 1, {
+    fill: 'color.border.subtle',
+    r: 0,
+  });
+
+  toggle(b, 'colour', GUTTER + 20, 509, true);
+  K.text(b, 'colour title', 'Append colour data', GUTTER + 66, 513, 300, {
+    size: 11.5,
+    weight: 'medium',
+    h: 18,
+  });
+  K.text(
+    b,
+    'colour note',
+    "Passes the source's colour metadata to the encoder. Turning it off changes how a player interprets the output.",
+    GUTTER + 66,
+    534,
+    334,
+    { size: 10.5, color: 'color.text.muted', h: 34 },
+  );
+
+  toggle(b, 'photon', GUTTER + 20, 592, true);
+  K.text(b, 'photon title', 'Photon noise', GUTTER + 66, 596, 100, {
+    size: 11.5,
+    weight: 'medium',
+    h: 18,
+  });
+  K.rect(b, 'photon badge', GUTTER + 145, 598, 52, 18, {
+    fill: null,
+    r: 4,
+    stroke: 'color.border.default',
+  });
+  K.text(b, 'photon badge t', 'SVT-AV1', GUTTER + 145, 598, 52, {
+    size: 8.5,
+    family: 'JetBrains Mono',
+    color: 'color.text.muted',
+    align: 'center',
+    valign: 'center',
+    h: 18,
+  });
+  K.text(
+    b,
+    'photon note',
+    'Synthesises film grain at encode time, so grain survives at a lower bitrate. Noise scaling writes a per-scene ISO; this value covers the scenes it leaves unchanged.',
+    GUTTER + 68,
+    619,
+    377,
+    { size: 10.5, color: 'color.text.muted', h: 34 },
+  );
+
+  const labelW = 658;
+  K.text(b, 'iso label', 'ISO', GUTTER + 20, 669, labelW, {
+    size: 9.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
+  });
+  field(b, 'iso', GUTTER + 20, 686, labelW, '200');
+  K.text(b, 'chroma iso label', 'Chroma ISO', 718, 669, labelW, {
+    size: 9.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
+  });
+  field(b, 'chroma iso', 718, 686, labelW, 'From ISO', { color: 'color.text.muted' });
+
+  K.text(b, 'width label', 'Width', GUTTER + 20, 734, labelW, {
+    size: 9.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
+  });
+  field(b, 'width', GUTTER + 20, 751, labelW, 'Source', { color: 'color.text.muted' });
+  K.text(b, 'height label', 'Height', 718, 734, labelW, {
+    size: 9.5,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    h: 14,
+  });
+  field(b, 'height', 718, 751, labelW, 'Source', { color: 'color.text.muted' });
+
+  K.rect(b, 'custom coefficients', GUTTER + 20, 798, 119, 36, {
+    fill: 'color.bg.raised',
+    r: 6,
+    stroke: 'color.border.strong',
+  });
+  K.text(b, 'custom coefficients t', 'Custom coefficients', GUTTER + 20, 798, 119, {
+    size: 11,
+    weight: 'medium',
+    color: 'color.text.secondary',
+    align: 'center',
+    valign: 'center',
+    h: 36,
+  });
+  K.text(b, 'custom coefficients note', 'Every plane follows the ISO', GUTTER + 152, 809, 180, {
+    size: 10.5,
+    color: 'color.text.muted',
+    h: 16,
+  });
+
+  K.text(b, 'filter label', 'FFmpeg filter', GUTTER + 20, 866, 120, {
+    size: 11,
+    weight: 'medium',
+    color: 'color.text.primary',
+    h: 18,
+  });
+  K.text(
+    b,
+    'filter note',
+    'Optional · runs before every scene',
+    W - GUTTER - 20 - 200,
+    866,
+    200,
+    { size: 10, color: 'color.text.muted', align: 'right', h: 18 },
+  );
 }
 
-
-
+buildOverview();
+buildEncoding();
 K.organize(page);
+return {
+  boards: [OVERVIEW, ENCODING],
+  overview: page.findShapes({ type: 'board' }).find((b) => b.name === OVERVIEW)?.children.length,
+  encoding: page.findShapes({ type: 'board' }).find((b) => b.name === ENCODING)?.children.length,
+};

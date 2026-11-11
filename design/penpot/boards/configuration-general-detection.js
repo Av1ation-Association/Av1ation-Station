@@ -162,7 +162,7 @@ const SIDE_W = 392;
 // ---------------------------------------------------------------- General
 if (!ONLY || ONLY === 'general') {
   const b = K.board(null, 'Configuration / General', 0, 0, sw, 900);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'General'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'General'));
   K.sectionRail(b, 900, 'General');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);
@@ -188,12 +188,13 @@ if (!ONLY || ONLY === 'general') {
   K.icon(b, 'grip', '<circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/>', 298, 381, 14, { color: 'color.text.muted', solid: true });
   K.text(b, 'filter name', 'Output format', 322, 376, 110, { size: 12, weight: 'medium' });
   K.text(b, 'filter summary', '10-bit · 4:2:0 · source geometry', 440, 376, 400, { size: 11, color: 'color.text.secondary', valign: 'center', h: 30 });
-  K.icon(b, 'dup', '<rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', 912, 381, 14, { color: 'color.text.muted' });
+  // No duplicate action: a second copy of a filter is a second edit of every field. The
+  // grip above is the reorder control, matching the video queue.
   K.icon(b, 'trash', '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>', 948, 381, 14, { color: 'color.text.muted' });
   U.btn(288, 426, 'Add filter', { w: 108 });
   U.note('Add opens the filter sheet; with one type, it opens the form directly.', 408, 432, 480, 20);
   U.note('The native input has one filter type: OutputFormat. VapourSynth inputs expose the full catalogue.', 288, 462, 688, 20);
-  U.note('VapourSynth import methods (BestSource, L-SMASH-Works, DGDecNV) appear when that input kind is selected.', 288, 492, 688, 20);
+  U.note('VapourSynth shows the source plugin (BestSource, FFmpegSource, L-SMASH-Works, DGDecNV); VapourSynth script shows the .vpy path and its picker.', 288, 492, 688, 20);
 
   U.card('output card', SIDE_X, 138, SIDE_W, 248);
   U.head('Output', 1040, 158, 220);
@@ -235,20 +236,23 @@ if (!ONLY || ONLY === 'general') {
     U.link(886, y, action, { w: 90, right: true });
     if (i < rows.length - 1) U.divider(288, y + 23, 688);
   });
-  U.note('A VapourSynth script belongs to the input that uses it. Its editor is opened from that input; there is no single project script.', 288, 830, 688, 20);
+  U.note('A project may name the .vpy its new videos use. The script is one input for the whole video and receives the injected scene table; it is never copied or rewritten.', 288, 830, 688, 20);
 }
 
 // ------------------------------------------------------- Scene detection
 if (!ONLY || ONLY === 'scene') {
   const b = K.board(null, 'Configuration / Scene detection', 1504, 0, sw, 900);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Scene detection'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Scene detection'));
   K.sectionRail(b, 900, 'Scene detection');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);
   U.sub('Finds cuts. Produces the scene list every later stage runs per scene.', CONTENT_X, 78, 780);
   U.chip(1240, 78, 'Optional', 'neutral');
 
-  U.card('method card', CONTENT_X, 120, MAIN_W, 272);
+  // The scores switch belongs to the methods that produce scores, so it lives in the
+  // Method card rather than a separate Options card. Only None and the two detectors are
+  // alternatives; a fourth card for one switch was a section with no other content.
+  U.card('method card', CONTENT_X, 120, MAIN_W, 360);
   U.head('Method', 288, 140, 240);
   U.seg(288, 172, ['None', 'AVSceneChange', 'TransNetV2'], 1, { w: 150 });
   U.label('Detection preset', 288, 220, 160);
@@ -263,26 +267,54 @@ if (!ONLY || ONLY === 'scene') {
   K.text(b, 'max unit', 'frames', 572, 322, 60, { size: 10.5, color: 'color.text.muted' });
   U.note('Shorter cuts merge; longer scenes split. Both bounds are inclusive.', 600, 300, 376, 32);
   U.note('Scenes appear as they are found, so the count updates live.', 288, 360, 688, 20);
+  U.divider(288, 384, 688);
+  U.toggle(288, 398, false);
+  K.text(b, 'scores label', 'Write per-frame scores', 332, 394, 260, { size: 12 });
+  K.text(b, 'scores badge', 'Advanced', 604, 394, 80, { size: 10, color: 'color.text.muted' });
+  U.note('Stored beside the scene list. Off by default; the scene boundaries are always kept.', 332, 416, 644, 20);
+  U.note('None produces one arbitrary scene for the whole video. That is valid, but every later stage then sees a single scene.', 288, 438, 688, 20);
+  U.note('TransNetV2’s ONNX model is located once in Settings → Dependencies; the Fast/Standard preset does not apply to it.', 288, 456, 688, 18);
 
-  U.card('detect input card', CONTENT_X, 412, MAIN_W, 250);
-  U.head('Input', 288, 432, 240);
-  U.note('The project input by default. An override applies to detection only.', 288, 456, 688, 20);
-  U.radio(288, 490, 'Project input · FFMS2', false, 420);
-  U.radio(288, 530, 'Custom input', true, 220);
-  U.seg(560, 526, ['FFMS2', 'VapourSynth', 'Script'], 1, { w: 96, h: 28 });
-  U.link(886, 532, 'Edit input', { w: 90, right: true });
-  U.divider(288, 572, 688);
-  U.note('A detection-only input often downscales to 540p and crops letterboxing: cheaper, and it does not change what is encoded.', 288, 586, 688, 34);
-  U.note('Changing this override does not change General, and it is not inherited by Encoding.', 288, 626, 688, 20);
-
-  U.card('scores card', CONTENT_X, 682, MAIN_W, 168);
-  U.head('Options', 288, 702, 240);
-  U.toggle(288, 742, false);
-  K.text(b, 'scores label', 'Write per-frame scores', 332, 738, 260, { size: 12 });
-  K.text(b, 'scores badge', 'Advanced', 604, 738, 80, { size: 10, color: 'color.text.muted' });
-  U.note('Floods the configuration with one value per frame. Off by default; scene boundaries are always kept.', 332, 758, 644, 20);
-  U.note('None produces one arbitrary scene for the whole video. That is valid, but every later stage then sees a single scene.', 288, 794, 688, 20);
-  U.note('TransNetV2 adds an optional ONNX model file under Advanced; the Fast/Standard preset does not apply to it.', 288, 820, 688, 18);
+  // The override is edited by the same Input editor General uses: three kind cards, the
+  // kind's own fields, and the engine-schema filter list. It is not a second, schema-shaped
+  // form with a select where General has radios.
+  U.card('detect input card', CONTENT_X, 500, MAIN_W, 392);
+  U.head('Input', 288, 520, 240);
+  U.note('The project input by default. An override applies to detection only.', 288, 544, 688, 20);
+  U.radio(288, 574, 'Project input · FFMS2', false, 420);
+  U.radio(288, 606, 'Custom input', true, 220);
+  U.divider(288, 634, 688);
+  const INPUT_KINDS = [
+    ['FFMS2', 'Native decode'],
+    ['VapourSynth', 'Plugin importer'],
+    ['VapourSynth script', '.vpy, one per video'],
+  ];
+  INPUT_KINDS.forEach(([name, note], i) => {
+    const kx = 288 + i * 232;
+    const on = i === 0;
+    K.rect(b, 'input kind ' + i, kx, 646, 224, 58, {
+      fill: on ? 'color.brand.subtle' : 'color.bg.sunken',
+      r: 8,
+      stroke: on ? 'color.brand.default' : 'color.border.default',
+    });
+    K.rect(b, 'input kind dot ' + i, kx + 16, 666, 10, 10, {
+      fill: on ? 'color.brand.default' : null,
+      r: 5,
+      stroke: on ? null : 'color.border.strong',
+    });
+    K.text(b, 'input kind name ' + i, name, kx + 36, 660, 174, { size: 11, weight: 'medium', h: 16 });
+    K.text(b, 'input kind note ' + i, note, kx + 36, 678, 174, { size: 9.5, color: 'color.text.muted', h: 14 });
+  });
+  U.label('Input path', 288, 716, 140);
+  U.box(288, 732, 688, 'D:/Media/bunny_540p.mkv', { mono: true });
+  U.label('Filters', 288, 774, 120);
+  K.rect(b, 'input filter row', 288, 790, 688, 34, { fill: 'color.bg.sunken', r: 6, stroke: 'color.border.subtle' });
+  K.icon(b, 'input filter grip', '<circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/>', 296, 800, 12, { color: 'color.text.muted', solid: true });
+  K.text(b, 'input filter name', 'Output format · 10-bit', 316, 790, 400, { size: 11, valign: 'center', h: 34 });
+  K.icon(b, 'input filter trash', '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>', 952, 800, 12, { color: 'color.text.muted' });
+  U.btn(288, 830, 'Add filter', { w: 100, h: 24 });
+  U.note('One Input editor for General and for an override: the source path is the only field an override adds.', 288, 852, 688, 16);
+  U.note('A detection-only input often downscales to 540p; changing it does not change General or Encoding.', 288, 870, 688, 16);
 
   U.card('purpose card', SIDE_X, 120, SIDE_W, 272);
   U.head('What it produces', 1040, 140, 300);
@@ -362,7 +394,7 @@ if (!ONLY || ONLY === 'scene') {
 // -------------------------------------------------------- Noise generation
 if (!ONLY || ONLY === 'noise') {
   const b = K.board(null, 'Configuration / Noise generation', 0, 964, sw, 950);
-  const bar = K.chrome(b, sw, crumbs('Projects', 'Big Buck Bunny', 'Noise generation'));
+  const bar = K.chrome(b, sw, crumbs('Projects', 'Demo Project', 'Noise generation'));
   K.sectionRail(b, 950, 'Noise generation');
   const U = helpers(b);
   U.topbar(sw, bar.actionStart);

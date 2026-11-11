@@ -88,7 +88,7 @@ U.btn(1056, 856, 'Add filter', { primary: true, w: 120 });
 K.text(b, 'why head', 'WHY ONE SHEET', 32, 940, 200, { size: 9.5, weight: 'semibold', color: 'color.text.muted' });
 U.note('A popover picker plus an inline form splits one decision across two surfaces and leaves the list reflowing mid-edit.', 32, 960, 420, 44);
 K.text(b, 'fast head', 'FASTER PATHS', 490, 940, 200, { size: 9.5, weight: 'semibold', color: 'color.text.muted' });
-U.note('Search-first, presets, and Duplicate on an existing row cover repeats without reopening this sheet.', 490, 960, 420, 44);
+U.note('Search-first and presets cover repeats without reopening this sheet. The list behind reorders by dragging a row\u2019s grip, with no duplicate action.', 490, 960, 420, 44);
 K.text(b, 'native head', 'NATIVE FFMS2', 948, 940, 200, { size: 9.5, weight: 'semibold', color: 'color.text.muted' });
 U.note('One filter type means no type pane. The sheet opens directly on the Output format fields.', 948, 960, 420, 44);
 K.organize(page);
