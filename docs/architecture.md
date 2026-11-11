@@ -1,5 +1,16 @@
 # Architecture
 
+## Contents
+
+- [1. Goals and constraints](#1-goals-and-constraints)
+- [2. Topology](#2-topology)
+- [3. Workspace layout](#3-workspace-layout)
+- [4. Runtime flows](#4-runtime-flows)
+- [5. Cross-cutting concerns](#5-cross-cutting-concerns)
+- [6. Failure modes and their handling](#6-failure-modes-and-their-handling)
+- [7. Capability model](#7-capability-model)
+- [8. What is explicitly not in this architecture](#8-what-is-explicitly-not-in-this-architecture)
+
 ## 1. Goals and constraints
 
 **Goals**
@@ -21,7 +32,7 @@
 
 **Constraints inherited from the previous attempt**
 
-Recorded in detail in `decisions.md`; the architecturally significant ones are:
+The architecturally significant ones are:
 
 - Never duplicate the transport layer per host.
 - Never hand-maintain a type that mirrors a Rust type.
@@ -35,11 +46,11 @@ flowchart TB
     subgraph desktop["Desktop application (Tauri process)"]
         direction TB
         webview["WebView<br/>(same SPA bundle)"]
-        shell["Tauri shell<br/>window, menus, dialogs, updater"]
-        axum["axum service<br/>/api/* · /events · /preview/*"]
+        shell["Tauri shell<br/>window, dialogs, host commands"]
+        axum["axum service<br/>/api/* · /events · media ranges"]
         worker["Encode worker thread<br/>(owns the Condor)"]
         store[("App data<br/>projects, logs, cache")]
-        webview <-->|invoke + events| shell
+        webview <-->|host invoke| shell
         webview <-->|HTTP + SSE| axum
         shell --> axum
         axum <--> worker
@@ -48,7 +59,7 @@ flowchart TB
     end
 
     browser["LAN browser<br/>(same SPA bundle)"]
-    site["Website<br/>landing · docs · demo<br/>(demo = same SPA, mock transport)"]
+    site["Website demo<br/>(same SPA, mock transport)<br/>landing and docs deferred"]
 
     browser <-->|HTTP + SSE| axum
     site <-->|in-memory mocks| site
@@ -56,12 +67,23 @@ flowchart TB
 
 Three hosts, one bundle. The desktop webview talks to the same `axum` router over
 loopback as a LAN browser does; Tauri IPC exists only for things the OS must do on the
-webview's behalf (native dialogs, window control, the updater, file drag-and-drop).
+webview's behalf (native dialogs, opening a path or URL, and writing an exported file to
+the path a save dialog returned).
 
 That choice is deliberate. If the desktop UI used Tauri IPC for data and the browser
 used HTTP, there would be two transports to test and two ways for behaviour to differ.
-Because both use HTTP, the browser-mode E2E suite exercises the exact code path the
-desktop uses.
+Because both use HTTP, a browser-mode E2E suite can exercise the exact code path the
+desktop uses; the checked-in Playwright smoke creates a project and opens Settings against the real headless service, while the full journey suite is planned for Phase 4b.
+
+A packaged desktop window loads the service's loopback origin rather than a `tauri://` page,
+so `rust/desktop-shell/capabilities/default.json` grants that origin (`remote`) the IPC
+permissions it needs for native dialogs and opening paths or links. The
+pattern must include the ephemeral port (`http://127.0.0.1:*`): a bare host matches only the
+default port and silently denies every plugin call, which surfaces as a native dialog
+"refused by the host" rather than as a build error. A unit test in the desktop crate parses
+the capability and asserts the pattern matches a real loopback origin with a port. Nothing
+else crosses IPC: no project, settings, or encode data moves over it, and a browser host has
+no IPC at all.
 
 ### 2.1 Why axum inside the Tauri process
 
@@ -94,65 +116,107 @@ flowchart LR
 
 - The `Condor` and its sequences live on **one** encode thread for the whole encode. They
   are created, used, and dropped there.
-- Progress arrives on an `mpsc::Sender` created by the engine. A bridge task on the tokio
-  runtime forwards into a `tokio::sync::broadcast` channel, which feeds both the SSE
-  endpoint and Tauri's event emitter.
-- Preview decoding uses its own decoder instances on preview threads; they never share
-  state with an in-flight encode, and the encode never waits on them.
-- At most two preview decoders exist at once — the Original source (General input) and an
-  overridden Decode source (Parallel Encoder input). The Encode source is a file and needs
-  no decoder.
+- Progress arrives on an `mpsc::Sender` created by the engine. A supervisor task on the
+  tokio runtime forwards into a `tokio::sync::broadcast` channel, which feeds the SSE
+  endpoint and the replay buffer that answers a reconnect.
+- Preview proxies use their own decoder and encoder instances on preview threads; they
+  never share state with an in-flight encode, and the encode never waits on them. Original
+  is served as the queued source file, Decoded is a lossless proxy, and Encoded runs the
+  scene's encoder into a remuxed proxy. A build is shared by cache key while viewers exist.
+- `rust/crates/service/src/run/runs/` owns the singleton lock, the progress bridge, and the
+  release rule. Routes only start, cancel, and subscribe; the fake and real runners reach
+  the engine through the same ownership, so swapping one for the other moves nothing.
+- Both hosts stop through `ServiceHandle`: it cancels the active run, waits for its
+  terminal event, then asks axum to finish in-flight requests. A bare task handle cannot
+  guarantee the lock is released before exit.
 - No blocking call runs on a tokio worker thread.
+- On Windows, the desktop and headless hosts attach to a console provided by a hidden
+  `cmd /c more` host started with `CREATE_NO_WINDOW`. Every engine-owned child inherits it,
+  and local spawns also pass `CREATE_NO_WINDOW` as a fallback, so no child console appears
+  without forking the engine. The hidden host owns no socket or state and exits with the
+  application.
 
 ## 3. Workspace layout
 
 npm workspaces for JavaScript, a Cargo workspace for Rust, one repository.
 
+Workspace package names are `@av1ation/contracts`, `@av1ation/api`, `@av1ation/ui`, and
+`@av1ation/config`; Rust crates are `av1ation-contracts`, `av1ation-engine`,
+`av1ation-service`, and the desktop shell. Prefixing avoids collisions with a future
+publish and makes an import name its layer.
+
 ```
 Av1ation-Station/
 ├── AGENTS.md
 ├── README.md
-├── Cargo.toml                  # workspace; pinned engine dependency
 ├── rust-toolchain.toml          # pins 1.97
 ├── package.json                 # workspaces + scripts
 ├── docs/
-├── crates/
-│   ├── engine/                  # andean-condor integration. no axum, no tauri.
-│   ├── contracts/               # schemars types + schema emitter (bin + test)
-│   └── service/                 # axum router, state, SSE, persistence
+├── rust/
+│   ├── Cargo.toml               # Rust workspace; pinned engine dependency
+│   ├── Cargo.lock
+│   ├── README.md                # crate map and where Rust changes go
+│   ├── crates/
+│   │   ├── contracts/           # schemars types + schema emitter
+│   │   ├── engine/              # andean-condor integration; no axum, no tauri
+│   │   └── service/             # axum router, state, SSE, persistence
+│   └── desktop-shell/           # Tauri window, IPC, capabilities, icons
 ├── apps/
-│   ├── desktop/                 # Tauri shell (src-tauri) + webview entry
+│   ├── desktop/                 # desktop webview entry
 │   ├── web/                     # LAN/web build target (same UI, HTTP transport)
-│   └── website/                 # public landing, docs and demo; demo injects MockTransport
+│   └── website/                 # public demo; injects MockTransport (deferred landing)
 └── packages/
     ├── contracts/               # generated TS types + Zod schemas
     ├── api/                     # transport façade + query/mutation layer
     ├── ui/                      # components, routes, screens, tokens
-    └── config/                  # shared eslint/ts/tailwind presets
+    └── config/                  # shared ESLint, Prettier and TypeScript presets
 ```
 
-Rationale for `crates/contracts` being separate from `crates/service`: the schema emitter
+Rationale for `rust/crates/contracts` being separate from `rust/crates/service`: the schema emitter
 must be runnable as a standalone binary in CI without linking the Tauri shell or pulling
-in the encoder toolchain. Keeping models in a leaf crate makes `cargo run -p contracts`
+in the encoder toolchain. Keeping models in a leaf crate makes `cargo run -p av1ation-contracts`
 fast.
 
 Rationale for a package-based frontend rather than folders inside one app: the three
 hosts must share everything except their entry point and transport. A workspace enforces
 that with dependency rules instead of discipline.
 
-### 3.1 Dependency direction
+All Rust lives under `rust/`; no Rust crate or native host lives under `apps/`. The
+`apps/` directory contains only the JavaScript host entries.
 
-Enforced by review, by `cargo-deny`-style checks on the Rust side, and by ESLint
-`import/no-restricted-paths` on the JavaScript side.
+### 3.1 Where a change belongs
+
+| If you are adding… | Put it in |
+| --- | --- |
+| A type that crosses the HTTP boundary | `rust/crates/contracts/src/<group>`, then regenerate contracts |
+| Engine integration, probing, preview, or script execution | `rust/crates/engine/src` ([module map](engine.md)) |
+| An HTTP route, persistence rule, or run supervisor | `rust/crates/service/src` ([module map](service.md)) |
+| A route test | `rust/crates/service/tests/api/<family>.rs` |
+| A Tauri window, native dialog, opener, or permission | `rust/desktop-shell` |
+| A shared UI feature or screen | `packages/ui/src/features/<domain>` |
+| A transport or query hook | `packages/api/src` |
+| A runnable host entry | `apps/<host>/src` |
+| A cross-host browser test | `e2e/` |
+
+Contract types and route tests are named for the production module they serve. A new
+contract type goes in its group module; a new route test goes in the matching family
+module.
+
+### 3.2 Dependency direction
+
+Enforced by review on the Rust side and by ESLint `no-restricted-imports` on the
+JavaScript side. There is no cargo-deny layer check in the tree yet.
 
 ```
 packages/contracts  ←  packages/api  ←  packages/ui  ←  apps/*
-crates/contracts    ←  crates/service ←  apps/desktop/src-tauri
-crates/engine       ←  crates/service
+rust/crates/contracts  ←  rust/crates/service  ←  rust/desktop-shell
+rust/crates/engine     ←  rust/crates/service
 ```
 
-Forbidden edges: `packages/ui → @tauri-apps/*`, `crates/service → tauri`,
-`crates/engine → axum`, `apps/desktop → apps/website`, any `packages/* → apps/*`.
+Forbidden edges: `packages/ui → @tauri-apps/*`, `packages/api → @tauri-apps/*`,
+`rust/crates/service → tauri`, `rust/crates/engine → axum`, `apps/desktop → apps/website`, any
+`packages/* → apps/*`. React and TanStack Query are allowed in `packages/api` for the typed
+query/mutation façade, but no JSX component belongs there.
 
 ## 4. Runtime flows
 
@@ -206,16 +270,26 @@ Key properties:
 
 - The **snapshot** is taken before the worker starts. Configuration edits after this
   point cannot affect a running encode, because the worker holds a copy, not a reference.
-- The lock is a `tokio::sync::Mutex<Option<RunHandle>>` in service state, so a second
-  request gets a deterministic `409` rather than a race.
+- The lock is a `tokio::sync::Mutex<Option<RunHandle>>` inside `RunSupervisor`, so a
+  second request gets a deterministic `409` rather than a race.
 - Cancellation is the engine's `AtomicBool`. The service never kills a thread.
 - The run id is the correlation key for progress, logs, and the final result.
 
 ### 4.3 Navigate away while encoding
 
-The UI blocks navigation with a router-level guard that reads the lock state from Query
-cache (fed by SSE), and shows a confirmation that cancels. This is a UX affordance; the
-authority is the server, which rejects config writes for the locked video with `423`.
+Navigation stays available. The run belongs to the video, not to the screen that started
+it: leaving its page does not cancel it, and the shell's run chip shows the live run and
+opens the active video from every route. Reopening the video reads the same state from
+the event stream.
+
+The server still decides what can be written while a run is active. Project configuration
+is read-only because every video inherits it, and the encoding video's General, overrides,
+storage, scenes, and sequence reset are read-only because they describe the work in
+flight. Sibling videos in the same project stay editable, another project stays editable,
+and template settings stay editable; the queue allows Add and sibling reorder or removal,
+while the active row stays fixed. Every second start is still refused process-wide. The UI
+reflects those scopes with disabled controls, while the service answers `423` for a write
+that reaches a locked scope.
 
 ### 4.4 State derived from the filesystem
 
@@ -224,7 +298,7 @@ in the video's temp directory whether or not a `Condor` is instantiated**, and t
 evidence of completed work.
 
 If Parallel Encoder was stopped halfway, there is one video file per completed scene in
-`temp/<video-ulid>/`. Those files tell us which scenes are encoded and how far the encode
+`temp/<video-uuid>/`. Those files tell us which scenes are encoded and how far the encode
 progressed, without starting any sequence.
 
 So the derivation has three evidence sources, in priority order:
@@ -268,12 +342,15 @@ flowchart LR
 without guessing. The resolution algorithm is specified in
 [data-model.md](data-model.md#3-config-resolution).
 
-A save replaces the resource: project scope writes the whole `ProjectConfig`, video scope
-writes the sparse `ConfigOverrides`. Neither is a field-level patch and neither merges on
+A save replaces the resource: project scope writes the whole engine configuration
+document, video scope writes the sparse `ConfigOverrides`. Neither is a field-level patch and neither merges on
 the server, so a client cannot leave a half-updated document behind. The draft is owned by
-the section route, not by the shell or the rail; Save commits it and returns to the
-project screen, Cancel discards it and returns there, and the navigation guard resolves a
-dirty draft before the rail can switch sections. A write against a locked video is rejected with
+the section route, not by the shell; Save commits it and stays on the screen, Discard resets
+it, and the navigation guard resolves a dirty draft before the back link or browser history
+can leave. Client-side, one draft session owns the history, saved baseline, dirty and guard
+state, and save/discard transition for one document; project, video, and General adapters
+decide what the draft and its save payload are. The session is the edit buffer, not a
+second read cache for server state. A write against a locked scope is rejected with
 `423`; the UI's disabled controls are only a reflection of that server rule. Because each
 save is a whole-resource replace, two clients editing the same scope resolve by last write;
 the server does not merge partial drafts. That is accepted for the single-user LAN model,
@@ -281,8 +358,8 @@ and the route guard prevents one client from silently discarding its own work.
 
 Section screens are child routes (`/projects/:id/config/:section` and
 `/projects/:id/videos/:vid/config/:section`), and a script editor is a child of the input
-it edits. The route therefore owns the breadcrumb, the active rail row and the draft; the
-rail is navigation only and never writes. The route shape is specified in
+it edits. The route therefore owns the breadcrumb and the draft; the project's section grid is
+navigation only and never writes. The route shape is specified in
 [frontend.md](frontend.md#3-routing).
 
 ### 4.6 Preview a scene
@@ -292,35 +369,38 @@ sources replaces what that element plays rather than mounting a second player.
 
 ```mermaid
 flowchart LR
-    G["General input"] --> GD["Original decoder"]
-    E["Parallel Encoder input<br/>(only when overridden)"] --> ED["Decode decoder"]
-    GD --> M1["fMP4<br/>source=original"]
-    ED --> M2["fMP4<br/>source=decode"]
-    C["retained scene chunk<br/>or session encode"] --> S2["range-served file<br/>source=encode"]
-    M1 --> P["one <video>"]
+    S["queued source file"] --> M0["direct file<br/>source=original"]
+    G["Parallel Encoder input<br/>(falls back to General)"] --> D["decoder"] --> M1["lossless H.264 fMP4<br/>source=decoded"]
+    E["scene's configured encoder"] --> M2["fMP4 copy<br/>source=encode"]
+    M0 --> P["one <video>"]
+    M1 --> P
     M2 --> P
-    S2 --> P
 ```
 
-The player's labels are `Original` (General input), `Decode` (an overridden Parallel
-Encoder input), and `Encode` (the retained chunk or a session encode).
+The player's labels are `Original` (the queued source file), `Decoded` (the Parallel
+Encoder input, falling back to General), and `Encoded` (one detected scene's chunk).
 
-- A session resolves the General input and, when `ParallelEncoderConfig.input` is `Some`,
-  the Parallel Encoder input as well. Each prepared input gets its own decoder and cache;
-  the preview decoder never shares state with a run.
-- The session manifest lists which sources exist. `decode` is present only when the input is
-  overridden; `encode` is present only when a retained chunk exists or the user asked for a
-  scene encode. The client does not infer availability.
-- The Encode source is a file. Selecting it never re-encodes; `Preview scene` produces a new
-  session encode, and the chosen encode input source (`Decode` by default, else `Original`)
-  only changes the comparison picture.
+- `Original` is served directly with byte ranges. `Decoded` opens the Parallel Encoder
+  input, falling back to General, and streams a window from the playhead as lossless H.264
+  in fragmented MP4; a lossless PNG serves the scrub still. The preview decoder never
+  shares state with a run.
+- `Encoded` resolves the scene containing the playhead, runs the configured encoder with
+  that scene's exact parameters, and muxes its stdout into fragmented MP4 with FFmpeg
+  `-c:v copy`. It is produced on demand and cached; it is not the concatenated output.
+- `encode_from=original|decoded` chooses the comparison input for `Encoded`; `decoded` is
+  the default.
+- There is no preview-session endpoint. The media route prepares the requested source per
+  request, shares an in-flight build between viewers, caches under
+  `<app-data>/cache/preview` keyed by input, encoder, frame range, size and modification
+  time, and stops a build when its last viewer leaves.
 - When the encode input source has different geometry or frame count, the client maps by
   scene-relative time. It does not claim frame equality that a `Resize`, `Crop`, or `Trim`
   filter has made false.
-- Only the selected source is prepared eagerly. The second decode is prepared on demand and
-  evicted first under the preview budget in [preview.md](preview.md#5-disk-and-memory-budget).
+- Only the selected source is attached to the element; preview builds are shared per cache
+  key rather than one decoder per open tab. The budget is in
+  [preview.md](preview.md#5-disk-and-memory-budget).
 
-### 4.7 Create a project from defaults
+### 4.7 Create a project from a template
 
 ```mermaid
 sequenceDiagram
@@ -328,18 +408,23 @@ sequenceDiagram
     participant S as axum
     participant F as filesystem
     UI->>S: POST /api/projects { name }
-    S->>S: read AppSettings.project_defaults
-    S->>S: clone ProjectConfig
+    S->>S: read settings.default_project_template_id
+    alt template marked
+        S->>S: clone template config and General
+    else no default template
+        S->>S: use engine defaults
+    end
     S->>F: atomic create project.json (config included)
     S-->>UI: 201 Project
 ```
 
-The clone is part of the create write. There is no second request, no "apply defaults" job,
-and no live link between the template and the project. That is why a project can be edited
-while Settings is open and why changing defaults never rewrites existing work. The same
-copy boundary appears at a smaller scale when a video is added: `InputDefaults` becomes a
-materialised `Input` owned by the video. In both cases, the saved resource is complete on
-disk rather than resolved through a mutable pointer.
+The clone is part of the create write. There is no second request, no "apply template"
+job, and no live link between the template and the project. That is why a project can be
+edited while Settings is open and why changing a template never rewrites existing work.
+When no template is marked default, the engine defaults are used. The same copy boundary
+appears at a smaller scale when a video is added: `GeneralDefaults` becomes a materialised
+`Input` owned by the video. In both cases, the saved resource is complete on disk rather
+than resolved through a mutable pointer.
 
 Queue order is likewise owned by the project document, not by a client sort. A reorder or
 bulk removal is one server mutation under the run lock; the list the next LAN client reads
@@ -350,12 +435,12 @@ is the list that was committed.
 | Concern | Approach |
 | --- | --- |
 | **Errors** | One `AppError` enum in Rust with a stable `code`, serialized into a uniform envelope; the frontend maps `code` to a message and a recovery action. Never surface a raw engine string without a code. |
-| **Logging** | `tracing` with a JSON file layer per run plus a ring buffer in memory for the live log view. Logs are append-only files, and the anonymiser is a pure transform over them. |
+| **Logging** | `tracing` writes stderr and `<app-data>/logs/application.log`; each run's records are appended as `logs/<run>/run.jsonl` beside `meta.json`. The live viewer pages the log with `tail`/`offset`; the anonymiser is a pure transform over the records. |
 | **Time** | All timestamps server-side as UTC ISO-8601; formatting is a frontend concern. |
-| **IDs** | ULID for projects and runs (sortable, no coordination); the engine's own indices for scenes. |
-| **Feature flags** | Compile-time Cargo features for optional preview/GPU paths so a broken optional dependency cannot block a release. |
+| **IDs** | UUID v4 strings for projects, videos, runs and encoder forks; the engine's own indices for scenes. |
+| **Feature flags** | Runtime capability discovery. The application crates declare no optional Cargo features; an absent optional dependency removes only the capability it provides (`AGENTS.md` §2.8). |
 | **Theming** | CSS custom properties; light/dark/system. Charts read the same tokens. |
-| **i18n** | English only, but all user-visible strings go through a message catalogue from day one, because retrofitting string extraction is expensive. |
+| **i18n** | English only. User-visible copy is written directly in the components; there is no message catalogue in v0.1. |
 | **Telemetry** | None. Crash logs and anonymised export are user-initiated. |
 
 ## 6. Failure modes and their handling
@@ -379,48 +464,51 @@ leaves the rest working.
 Encoding is therefore disabled only when no encoder executable exists or the selected
 encoder's executable is missing. Preview of a scene is enabled whenever that scene's
 resolved input can be decoded. Both are per-video capabilities derived from the resolved
-configuration, not process-wide flags. Full derivation is in `backend.md` §9.
+configuration, not process-wide flags. Full derivation is in `preflight.md`.
 
 ### 6.2 Runtime faults
 
 | Failure | Detection | Behaviour |
 | --- | --- | --- |
 | Engine panics inside a sequence | worker thread `catch_unwind` boundary | run terminates with `ENGINE_PANIC`, lock released, log preserved |
-| Worker thread dies without a terminal event | watchdog on the run's last-heartbeat timestamp | run marked failed, lock released |
+| Worker thread dies without a terminal event | the run's event channel closes | a run-level timeline record says the run ended without a terminal event, and the lock is released |
 | Disk full while writing output | encoder error propagated | run fails with `DISK_FULL`, partial output kept for inspection |
-| Project file corrupt | deserialize error | project loads in "recovery" state, raw file exposed for export, never silently rewritten |
+| Project file corrupt | deserialize error | project is skipped by the Home list and its detail answers `422 INVALID_CONFIG`; the raw file is never rewritten |
 | LAN client disconnects mid-stream | SSE write error | dropped from fan-out, encode continues |
 | Two app instances | Tauri `single-instance` plugin | second instance focuses the first |
-| Port collision on loopback | bind retry over a small range | recorded in the init script |
+| Port collision on loopback | the OS refuses the bind | startup reports the address error; the ephemeral port makes a collision rare |
 | Clock skew affecting log ordering | monotonic sequence numbers in the event stream | ordering never depends on wall clock |
 
 Every entry in both tables needs a test in Phase 4.
 
 ## 7. Capability model
 
-Capabilities are derived once per request from resolved configuration plus the preflight
-inventory, and cached on the asset they describe.
+The machine's inventory is a cached `PreflightReport`: one `PreflightCheck` per probe,
+carrying a `capability` group (`decode`, `encode`, `muxing`, `metric`, or `application`),
+an `available` flag, and the observed version or the reason it is missing. The report is
+served by `GET /api/health`; `POST /api/preflight/refresh` discards the cache and probes
+again. There is no process-wide "can encode" boolean.
 
-```rust
-pub struct Capabilities {
-    pub decode: BTreeSet<DecodeKind>,   // Ffms2 | VapourSynth
-    pub encoders: BTreeSet<EncoderId>,  // those whose executable was found
-    pub metrics: BTreeSet<MetricId>,    // those whose backend is available
-    pub can_write_output: bool,
-    pub can_write_temp: bool,
-}
-```
+`POST /api/projects/:id/videos/:vid/validate` projects the report onto one video's resolved
+configuration and adds the per-video facts a probe cannot know: whether the source is
+readable, whether the output and scratch directories are writable, free space on both
+volumes, and missing VapourSynth plugin namespaces. It returns `VideoValidation` with
+`blockers`, `warnings`, and the relevant `checks`; `can_encode` is true exactly when
+`blockers` is empty. That response is what the video screen reads.
 
-`Capabilities::for_video` projects this global inventory onto one video's resolved input,
-encoder, and metric choices. The UI reads capabilities from the API; it never probes the
-system itself. An action is enabled when its required capability is present, and the
-reason an action is disabled is always the missing capability, named.
+The UI never probes the system itself. An action is enabled when its required capability is
+present, and the reason an action is disabled is always the missing capability, named.
+
+A capability has one provider. A user-provided executable for an encoder that is absent
+from `PATH` makes that encoder present; it does not appear as a second encoder, and it does
+not widen any other capability. The same holds for a custom FFmpeg or `mkvmerge`, which
+satisfies **muxing** and nothing else.
 
 
 ## 8. What is explicitly not in this architecture
 
 - No database server and no embedded database. Project data is JSON per project with a
-  rebuildable index, the execution timeline is JSONL, and logs are files (A2, D29).
+  rebuildable index, the execution timeline is JSONL, and logs are files (A2).
 - No message queue, no IPC between separate processes, no daemon.
 - No plugin system for user-supplied sequences in v0.1. The extension point exists in
   the engine crate, but loading third-party code into the process is a security decision

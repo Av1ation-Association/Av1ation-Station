@@ -4,6 +4,19 @@ Design is finalized in Penpot before screen implementation begins. This document
 the file structure, the token contract between Penpot and code, and the handoff ritual. It
 is normative for the design phase described in `plan/03-ui.md`.
 
+## Contents
+
+- [1. Why a design file precedes code](#1-why-a-design-file-precedes-code)
+- [2. File structure](#2-file-structure)
+- [3. Boards required per surface](#3-boards-required-per-surface)
+- [4. Token contract](#4-token-contract)
+- [5. Handoff ritual](#5-handoff-ritual)
+- [6. Component naming](#6-component-naming)
+- [7. Accessibility annotations](#7-accessibility-annotations)
+- [8. Content rules](#8-content-rules)
+- [9. Definition of design-complete](#9-definition-of-design-complete)
+- [10. Automation](#10-automation)
+
 ## 1. Why a design file precedes code
 
 A screen is cheaper to change as a board than as a component tree. Three properties of this
@@ -29,16 +42,16 @@ Penpot pages have no per-file cap and no rate limit on the hosted service.
 | --- | --- |
 | `00 Foundations` | colour ramps, finishes, type scale, spacing, radius, elevation, motion, icon set, logo mark |
 | `01 Components` | primitives and composed components with all variants and states |
-| `02 Shell` | top bar (mark, breadcrumb, actions), content outlet, command palette, toast region |
-| `03 Home` | compact project list, empty state, create, delete confirm |
-| `04 Settings` | tabbed appearance, dependency inventory, encoder catalogue and parameter editor, project defaults, storage, network and pairing, about |
-| `05 Project` | section rail, project-default config overview, queue; the script editor is its own surface |
-| `06 Video` | `Configuration` with provenance and status; `Scenes` with one player, its `Original`/`Decode`/`Encode` sources behind one transport control, proportional timeline, scene details with honest per-sequence data, validation, charts; `Logs` as its own tab; source menu; scene encoder sheet; the `Track map` child screen |
+| `02 Shell` | top bar (way back, mark and wordmark, breadcrumb, actions), content outlet, command palette, toast region |
+| `03 Home` | whole-row project list, empty state, create, delete confirm |
+| `04 Settings` | tabbed appearance with theme and density previews, masonry dependency inventory with diagnostics, encoder catalogue and parameter/JSON editor, project templates, storage, network and pairing, about, and the seven-tab state specimen |
+| `05 Project` | configuration section grid, queue, the five project states, and the script editor as its own surface |
+| `06 Video` | `Configuration` with provenance and status; `Scenes` with one player, its `Original`/`Decode`/`Encode` sources behind one transport control, proportional timeline, scene details with honest per-sequence data, validation, charts; `Logs` as its own tab; source menu; scene encoder sheet; `Concatenation` with the track map inside its Method card |
 | `07 Overlays` | dialogs, popovers, menus, banners, notification variants |
 | `08 Motion` | annotated keyframes for every transition in the budget |
 | `09 Archive` | the dated rollout snapshot policy; not a live board page |
-| `10 Configuration` | one board per configuration section: General, scene detection, noise generation, target quality, encoding, concatenation, quality check; each repeats the 232px Project section rail, keeps the breadcrumb a static trail, and puts Save/Cancel in the top bar |
-| `11 Website` | landing page, documentation shell/index/article, demo shell; eight root boards drawn and export-reviewed as a draft; design round deferred to Phase 6 (D31), not a Phase 0 gate |
+| `10 Configuration` | one board per configuration section: General, scene detection, noise generation, target quality, encoding, concatenation, quality check; each starts from a back link to the Project section grid, keeps the breadcrumb a static trail, and puts Save/Cancel in the top bar |
+| `11 Website` | landing page, documentation shell/index/article, demo shell; eight root boards drawn and export-reviewed as a draft; design round deferred to Phase 6, not a Phase 0 gate |
 
 `11 Website` also carries `Website / Canvas`, a page-sized rectangle at layer index 0 and
 filled with `color.bg.sunken`. It is not a board and is excluded from the inventory; it
@@ -93,25 +106,24 @@ suspendable.
 `10 Configuration` is a surface page rather than a state page: one board per configuration
 section. General, scene detection, noise generation, target quality, encoding,
 concatenation and quality check each get their own board; the section map is not a screen
-and has no board. Every board repeats the same 232px local section rail as `05 Project`, so
-the active section, its status dots and the queue are reviewable without a second
-navigation model. The rail never prints a scene count at project scope; scenes belong to a
-selected video. The current breadcrumb is a static trail; there is no section
-menu state board. The content column is 1208px wide (1144px inside the 32px gutters). Each
+and has no board. A section board carries a back link to the project's section grid, not a
+repeated rail: the grid is the one place sections are chosen, so a dirty draft cannot be
+swapped by a sibling row. The grid never prints a scene count at project scope; scenes
+belong to a selected video. The breadcrumb is a static trail. Each
 Encoding parameter label carries an inline info icon; the tooltip holds the CLI key, the
 parameter description and its documentation link, so no key is printed beside the label.
 That component is `01 Components / Parameter info`, annotated with its keyboard model,
 placement, hit target and accessible name; it is a component board rather than a clone of
 Encoding, because a second dense screen costs tab performance and proves nothing extra.
-The script editor is drawn on `05 Project`, because a script is an input kind and not a
-sequence section. It repeats the shell and puts Save/Cancel/dirty in the 56px top bar; it
+The VapourSynth script page is drawn on `05 Project`, because a script is an input kind and
+not a sequence section. It repeats the shell and puts Save/Cancel/dirty in the 56px top bar; it
 has no footer and no second action row. The page exists because the project page is one
 long scroll whose sections each need to be reviewed at full size. `10 Configuration` is a
 section surface, not a standalone state surface: its populated board is the review unit,
 while full-page loading, error, narrow and wide states come from the `02 Shell` and
 `05 Project` sets. A section-specific loading or error belongs inside the section card, not
 in a duplicate full-page board. `04 Settings` carries one tab board per tab, plus
-`Project defaults` and the parameter editor; each tab board repeats the same seven-tab
+`Project Templates` and the encoder parameter editor; each tab board repeats the same seven-tab
 strip, so adding a tab is one change in every board, not a bespoke header.
 
 `11 Website` is a content surface, not an application screen, so the app state checklist
@@ -119,20 +131,19 @@ strip, so adding a tab is one change in every board, not a bespoke header.
 carry a desktop and a narrow board; the docs index and article are separate boards. The
 demo's browser frame contains the real app Home, so its loading and error behavior belong
 to the app's Home board set rather than to a second marketing mock. The website design
-round is deferred out of Phase 0 to Phase 6 (D31); until that round approves the boards,
+round is deferred out of Phase 0 to Phase 6; until that round approves the boards,
 the drawn set is a draft and no page is implemented from it.
 
 Foundations carries seven boards: `Colour`, `Finishes`, `Type`, `Spacing`, `Radius`,
 `Motion`, and `Logo`. The `Logo` board is the only place the app mark's path, clear space,
-minimum size and lockup are specified; the mark is recoloured per theme, never redrawn. `Finishes` is not optional — the brushed aluminium treatment from
-[decisions.md](decisions.md#d21--brushed-aluminium-is-a-structural-finish-not-a-brand-texture)
-is defined by tokens, and the board is the only place its gradient stops, specular
-placement, and grain density are specified.
+minimum size and lockup are specified; the mark is recoloured per theme, never redrawn. `Finishes` is not optional — the brushed aluminium treatment is defined by tokens, and the
+board is the only place its gradient stops, specular placement, and grain density are
+specified.
 
 `11 Website` is a separate surface family: the public landing page, the documentation
 shell/index/article, and the demo shell that mounts the same SPA with `MockTransport`.
-Its design round is deferred out of Phase 0 and runs with the public-site work in Phase 6
-(D31), after the application chrome is final, so the demo inherits that chrome rather than
+Its design round is deferred out of Phase 0 and runs with the public-site work in Phase 6,
+after the application chrome is final, so the demo inherits that chrome rather than
 a second copy of it. The drawn set is `Landing` and `Landing / Narrow`, `Docs`,
 `Docs / Narrow`, `Docs / Article`, `Docs / Article / Narrow`, `Demo`, and `Demo / Narrow`;
 the demo uses a nested browser board and a nested app board around the real Home chrome.
@@ -298,6 +309,13 @@ exists only as an ad-hoc call is not reproducible and is treated as scratch work
 end with `K.organize(page)`, which sorts the page's root boards row-major so the layer panel
 matches the review order after a partial redraw. The reading order for every page is in the
 board README.
+
+An SVG import also leaves a hidden `base-background` rectangle inside every icon group. It
+is invisible, so it passes a visual review while doubling the node count of the densest
+boards. `K.icon` strips it after import; a board generated from the kit cannot reintroduce
+it. The 2026-11-04 sweep removed 794 such layers from the live file and left zero hidden
+layers, while the width and state pages were repacked so no board sits alone beside an
+empty column.
 
 The token library lives in the file and survives a reset, but it has no diff. After a token
 change, run `design/penpot/export-tokens.js` and commit `design/penpot/tokens.json`; the

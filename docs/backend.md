@@ -1,35 +1,53 @@
 # Backend
 
-Rust side of Av1ation Station. Three crates, one dependency on the engine, one HTTP
-surface.
+Rust side of Av1ation Station. Three shared crates plus the Tauri desktop host, one
+dependency on the engine, one HTTP surface. All of it lives under `rust/`.
+
+## Contents
+
+- [1. Crate responsibilities](#1-crate-responsibilities)
+- [2. The engine dependency](#2-the-engine-dependency)
+- [3. Driving sequences](#3-driving-sequences)
+- [4. Service state](#4-service-state)
+- [5. HTTP surface](#5-http-surface)
+- [6. Persistence](#6-persistence)
+- [7. Logging and anonymisation](#7-logging-and-anonymisation)
+- [8. Errors](#8-errors)
+- [9. Preflight](#9-preflight)
+- [10. Concurrency invariants](#10-concurrency-invariants)
 
 ## 1. Crate responsibilities
 
-### `crates/engine` — the integration boundary
+### `rust/crates/engine` — the integration boundary
 
 Owns everything that touches `andean-condor`. No `axum`, no `tauri`, no serialization
 concerns beyond what the engine's own `schemars` derives already provide.
 
+The crate's module map and ownership rules are in [engine.md](engine.md); the sections below specify the run contract and event semantics.
+
 ```rust
 pub struct EncodeRequest {
-    pub input: Input,
-    pub output: Output,
-    pub encoder: Encoder,
-    pub sequence_config: DefaultSequenceConfig,
-    /// Materialised engine scenes, including any per-scene encoder edits.
-    pub scenes: Option<Vec<Scene<DefaultSequenceData>>>,
-    pub project_id: ProjectId,
-    pub video_id: VideoId,
-    pub run_id: RunId,
+    pub run_id: String,
+    pub project_id: String,
+    pub video_id: String,
+    pub input: serde_json::Value,          // engine `Input` JSON
+    pub video_path: String,                // what a script input is told to open
+    pub output: serde_json::Value,         // engine `Output` JSON
+    pub encoder: serde_json::Value,        // engine `Encoder` JSON
+    pub sequence_config: serde_json::Value,// includes Benchmarker and Speed Scaler
+    pub condor: Option<serde_json::Value>, // the persisted checkpoint, when one exists
+    pub sequences: Vec<String>,            // exact sequence ids to execute, in order
+    /// Called synchronously for every engine checkpoint, before the sequence continues.
+    pub checkpoint: Arc<dyn Fn(serde_json::Value) -> Result<(), String> + Send + Sync>,
 }
 
 pub struct EncodeHandle {
-    pub run_id: RunId,
+    pub run_id: String,
     pub cancel: Arc<AtomicBool>,
     pub events: mpsc::Receiver<EncodeEvent>,
 }
 
-pub trait EncodeRunner: Send {
+pub trait EncodeRunner: Send + Sync {
     fn start(&self, req: EncodeRequest) -> Result<EncodeHandle, EngineError>;
 }
 ```
@@ -39,10 +57,82 @@ means an upstream event-shape change breaks one adapter instead of the whole app
 and it lets us add correlation ids, timestamps, and a monotonic sequence number that the
 engine does not provide.
 
+Progress is one monotonic percentage per step. A stage's `Completed` marker only ends that
+stage, a `new-scene` marker only records a boundary, and a scene's `size` pair only records
+the bytes it wrote; none of them moves the bar, and only the sequence's own terminal event
+reaches 100. Without that rule an initialization stage reports 100 and processing then resets
+the bar to its real position, and Parallel Encoder latched at 100 after its first finished
+scene, for the rest of the run.
+
+Target Quality is the sequence whose bar restarts. It runs in passes, each pass encoding and
+then comparing, and each step reports its own 0-100, so the bar fills twice per pass. Its
+pass count cannot be a total: the engine sends the configured maximum, and the sequence stops
+as soon as every scene meets its target, which happens after one pass as readily as after the
+maximum. The event therefore carries that ceiling as `max_passes`, and a pass counter is not
+a percentage — `(pass - 1) / pass`, which the engine sends before a pass, said two thirds of a
+three-pass run and then fell to 0 when the encode began. The stage snapshot restarts at a new
+`phase` or `pass` and stays monotonic inside one step. The sequence saves a checkpoint at the
+end of each pass, so a finished pass is durable while the next one runs; the first event of a
+new pass is when the shell refreshes the scene table, which is what makes the pass charts
+gain a pass as it finishes instead of at the end of the run.
+
+Parallel Encoder's own ticks count frames, not scenes, so the runner counts the scenes its
+workers finish and attaches `scenes_processed`/`scenes_total` to every tick, seeded from the
+scenes the engine already recorded bytes for. A resumed run still reports the video's
+whole position: the frames of the scenes the earlier runs wrote are seeded into the bar, so
+its first tick reads where the video actually stands rather than describing the remainder.
+Quality Check seeds its bar the same way: scenes whose scores its previous run wrote are
+counted before the first pending frame is compared. Its live counters are the video's
+sampled frames and scored scenes; the ETA divides only the samples this run still has to
+score.
+
+A Parallel Encoder tick also names the scene one worker holds: `scene_index`,
+`scene_progress`, and the scene's own `scene_frames_processed`/`scene_frames_total`. Those
+frame counters are local to the scene, unlike the tick's aggregate `frames_processed`,
+which counts the whole encode; only the local pair can measure that worker's rate and
+finish estimate. A worker names itself after its scene because the engine sends no worker
+id, so the scene's final status — a `Completed` child carrying the scene id and no
+percentage — is what tells the UI that worker has moved on.
+
+A finished chunk is the other half of that story. Parallel Encoder checkpoints a scene once
+its chunk is written, with the size and the wall clock between its two timestamps, so the
+checkpoint that recorded them emits `scene_bytes` and `scene_encode_ms` beside
+`scene_index`. The client patches the cached row's `chunk_bytes`, `encoded`, and
+`encode_ms` from it, which is what makes the rail mark the scene and the Encoding chart
+plot its throughput while the other workers still run. A tick describes work in flight and
+a table read is the only other source, so without this both kept the previous run's picture
+until the sequence ended. The runner remembers the pair each scene already recorded,
+including the chunks a resumed run starts with, so a chunk is announced once and a later
+checkpoint never replays the table.
+
+Noise Detector samples one frame per scene and reports that scene's value as a
+`SceneQuality` child. Completion values cannot carry it: the value is evidence about the
+video, not a fraction of the work, and the bar is the sequence's scene tally. It crosses
+the boundary as `scene_noise` beside `scene_index`, only for this sequence. Quality Check
+reports a `FrameScore` for every sampled frame while it compares; the runner accumulates
+those scores against the scene's expected sampled frames and, once the scene is complete,
+publishes their mean as `scene_quality`. Native and VMAF scoring paths never send a
+`SceneQuality` child, so this accumulation is what makes their score chart move during the
+run. The client patches the cached row's `quality_score` from that event. Target Quality's
+`SceneQuality` belongs to a probe pass rather than to the video, so it crosses as neither
+value. The client patches the cached scene table from these events, so the measured-data
+charts and their statistics fill in scene by scene instead of appearing whole when the
+terminal event lands.
+
+The live event alone is not enough for a reader that arrives late. Both sequences write
+their scene data only when they checkpoint: Noise Detector at the end of its run, Quality
+Check after every scene has been scored. The supervisor keeps Noise Detector's values and
+the scene-table read overlays them on the derived rows. The shell keeps both tallies from
+the event stream, because a table read can still overtake the supervisor's copy, and applies
+them to whichever read comes next. A page opened five seconds into a run shows all five
+seconds, not only what arrived after it loaded. This is live execution state, like the
+singleton and the stage snapshot: it is not persisted, and the terminal event discards it
+because the checkpoint then holds the same values.
+
 The trait exists so tests can substitute a fake runner that emits scripted event
 sequences without VapourSynth, FFmpeg, or a real encode.
 
-### `crates/contracts` — the type surface
+### `rust/crates/contracts` — the type surface
 
 All types that cross the boundary live here and derive `schemars::JsonSchema` and
 `serde::{Serialize, Deserialize}`. It also contains a `bin/emit-schema` target that
@@ -51,14 +141,15 @@ writes `schema/` to disk for the TypeScript generator.
 Keeping this separate from `service` means the schema can be emitted in CI in seconds
 without building the Tauri shell or the encoder.
 
-### `crates/service` — transport and orchestration
+### `rust/crates/service` — transport and orchestration
 
 The `axum` router, application state, the encode singleton, persistence, SSE fan-out,
 and error mapping. Depends on `engine` and `contracts`. Never depends on `tauri`.
 
-This crate is also the **headless test target**: an `apps/desktop` build and a
-`service --headless` binary expose the same router, and Playwright drives the latter.
-That is how E2E runs in CI without a GUI (see [testing.md](testing.md)).
+This crate is also the **headless test target**: the `av1ation-service --port <port>`
+binary exposes the same router as the desktop build. The checked-in Playwright smoke drives
+that real HTTP surface without a GUI; the full journey is planned for Phase 4b (see
+[testing.md](testing.md)).
 
 ## 2. The engine dependency
 
@@ -75,31 +166,27 @@ av-metrics-fmetrics = { path = "../av-metrics-fmetrics" }
 Cargo resolves those path siblings from the same git source, so one dependency is enough:
 
 ```toml
-# Cargo.toml (workspace root)
+# rust/Cargo.toml (workspace root)
 [workspace.dependencies]
-andean-condor = { git = "https://github.com/BoatsMcGee/Av1an", rev = "<pinned-sha>" }
+andean-condor = { git = "https://github.com/BoatsMcGee/Av1an", rev = "e0c34a1727053055228ebefa3cdb4f088d7b7831" }
 ```
+
+`rust/crates/engine/build.rs` and the contract generator reject a path dependency or any other
+repository URL, so generated metadata cannot silently describe a local checkout.
 
 Do **not** add `[patch]` entries for the metric crates. Cargo rejects a patch that points
 at the same source ("patches must point to different sources"), and the path siblings
 already resolve from the repository. This was verified in the 1.2 dependency spike.
 
-The reproducibility hazard is the engine's **transitive branch** dependencies. Its
-manifest takes `av-decoders` from branch `v-0-12` and `av-scenechange` from branch
-`av-decoders-0.11.0`, and branch heads move. In the spike, a newer `av-decoders` changed a
-`from_raw` signature from `i32` to `i64` and the engine at the pinned revision stopped
-compiling. `Cargo.lock` pins both branches to the revisions in the engine's own lockfile:
-
-```bash
-cargo update -p av-decoders --precise <sha-from-upstream-lock>
-cargo update -p av-scenechange --precise <sha-from-upstream-lock>
-```
-
-Commit `Cargo.lock` and use `--locked` in CI. A `cargo update` that moves either branch
-without the engine revision is a broken build; bump them together, in one commit.
+The engine's decoder dependencies are now released crates, not branch references:
+`av-decoders 0.12.0` and `av-scenechange 0.25.0` resolve from crates.io, and `rust/Cargo.lock`
+pins those versions. Earlier engine revisions took both from moving branches, which made a
+regenerated lockfile capable of breaking the build; that hazard is gone. When bumping the
+engine `rev`, regenerate the lockfile and review whether either crate's major or minor
+version changed before committing. Build with `--locked` so the resolved graph is exact.
 
 `[patch]` remains valid when the replacement is a **different** source, such as a local
-vendored path. That is the fallback if a branch cannot be pinned by the lockfile.
+vendored path. That is the fallback if a released decoder version cannot be used.
 
 **If this becomes unstable, the fallback is vendoring.** Add a `vendor/av1an` subtree
 at the pinned revision with `[patch]` pointing at local paths, and record it as an ADR.
@@ -108,17 +195,19 @@ Do not fork unless upstream refuses a needed change.
 On Windows, run Cargo from a Developer Command Prompt, or call `vcvars64.bat` first. Git
 Bash's `/usr/bin/link.exe` shadows the MSVC linker and build scripts fail with a link
 error that names the Visual Studio installer. A local `rustc-wrapper = "kache"` is fine;
-do not pass `-C link-arg=-fuse-ld=lld` to the MSVC target, where `link.exe` ignores it and
-emits `LNK4044`. Use `-C linker=lld-link` if lld is intended.
+keep it in the gitignored project-local `.cargo/config.toml`, because kache is an optional
+cache and a checkout without it must build with plain rustc. Do not pass
+`-C link-arg=-fuse-ld=lld` to the MSVC target, where `link.exe` ignores it and emits
+`LNK4044`. Use `-C linker=lld-link` if lld is intended.
 
 Other dependency notes:
 
-| Crate | Note |
-| --- | --- |
-| `ort` | pinned by upstream to `2.0.0-rc.12`; DirectML on Windows. GPU features are opt-in Cargo features so a CPU-only build is always possible. |
-| `vapoursynth` | requires VapourSynth at runtime and a matching arch; preflight-check it. |
-| `ffms2-sys` | needs the ffms2 native library; guard with a preflight check. |
-| Lints | upstream enables a very strict clippy set (`unwrap_used`, `cfg_not_test`, …). Those lints apply to the dependency only; our crates choose their own, slightly looser set. |
+| Crate         | Note                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ort`         | pinned by upstream to `2.0.0-rc.12`; DirectML on Windows. GPU features are opt-in Cargo features so a CPU-only build is always possible.                                  |
+| `vapoursynth` | requires VapourSynth at runtime and a matching arch; preflight-check it.                                                                                                  |
+| `ffms2-sys`   | needs the ffms2 native library; guard with a preflight check.                                                                                                             |
+| Lints         | upstream enables a very strict clippy set (`unwrap_used`, `cfg_not_test`, …). Those lints apply to the dependency only; our crates choose their own, slightly looser set. |
 
 ## 3. Driving sequences
 
@@ -128,19 +217,19 @@ Other dependency notes:
 supplies a `Vec<Box<dyn Sequence>>` and the engine runs them in that order. Ordering is
 therefore our responsibility, and it is the heart of the "run one sequence" feature.
 
-| Sequence | Requires | Produces |
-| --- | --- | --- |
-| **Scene Detector** | a valid `Input` | `condor.scenes`; optional per-scene cut scores |
-| **Noise Detector** | scenes non-empty; VapourSynth installed. A native `Input::Video` is accepted: the sequence builds its own VapourSynth graph from the FFMS2 decode. | `sequence_data.noise_detection` |
-| **Noise Scaler** | scenes non-empty; noise detection present; encoder is AOM/RAV1E/SVT-AV1 | `sequence_data.noise_scaling`; sets `photon_noise.iso` |
-| **Target Quality** | scenes non-empty; encoders validate; `scenes_directory` | `sequence_data.target_quality` (passes with quantizer/scores/bitrate); probe files |
-| **Bitrate Optimizer** | scenes non-empty; a Target Quality pass exists; `bitrate_sigma_threshold` set | rewrites per-scene quantizers; no new data field |
-| **Parallel Encoder** | scenes non-empty; encoders validate; `scenes_directory`, `workers > 0`; `ffmpeg` if any scene has an `ffmpeg_filter` | `sequence_data.parallel_encoder`; encoded scene files |
-| **Serial Encoder** | scenes non-empty; encoders validate; `scenes_directory` | encoded scene files; no data field |
-| **Scene Concatenator** | encoded scene files exist; `mkvmerge` or `ffmpeg` | the output file |
-| **Quality Check** | scenes non-empty; output file exists | `sequence_data.quality_check` |
-| **Benchmarker** | scenes non-empty; encoders validate; `workers` **not** already set | sets `parallel_encoder.workers` |
-| **Speed Scaler** | scenes non-empty; `speed_quantizers` with ≥2 pairs | rewrites per-scene speed; no data field |
+| Sequence               | Requires                                                                                                                                                 | Produces                                                                                                                                                                                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Scene Detector**     | a valid `Input`                                                                                                                                          | `condor.scenes`; optional per-scene cut scores                                                                                                                                                                                                                              |
+| **Noise Detector**     | scenes non-empty; VapourSynth installed. A native `Input::Video` is accepted: the sequence builds its own VapourSynth graph from the FFMS2 decode.       | `sequence_data.noise_detection`                                                                                                                                                                                                                                             |
+| **Noise Scaler**       | scenes non-empty; encoder is AOM/RAV1E/SVT-AV1. A scene without noise detection is left untouched, so Noise Detector need not have finished every scene. | `sequence_data.noise_scaling`; sets `photon_noise.iso`. Reset clears the setting **and** the grain-table option it produced, because photon noise is the only writer of that file: a document holding the option after the setting is gone names a path nothing will create |
+| **Target Quality**     | scenes non-empty; encoders validate; `scenes_directory`                                                                                                  | `sequence_data.target_quality` (passes with quantizer/scores/bitrate); probe files                                                                                                                                                                                          |
+| **Bitrate Optimizer**  | scenes non-empty; a Target Quality pass exists; `bitrate_sigma_threshold` set                                                                            | rewrites per-scene quantizers; no new data field, so it is an action rather than a state                                                                                                                                                                                    |
+| **Parallel Encoder**   | scenes non-empty; encoders validate; `scenes_directory`, `workers > 0`; `ffmpeg` if any scene has an `ffmpeg_filter`                                     | `sequence_data.parallel_encoder`; encoded scene files                                                                                                                                                                                                                       |
+| **Serial Encoder**     | scenes non-empty; encoders validate; `scenes_directory`                                                                                                  | encoded scene files; no data field                                                                                                                                                                                                                                          |
+| **Scene Concatenator** | encoded scene files exist; `mkvmerge` or `ffmpeg`                                                                                                        | the output file                                                                                                                                                                                                                                                             |
+| **Quality Check**      | scenes non-empty; output file exists                                                                                                                     | `sequence_data.quality_check`                                                                                                                                                                                                                                               |
+| **Benchmarker**        | scenes non-empty; encoders validate; `workers` **not** already set                                                                                       | sets `parallel_encoder.workers`                                                                                                                                                                                                                                             |
+| **Speed Scaler**       | scenes non-empty; `speed_quantizers` with ≥2 pairs                                                                                                       | rewrites per-scene speed; no data field, so it is an action rather than a state                                                                                                                                                                                             |
 
 **Zone Encoder** is not a standalone sequence — Target Quality uses it internally when the
 scene set is eligible.
@@ -159,9 +248,10 @@ stateDiagram-v2
     SceneDetector --> SerialEncoder
     NoiseDetector --> NoiseScaler
     NoiseDetector --> TargetQuality
-    TargetQuality --> BitrateOptimizer
     TargetQuality --> SpeedScaler
+    TargetQuality --> BitrateOptimizer
     TargetQuality --> ParallelEncoder
+    SpeedScaler --> ParallelEncoder
     BitrateOptimizer --> ParallelEncoder
     ParallelEncoder --> SceneConcatenator
     SerialEncoder --> SceneConcatenator
@@ -172,17 +262,24 @@ stateDiagram-v2
 Rules, derived from the engine's own `validate`/`initialize`/`execute` checks:
 
 1. **Scene Detector is the only entry point.** No other sequence can run without scenes.
-2. **Noise Scaler requires Noise Detector** to have produced data for at least one scene.
-3. **Bitrate Optimizer requires Target Quality** to have produced at least one pass.
-4. **Scene Concatenator requires encoded scene files on disk** — from Parallel *or* Serial
+2. **Noise Scaler requires only scenes.** It scales the scenes that have a Noise Detector
+   measurement and leaves the rest untouched, so a partial detection does not lock it.
+3. **Speed Scaler requires scenes and at least two speed/quantizer pairs.** It is an action:
+   it rewrites each scene's encoder speed and has no completion field of its own.
+4. **Bitrate Optimizer requires Target Quality** to have produced at least one pass, and a
+   configured `bitrate_sigma_threshold`. It is an action too: it rewrites high-bitrate scene
+   quantizers without adding a data field.
+5. **Scene Concatenator requires encoded scene files on disk** — from Parallel _or_ Serial
    Encoder. This is the one prerequisite the filesystem answers, not the condor object.
-5. **Quality Check requires the output file to exist**, so it runs after Concatenator.
-6. **Benchmarker requires `workers` to be unset**, and must run before Parallel Encoder.
-7. **Speed Scaler requires quantizers to be known**, so it runs after Target Quality or
-   Bitrate Optimizer.
+6. **Quality Check requires the output file to exist**, so it runs after Concatenator.
+7. **Benchmarker requires `workers` to be unset**, and must run before Parallel Encoder.
 8. **Parallel and Serial Encoder are alternatives**, not a sequence — pick one per video.
 
-Two of these are *warnings* in the engine rather than errors, and we promote them to
+The two actions are never reported as `Complete` and never enter `next`; a full run applies
+both in front of Parallel Encoder when they are enabled, and the UI starts either one alone
+from its Target Quality row.
+
+Two of these are _warnings_ in the engine rather than errors, and we promote them to
 blocking errors because running them anyway produces a confusing failure later:
 
 - Quality Check with no output file (engine warns) → we block.
@@ -194,16 +291,17 @@ result. We allow it but warn prominently, naming how many scenes are missing.
 
 ### 3.2 Running one sequence vs. running all
 
-| Endpoint | Behaviour |
-| --- | --- |
-| `POST …/run` | executes exactly the named sequence, after checking §3.1 |
+| Endpoint        | Behaviour                                                                     |
+| --------------- | ----------------------------------------------------------------------------- |
+| `POST …/run`    | executes exactly the named sequence, after checking §3.1                      |
 | `POST …/encode` | runs the full chain in dependency order, like the `condor` CLI's root command |
 
 `encode` resolves the chain at request time from the video's current state, skipping
-sequences whose completion rule is already satisfied. So a video that already has scenes
-and target quality starts at Parallel Encoder. This is the same "newest evidence wins" rule
-as derived state; there is no separate stale check, because the engine stores no config
-hash to compare.
+stateful sequences whose completion rule is already satisfied. So a video that already has
+scenes and target quality starts at Parallel Encoder, with the enabled Speed Scaler and
+Bitrate Optimizer actions applied immediately before it. This is the same "newest evidence
+wins" rule as derived state; there is no separate stale check, because the engine stores no
+config hash to compare.
 
 Both endpoints share the lock, the cancellation path, the event stream, and the periodic
 `save_data` described in §3.4.
@@ -289,16 +387,16 @@ Rules:
 engine mpsc::Sender<SequenceProgressEvent>
       │
       ▼
- bridge task (tokio)  ──►  EncodeEvent { run_id, seq, at, payload }
+ bridge task (tokio)  ──►  EncodeEvent { project_id, video_id, run_id, seq, at, kind, … }
       │
-      ├──► tokio::sync::broadcast  ──►  GET /events (SSE), per-run filters
-      │                             └──►  Tauri emitter (desktop notifications, tray)
+      ├──► tokio::sync::broadcast  ──►  GET /api/events (SSE)
       └──► ring buffer (last N)     ──►  GET /api/runs/:id/events?since=seq  (resume after reload)
 ```
 
 The ring buffer plus monotonic `seq` is what lets a browser tab reload mid-encode and
-recover without gaps. `Last-Event-ID` on SSE reconnects resolves to `seq`, so a
-reconnecting client resumes rather than restarting.
+recover without gaps. `Last-Event-ID` on a native SSE reconnect resolves to `seq`; a
+fresh `EventSource`, which cannot send that header, passes the next sequence as `?since=`.
+Both resume from the cursor rather than restarting.
 
 Backpressure policy: the bridge never blocks the engine. If a subscriber is slow, the
 broadcast channel lags and that subscriber receives a `lagged` marker and refetches the
@@ -311,18 +409,25 @@ exposes `GET /api/projects/:p/videos/:v/state` which returns:
 
 ```rust
 pub struct VideoState {
+    pub video_id: String,
+    pub scene_count: u32,
     pub sequences: Vec<SequenceState>,  // per-sequence, not just per-phase
-    pub next: Vec<SequenceId>,          // every sequence currently runnable, not just one
-    pub blocking_reason: Option<Reason>,
-    pub encoded_scenes: EncodedSceneSummary,  // from the temp directory
+    pub next: Vec<String>,              // every sequence currently runnable, not just one
+    pub active: bool,
+    pub run_id: Option<String>,
+    pub failure: Option<VideoFailure>,  // latest failed run; sequence is None before its first sequence
+    pub output_exists: bool,
+    pub retained_bytes: u64,            // derived from the temp directory
+    pub script_data: Vec<ScriptData>,   // what each script input will receive
 }
 
 pub struct SequenceState {
-    pub id: SequenceId,
-    pub status: SequenceStatus,         // NeverRun | Complete | Active | Failed | Skipped
-    pub progress: Option<f64>,          // while Active
-    pub last_run: Option<DateTime<Utc>>,
-    pub blocking: Option<BlockedReason>,// why it cannot run now
+    pub id: String,                     // the id `POST …/run` accepts, e.g. `SceneDetector`
+    pub name: String,
+    pub status: SequenceRunStatus,      // never_run | incomplete | complete | active | failed | skipped
+    pub runnable: bool,
+    pub progress: Option<f64>,          // live while active, and cancelled detection's coverage
+    pub detail: Option<String>,         // short evidence, e.g. `42/48 scenes encoded`
 }
 ```
 
@@ -340,14 +445,18 @@ config hash, so staleness cannot be derived. Freshness is an advisory comparison
 data's `created_on` with the section's last-saved time, displayed beside the state and never
 used to change it ([data-model.md](data-model.md#41-sequences-not-phases)).
 
-`encoded_scenes` comes from listing the video's temp directory, so it is correct even with
-no `Condor` instantiated and no run active. That is what lets the concatenator warn "3 of
-40 scenes are not encoded" before the user asks it to run.
+`retained_bytes` and each scene's chunk state come from listing the video's temp directory,
+so they are correct even with no `Condor` instantiated and no run active. That is what lets
+the concatenator warn "3 of 40 scenes are not encoded" before the user asks it to run.
 
 The derivation is a pure function over three evidence sources — live run progress, condor
 `sequence_data`, and the temp directory listing — with newest evidence winning. It is unit
 tested against fixture `Condor` values including partially-complete ones. The algorithm is
-specified in [data-model.md](data-model.md#4-derived-state).
+specified in [data-model.md](data-model.md#4-derived-state). The latest run's failure is attached from the timeline after derivation; its `sequence`
+names the failed attempt, or is `None` when the run failed before its first sequence. It is
+the only reason a run that failed before its first sequence can explain itself, and it lets
+the UI place a sequence failure in that sequence's card without reconstructing the owner
+from a `Failed` status.
 
 Why server-side: the same derivation feeds the queue's progress bars, the video timeline,
 the per-sequence run buttons, and the "can this encode start?" preflight. Four consumers,
@@ -357,19 +466,34 @@ one implementation.
 
 ```rust
 pub struct AppState {
-    pub paths: AppPaths,                       // app data, cache, logs, temp
-    pub projects: ProjectStore,                // JSON documents + index
-    pub encode: Arc<EncodeLock>,               // tokio::sync::Mutex<Option<RunHandle>>
-    pub events: EventBus,                      // broadcast + ring buffer
-    pub preflight: PreflightReport,            // vapoursynth, ffmpeg, mkvmerge, arch
-    pub preview: PreviewRegistry,              // per-run preview sessions
-    pub auth: AuthState,                       // LAN token, or None when loopback-only
-    pub config: Arc<RwLock<AppConfig>>,        // settings: theme, paths, LAN on/off
+    pub(crate) info: AppInfo,                  // versions and API metadata
+    pub(crate) runs: RunSupervisor,            // singleton lock, progress bridge, release rule
+    pub(crate) preflight: PreflightCache,      // one cached probe list, shared by health and refresh
+    pub(crate) settings: Option<SettingsStore>,
+    pub(crate) projects: Option<ProjectStore>, // JSON documents + index
+    pub(crate) videos: Option<VideoStore>,     // per-video documents and scratch directories
+    pub(crate) timeline: Option<TimelineStore>,
+    pub(crate) logs: Option<LogStore>,
+    pub(crate) lan: LanController,             // LAN token and paired sessions
+    pub(crate) disk: DiskProbe,
+    pub(crate) preview_builds: PreviewBuilds,  // in-flight proxy builds, shared per cache key
 }
 ```
 
-`AppState` is passed to the router as `axum::extract::State<Arc<AppState>>`. Nothing in it
-is a global; the Tauri shell owns it and hands a clone to the server task on startup.
+The settings file is `<app-data>/config.json`. The desktop host supplies Tauri's resolved
+app-data directory; the headless binary takes `--data-dir` or `AV1ATION_DATA_DIR`. A host
+that passes no directory still runs, with settings persistence disabled.
+
+`AppState` is passed to the router with `with_state(state)` and extracted as
+`axum::extract::State<AppState>`; it is cheap to clone because its stores and guards are
+shared handles. Nothing in it is a global; the desktop host builds it and hands a clone to
+the server task on startup.
+
+Settings writes share one seam. `SettingsStore` owns the lock, load, apply, and atomic save,
+and every settings writer uses it. `PATCH /api/settings` is a merge patch: an absent field
+keeps its stored value, a present field replaces it, and `temp_dir: null` clears the override.
+Presence survives deserialization, so an absent field is distinguishable from `null`; the
+response is the complete settings document.
 
 ## 5. HTTP surface
 
@@ -395,18 +519,102 @@ pub enum VapourSynthScriptSource { Path(PathBuf), Text(String) }
 `Condor` carries exactly one `input`. Five sequences additionally carry **optional
 per-sequence input overrides**, which fall back to the Condor input when `None`:
 
-| Sequence | Override fields |
-| --- | --- |
-| `SceneDetectorConfig` | `input: Option<Input>` |
-| `NoiseDetectorConfig` | `input: Option<Input>` |
-| `TargetQualityConfig` | `input: Option<Input>`, `metric_input: Option<Input>` |
-| `ParallelEncoderConfig` | `input: Option<Input>` |
-| `QualityCheckConfig` | `input: Option<Input>` |
+| Sequence                | Override fields                                       |
+| ----------------------- | ----------------------------------------------------- |
+| `SceneDetectorConfig`   | `input: Option<Input>`                                |
+| `NoiseDetectorConfig`   | `input: Option<Input>`                                |
+| `TargetQualityConfig`   | `input: Option<Input>`, `metric_input: Option<Input>` |
+| `ParallelEncoderConfig` | `input: Option<Input>`                                |
+| `QualityCheckConfig`    | `input: Option<Input>`                                |
+
+The runner constructs **one sequence at a time**, immediately before that sequence runs, and
+clears the previous one before opening the next input. This is deliberate: a per-sequence
+input can be a second full decoder graph, and holding every configured override open for a
+whole run wastes memory. It also means a request for Scene Detector never evaluates Parallel
+Encoder's script, so an unrelated broken override cannot block a single-sequence run.
+
+#### Script evaluation and injected data
+
+A `VapourSynthScript` is evaluated when its input is opened, not when a frame is requested.
+A graph built once at the start of a run therefore cannot see anything a later sequence
+produced. The runner opens the script before every sequence with the engine's current
+`condor.scenes`, and replaces `condor.input`; the `Condor` itself, its checkpoints, and its
+scenes are unchanged. A per-sequence script override receives the same current table when
+that sequence is built, immediately before it runs.
+
+A script must tolerate an empty scene table: Scene Detector is the first sequence, so its
+graph is evaluated before any scene exists. It must also return the same frame count and
+format that Scene Detector measured, because detection ran on the unmodified graph.
+
+A script's own imports are re-read when their file changes. VSScript keeps one CPython
+runtime for the process, so `sys.modules` outlives an open; the engine drops the script's
+local modules whose file stamp changed before every probe, check, preview, and sequence
+open, while installed packages and the generated `condor_data` stay loaded. Editing a helper
+such as `toolkit.py` therefore reaches the next open without restarting the app.
+
+The service supplies these VSScript variables. VapourSynth exposes them to Python as
+`bytes`, so a text value is read with `.decode()`; JSON values are accepted by
+`json.loads` directly.
+
+| Variable             | Value                                                                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `condor_scenes`      | JSON array of `{index, start, end, data}` for every scene. `data` is the engine's `sequence_data`: `noise_detection`, `noise_scaling`, `target_quality`, `parallel_encoder`, and `quality_check`. |
+| `condor_scene_count` | Number of scenes, as a decimal string.                                                                                                                                                            |
+| `condor_temp_dir`    | The per-video scratch directory for chunks and sidecars.                                                                                                                                          |
+| `condor_run_id`      | The run's correlation id.                                                                                                                                                                         |
+| `condor_sequence`    | The sequence about to run, for example `ParallelEncoder`. Empty before the first sequence.                                                                                                        |
+
+These keys are reserved: a user value with the same name is replaced. The table is derived
+from `condor.scenes` at open time and is never persisted by the service. A script that reads Noise Detector's `data.noise_detection` therefore sees `null`
+while Scene Detector and Noise Detector themselves are opening, and the result while Target
+Quality, Parallel Encoder, or Quality Check is opening. Scripts that ignore these variables
+are unaffected.
+
+The generated `condor_data` module reads its document from the directory named by
+`condor_temp_dir` in the evaluating script's frame, not from its own location. VSScript
+keeps one Python runtime for the process, so `sys.modules` can hand a video the module
+another video imported first; resolving the file per open keeps each script's scene table
+and detector results its own. A call made after evaluation returns falls back to the JSON
+beside the module.
+
+The key table and its current values are served by
+`GET /api/projects/:id/videos/:vid/state` as `script_data`: one entry per script input, with
+the configuration path it occupies, the sequence whose open will see the values, and one row
+per key carrying its description, source, Python format, and value. The value comes from the
+same saved scenes and resolved configuration the next run will use, not from a second
+implementation. `condor_scenes` is bounded to a 4 KiB preview because the state response is
+not a data export; `bytes` still reports the full length and `truncated` marks the preview.
+The UI therefore documents and previews what a script receives without evaluating it.
+
+#### Plugin namespaces are checked before a run
+
+VSScript reports a missing plugin only when the script is opened, and its error names the
+namespace (`No attribute with the name hqdn3d exists`) without saying that it is a plugin.
+`POST …/encode` and `POST …/run` therefore read the script inputs the selected sequence list
+will open — the General input plus each override the runner would construct — and check every
+literal `core.<namespace>` and `core.<namespace>.<function>` against the loaded core. A
+missing plugin returns `422` naming the plugin and the script's section before the singleton
+is reserved; an override for a sequence outside the request is not read, matching lazy
+sequence construction. The check is static by design: dynamic access through `getattr`,
+`exec`, or a script that calls `LoadPlugin` is left to the open, whose `No attribute` error
+is translated to the same plugin sentence by
+[`script_plugins::explain_open_error`](../rust/crates/engine/src/script/plugins.rs).
+
+`POST …/validate` runs the same scan for the video's derived chain and returns the misses as
+`plugin_problems`, one row per namespace, section, and missing function. The page that owns
+the input renders the row: General shows `General input`, and each Configuration page filters
+the list to the input contexts it owns, so an Encoding script is reported on Encoding rather
+than on every tab. `GET /api/projects/:id/scripts` and `GET /api/settings/templates/:template_id/scripts` run
+the same scan over a project's General input and sequence overrides, or over the template and
+its General defaults, and return `ScriptPluginReport` before any video is queued. The reports
+are advisory: they do not block a sequence the user did not ask to run, and a host without
+VapourSynth reports no plugin problems because there is no loaded core to compare against.
+An unreadable script file is reported as `error`, not as a missing namespace.
 
 Consequences for the API:
 
 - **There is no dedicated `/script` endpoint.** A script is a field of an input, so it is
-  read and written through the config endpoints. A project config returns `InputDefaults`
+  read and written through the config endpoints. A project config returns `GeneralDefaults`
   (the pathless projection) including `VapourSynthScript { source: Text(..) | Path(..) }`;
   a video config returns the materialised `Input` with its source path.
 - **`script.vpy` as a separate file is not required.** The script may be stored as
@@ -421,49 +629,180 @@ Consequences for the API:
 
 ### 5.2 Routes
 
-Preview routes sit outside `/api` because they serve bytes rather than JSON; the session
-manifest is the only JSON response. The stream ids are `original`, `decode`, and `encode`
-(the player labels `Original`, `Decode`, `Encode`). `source=decode` is valid only when
-`ParallelEncoderConfig.input` is `Some`; `source=encode` only when the session has an
-encoded chunk. An unavailable source is `404` with the manifest's source list, not an
-empty stream.
+Preview bytes are served by `GET …/media`; its JSON siblings are listed with the other
+video routes. The stream ids are `original`, `decoded`, and `encode` (the player labels
+`Original`, `Decoded`, `Encoded`). `source=original` is the queued source file.
+`source=decoded&frame=N&frames=W` opens the Parallel Encoder input (falling back to General)
+and streams W frames from N as lossless H.264 in fragmented MP4, preserving the input's own
+bit depth. A window is the unit because it bounds the work and the cache file; the player
+snaps N to a fixed grid, so a seek finds a window it already has. `source=encode&scene=S`
+resolves one detected scene and
+reproduces its whole chunk from the scene's own first frame; `frame=N` resolves the scene by
+containment when the caller does not already know its index. `encode_from=original` chooses
+the General input instead of the Parallel Encoder input. Both proxies are video only: a
+browser appends them to a `SourceBuffer`, which rejects a segment whose index names a track
+it does not hold, so the player takes sound from the source's own element. Both are cached
+under `<app-data>/cache/preview`, keyed by the input, the encoder, the frame range, and the
+source's size and modification time, and both are `.mp4`.
+`GET …/frame?source=decoded&frame=N` renders one lossless PNG (16-bit for a 10-bit input)
+for the scrubber; it is never cached.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/health` | version, preflight summary, capabilities |
-| `GET` | `/api/projects` | project summaries (index) |
-| `POST` | `/api/projects` | create; copies `settings.project_defaults` unless the body supplies a config |
-| `GET` | `/api/projects/:id` | project detail |
-| `PATCH` | `/api/projects/:id` | rename, description |
-| `DELETE` | `/api/projects/:id` | delete (guarded if a run is active) |
-| `GET` | `/api/projects/:id/config` | effective config + provenance, **including the input and its script** |
-| `PUT` | `/api/projects/:id/config` | replace project config |
-| `GET` | `/api/projects/:id/videos` | queue |
-| `POST` | `/api/projects/:id/videos` | add videos |
-| `PATCH` | `/api/projects/:id/videos/order` | replace the queue order (`video_ids`) |
-| `POST` | `/api/projects/:id/videos/remove` | remove several videos atomically |
-| `GET` | `/api/projects/:id/videos/:vid` | video detail, including `clip_info` |
-| `DELETE` | `/api/projects/:id/videos/:vid` | remove one video |
-| `GET` | `/api/projects/:id/videos/:vid/config` | effective config + provenance |
-| `PUT` | `/api/projects/:id/videos/:vid/overrides` | set overrides |
-| `DELETE` | `/api/projects/:id/videos/:vid/overrides` | reset to inherited |
-| `GET` | `/api/projects/:id/videos/:vid/state` | derived phases |
-| `POST` | `/api/projects/:id/videos/:vid/validate` | preflight for one video |
-| `POST` | `/api/projects/:id/videos/:vid/run` | **run one sequence** (body: sequence id) |
-| `POST` | `/api/projects/:id/videos/:vid/encode` | **run all sequences** (409 if busy) |
-| `DELETE` | `/api/projects/:id/videos/:vid/encode` | cancel |
-| `GET` | `/api/runs/:run/events` | event replay from `seq` |
-| `GET` | `/api/events` | SSE stream (optional `run` filter) |
-| `GET` | `/api/runs/:run/logs` | log page |
-| `POST` | `/api/runs/:run/logs/export` | anonymised export |
-| `GET` | `/api/encoders` | encoder catalogue + parameter descriptors |
-| `GET` | `/api/sequences` | sequence catalogue + config schema |
-| `GET` | `/api/settings` / `PUT` | app settings, including `project_defaults` |
-| `POST` | `/preview` | create a preview session for a video and scene set |
-| `DELETE` | `/preview/:session` | evict a preview session |
-| `GET` | `/preview/:session` | manifest: available sources, scene index, produced range |
-| `GET` | `/preview/:session/stream?source=original\|decode\|encode` | fragmented MP4, range-capable |
-| `GET` | `/preview/:session/frames/:n?source=original\|decode\|encode` | single frame (JPEG) for scrubbing |
+Lossless H.264 is entropy coding, not a quality setting: a decoded frame is bit-identical to
+the Y4M frame the encoder received. The software path encodes a 10-bit 1080p 23.976 source
+at about 45 fps and an 8-bit one at about 58 fps, both ahead of the 24 fps the player needs.
+NVENC lossless H.264 reaches about 125 fps for 8-bit on a capable machine but has no
+10-bit path here, so hardware acceleration is an optional speed-up, not the correctness
+path. The raw alternative moves about 142 MB/s at 1080p 10-bit and is a local-connection
+path rather than a LAN default.
+
+The encoded path does not write an elementary stream to disk. The scene's encoder document
+comes from the checkpoint, the engine builds its final-pass argument list, and the single
+output-path argument is replaced with stdout. FFmpeg reads that bitstream on stdin and
+copies it into fragmented MP4 (`-c:v copy`), so the picture is the encoder's own output
+rather than a second-generation encode. Frames are fed from the scene's first frame because
+rate control and keyframe placement depend on them; the player waits until the requested
+frame is seekable before leaving its loading stage. The finished concatenated file is not a
+substitute for a scene chunk.
+
+The container is the one parameter the preview may pin. An SVT-AV1 build with WebM IO
+enabled defaults to Matroska even though a run reads IVF chunks back, so the scene preview
+passes `--webm 0`; every rate-control, filter, and colour option stays exactly as the run
+configured it. A run's `--keyint 0` means one keyframe per chunk, which would hold all
+fragments to the end, so the muxer also caps fragment length at half a second and the
+player can start while the scene is still encoding. A 10-bit-only encoder given 8-bit
+decoded frames exits with a diagnostic; its stderr is read while frames are still being
+fed, so the route fails with that line in about a second instead of consuming the scene
+before reporting the build failure.
+
+The route does not wait for a whole proxy. A request that opens the proxy is answered with
+the growing part file as a chunked body, so the element decodes the first fragment while
+the rest is still being produced. A request whose range starts past zero cannot be answered
+from a growing file, so it waits for the finished cache file and then uses ordinary range
+delivery. A second request for the same cache key follows the running build instead of
+starting a duplicate decode, and the last viewer leaving stops it and removes the partial
+file. A source that cannot be prepared is `422` with the reason before the body starts; a
+failure after bytes have been sent closes the body. There is no `/preview` session endpoint; the media route prepares a source per request.
+Its cache lifecycle is specified in [preview.md](preview.md).
+
+<!-- routes:start -->
+
+| Method   | Path                                                                     | Purpose                                                                                                                                                                                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/health`                                                            | app and engine package versions, pinned engine revision, API version, and the cached preflight report                                                                                                                                                                                                                                              |
+| `GET`    | `/api/update`                                                            | newest published release from the forge; a repository with none answers with no `latest`                                                                                                                                                                                                                                                           |
+| `GET`    | `/api/diagnostics/bundle`                                                | redacted support bundle for the chosen `projects` and log tail; built on request, written nowhere                                                                                                                                                                                                                                                  |
+| `POST`   | `/api/preflight/refresh`                                                 | discard the cached report, probe again, and return the new report                                                                                                                                                                                                                                                                                  |
+| `POST`   | `/api/preflight/custom`                                                  | probe one user-provided executable and return its check (preflight.md §Custom executables)                                                                                                                                                                                                                                                         |
+| `DELETE` | `/api/preflight/custom/:id`                                              | drop a user-provided executable and re-probe                                                                                                                                                                                                                                                                                                       |
+| `POST`   | `/api/script/materialise`                                                | render a script as a standalone `.vpy` with the generated module and injected values                                                                                                                                                                                                                                                               |
+| `GET`    | `/api/settings`                                                          | read the app settings document                                                                                                                                                                                                                                                                                                                     |
+| `PATCH`  | `/api/settings`                                                          | replace only the settings fields the request presents                                                                                                                                                                                                                                                                                              |
+| `PUT`    | `/api/settings/scene-model`                                              | the machine-level TransNetV2 ONNX path, or `null`                                                                                                                                                                                                                                                                                                  |
+| `PUT`    | `/api/settings/python-interpreter`                                       | the interpreter the script editor's language server analyses, or `null`                                                                                                                                                                                                                                                                            |
+| `PUT`    | `/api/settings/tool-source`                                              | one capability's provider, `bundled`, `system`, or `null` for automatic; a Bundled choice is refused when this install cannot resolve it                                                                                                                                                                                                           |
+| `GET`    | `/api/settings/templates`                                                | list the project templates                                                                                                                                                                                                                                                                                                                         |
+| `POST`   | `/api/settings/templates`                                                | create a project template seeded from the engine defaults                                                                                                                                                                                                                                                                                          |
+| `PUT`    | `/api/settings/templates/default`                                        | set or clear the template a new project copies                                                                                                                                                                                                                                                                                                     |
+| `PUT`    | `/api/settings/templates/:template_id`                                   | replace a template's name, configuration, and General defaults                                                                                                                                                                                                                                                                                     |
+| `DELETE` | `/api/settings/templates/:template_id`                                   | delete a project template                                                                                                                                                                                                                                                                                                                          |
+| `GET`    | `/api/settings/templates/:template_id/defaults`                          | read a template's effective configuration                                                                                                                                                                                                                                                                                                          |
+| `PUT`    | `/api/settings/templates/:template_id/defaults`                          | replace a template's configuration                                                                                                                                                                                                                                                                                                                 |
+| `POST`   | `/api/settings/templates/:template_id/defaults/reset`                    | reset a template to the engine defaults                                                                                                                                                                                                                                                                                                            |
+| `POST`   | `/api/settings/templates/:template_id/defaults/reset/:section`           | reset one template section                                                                                                                                                                                                                                                                                                                         |
+| `GET`    | `/api/settings/templates/:template_id/general`                           | read a template's General defaults                                                                                                                                                                                                                                                                                                                 |
+| `PUT`    | `/api/settings/templates/:template_id/general`                           | replace a template's General defaults                                                                                                                                                                                                                                                                                                              |
+| `GET`    | `/api/settings/templates/:template_id/scripts`                           | VapourSynth plugin problems in a template's inputs                                                                                                                                                                                                                                                                                                 |
+| `GET`    | `/api/projects`                                                          | project summaries (index)                                                                                                                                                                                                                                                                                                                          |
+| `POST`   | `/api/projects`                                                          | create from `name` (and optional `description`); copies the default project template, or the engine defaults when none is marked                                                                                                                                                                                                                   |
+| `POST`   | `/api/projects/import`                                                   | import that archive as a new project; never reuses ids                                                                                                                                                                                                                                                                                             |
+| `GET`    | `/api/projects/:project_id`                                              | project detail                                                                                                                                                                                                                                                                                                                                     |
+| `PATCH`  | `/api/projects/:project_id`                                              | rename, description                                                                                                                                                                                                                                                                                                                                |
+| `DELETE` | `/api/projects/:project_id`                                              | delete (guarded if a run is active)                                                                                                                                                                                                                                                                                                                |
+| `GET`    | `/api/projects/:project_id/config`                                       | effective config + provenance, **including the input and its script**                                                                                                                                                                                                                                                                              |
+| `PUT`    | `/api/projects/:project_id/config`                                       | replace project config                                                                                                                                                                                                                                                                                                                             |
+| `PUT`    | `/api/projects/:project_id/general`                                      | replace the project's `GeneralDefaults`                                                                                                                                                                                                                                                                                                            |
+| `POST`   | `/api/projects/:project_id/template`                                     | apply a saved template to a project                                                                                                                                                                                                                                                                                                                |
+| `PUT`    | `/api/projects/:project_id/defaults`                                     | restore a project configuration and General snapshot                                                                                                                                                                                                                                                                                               |
+| `GET`    | `/api/projects/:project_id/scripts`                                      | VapourSynth plugin problems in the project's General input and enabled sequence overrides                                                                                                                                                                                                                                                          |
+| `GET`    | `/api/projects/:project_id/export`                                       | portable JSON archive: configuration, queue, overrides, checkpoints                                                                                                                                                                                                                                                                                |
+| `GET`    | `/api/projects/:project_id/videos`                                       | queue                                                                                                                                                                                                                                                                                                                                              |
+| `POST`   | `/api/projects/:project_id/videos`                                       | add one video from an input path                                                                                                                                                                                                                                                                                                                   |
+| `PATCH`  | `/api/projects/:project_id/videos/order`                                 | replace the queue order (`video_ids`)                                                                                                                                                                                                                                                                                                              |
+| `POST`   | `/api/projects/:project_id/videos/remove`                                | remove several videos atomically                                                                                                                                                                                                                                                                                                                   |
+| `GET`    | `/api/projects/:project_id/videos/:video_id`                             | video detail: paths, output existence, retained bytes                                                                                                                                                                                                                                                                                              |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id`                             | remove one video                                                                                                                                                                                                                                                                                                                                   |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id/chunks`                      | delete retained chunks; `423` while that video encodes                                                                                                                                                                                                                                                                                             |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id/runs/:run_id`                | forget one run's timeline entries and log directory                                                                                                                                                                                                                                                                                                |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/config`                      | effective config + provenance                                                                                                                                                                                                                                                                                                                      |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/general`                     | the video's engine `Input` and `Output` documents and its queued source                                                                                                                                                                                                                                                                            |
+| `PUT`    | `/api/projects/:project_id/videos/:video_id/general`                     | replace both documents after validating paths and engine shapes                                                                                                                                                                                                                                                                                    |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/storage`                     | its scratch directory, the inherited root, retained bytes, and the volume's free and total space                                                                                                                                                                                                                                                   |
+| `PUT`    | `/api/projects/:project_id/videos/:video_id/storage`                     | point the scratch work at a directory of its own, or `null` to inherit; `409` while chunks are retained                                                                                                                                                                                                                                            |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/history`                     | the append-only timeline entries, oldest first                                                                                                                                                                                                                                                                                                     |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/media`                       | byte-range stream of `source=original`, `decoded` (lossless H.264 MP4 from `frame=N`, for `frames=W` or to the end when omitted), or `encode` (a `scene=S` chunk); `encode_from=original` selects the encode's input; `audio=N` serves a cached audio-only extraction of the original source; `206` for a range, `416` when it cannot be satisfied |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/frame`                       | one lossless PNG of `source=decoded&frame=N`, for scrubbing without a stream build                                                                                                                                                                                                                                                                 |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/audio-tracks`                | the source's audio streams as labels, language, codec, channels, and default flag, read from the container header                                                                                                                                                                                                                                  |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/concat-inventory`            | read one concatenation input's streams                                                                                                                                                                                                                                                                                                             |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/concat-source-info`          | read the source's chapters and global metadata                                                                                                                                                                                                                                                                                                     |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/thumbnails`                  | read the keyframe grid manifest                                                                                                                                                                                                                                                                                                                    |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/thumbnails/:index`           | serve one cached thumbnail                                                                                                                                                                                                                                                                                                                         |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/probe`                       | open the decode graph and return clip geometry, timing, pixel format and colour, or the reason it could not open; a script input is evaluated with its generated module and the reserved `condor_*` values, exactly as a run would                                                                                                                 |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/overrides`                   | the raw sparse override map                                                                                                                                                                                                                                                                                                                        |
+| `PUT`    | `/api/projects/:project_id/videos/:video_id/overrides`                   | replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section                                                                                                                                                                                                                                                              |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id/overrides`                   | reset to inherited                                                                                                                                                                                                                                                                                                                                 |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/state`                       | derived phases and the `script_data` documentation view                                                                                                                                                                                                                                                                                            |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/scenes`                      | one row per scene: frame range, final Target Quality pass, retained chunk bytes, encoder label and override provenance                                                                                                                                                                                                                             |
+| `PUT`    | `/api/projects/:project_id/videos/:video_id/scenes/encoder`              | write one encoder document to named scenes; rejects the whole request if any index is stale or a run holds the lock                                                                                                                                                                                                                                |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/scenes/add`                  | insert a scene in an uncovered `start_frame`–`end_frame` range; clears chunks because later indices move                                                                                                                                                                                                                                           |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/scenes/split`                | split the scene containing `frame`; clears chunks because later indices move                                                                                                                                                                                                                                                                       |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/scenes/merge`                | merge an adjacent scene selection; clears chunks                                                                                                                                                                                                                                                                                                   |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/scenes/reset`                | delete the selected scenes' retained chunks only                                                                                                                                                                                                                                                                                                   |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/scenes/undo`                 | restore the scene table before the last structural edit                                                                                                                                                                                                                                                                                            |
+| `PATCH`  | `/api/projects/:project_id/videos/:video_id/scenes/:index`               | change one scene's boundaries                                                                                                                                                                                                                                                                                                                      |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id/scenes/:index`               | delete one scene                                                                                                                                                                                                                                                                                                                                   |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/scenes/:index/encoder`       | one scene's complete encoder document, for the details sheet                                                                                                                                                                                                                                                                                       |
+| `PUT`    | `/api/projects/:project_id/videos/:video_id/scenes/:index/sequence-data` | replace one scene's custom sequence data                                                                                                                                                                                                                                                                                                           |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/validate`                    | preflight for one video, including missing VapourSynth plugin namespaces                                                                                                                                                                                                                                                                           |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/run`                         | **run one sequence** (body: sequence id)                                                                                                                                                                                                                                                                                                           |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/encode`                      | **run all sequences** (409 if busy)                                                                                                                                                                                                                                                                                                                |
+| `DELETE` | `/api/projects/:project_id/videos/:video_id/encode`                      | cancel                                                                                                                                                                                                                                                                                                                                             |
+| `POST`   | `/api/projects/:project_id/videos/:video_id/sequences/:sequence/reset`   | clear one sequence's derived data and scratch files; `422` when it has not run, `423` while the lock is held                                                                                                                                                                                                                                       |
+| `GET`    | `/api/projects/:project_id/videos/:video_id/runs`                        | every run that has a log, newest first, joined to its timeline outcome                                                                                                                                                                                                                                                                             |
+| `GET`    | `/api/projects/:project_id/queue`                                        | the queue batch: running state, current video, and stop reason                                                                                                                                                                                                                                                                                     |
+| `POST`   | `/api/projects/:project_id/queue`                                        | start the batch named by `video_ids`, in that order; `409` when a run already owns the singleton                                                                                                                                                                                                                                                   |
+| `DELETE` | `/api/projects/:project_id/queue`                                        | stop the batch and cancel its active run; `404` when none is running                                                                                                                                                                                                                                                                               |
+| `GET`    | `/api/encoders`                                                          | encoder catalogue + parameter descriptors                                                                                                                                                                                                                                                                                                          |
+| `POST`   | `/api/encoders/probe`                                                    | probe one build as a fork of a base encoder without saving (preflight.md §Custom encoder definitions)                                                                                                                                                                                                                                              |
+| `POST`   | `/api/encoders/forks`                                                    | save a probed encoder fork                                                                                                                                                                                                                                                                                                                         |
+| `PUT`    | `/api/encoders/forks/:id`                                                | replace a fork's name, path, or parameter map                                                                                                                                                                                                                                                                                                      |
+| `DELETE` | `/api/encoders/forks/:id`                                                | drop a saved fork                                                                                                                                                                                                                                                                                                                                  |
+| `PUT`    | `/api/encoders/:id/parameters`                                           | replace one built-in encoder's descriptor set                                                                                                                                                                                                                                                                                                      |
+| `DELETE` | `/api/encoders/:id/parameters`                                           | restore the engine's descriptors for one built-in encoder                                                                                                                                                                                                                                                                                          |
+| `GET`    | `/api/storage`                                                           | retained work, scratch and app-data footprint, per-project rows                                                                                                                                                                                                                                                                                    |
+| `GET`    | `/api/sequences`                                                         | sequence catalogue + config schema                                                                                                                                                                                                                                                                                                                 |
+| `GET`    | `/api/config/schema`                                                     | the engine's configuration schema                                                                                                                                                                                                                                                                                                                  |
+| `GET`    | `/api/config/filters`                                                    | `Ffms2Filter` and `VapourSynthFilter` schemas                                                                                                                                                                                                                                                                                                      |
+| `GET`    | `/api/config/script-guide`                                               | the script-guide document                                                                                                                                                                                                                                                                                                                          |
+| `GET`    | `/api/editor/language-server`                                            | whether a Python language server is available                                                                                                                                                                                                                                                                                                      |
+| `GET`    | `/api/editor/interpreters`                                               | every Python interpreter the settings picker can offer                                                                                                                                                                                                                                                                                             |
+| `GET`    | `/api/editor/lsp`                                                        | WebSocket bridge to that language server                                                                                                                                                                                                                                                                                                           |
+| `POST`   | `/api/config/scripts/validate`                                           | validate one VapourSynth script and return its outcome                                                                                                                                                                                                                                                                                             |
+| `DELETE` | `/api/runs/:run_id`                                                      | cancel that run                                                                                                                                                                                                                                                                                                                                    |
+| `GET`    | `/api/runs/:run_id/events`                                               | event replay from `seq`                                                                                                                                                                                                                                                                                                                            |
+| `GET`    | `/api/runs/:run_id/logs`                                                 | log page: `offset` or `tail=true`, plus `level` and `q`; filtering happens before slicing, so `total` is the match count                                                                                                                                                                                                                           |
+| `DELETE` | `/api/runs/:run_id/logs`                                                 | remove the log directory; `409 BUSY` while that run is live, `404` when it is already gone. History keeps the run's record                                                                                                                                                                                                                         |
+| `POST`   | `/api/runs/:run_id/logs/export`                                          | anonymised export                                                                                                                                                                                                                                                                                                                                  |
+| `GET`    | `/api/events`                                                            | SSE stream; `since` or `Last-Event-ID` replays from a sequence cursor                                                                                                                                                                                                                                                                              |
+| `POST`   | `/api/events/ticket`                                                     | one-use streaming ticket for SSE or the editor WebSocket on a LAN session; loopback streams need none                                                                                                                                                                                                                                              |
+| `POST`   | `/api/media/ticket`                                                      | mint a one-use media credential for a paired LAN session                                                                                                                                                                                                                                                                                           |
+| `POST`   | `/api/pair`                                                              | exchange an eight-character pairing code for its session token; no bearer token, same-origin only, `401` for every invalid code, `429` with `Retry-After` after five failures from one peer in a minute                                                                                                                                            |
+| `GET`    | `/api/lan`                                                               | LAN status, bound address, and paired sessions with their tokens and shortcodes                                                                                                                                                                                                                                                                    |
+| `POST`   | `/api/lan/enable`                                                        | start the LAN listener                                                                                                                                                                                                                                                                                                                             |
+| `POST`   | `/api/lan/disable`                                                       | stop the LAN listener                                                                                                                                                                                                                                                                                                                              |
+| `POST`   | `/api/lan/rotate`                                                        | issue another pairing token; existing sessions remain until revoked                                                                                                                                                                                                                                                                                |
+| `POST`   | `/api/lan/sessions/:session_id/revoke`                                   | revoke one paired browser                                                                                                                                                                                                                                                                                                                          |
+
+<!-- routes:end -->
 
 `POST …/run` and `POST …/encode` share the lock, the cancellation path, and the event
 stream. The only difference is which sequences execute: `encode` runs the full chain in
@@ -472,22 +811,29 @@ transition rules in §3.3.
 
 Status codes matter and are part of the contract:
 
-| Code | Meaning |
-| --- | --- |
-| `409` | a run is already active |
-| `423` | resource is locked by an active run |
-| `412` | preflight failed (missing dependency) |
+| Code  | Meaning                                                        |
+| ----- | -------------------------------------------------------------- |
+| `409` | a run is already active                                        |
+| `423` | resource is locked by an active run                            |
+| `412` | preflight failed (missing dependency)                          |
 | `422` | semantically invalid config, or an invalid sequence transition |
-| `507` | insufficient disk space |
+| `507` | insufficient disk space                                        |
 
-**Project creation is a copy, not a link.** `AppSettings.project_defaults` is a complete
-`ProjectConfig`. `POST /api/projects` clones it into the new `project.json` inside the same
-atomic create that writes the file; the new project is never briefly configless, and a
-concurrent `PUT /api/settings` cannot produce a half-copied project. The request may carry
-an explicit config for tests or import, but the normal UI sends only the name. Later edits
-to defaults do not propagate, and a project edit does not write back to defaults. This is
-the same reason overrides are copied into a materialised `Input` at add time rather than
-referenced: a saved project must mean what it says.
+The disk floor is a fixed **512 MiB** on both the output and scratch volumes; below
+**2 GiB** the validation response warns but allows the run. The check walks to the nearest
+existing ancestor, so a scratch directory that the engine has not created yet is still
+measured on the volume it will use. An unreadable volume is a warning, not a refusal: a
+network share must not become unusable for lack of evidence. See §6.1.
+
+**Project creation is a copy, not a link.** A marked project template is a complete
+configuration and General document. `POST /api/projects` copies it into the new
+`project.json` inside the same atomic create that writes the file; when no template is
+marked default, the engine defaults are used. The new project is never briefly configless,
+and a concurrent `PATCH /api/settings` cannot produce a half-copied project. The request
+carries only a name and optional description; import is a separate endpoint and archive
+schema. Later edits to a template do not propagate, and a project edit does not write back
+to the template. This is the same reason overrides are copied into a materialised `Input`
+at add time rather than referenced: a saved project must mean what it says.
 
 **Queue order and bulk removal are server state.** `PATCH …/videos/order` takes the full
 ordered `video_ids` list and rejects a list that is not a permutation of the current queue,
@@ -496,55 +842,93 @@ ids and removes them in one lock check and one write; a partial failure leaves t
 unchanged. A run locks ordering and removal for every video it owns until its terminal
 event. Single-video `DELETE` remains for the row menu.
 
+**A queue batch is service state, not a client loop.** `POST /queue` names the ids and
+returns; one service task reserves the same singleton an explicit encode takes and walks the
+list, so a second batch or encode is refused by one lock and one video's failure does not
+abandon the rest. Membership is polled once per 1.2 s only while a batch is active; each
+row's progress still comes from the pushed `video-state` cache. The batch therefore survives
+navigation and reload, and a restart reports no batch rather than resuming stale work.
+
 ## 6. Persistence
 
 ```
 <app-data>/
-├── config.json                 # app settings
+├── config.json                 # app settings, including accepted custom executables
 ├── index.json                  # project summaries cache (rebuildable)
 ├── projects/
-│   └── <ulid>/
-│       ├── project.json        # name, description, config, input, video list
+│   └── <project-uuid>/
+│       ├── project.json        # name, description, config, general defaults
 │       └── videos/
-│           └── <ulid>.json     # per-video overrides + condor data
+│           ├── <video-uuid>.json       # input, output, overrides, condor data
+│           └── <video-uuid>/
+│               └── timeline.jsonl      # append-only execution history (see §6.1)
 ├── temp/
-│   └── <video-ulid>/           # per-video scratch space (see §6.1)
+│   └── <video-uuid>/           # per-video scratch space (see §6.1)
 └── logs/
-    └── <run-ulid>/
+    ├── application.log       # service-wide records: startup, settings, failures
+    └── <run-uuid>/
         ├── run.jsonl           # structured events
-        ├── engine.log          # raw engine output
         └── meta.json           # command line, versions, environment
 ```
+
+`engine.log` is intentionally absent: the pinned engine writes encoder stderr in-process
+and exposes no file or callback. §7.1 records the consequence for diagnosis.
 
 Decisions:
 
 - **The VapourSynth script is not a separate file.** It lives inside the input as
   `VapourSynthScriptSource::Text` or `::Path` (§5.1). At project scope that input is the
-  pathless `InputDefaults`; a video materialises it with the source path. A `Path` variant
+  pathless `GeneralDefaults`; a video materialises it with the source path. A `Path` variant
   is offered for users who want to edit the script in an external editor, but the input is
   the source of truth either way.
 - **`project.json` holds inherited config; `videos/<id>.json` holds only overrides.** The
   effective config is always computed, never stored. This is what makes "reset to project
   value" a deletion rather than a copy.
+- **A configuration save is checked and normalised.** `PUT /api/projects/:id/config`
+  validates the document against the engine's own default shape, rejects an unknown section
+  or field with `422`, materialises the full document, and writes it atomically. The
+  response carries per-leaf provenance, and a read never writes. A one-key section whose
+  child the default does not own is a replacement variant, because the engine's externally
+  tagged enums serialise that way.
 - **Writes are atomic** (temp file in the same directory, `fsync`, rename). The engine's
   own `save_data` does the same for condor state; match it.
 - **`index.json` is a cache.** Corruption triggers a rebuild from `projects/*/project.json`.
-- **Migration** is version-gated: `project.json` has a `schema_version`, and loaders run an
-  ordered migration chain. Unknown-newer versions refuse to load rather than partially
-  applying.
+  Every entry is also checked against its directory before the list is served, and the size
+  is measured at that moment, so a project removed outside the app is never listed and a
+  stale size is never replayed.
+- **Reads never write.** A project's access time is held in memory by the store and made
+  durable by the next create, rename, or delete. Only `POST /api/projects` creates a
+  directory, so a read racing a delete cannot resurrect the project.
+- **Migration** is version-gated but there is no migration chain yet: `project.json` and
+  each video document carry a `schema_version`, and this build reads version 1. A missing
+  version is treated as 0 and parsed against the current struct, so a field added since
+  then must be defaulted in Rust. A newer version and a damaged document refuse to load;
+  over HTTP both are `422` `INVALID_CONFIG`, because a client cannot fix either by retrying.
+  A corrupt project is skipped by the Home list and its raw file is left untouched.
+- **A project's configuration is copied at creation.** `POST /api/projects` copies the
+  marked project template's configuration into the new `project.json` in the same atomic
+  create; without a marked template it writes the engine's default encoder and sequence
+  configuration. The project is never briefly configless. The file's `config` field is
+  serialised by the engine, so a new project reflects that engine's defaults rather than a
+  second table of numbers.
+- **`index.json` is written after every create, rename, and delete**, and read for the
+  project list. When it is missing, corrupt, or a different index version, the store rescans
+  `projects/*/project.json` and rewrites it, so a lost cache costs one scan rather than the
+  project list. A rewrite is serialised with the other rewrites, so two concurrent mutations
+  cannot interleave a scan and a write and drop one of the new projects.
 
 ### 6.1 Temporary storage for encoded chunks
 
 Encoded scene chunks are large — gigabytes per video — and must survive for the whole
 encode so the concatenator can assemble them. Three candidate locations:
 
-| Location | Pros | Cons |
-| --- | --- | --- |
-| **OS `TEMP`** | conventional; OS cleans up eventually | the OS or a cleanup tool may delete files mid-encode; on Windows `TEMP` is often on the same volume as the system drive |
-| **Next to the input video** | same volume as source and output, so no cross-device copy; survives reboots | pollutes the user's media directories; may be read-only or on a network share |
-| **App-data `temp/`** | fully under our control; predictable; survives reboots; easy to clean on uninstall | may be on a different volume from the output, costing a copy at concatenation time |
+| Location                    | Pros                                                                               | Cons                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **OS `TEMP`**               | conventional; OS cleans up eventually                                              | the OS or a cleanup tool may delete files mid-encode; on Windows `TEMP` is often on the same volume as the system drive |
+| **Next to the input video** | same volume as source and output, so no cross-device copy; survives reboots        | pollutes the user's media directories; may be read-only or on a network share                                           |
+| **App-data `temp/`**        | fully under our control; predictable; survives reboots; easy to clean on uninstall | may be on a different volume from the output, costing a copy at concatenation time                                      |
 
-**Decision: app-data `temp/<video-ulid>/`, with a user-configurable override in Settings.**
+**Decision: app-data `temp/<video-uuid>/`, with a user-configurable override in Settings.**
 
 Rationale: the decisive factor is that losing these files mid-encode destroys hours of
 work, and only a location we control avoids that. The OS `TEMP` directory is explicitly
@@ -554,7 +938,7 @@ for users whose app-data volume differs from their media volume.
 
 Rules:
 
-- One directory per video, named by video ULID, so concurrent work never collides and a
+- One directory per video, named by video UUID, so concurrent work never collides and a
   crashed run's chunks are attributable.
 - **Chunks are preserved by default after a successful run.** They are what makes a later
   Quality Check possible on an already-produced output, and what lets a user edit a few
@@ -562,55 +946,117 @@ Rules:
   video. Deleting them would make both workflows impossible after the fact.
 - **Automatic deletion is opt-in.** A `delete_chunks_on_success` setting defaults to
   `false`. Only when the user enables it are chunks removed after the final sequence
-  completes, and even then only after the concatenated output is verified (non-zero size,
-  playable header).
+  completes, and even then only after the concatenated output exists and is non-empty.
+  The removal holds the encode lock until it finishes, so a new run cannot write into a
+  directory that is being removed. `DELETE …/videos/:vid/chunks` is the explicit action;
+  a missing directory is `204`, an active run on that video is `423`.
 - Chunks are therefore never deleted as an incidental step of any sequence. A sequence that
   would otherwise clean up leaves the files in place.
 - The UI states, per video, how much space the retained chunks occupy and offers an explicit
   "delete chunks" action, so the default costs the user nothing but is never invisible.
-- The service exposes `retained_bytes` per video and the sum per project. It is computed by
-  walking `temp/<video-ulid>/` and adding chunk and probe file sizes; the walk shares the
-  chunk-listing cache (short TTL, invalidated by run events), so a project row costs no more
-  than a directory walk per video. Source videos, `project.json` and logs are excluded. A
-  project with no retained work reports `0` and the UI renders an em dash.
+- Removing a video deletes its scratch directory after the document is gone, and removing a
+  project does the same for every video it queued; otherwise the retained files would have
+  no resource left to address them. Cleanup is best-effort so a locked file cannot keep a
+  removed video in the queue.
+- The service exposes `retained_bytes` per video, and a project's `size_bytes` adds the
+  retained bytes of every queued video to the project directory's size. The per-video walk
+  over `temp/<video-uuid>/` sums chunk and probe file sizes. Source videos, `project.json`
+  and logs are excluded. A project with no retained work reports only its document size.
 - On startup, `temp/` entries older than the retention window (default 7 days) with no
   active run are reported to the user for cleanup, never deleted silently.
 - Free-space checks account for the temp directory, not just the output directory, and
-  account for retained chunks of completed videos.
+  account for retained chunks of completed videos. A run is refused with `507` below a
+  512 MiB floor on either volume; below 2 GiB the validation result warns instead. The
+  floor is deliberately not an estimate of the output size, which the encoder alone knows.
+- The archive endpoint exports the configuration, queue, overrides, and the last engine
+  checkpoint as one JSON document. Media and encoded chunks are excluded, so a bug report
+  does not move gigabytes. Import validates every entry before creating a project, then
+  writes the queue under new ids; a failure deletes the partially-created project.
 
 ## 7. Logging and anonymisation
 
 ### 7.1 Two log scopes
 
-| Scope | Contents | Attribution |
-| --- | --- | --- |
-| **Application** | startup, preflight, settings changes, LAN auth, project I/O | none — process-wide |
-| **Run** | everything a `Condor` sequence emits while processing one video | `run_id`, `video_id`, `project_id`, and the sequence name |
+| Scope           | Contents                                                                              | Attribution                                               |
+| --------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Application** | startup, preflight refresh, settings changes, project create/delete, service failures | none — process-wide                                       |
+| **Run**         | everything a `Condor` sequence emits while processing one video                       | `run_id`, `video_id`, `project_id`, and the sequence name |
 
 Run logs are attributed to one video. A queue of encodes therefore never produces an
 undifferentiated stream: every run log line carries its `run_id`, `video_id`, and
 `project_id`, because the run is created per video and the correlation id is stamped at
-creation. A single log sink holds both scopes so ordering across them is preserved.
+creation. Each run has its own file; the application file is process-wide, and the
+`at` timestamp is the ordering key across the two.
 
 ```rust
 pub struct LogRecord {
     pub seq: u64,                 // monotonic, ordering never depends on wall clock
-    pub at: DateTime<Utc>,
-    pub level: Level,
-    pub scope: LogScope,          // App | Run { run_id, video_id, project_id }
+    pub at: String,               // UTC ISO-8601
+    pub level: String,            // info | warn | error
+    pub scope: String,            // app | run
+    pub run_id: String,
+    pub video_id: String,
+    pub project_id: String,
     pub sequence: Option<String>, // which sequence emitted it, when in a run
-    pub target: String,
     pub message: String,
-    pub fields: BTreeMap<String, Value>,
 }
 ```
+
+The service writes two scopes. `logs/application.log` is the application record: one
+process-wide file, written by a `tracing` file layer and mirrored to stderr, covering
+startup, settings changes, and service failures. `logs/<run-uuid>/run.jsonl` plus
+`meta.json` is the run record, attributed to one project and video and paged by the log
+endpoints. Both hosts install the same subscriber through
+`init_tracing_with_app_data`; the desktop passes Tauri's resolved app-data directory.
+
+The pinned engine writes encoder stderr in-process and exposes no file or callback for it,
+so no `engine.log` exists. The log endpoints serve the service's own event view of the run.
+A failed scene's event does carry the engine's `EncoderResult`, whose text includes that
+encoder's stderr, so failure diagnosis is present in `run.jsonl` even though the
+successful-pass stderr is discarded by the pinned engine. Capturing that stream requires
+an upstream engine change and remains open work; the file tree above does not claim it.
 
 Consequences:
 
 - The log viewer filters by video without a separate indexing pass.
 - Anonymised export is scoped to one video by default, which is also the right privacy
   default — exporting one video's log should not leak another's paths.
-- A run's log directory is `logs/<run-ulid>/`, and the run id resolves to exactly one video.
+- A run's log directory is `logs/<run-uuid>/`, and the run id resolves to exactly one video.
+- Deleting one log removes only its directory. The timeline record, the retained chunks and
+  the video are untouched, so a run whose log is gone still appears in History. A live run
+  is refused because it still appends to the file.
+
+#### 7.1.1 What a sequence writes
+
+A run log used to carry lifecycle text only: `Noise Detector completed` says nothing about
+the noise it measured, so a wrong-looking result could only be checked by opening the
+persisted checkpoint. `rust/crates/engine/src/run/sequence_log/` now turns the scene table the
+sequence just checkpointed into records, so a logged value cannot differ from what the
+engine wrote.
+
+Every sequence ends with one summary record. Each of these also writes one record per
+scene, because its result is per scene:
+
+| Sequence         | Per-scene record                                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| Scene Detector   | `start` and `end` (the engine's half-open range), so a run's own boundaries can be compared with the table |
+| Noise Detector   | `noise` to four decimals and `luminance`                                                                   |
+| Target Quality   | final quantizer, mean score, bitrate, probe count; one summary per pass                                    |
+| Parallel Encoder | chunk bytes, frames, bitrate, encode duration                                                              |
+
+Measured values are logged to four decimals. Noise is routinely around `0.002`, and a
+rounded readout made a real measurement look like zero.
+
+A run also writes three context records before its first sequence: the source (file,
+resolution, frame rate, frame count, requested sequences), the encoder (label and speed),
+and the settings that change results (noise threshold and scaler range, target-quality
+metric and probe cap, bitrate sigma, benchmark threshold, worker count).
+
+These records are delivered as `Detail` and `Warning` engine events and are **log-only**:
+the service appends them to `run.jsonl` and never broadcasts them, so a 5,000-scene video
+cannot evict live progress from the SSE channel or the replay buffer. The Logs tab still
+shows them as they are appended, because it follows the file's tail. `Warning` records carry
+the engine's validation, initialization, and processing warnings at `warn`.
 
 ### 7.2 Anonymisation
 
@@ -624,146 +1070,60 @@ One enum, one envelope, stable codes.
 
 ```rust
 #[derive(Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ErrorBody {
-    pub code: ErrorCode,        // stable, machine-readable
-    pub message: String,        // human, already localised-ready
-    pub detail: Option<String>, // engine text, never parsed by the UI
-    pub hint: Option<Hint>,     // actionable recovery suggestion
-    pub correlation: RunId,     // ties the toast to a log file
+    pub code: ErrorCode,            // stable, machine-readable; the only field to branch on
+    pub message: String,            // human, already localised-ready
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,     // engine or OS text, never parsed by the UI
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,       // actionable recovery suggestion
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correlation: Option<String>,// the run this error belongs to, when it has one
 }
 
-pub enum ErrorCode {
+pub enum ErrorCode {                // wire values are SCREAMING_SNAKE_CASE
     Busy, Locked, PreflightFailed, InvalidConfig, NotFound, Io,
     EnginePanic, EngineFailed, Cancelled, DiskFull, Unauthorized, Internal,
 }
 ```
 
-Rule: the frontend switches on `code`, never on `message`. Engine text goes in `detail`
-and is displayed in an expandable block, never used for control flow.
+The categories are deliberately coarse: `code` is the unit of control flow, and the
+specific reason travels in `message`, `detail`, and `hint`. A malformed request body, an
+unknown custom-executable family, and an out-of-range value are therefore all
+`INVALID_CONFIG`, distinguished by their message and hint rather than by three codes the UI
+would have to enumerate. A throttled pairing request is `429` with the coarse retry-later
+`BUSY` code, and `Retry-After` carries the delay. Adding a variant is an API change and
+bumps the contract revision.
 
-`From<EngineError> for AppError` is a single exhaustive match in `crates/service`; when
+Every JSON request body is read through `ApiJson<T>` in
+`rust/crates/service/src/api/json.rs`. It is the only body extractor in the service: a
+missing or wrong content type, malformed JSON, and a shape mismatch all return `400`
+`INVALID_CONFIG` with one generic message and hint, and the parser's own text is never
+copied into `detail`. `npm run check:api-json` rejects a raw `Json<T>` parameter or a
+`JsonRejection` outside that module, so a new handler cannot reopen the per-route mapping
+the extractor replaced. One extractor keeps a malformed body's status and envelope identical
+on every route; semantic validation still returns its specific `422`.
+
+Rule: the frontend switches on `code`, never on `message`. Engine text goes in `detail`
+and is displayed in an expandable block, never used for control flow. `correlation` is
+present only when the error belongs to a run; a settings write has no run to point at.
+
+`From<EngineError> for AppError` is a single exhaustive match in `rust/crates/service`; when
 upstream adds a variant, the compiler points at the one place to update.
 
 ## 9. Preflight
 
-Run at startup and on demand; cached in `AppState` and exposed in `/api/health`.
+`AppState` owns one `PreflightCache`: it probes on the first read, off the async executor,
+caches the result, and `/api/health` returns that cached report; `POST
+/api/preflight/refresh` discards it and probes again. The probe lives in
+`rust/crates/engine`, so the service and the desktop host never keep separate tables of
+executable names.
 
-### 9.1 What is actually required
-
-`andean-condor` decodes through **either** native FFMS2 **or** VapourSynth, and encodes
-through **standalone encoder executables** — `aomenc`, `svt-av1`/`SvtAv1EncApp`, `rav1e`,
-`x264`, `x265`, `vvenc`, or `ffmpeg` itself. Neither VapourSynth nor FFmpeg is universally
-required:
-
-| Dependency | Required for | Not required for |
-| --- | --- | --- |
-| **VapourSynth** | any `Input::VapourSynth` or `Input::VapourSynthScript`; noise detection on **any** input, because the sequence builds its own graph from an FFMS2 decode | native `Input::Video` (FFMS2) decoding, and encoding from a native input that does not run noise detection |
-| **FFMS2** | native `Input::Video` | VapourSynth inputs |
-| **At least one encoder executable** | encoding | scene detection, noise detection, target quality |
-| **FFmpeg** | muxing/concatenation paths that shell out to it | encoding itself, when the chosen encoder writes a directly concatenable format |
-| **`mkvmerge`** | the muxing fallback | everything else |
-| **VMAF** | `QualityMetric::VMAF` | every other metric; any sequence that does not score |
-| **SSIMULACRA2 / BUTTERAUGLI / CVVDP** | the corresponding `QualityMetric` variant, via any one of three backends | every other metric |
-| **XPSNR** | `QualityMetric::XPSNR` | every other metric |
-
-So the preflight rules are:
-
-- **Encoding is disabled only when no encoder executable is available**, or when the
-  *selected* encoder's executable is missing. A missing `ffmpeg` does not disable encoding.
-- **Preview of a scene is available whenever the scene's input can be decoded.** A native
-  FFMS2 input previews fine with no VapourSynth installed; a VapourSynth input requires it.
-  The per-scene capability is derived from that scene's resolved input, not from a global
-  flag.
-- **A missing VapourSynth disables the VapourSynth input kinds and noise detection**, and
-  the UI offers native FFMS2 for decoding rather than dead-ending. It does not disable
-  encoding. Noise detection is not part of the encode dependency set, even though an FFMS2
-  input cannot run it without VapourSynth.
-- **A metric is available when at least one backend that implements it is usable.** The
-  metric catalogue is filtered per metric, not per library.
-
-### 9.2 Metrics
-
-Metric availability is a property of the machine, not of the build: `libvship` and
-`libvmaf` are opened with `dlopen` at runtime, so the same binary supports different
-metrics on different systems. The engine exposes this directly — the service calls
-`metrics::availability::libraries()` and must not reimplement the probes.
-
-`libraries()` returns one `MetricLibraryInfo` per native library (`libvship`, `fmetrics`,
-`libvmaf`) with `available`, `version`, diagnostic `details`, and — for GPU libraries — the
-enumerated `devices`, each carrying the `id` that is the `gpu_id` a user selects. An
-integrated device is usually not what these metrics should run on, which is why the
-library's default prefers a discrete one.
-
-The engine's dispatch is `metrics::engine(&metric, input_is_vapoursynth) -> Option<Engine>`,
-a pure function of the metric, the input kind, and which libraries loaded. Its precedence is
-fixed:
-
-1. **`libvship`**, if it implements the metric and can run.
-2. **`fmetrics`**, if it implements the metric and the VapourSynth plugin branch is not the
-   better choice. `fmetrics` is skipped for a VapourSynth input when a plugin exists for
-   that metric, because a VapourSynth input already has the graph a plugin needs, while an
-   FFMS2 input would have to build one purely to score.
-3. **The VapourSynth plugin branch**, reached by returning `None` from `engine()`.
-4. **`libvmaf`**, for `VMAF` only. Its caller is special-cased and has no plugin branch.
-
-Backend coverage is therefore not uniform, and preflight must model it per metric:
-
-| Metric | `libvship` | `fmetrics` | VapourSynth plugin | `libvmaf` |
-| --- | --- | --- | --- | --- |
-| VMAF | no | no | no | **yes** |
-| SSIMULACRA2 | yes | yes | yes (`vship` plugin) | no |
-| BUTTERAUGLI | yes | yes | yes (`vship` plugin) | no |
-| CVVDP | yes | yes | yes (`vship` plugin) | no |
-| XPSNR | no | no | yes (`vszip` plugin) | no |
-
-Consequences the preflight must express:
-
-- **XPSNR has exactly one backend.** Without VapourSynth and the `vszip` plugin it is
-  unavailable, with no fallback.
-- **VMAF has exactly one backend.** Without `libvmaf` it is unavailable, with no fallback.
-- **SSIMULACRA2, BUTTERAUGLI, and CVVDP degrade.** A machine with no GPU, no VapourSynth,
-  but a loadable `fmetrics` still supports all three. A machine with none of the three
-  backends supports none of them.
-- **`libvship` loading is not sufficient.** It is compiled per-backend against a GPU driver
-  and scoring additionally requires a device that passes `Vship_GPUFullCheck`. A library
-  that loaded but enumerated no usable device is reported as loaded with an empty device
-  list, and that distinction is what the remediation text must act on.
-
-`Engine::VapourSynth` is a branch in the engine crate rather than a dlopened library, so
-`engine()` reports it as always available. Whether the *plugin* is present is a separate
-question the service must answer, which is why the plugin column above is not derivable
-from `libraries()`.
-
-When a metric is unavailable, remediation names the concrete install, not the abstraction:
-
-| Unavailable | Remediation |
-| --- | --- |
-| VMAF | install `libvmaf`; set `VMAF_LIB_DIR` for a non-standard location; supply an explicit model path when built-in models are absent |
-| SSIMULACRA2 / BUTTERAUGLI / CVVDP, all backends | install `fmetrics` for a CPU path, or `libvship` plus a Vulkan driver for a GPU path, or VapourSynth plus the `vship` plugin |
-| SSIMULACRA2 / BUTTERAUGLI / CVVDP, GPU only | no usable device passed `Vship_GPUFullCheck`; choose another device by `gpu_id`, or install `fmetrics` |
-| XPSNR | install VapourSynth and the `vszip` plugin |
-
-### 9.3 Checks
-
-| Check | Failure effect |
-| --- | --- |
-| At least one encoder executable on `PATH` (or configured) | encode disabled |
-| The *selected* encoder's executable present | that encoder unavailable in the catalogue |
-| VapourSynth loadable and arch-matching | VapourSynth input kinds unavailable; noise detection unavailable |
-| FFMS2 library loadable | native input kind unavailable |
-| `ffmpeg` present | muxing paths that need it unavailable |
-| `mkvmerge` present | muxing fallback unavailable |
-| `metrics::availability::libraries()` per-library status | filters the metric catalogue per §9.2 |
-| VapourSynth plugin presence, per plugin-backed metric | removes that metric when no native backend covers it |
-| VapourSynth filter plugins (`vszip`, `mvutensils`, `zoomvtools`, `com.vs.fgs`, `vodesfunc`/`vskernels`/`vsscale`) | removes exactly the filters that need the missing module; core `Crop`/`Resize`/`Trim` remain available |
-| output directory writable | encode disabled |
-| temp directory writable and has free space | encode disabled |
-| free disk space above threshold | warning only |
-| engine crate reports its supported encoders | filter the catalogue |
-
-Preflight is a **list of results**, not a boolean, so the fix-it screen can name each
-missing component and link to it. This is the single most common source of "it doesn't
-work" reports in this class of application.
+The full rules — required dependencies, bundled and system providers, custom encoder
+definitions, metric backends, the check list, custom executables, and the optional Python
+language server — are in [preflight.md](preflight.md). The route table in §5.2 and
+`architecture.md` §6 point there for the derivation.
 
 ## 10. Concurrency invariants
 
@@ -771,9 +1131,17 @@ Collected here because they are the easiest thing to break:
 
 1. `EncodeLock` is acquired before any worker is spawned and released only after the
    worker emits a terminal event or the watchdog fires.
-2. Config writes for a locked video return `423`. There is no bypass parameter.
-3. The preview decoder never shares a `Condor`, `Decoder`, or file handle with the encode
+2. A run freezes the configuration its snapshot depends on: the project's configuration and
+   the encoding video's General, overrides, storage, scenes, and sequence reset return `423`.
+   Sibling videos remain editable because their documents are not part of the snapshot. Queue
+   order and removal lock only the active row. Another project keeps editing, because nothing
+   it writes can reach a request the worker already materialised. There is no bypass
+   parameter.
+3. The encode singleton is process-wide. A start in a second project is refused with `409`
+   naming the video and project that hold it; the refusal never changes that project's own
+   state, and the UI reads the same live stream to disable the button before the click.
+4. The preview decoder never shares a `Condor`, `Decoder`, or file handle with the encode
    worker.
-4. `broadcast` senders never block; lagging is expected and handled.
-5. Persistence writes never hold a `RwLock` across `.await`.
-6. No `unwrap()` on anything derived from user input, filesystem contents, or the engine.
+5. `broadcast` senders never block; lagging is expected and handled.
+6. Persistence writes never hold a `RwLock` across `.await`.
+7. No `unwrap()` on anything derived from user input, filesystem contents, or the engine.

@@ -11,6 +11,16 @@ minima, or widget preferences. The app supplies those and a contract test assert
 engine variant has exactly one descriptor, so a new engine filter fails CI instead of
 appearing uneditable.
 
+## Contents
+
+- [1. Two targets, not one list](#1-two-targets-not-one-list)
+- [2. How the form is built](#2-how-the-form-is-built)
+- [3. Native FFMS2 — OutputFormat](#3-native-ffms2--outputformat)
+- [4. VapourSynth filters](#4-vapoursynth-filters)
+- [5. Cross-field rules](#5-cross-field-rules)
+- [6. Availability](#6-availability)
+- [7. What is deliberately not exposed](#7-what-is-deliberately-not-exposed)
+
 ## 1. Two targets, not one list
 
 | Target | Enum | Where it applies |
@@ -35,8 +45,9 @@ those descriptors, not hand-written per filter. The workflow is:
    stays behind the sheet; the list does not reflow.
 3. **Add filter** inserts at the focused position and closes. The sheet stays open only when
    **Add another** is checked.
-4. Every configured row can be edited, duplicated, reordered, or removed. Duplicate copies
-   all values and inserts below the source row.
+4. Every configured row can be edited, reordered by dragging its grip, or removed. There is
+   no duplicate action: repeating a filter means adding it from the sheet, not copying a row
+   that then needs every field reviewed again.
 
 At **project scope** no source exists. Fields that depend on the source (aspect ratio,
 crop bounds, trim bounds, output format compatibility) are shown without a fabricated

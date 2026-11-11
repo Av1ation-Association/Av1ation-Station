@@ -1,5 +1,7 @@
 # Phase 1 — Scaffolding
 
+> **Planning record.** Current delivery status lives in [progress.md](../progress.md).
+
 **Goal:** a working skeleton that proves every architectural assumption at the smallest
 possible scale. Nothing here is a placeholder that gets thrown away; everything here is the
 shape of the final thing.
@@ -24,20 +26,20 @@ backend.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 1.1.1 | Create orphan branch `condor` with no shared history | tag `v0-electron-final` at `fb44b60` first; `condor` is checked out but unborn until the initial commit (D1) |
+| 1.1.1 | Create orphan branch `condor` with no shared history | `v0-electron-final` tags `fb44b60`; `condor` has initial commit `03f899b`  |
 | 1.1.2 | Initial commit: docs + infra files only | `.gitignore`, `.gitattributes`, `.editorconfig`, `LICENSE`, `rust-toolchain.toml`, `.nvmrc`, `CONTRIBUTING.md`, `.vscode/` |
 | 1.1.3 | `.gitignore` for `node_modules`, `target`, `dist`, `test-results`, `.tauri` | |
 | 1.1.4 | `.gitattributes` with `* text=auto eol=lf` for source, binary for media | `core.autocrlf` is on locally; normalise |
 | 1.1.5 | `LICENSE` (GPL-3.0), `rust-toolchain.toml` (1.97), `.nvmrc` (Node 26) | |
 | 1.1.6 | `README.md`, `AGENTS.md`, `docs/`, and `design/penpot/` from Phase 0 | include the draft `11 Website` generators if the draft is kept in-tree |
-| 1.1.7 | `.vscode/launch.json` + `tasks.json` for one-click debugging | compound config: Tauri + Vite + headless service (D8) |
+| 1.1.7 | `.vscode/launch.json` + `tasks.json` for one-click debugging | compound config: Tauri + Vite + headless service  |
 
 ### 1.2 Engine dependency — the risky part
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 1.2.1 | Create a throwaway workspace in `spikes/1.2-engine-dependency/` with the `andean-condor` pin | record the SHA in `docs/progress.md`; do **not** add `[patch]` for the path-sibling metric crates (D30) |
-| 1.2.2 | Pin `av-decoders` and `av-scenechange` to the revisions in the engine's lockfile | after `cargo generate-lockfile`, run `cargo update -p av-decoders --precise <sha>` and the same for `av-scenechange` |
+| 1.2.1 | Create a throwaway workspace in `spikes/1.2-engine-dependency/` with the `andean-condor` pin | record the SHA in `docs/progress.md`; do **not** add `[patch]` for the path-sibling metric crates  |
+| 1.2.2 | Resolve the engine's decoder dependencies | current engine revision takes `av-decoders 0.12.0` and `av-scenechange 0.25.0` from crates.io; verify both in `Cargo.lock` and do not add branch pins  |
 | 1.2.3 | Build a scratch binary with `cargo build --locked` | the actual gate for this phase |
 | 1.2.4 | If lockfile pinning fails: vendor `vendor/av1an` and `[patch]` to local paths | record as an ADR either way |
 | 1.2.5 | Record the pins and lockfile result; delete the scratch workspace | the production lockfile is created with the workspace in 1.3 |
@@ -50,11 +52,11 @@ before continuing. Do not silently switch strategies.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 1.3.1 | Root `Cargo.toml` with the workspace and the pinned engine dependency | copy the 1.2 pins and add the lockfile |
-| 1.3.2 | `crates/contracts` with `JsonSchema` derives on a first real type (`AppInfo`, `ProjectSummary`) | |
-| 1.3.3 | `crates/engine` with the `EncodeRunner` trait and a `FakeRunner` | no real encoder yet |
-| 1.3.4 | `crates/service` with `AppState`, `/api/health`, and the router factory | the router factory is what the headless binary will reuse |
-| 1.3.5 | `av1ation-service --headless` binary | prints the bound port to stdout |
+| 1.3.1 | `rust/Cargo.toml` with the workspace and the pinned engine dependency | copy the 1.2 pins and add the lockfile |
+| 1.3.2 | `rust/crates/contracts` with `JsonSchema` derives on a first real type (`AppInfo`, `ProjectSummary`) | |
+| 1.3.3 | `rust/crates/engine` with the `EncodeRunner` trait and a `FakeRunner` | no real encoder yet |
+| 1.3.4 | `rust/crates/service` with `AppState`, `/api/health`, and the router factory | the router factory is what the headless binary will reuse |
+| 1.3.5 | `av1ation-service --port <p>` binary | prints the bound port to stdout |
 | 1.3.6 | Workspace lints, `rustfmt.toml`, `clippy` config | mirror the spirit of upstream's strict set |
 | 1.3.7 | `cargo deny` config | GPL-3.0 allowed; advisories deny |
 
@@ -62,7 +64,7 @@ before continuing. Do not silently switch strategies.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 1.4.1 | `crates/contracts` bin `emit-schema` writing `schema/*.json` | deterministic output |
+| 1.4.1 | `rust/crates/contracts` bin `emit-schema` writing `schema/*.json` | deterministic output |
 | 1.4.2 | `npm run contracts:generate` producing TS types + Zod | committed output |
 | 1.4.3 | `npm run contracts` = emit + generate | the command AGENTS.md references |
 | 1.4.4 | `--check` modes for both | CI gate in Phase 5 |
@@ -79,7 +81,7 @@ before continuing. Do not silently switch strategies.
 | 1.5.5 | `packages/ui` — tokens CSS, one headless primitive (`Button`), one screen (`/about`) | proves the design system |
 | 1.5.6 | `apps/desktop` — Tauri shell + Vite entry, injects `HttpTransport` with the injected port | |
 | 1.5.7 | `apps/web` — same UI, same transport, user-supplied origin | |
-| 1.5.8 | `apps/website` — same UI, `MockTransport` with fixtures | host only; the public landing/docs/demo pages are Phase 6 work (D31) |
+| 1.5.8 | `apps/website` — same UI, `MockTransport` with fixtures | host only; the public landing/docs/demo pages are Phase 6 work  |
 | 1.5.9 | ESLint `no-restricted-imports` forbidding `transport/` outside `packages/api` and `@tauri-apps/*` in `packages/ui`/`apps` | the boundary must be enforced from day one |
 | 1.5.10 | TypeScript pinned to `6.x` | 7.x breaks `typescript-eslint` |
 
@@ -92,7 +94,7 @@ before continuing. Do not silently switch strategies.
 | 1.6.3 | Inject the bound port into the webview | initialization script, not a hardcoded value |
 | 1.6.4 | Plugins: single-instance, dialog, opener, log, window-state, os | minimal set |
 | 1.6.5 | App-data path resolution via the platform directory helper | never `CARGO_MANIFEST_DIR` |
-| 1.6.6 | Preflight module: VapourSynth, ffmpeg, mkvmerge detection | returns a list, not a boolean |
+| 1.6.6 | Preflight module in `rust/crates/engine`: VapourSynth via VSScript, ffmpeg, mkvmerge, encoder executables | returns a list, not a boolean; Phase 2 reuses it |
 | 1.6.7 | Version propagation script: `package.json` → `tauri.conf.json` → crate | one version, one place |
 | 1.6.8 | Graceful shutdown: cancel any run, flush logs | |
 
@@ -122,7 +124,7 @@ before continuing. Do not silently switch strategies.
 - `cargo build --workspace` and `npm run build` both succeed from clean.
 - `npm run dev` opens a window showing the About screen with the real app version fetched
   from `/api/health`.
-- `av1ation-service --headless` serves the same UI in a normal browser.
+- `av1ation-service --port <p>` serves the same UI in a normal browser.
 - `apps/website` serves the same UI from fixtures as a host only; the public
   landing/docs/demo pages are not part of this phase.
 - The contract pipeline regenerates with no diff.
@@ -139,15 +141,17 @@ before continuing. Do not silently switch strategies.
 
 ## 5. Exit checklist
 
-- [ ] `cargo build --workspace` clean from a fresh clone
-- [ ] `npm ci && npm run build` clean from a fresh clone
-- [ ] `npm run dev` launches and shows real data
-- [ ] desktop, web, and website hosts render the same screen
-- [ ] `npm run contracts` produces no diff
-- [ ] `cargo clippy -- -D warnings` and `npm run lint` clean
-- [ ] `409` and `423` proven by a test, not by hand
-- [ ] no path derived from `CARGO_MANIFEST_DIR` or `current_dir()` in shipped code
-- [ ] `docs/progress.md` updated, including the pinned engine SHA and the resolution
+- [x] `cargo build --workspace` clean from a fresh clone — verified with `--locked` on 2026-10-31
+- [x] `npm ci && npm run build` clean from a fresh clone — verified 2026-10-31
+- [x] `npm run dev` launches and shows real data — the Tauri process and its embedded
+      `/api/health` were verified; the native window is not captured by the browser preview tool
+- [x] desktop, web, and website hosts render the same screen — one shared `App`; web and
+      website exercised in a browser, desktop launched through Tauri
+- [x] `npm run contracts` produces no diff
+- [x] `cargo clippy -- -D warnings` and `npm run lint` clean
+- [x] `409` and `423` proven by a test, not by hand
+- [x] no path derived from `CARGO_MANIFEST_DIR` or `current_dir()` in shipped code
+- [x] `docs/progress.md` updated, including the pinned engine SHA and the resolution
       strategy chosen in 1.2
 
 ## 6. Time-box
@@ -160,9 +164,9 @@ than continuing to fight the resolver.
 
 | Trap | Avoidance |
 | --- | --- |
-| Transitive `av-decoders`/`av-scenechange` branch head moves | pin both in `Cargo.lock` with `cargo update --precise`; build with `--locked` |
+| Transitive decoder version moves unexpectedly | keep `Cargo.lock` committed, review decoder versions when bumping the engine, and build with `--locked`  |
 | Tauri dev server and the axum server fighting over a port | axum binds an ephemeral port and reports it |
-| Webview asset protocol vs. HTTP-served SPA | serve the SPA from axum in development too, so there is one path |
+| Webview asset protocol vs. HTTP-served SPA | development loads the Vite dev server and injects the service origin; a release build serves the bundled SPA from axum on the same origin. Both use the same injected-origin transport |
 | `openssl`/native TLS on Windows | avoid TLS dependencies entirely |
 | Tauri build pulling in a second Rust toolchain | `rust-toolchain.toml` at the workspace root |
 | VapourSynth arch mismatch (x64 vs x86) | preflight reports it; do not attempt to fix at runtime |

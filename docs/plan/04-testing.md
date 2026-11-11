@@ -1,5 +1,7 @@
 # Phase 4 — Testing
 
+> **Planning record.** Current delivery status lives in [progress.md](../progress.md).
+
 Two parts, executed at different times.
 
 - **4a — Feasibility spikes.** Immediately after Phase 1. Five short experiments whose
@@ -22,7 +24,7 @@ Four features can invalidate the architecture rather than merely disappoint:
 | preview transport | desktop and browser preview diverge → the single-SPA rule needs an exemption (an ADR, not a workaround) |
 | decoder reload latency | preview becomes an explicit "prepare" step, changing the whole scene-editor UX |
 | drag-select performance | the selection model changes shape |
-| per-scene script template | the script editor ships without a per-scene template and exposes only the data module, changing the editor's promise |
+| per-scene script template | the script editor ships only a whole-clip template and the data module, changing the editor's promise |
 
 Discovering this after building the scene list means building it twice.
 
@@ -53,13 +55,13 @@ properly with tests, not promoted.
 
 ### 1.4 Spike exit criteria
 
-- [ ] S1 verdict: prepared range default chosen and justified
-- [ ] S2 verdict: transport confirmed or A4/D5 superseded with an ADR
-- [ ] S3 verdict: LAN preview enabled, degraded, or disabled — documented
-- [ ] S4 verdict: drag-select enabled or replaced with click/shift + range input
-- [ ] S5 verdict: per-scene template shipped or explicitly withheld
-- [ ] all five recorded in [progress.md](../progress.md) with numbers
-- [ ] any doc change applied to [preview.md](../preview.md), [decisions.md](../decisions.md)
+- [x] S1 verdict: 10 s prepared range chosen; warm init 61–68 ms, switch 0.6 ms — [record](../spikes/S1-decoder-init.md)
+- [x] S2 verdict: fMP4 transport confirmed on Chromium and Edge/WebView2 family; WebKit untested on Windows — [record](../spikes/S2-fmp4.md)
+- [x] S3 verdict: LAN preview enabled, first frame 16–30 ms over the LAN address; second-device pass deferred to release — [record](../spikes/S3-lan-latency.md)
+- [x] S4 verdict: drag-select enabled; zero long tasks over 5 000 rows — [record](../spikes/S4-drag-sweep.md)
+- [x] S5 verdict: progressive splice is the optional per-scene example; the default template is a whole-clip no-op ; per-range splice withheld — [record](../spikes/S5-template.md)
+- [x] all five recorded in [progress.md](../progress.md) with numbers
+- [x] any doc change applied to [preview.md](../preview.md), [decisions.md](../decisions.md)
 
 ---
 
@@ -87,14 +89,14 @@ properly with tests, not promoted.
 | 4.2.3 | `axe-core` in the component pass | violations fail |
 | 4.2.4 | Selection-math tests: range, toggle, sweep, mixed aggregation | |
 | 4.2.5 | SSE cache-writing tests: out-of-order, duplicate, reconnect with `since` | |
-| 4.2.6 | Draft/undo/redo tests, including save/cancel/dirty through the section rail | |
+| 4.2.6 | Draft/undo/redo tests, including save/cancel/dirty through the project section grid and template section editor | |
 | 4.2.7 | Coverage at 70% `api` / 60% `ui` | |
 
 ### 2.3 E2E
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 4.3.1 | Harness: build `av1ation-service --headless --fake-engine`, parse the port from stdout | |
+| 4.3.1 | Harness: build `av1ation-service --port <free> --fake-engine` (debug builds only), parse the bound port from stdout | the binary already prints `AV1ATION_PORT`; the automated harness is the deliverable |
 | 4.3.2 | Journey: create project → add video → configure → validate → encode → progress → complete → reload | against `FakeRunner` |
 | 4.3.3 | Journey: start → navigate away → guard blocks → cancel → navigate succeeds | |
 | 4.3.4 | Journey: second encode attempt → `409` surfaced as a UI message | |
@@ -110,10 +112,10 @@ properly with tests, not promoted.
 | # | Task | Notes |
 | --- | --- | --- |
 | 4.4.1 | `npm run test:screenshots` — every route, both themes, key interactive states | local on demand and CI every PR |
-| 4.4.2 | Output to gitignored `test-results/screenshots/` | |
+| 4.4.2 | Output to gitignored `dist/test-results/screenshots/` | |
 | 4.4.3 | Upload the CI pass as a build artifact for human review | never a required check |
 | 4.4.4 | Document the manual review workflow in `CONTRIBUTING.md` | |
-| 4.4.5 | No pixel gate in CI | policy decision D10 |
+| 4.4.5 | No pixel gate in CI | policy decision |
 
 ### 2.5 Contract tests
 

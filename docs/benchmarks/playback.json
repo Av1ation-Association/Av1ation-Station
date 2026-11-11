@@ -1,0 +1,35 @@
+{
+  "measured_at": "2026-11-03T13:51:35.273Z",
+  "service": "http://127.0.0.1:51557",
+  "project": "Playback benchmark 2026-11-03T13-51-26",
+  "video": "Synthetic 90 s",
+  "source_file": "C:\\Users\\ichig\\AppData\\Local\\Temp\\av1ation-bench\\synthetic-90s-1080p10-24fps.mp4",
+  "seconds": 1,
+  "baseline": {
+    "appMiB": 1108.67578125,
+    "browserMiB": 760.42578125,
+    "totalMiB": 1869.1015625
+  },
+  "sources": [
+    {
+      "source": "original",
+      "ready": true,
+      "readySeconds": 0.096,
+      "playableSeconds": 0.001,
+      "firstFrameMs": 114.2999998092655,
+      "seekMs": 4262.699999904633,
+      "dragMs": null,
+      "fps": 24.2261476272219,
+      "dropped": 0,
+      "produced": 26,
+      "dropRate": 0,
+      "stalls": 0,
+      "longestStallMs": 0,
+      "p50Ms": 50,
+      "p95Ms": 66.69999999999982,
+      "appMiB": 1108.578125,
+      "browserMiB": 854.41015625,
+      "totalMiB": 1962.98828125
+    }
+  ]
+}

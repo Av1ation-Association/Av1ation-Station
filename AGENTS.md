@@ -25,6 +25,9 @@ The frontend never calls `invoke()`, `fetch()`, or `EventSource` outside of
 `packages/api/src/transport/`. All application data access goes through the single
 typed façade exported from `packages/api`. Three hosts — the desktop webview, a LAN
 browser, and the website demo — inject a different transport into the same façade.
+Media byte fetches are the one exception: the preview player owns its proxy requests
+because `MediaSource` needs the response body. It may call `fetch()` only on
+transport-provided media URLs and only inside `features/preview/`.
 
 If you add a new backend capability and touch a component to reach it, you have done it
 wrong.
@@ -50,13 +53,19 @@ TypeScript types plus Zod validators are generated from it. Hand-written duplica
 transport types are forbidden: an encoder parameter set differs per encoder and per fork,
 so a hand-maintained profile is wrong for any build its author did not test.
 
-Run `npm run contracts` after changing any Rust model. CI fails on drift.
+Run `npm run contracts` after changing any Rust model. `npm run contracts:check` fails on
+drift; a CI workflow will run it once one is added. Contract models live in the public
+module for their schema group (`av1ation_contracts::<group>`); `lib.rs` declares the modules
+and `API_VERSION` and re-exports no contract type.
 
 ### 2.4 One encode at a time, enforced in Rust
 
 The singleton is enforced in the backend with a mutex, not in the UI with a disabled
-button. The UI reflects the lock; it does not implement it. Configuration is read-only
-for the duration of an encode, and that is enforced server-side too.
+button. The UI reflects the lock; it does not implement it. While a run is active, project
+configuration and the encoding video's General, overrides, storage, scenes, and sequence
+reset are read-only, and that is enforced server-side. Sibling videos, other projects, and
+templates stay editable; every start and batch is refused process-wide with `409`, and
+navigation is never blocked by a run.
 
 ### 2.5 Never derive paths from the manifest directory
 
@@ -66,9 +75,11 @@ directory helper.
 
 ### 2.6 One version, one place
 
-The version lives in `package.json`. A script propagates it to `tauri.conf.json` and the
-Rust crate. Nothing else hardcodes a version string; the frontend reads it from the API
-at runtime.
+The version lives in `package.json`. `npm run version:sync` propagates it to
+`tauri.conf.json`, the workspace manifest, the five workspace entries in `Cargo.lock`, and
+the generated contract metadata. Nothing else hardcodes a version string. The desktop and
+web hosts read it from `/api/health` at runtime; `MockTransport` imports the generated
+constant instead of carrying its own copy.
 
 ### 2.7 No native-window dependencies in shared UI
 
@@ -76,6 +87,16 @@ Anything that can only render into a native window (embedding `mpv`, an OS-level
 surface, a native overlay) cannot live in shared UI code, because the LAN browser and
 website demo cannot render it. Pick a transport that works in a `<video>` element
 instead.
+
+A host file picker is the same hazard. The desktop host injects `HttpTransportOptions.pick*`
+from `apps/desktop/src/main.tsx` only when `__TAURI_INTERNALS__` exists; every other host
+keeps the shared text field, because a LAN browser's filesystem is not the host's. Handing a
+picker to a browser session turns every **Locate…** into a rejected invoke.
+
+A plugin command also needs its permission in `rust/desktop-shell/capabilities/default.json`
+(`dialog:default`, `opener:default`, plus `opener:allow-open-path` for `openPath`; the default
+opener set covers only `openUrl` and `revealItemInDir`). Without it the call fails at runtime
+with a generic "refused by the host" message that names neither the plugin nor the permission.
 
 ### 2.8 Capabilities are scoped, never global
 
@@ -89,8 +110,10 @@ A missing optional dependency removes exactly the capability it provides and not
 - A metric is available when at least one backend implementing it is usable.
 
 Never gate an action on a dependency that the action does not actually need. Availability
-comes from the preflight inventory in `docs/backend.md` §9, projected per video, never from
-a process-wide boolean.
+comes from the preflight inventory in `docs/preflight.md`, projected per video, never from
+a process-wide boolean. A user-provided executable is probed into that same inventory and
+becomes the provider for exactly its own capability. Accepted paths are settings and are
+re-probed on startup; rejected attempts are transient.
 
 ### 2.9 Every `save()` is a checkpoint
 
@@ -110,6 +133,15 @@ the script reading injected scene data and applying it to frame ranges itself, u
 that assumes a script per scene, and do not rewrite user Python. See
 `docs/preview.md` §3.3.
 
+The `condor_data` module and its `.pyi` stub come from one generator,
+`rust/crates/engine/src/script/module/source.rs`; the runner rewrites the module into the scenes
+directory before every sequence. The editor's completion is parsed from that stub, so a new
+injected value or field must land in both or the editor documents a module that cannot
+import. Only values the runner actually knows belong there. `video_path` is the queued
+video's source, injected per run, so it is empty only for the template or an empty queue;
+it is the path a script input opens, because a script document cannot name a file shared
+by every video.
+
 ### 2.11 Retained chunks are the default
 
 Encoded scene chunks are kept after a successful run unless the user opts in to deleting
@@ -123,6 +155,20 @@ Screen implementation transcribes approved Penpot boards; it does not invent lay
 are drawn in the dark theme. If a constraint is discovered mid-build, the board is updated
 first. See [`docs/frontend-penpot.md`](docs/frontend-penpot.md).
 
+The checked-in `design/penpot/boards/*.js` scripts are not the whole file: boards such as
+`Project / Script editor` and `Components / Filter composer` exist only in the live Penpot
+project. Read the live file through the Penpot MCP before building a screen, and export the
+board rather than inferring its layout from a neighbouring one.
+
+**The generator scripts are never a substitute for the live board while the live file is
+reachable.** Compare the rendered screen against the exported live board, not against the
+script that is supposed to have produced it: the live file may contain later manual edits,
+and the scripts may describe a board that was never imported.
+
+If the live Penpot file cannot be reached, stop screen work and tell the user. Only a minor,
+local change may proceed from the checked-in generator code, and it must be flagged in the
+hand-off for review against the live board as soon as the connection is available.
+
 ### 2.13 Documentation is authoritative, not narrative
 
 `docs/` states what the architecture **is**. It does not record what was considered and
@@ -130,8 +176,29 @@ rejected, what a previous application did, or how a decision changed. Keep a
 counter-example only where it prevents a reader from repeating a mistake that looks
 reasonable, and give the reason in one sentence.
 
-Decisions and their rationale live in `docs/decisions.md`, which is the only place a
-rejected alternative belongs.
+A decision is opened in `docs/decisions.md`; once accepted, its rule and rationale move to
+the document that owns it and the entry is removed.
+
+### 2.14 The released toolchain is bundled, pinned and selectable
+
+A release installs its toolchain under the resolved resource directory. Nothing is
+downloaded at install or run time, no binary or archive is committed, and no path is
+derived from the manifest directory or the working directory. Once packaging lands,
+`packaging/toolchain.lock.json` is the only version input, `npm run toolchain:verify` is a
+required check, and the build resolves nothing from the network. Neither the directory nor
+the command exists yet; Phase 6 adds both. Provider choice is per capability — bundled or system,
+with `custom_tools` still winning — never one global switch, and it is enforced by the
+service rather than by the screen. See [`docs/packaging.md`](docs/packaging.md).
+
+### 2.15 Routes are declared once and derived
+
+Every API route is one group in `rust/crates/service/src/api/routes/manifest.rs`: the path,
+a stable id, and one entry per method carrying its handler, owner module, and docs purpose.
+The macro emits the axum registration and `ROUTES`; `schema/routes/manifest.json`,
+`packages/api/src/api/generated/paths.ts`, and the route table in `docs/backend.md` are
+generated. `npm run routes:check` rejects `.route(` elsewhere, hard-coded production `/api`
+paths, owner drift, and stale docs prose. Add a route by adding one group and running
+`npm run routes`; never edit a generated file by hand.
 
 ## 3. Layering
 
@@ -145,21 +212,24 @@ apps/desktop   apps/web   apps/website
             packages/contracts
                     |
        ─────────────┼─────────────
-              crates/service   (axum, domain, engine)
+              rust/crates/service   (axum, domain, engine)
                     |
-              crates/engine    (andean-condor integration)
+              rust/crates/engine    (andean-condor integration)
                     |
               andean-condor
 ```
 
 | Layer | May depend on | May **not** depend on |
 | --- | --- | --- |
-| `crates/engine` | `andean-condor`, `av-*` | `axum`, `tauri`, any UI concern |
-| `crates/service` | `crates/engine`, `axum`, `tokio` | `tauri` |
-| `apps/desktop` (Rust) | `crates/service`, `tauri` | UI logic |
-| `packages/api` | `packages/contracts` | React, any component |
+| `rust/crates/engine` | `andean-condor`, `av-*` | `axum`, `tauri`, any UI concern |
+| `rust/crates/service` | `rust/crates/engine`, `axum`, `tokio` | `tauri` |
+| `rust/desktop-shell` | `rust/crates/service`, `tauri` | UI logic |
+| `packages/api` | `packages/contracts`, React, TanStack Query | any component or JSX |
 | `packages/ui` | `packages/api`, `packages/contracts` | `@tauri-apps/api` directly |
 | `apps/*` (web) | `packages/ui` | another `apps/*` |
+
+`rust/crates/test-support` is test-only: it may depend on `tempfile` and on nothing else in
+this workspace, and only a `[dev-dependencies]` table may point at it.
 
 Business logic that can be tested without React belongs in `packages/api` or in Rust —
 not in a component. The previous application's most reusable code was the logic it
@@ -178,19 +248,44 @@ extracted out of components.
   thread, never on an `async` executor thread.
 - Cancellation is cooperative via the engine's `Arc<AtomicBool>`; never `abort()` a task
   that is inside the encoder.
+- `andean_condor` names two things `Input`: `core::input::Input` is an opened decoder
+  (`ensure_indexed`, `clip_info`), `models::input::Input` is the stored document. A helper
+  that evaluates a document needs both, aliased.
+- A raw string literal whose content starts with `"""` loses a quote to the `r#"`
+  delimiter; start the literal with a newline and `trim_start()`. Python reports it as an
+  unterminated string far below the real cause.
 - Progress is pushed from the engine's `mpsc::Sender<SequenceProgressEvent>` and fanned
   out to subscribers. Do not add polling.
+- A sequence number is shared by progress and terminal events. A per-kind sentinel such as
+  `u64::MAX` fails the generated contract: Zod rejects integers past 2^53, the stream drops
+  the event, and the run never reaches a terminal state.
+- Every run appends one run-level timeline record (`sequence: null`) carrying the terminal
+  message. It is the only durable reason a failure before the first sequence can show.
 
 ## 5. TypeScript rules
 
 - `strict: true`, no `any` at a boundary, no non-null assertions on API results.
 - TypeScript is pinned to `6.x`; `typescript-eslint` does not yet support `7.x`.
-- Server data lives in TanStack Query. Zustand holds only ephemeral UI state (selection,
-  panel sizes, playback position). Nothing derived from the server is copied into
-  Zustand.
+- Server data lives in TanStack Query. Ephemeral UI state (selection, panel sizes,
+  playback position) lives in React state/context; nothing derived from the server is
+  copied into it.
 - No `useEffect` that fetches. Use a query.
 - Undo/redo applies to the *configuration draft*, not to server state.
 - Every async path has an error branch that surfaces a user-visible message.
+- One editor per context, not per scope. A project or template input document never states
+  a source path or an FFMS2 index (a second video would collide); a video's own input
+  states both. A sequence override is an independent document that inherits when null, so
+  the shared editor is passed the sequence's own value, never the project's.
+- Engine JSON Schema carries no Rust `Default`: `defaultFor()` yields `[]` and `0`. A screen
+  that enables an optional sequence must seed real starting values (the noise detector's
+  WNNM pair, a usable scaler range), or the new document encodes nothing.
+- Monaco is bundled, not fetched: the desktop window has no network. Import the worker as
+  `monaco-editor/editor/editor.worker.js?worker` — the package's exports map prefixes
+  `esm/vs/` itself, so the ESM path does not resolve. Completion comes from the generated
+  stub, never a hand-written symbol list.
+- The encode stream is mounted once, by the shell (`useEncodeEvents()`). Progress events
+  patch the cached `video-state` key in place; screens must read that cache instead of
+  opening a second subscription, which duplicates every tick and refetch.
 
 ## 6. Styling rules
 
@@ -202,19 +297,38 @@ extracted out of components.
   Layout-affecting transitions are opt-in and must be justified in review.
 - Respect `prefers-reduced-motion`.
 - Long lists are virtualized. A scene list of 5,000 entries must not create 5,000 nodes.
+- A row is edited by activating its name; there is no separate **Edit** button. Destructive
+  row actions are icon buttons that expand to reveal their label on hover, so the name
+  column stays aligned with its neighbours.
+- Penpot boards carry designer annotations in the same text boxes as the copy. Ship the
+  layout, not the notes: a helper line must read as end-user copy or be deleted.
 
 ## 7. Testing rules
 
 Detail in [`docs/testing.md`](docs/testing.md).
 
 - New business logic ships with a unit test. New endpoints ship with a request/response
-  test. New user flows ship with an E2E test.
+  test. New user flows ship with an E2E test. Route tests live in
+  `rust/crates/service/tests/api/<family>.rs`, named for the production route module they
+  exercise; shared HTTP fixtures live in `tests/common/mod.rs`.
 - Tests must not require a GPU, a VapourSynth install, or a real encode. Use the fake
   sequence and fixture media.
 - Screenshots are **generated in CI as artifacts for human review and never gate a
   merge**. The same suite runs locally on demand. Pixel comparisons are advisory; no
   screenshot baseline is a required check.
 - No `sleep()` in tests. Wait on a condition or an event.
+- To review the desktop UI in a browser, run the headless service
+  (`./dist/cargo/debug/av1ation-service.exe --port <p> --data-dir %APPDATA%/com.av1ation.station`)
+  and the desktop Vite host on port **1420**. Debug builds allow CORS only for
+  `localhost:1420` and `127.0.0.1:1420`; any other port makes every request fail with
+  `net::ERR_FAILED`. `apps/web` is not an alternative: it refuses to start without a LAN
+  token.
+- A stale `av1ation-service.exe` locks the linker output, so the next build fails with
+  `failed to remove file …: Access is denied`. Find it with `tasklist | grep av1ation` and
+  stop that PID; killing the background shell leaves the child running.
+- A VapourSynth smoke script needs an explicit YUV format
+  (`core.std.BlankClip(format=vs.YUV420P10)`); the engine rejects the RGB default, and the
+  rejection reads like a broken check rather than a test-script mistake.
 
 ## 8. Git and process
 
@@ -224,7 +338,7 @@ Detail in [`docs/testing.md`](docs/testing.md).
 - Any change to an invariant in §2 requires a new entry in
   [`docs/decisions.md`](docs/decisions.md) in the same pull request.
 - Generated artifacts are committed: contracts, the schema snapshot, and the lockfiles.
-  Never commit build output, `target/`, `dist/`, or screenshots.
+  Never commit build output, `dist/`, or screenshots.
 
 ## 9. Forbidden shortcuts
 
@@ -243,13 +357,13 @@ Detail in [`docs/testing.md`](docs/testing.md).
 
 `andean-condor` is a git dependency, not a published crate. Cargo resolves its three
 path-sibling metric crates from the same git source; do not add `[patch]` entries for
-them, because Cargo rejects a patch that points at the same source. The engine's
-transitive `av-decoders` and `av-scenechange` branches are pinned by the committed
-`Cargo.lock`.
+them, because Cargo rejects a patch that points at the same source. The engine now takes
+`av-decoders` and `av-scenechange` from crates.io releases, so the transitive branch
+hazard no longer exists.
 
-- Bumping the engine revision means re-pinning the two transitive branch revisions and
-  regenerating `Cargo.lock` in the same commit.
-- Build with `--locked` so a moved branch cannot silently change the graph.
+- Bumping the engine revision means regenerating `Cargo.lock` in the same commit and
+  checking that its transitive decoder versions did not move unintentionally.
+- Build with `--locked` so a dependency cannot silently change the graph.
 - Never edit vendored engine sources. If upstream must change, patch upstream, or fork
   and record an ADR.
 - The engine is not `Send`-friendly across every internal type; keep it owned by a single

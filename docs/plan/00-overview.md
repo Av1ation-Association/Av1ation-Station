@@ -1,5 +1,7 @@
 # Phase Plan — Overview
 
+> **Planning record.** Current delivery status lives in [progress.md](../progress.md).
+
 ## 1. Purpose
 
 Phase 0 plus six delivery phases, executed in order, each with a definition of done. The
@@ -35,7 +37,7 @@ after the UI exists.
 
 | Phase | Plan | Goal | Exit criterion |
 | --- | --- | --- | --- |
-| 0 | this doc set | decide and document everything | documents reviewed; no open question that blocks Phase 1; the application board set (`00`–`10`) approved. The public website design is deferred to Phase 6 (D31), so it is not a Phase 0 gate |
+| 0 | this doc set | decide and document everything | documents reviewed; no open question that blocks Phase 1; the application board set (`00`–`10`) approved. The public website design is deferred to Phase 6 , so it is not a Phase 0 gate |
 | 1 | [01-scaffolding.md](01-scaffolding.md) | the application builds and launches | `npm run dev` shows a real screen backed by a real endpoint |
 | 2 | [02-backend.md](02-backend.md) | the engine runs behind a stable API | one real encode completes end-to-end through HTTP |
 | 3 | [03-ui.md](03-ui.md) | every v0.1 screen is real | all v0.1 journeys work in the desktop app and a LAN browser |
@@ -48,23 +50,25 @@ after the UI exists.
 1. **Every phase keeps the build green.** No phase ends with a known broken build.
 2. **Every phase updates [progress.md](../progress.md).** A phase that is not in the tracker
    did not happen.
-3. **A decision change mid-phase goes into [decisions.md](../decisions.md) first**, then the
-   code. Not the other way round.
+3. **A decision change mid-phase is opened in [decisions.md](../decisions.md) first**, then
+   folded into the owning document when accepted. The code follows the accepted rule, not
+   the other way round.
 4. **No phase implements a later phase's feature "while we are here."** Scope creep is how
    the previous application accumulated 20 recorded defects.
 5. **Each phase ends with a retrospective note** in `progress.md`: what took longer than
    expected, and what to change in the next phase's plan.
 
-## 5. Features deferred beyond v0.1
+## 5. v0.1 feature sequencing
 
-Tracked so they are not lost, and so scaffolding leaves room for them:
+Features deliberately staged across the increments. The phase column records where each
+was scheduled; implementation status lives in [progress.md](../progress.md).
 
-| Feature | Phase in which it lands | Scaffolding implication |
+| Feature | Landed in | Scaffolding implication |
 | --- | --- | --- |
 | Monaco VapourSynth editor + Python formatting/linting | 3 (increment 2) | lazy chunk; Monaco loaded only when a script input is edited |
 | Scene list, multi-select, drag-select | 3 (increment 3) | virtualization chosen now; selection store shape reserved |
 | Scene editing and validation | 3 (increment 3) | scenes are the engine's own; edits write `condor.scenes[i].encoder` and ranges, with no `custom` side table |
-| Scene data injected into the script | 3 (increment 3) | `Input::VapourSynthScript::variables` is the carrier; generated `.pyi` stub ships with contracts; the per-scene template is gated on S5 |
+| Scene data injected into the script | 2 (documentation view), 3 (script editor) | `Input::VapourSynthScript::variables` is the carrier; the key table and current values ship in `VideoState.script_data`; the `.pyi` stub ships with the scene-data module; S5 passed and the default template is a whole-clip no-op with optional per-scene examples  |
 | Preview sources (`Original`, `Decode`, `Encode`) on one player | 3 (increment 3) | `/preview/*` routes reserved; cache directory reserved |
 | Video execution timeline | 2 | append-only JSONL per video; separate from derived state |
 | ECharts analytics | 3 (increment 3) | chart theme bound to CSS tokens now |
@@ -79,13 +83,14 @@ chunk boundaries**, because those are expensive to change later.
 
 | Risk | Likelihood | Impact | Mitigation | Phase |
 | --- | --- | --- | --- | --- |
-| Transitive engine branches move under the pinned rev | medium | high — blocks all builds | pin `av-decoders` and `av-scenechange` in `Cargo.lock`; build with `--locked`; vendor fallback documented | 1 |
-| VapourSynth/ffms2 native setup differs per machine | high | medium | preflight checks with a fix-it screen, not a crash | 1 |
+| Transitive engine decoder versions move under a new engine rev | low | high — blocks all builds | released `av-decoders`/`av-scenechange` locked in `Cargo.lock`; review on engine bumps; build with `--locked`; vendor fallback documented  | 1 |
+| VapourSynth/ffms2 native setup differs per machine | high | medium | the release bundles the toolchain ; preflight reports the selected provider and still offers a fix-it path for system choices | 1, 6 |
+| A bundled dependency is unreviewable or drifts from what was audited | medium | high | `packaging/toolchain.lock.json` plus a required verify job; release publishes notices, SBOM and source offer  | 5, 6 |
 | Preview infeasible on some platform (S2) | medium | high — architecture exemption | spike before UI; documented degradation path | 4a |
 | Decoder re-init too slow to feel usable (S1) | medium | medium — UX downgrade | prepared-range model; pre-warm; honest progress | 4a |
 | Upstream engine API changes | medium | medium | `EncodeEvent` adapter isolates the surface | continuous |
 | Diagram/graph point counts too large to render | low | low | ECharts canvas + dataZoom; virtualized log | 3 |
-| Per-scene script template defeats decoder cache | medium | medium — script editor ships without a template | S5 compares splice, single-pass and precomputed-range templates before the editor promises one | 4a |
-| Rust build times slow CI | high | low–medium | cache `target/`, split jobs, build headless binary once | 5 |
+| Per-scene script template defeats decoder cache | medium | medium — the script editor ships a whole-clip template and the data module, not a per-scene one | S5 compares splice, single-pass and precomputed-range templates before the editor promises one; the default is a no-op  | 4a |
+| Rust build times slow CI | high | low–medium | cache `dist/cargo/`, split jobs, build headless binary once | 5 |
 | Screen reader/keyboard coverage incomplete | medium | medium | axe in component tests; keyboard parity in review checklist | 3 |
 | Two hosts drift apart | low | high | one bundle, transport injection, E2E exercises HTTP | 1, 3 |

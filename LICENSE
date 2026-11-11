@@ -29,7 +29,9 @@ GNU General Public License v3.0. Statically or dynamically linking a
 GPL-licensed library into an application makes the combined work a
 derivative work, which must be distributed under the same license.
 
-See docs/decisions.md (D12) for the full rationale.
+See [docs/architecture.md](docs/architecture.md) for the licensing constraint and the
+third-party components below. The GPL-3.0 obligation follows from the linked component's
+license.
 
 ## Third-party components
 

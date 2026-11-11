@@ -1,5 +1,7 @@
 # Phase 2 — Backend
 
+> **Planning record.** Current delivery status lives in [progress.md](../progress.md).
+
 **Goal:** the real encoder runs end-to-end behind a stable, versioned, typed HTTP API, with
 the singleton, cancellation, persistence, and derived state all enforced in Rust.
 
@@ -12,9 +14,9 @@ the whole flow covered by Rust tests.
 
 ## 1. Entry criteria
 
-- [ ] Phase 1 exit checklist complete
-- [ ] the engine dependency resolves and the `FakeRunner` path is proven
-- [ ] a real VapourSynth install and a real ffmpeg are available on the development machine
+- [x] Phase 1 exit checklist complete
+- [x] the engine dependency resolves and the `FakeRunner` path is proven
+- [x] a real VapourSynth install and a real ffmpeg are available on the development machine
 
 ## 2. Tasks
 
@@ -22,7 +24,7 @@ the whole flow covered by Rust tests.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 2.1.1 | Re-export engine model types; add app types (`Project`, `VideoEntry`, overrides) | `crates/contracts` |
+| 2.1.1 | Re-export engine model types; add app types (`Project`, `VideoEntry`, overrides) | `rust/crates/contracts` |
 | 2.1.2 | `FieldPath`, `ResolvedValue`, `ValueSource`, `SceneView`, `SequenceState`, `VideoState` | discriminated unions |
 | 2.1.3 | `ErrorCode` + `ErrorBody` + `Hint` | stable codes |
 | 2.1.4 | `EncodeEvent` envelope (`run_id`, `seq`, `at`, payload) | our type, not the engine's |
@@ -30,7 +32,7 @@ the whole flow covered by Rust tests.
 | 2.1.6 | Golden schema fixtures for every model | used by drift and round-trip tests |
 | 2.1.7 | `Widget` descriptor enum + `Choice`/`Mark`, emitted alongside `ParameterKind` | [contracts.md](../contracts.md#63-widgets-and-presentations) |
 | 2.1.8 | `encoder-definition.schema.json` published as the `$schema` for user encoder files | |
-| 2.1.9 | Generated `.pyi` stub for the scene-data module, emitted with the same pipeline | [preview.md](../preview.md#typing-and-validation) |
+| 2.1.9 | Generated `.pyi` stub for the scene-data module | Moved to Phase 3 (3.3.12a): the `condor_data` module and its stub now ship from the module generator. Phase 2 serves the reserved keys and their current values through `VideoState.script_data` as the documentation view |
 
 ### 2.2 Configuration resolution
 
@@ -70,7 +72,7 @@ the whole flow covered by Rust tests.
 | 2.4.10 | Disk space check before start → `507` | |
 | 2.4.11 | **Sequence transition table** — the 11 sequences, their prerequisites, and the valid-transition graph | [backend.md](../backend.md#31-valid-transitions) |
 | 2.4.12 | **`POST …/run`** — run exactly one named sequence, after checking the transition table | `422` on an invalid transition |
-| 2.4.13 | **`POST …/encode`** — resolve the full chain from current state, skipping already-complete sequences | like the `condor` CLI root command |
+| 2.4.13 | **`POST …/encode`** — resolve the full chain from current state, skipping already-complete sequences | a full pipeline root run |
 | 2.4.14 | **Persist on every `save()`**, not per sequence and not only at the end | a cancel or power loss mid-sequence keeps detected scenes | |
 | 2.4.15 | **Timeline recorder** — append one JSONL record per sequence attempt: start, end, outcome, frames processed, FPS | [data-model.md](../data-model.md#61-the-video-timeline) |
 | 2.4.16 | **Chunk retention** — `delete_chunks_on_success` defaults `false`; explicit per-video delete action; space accounting | [backend.md](../backend.md#61-temporary-storage-for-encoded-chunks) |
@@ -86,7 +88,7 @@ the whole flow covered by Rust tests.
 | 2.5.5 | Script stored in the input as `VapourSynthScriptSource::Text` or `::Path`; no separate `.vpy` sidecar | [backend.md](../backend.md#51-inputs-and-scripts) |
 | 2.5.6 | Import/export a project as a single archive | needed for bug reports |
 | 2.5.7 | Timeline append/read/prune with trailing-partial-line tolerance | |
-| 2.5.8 | `AppSettings.project_defaults` as a full `ProjectConfig`; `POST /projects` clones it in the create write | no live link, no propagation |
+| 2.5.8 | `AppSettings.project_templates` and `default_project_template_id`; `POST /projects` copies the marked template, or engine defaults when none is marked | no live link, no propagation |
 
 ### 2.6 HTTP surface
 
@@ -104,8 +106,8 @@ the whole flow covered by Rust tests.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 2.7.1 | JSONL per run + raw engine log + `meta.json` | |
-| 2.7.2 | `tracing` layers: file, ring buffer, console | |
+| 2.7.1 | JSONL per run + `meta.json` + application log; raw engine stderr is upstream-blocked | `engine.log` is not produced until the pinned engine exposes its stream; `run.jsonl` carries the failure text, and `logs.rs` records the limitation |
+| 2.7.2 | `tracing` layers: file, ring buffer, console | the file layer writes `logs/application.log` |
 | 2.7.3 | Log paging endpoint | for the virtualized viewer |
 | 2.7.4 | `anonymise()` pure transform + reverse map | fixture tests per category |
 | 2.7.5 | Export endpoint with a preview response | user sees redactions first |
@@ -114,11 +116,11 @@ the whole flow covered by Rust tests.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 2.8.1 | VapourSynth load + arch check | |
+| 2.8.1 | VapourSynth load + arch check through VSScript | not `vspipe`; the Phase 1 engine probe is the base |
 | 2.8.2 | ffmpeg / mkvmerge presence and version | |
 | 2.8.3 | output dir writability, free space, retained-chunk accounting | |
-| 2.8.4 | Encoder capability filtering | hide encoders that cannot run |
-| 2.8.5 | `metrics::availability::libraries()` integration; per-metric backend coverage table | [backend.md](../backend.md#92-metrics) |
+| 2.8.4 | Encoder capability filtering | reuse the Phase 1 `EncoderBase` probes; hide encoders that cannot run |
+| 2.8.5 | `metrics::availability::libraries()` integration; per-metric backend coverage table | [preflight.md](../preflight.md#metrics) |
 | 2.8.6 | VapourSynth plugin presence per plugin-backed metric (vship, vszip) | not derivable from `libraries()` |
 | 2.8.7 | Remediation text per missing capability, naming the concrete install | |
 | 2.8.8 | Surface as a list with actionable hints, grouped by capability | |
@@ -130,7 +132,7 @@ the whole flow covered by Rust tests.
 - Cancellation verified mid-encode, with the detected scenes retained.
 - Derived state correct against all fixtures.
 - Anonymised export verified against fixtures.
-- `crates/service` buildable as `--headless` with the same behaviour.
+- `rust/crates/service` buildable as the standalone `av1ation-service --port <p>` with the same behaviour.
 
 ## 4. Explicit non-goals
 
@@ -141,19 +143,19 @@ the whole flow covered by Rust tests.
 
 ## 5. Exit checklist
 
-- [ ] real encode completes end-to-end via HTTP
-- [ ] second encode returns `409` under a real run, not only a fake one
-- [ ] config write during a run returns `423`
-- [ ] cancel produces a terminal `Cancelled` event and releases the lock
-- [ ] cancelling Scene Detector mid-run retains the scenes detected so far
-- [ ] chunk retention defaults to keeping chunks after success
-- [ ] timeline records one entry per sequence attempt with frames and FPS
-- [ ] killing the worker thread mid-run leaves the app usable
-- [ ] every fixture in `condor/` produces the expected `VideoState`
-- [ ] anonymiser fixtures green for every category in [security.md](../security.md#6-log-anonymisation)
-- [ ] no `unwrap()` on user-derived data
-- [ ] persisted files written by an old schema version load (migration test)
-- [ ] `docs/progress.md` updated with the contract version
+- [x] real encode completes end-to-end via HTTP (gated test, verified on Windows on 2026-10-31)
+- [x] second encode returns `409` under a real run, not only a fake one
+- [x] config write during a run returns `423`
+- [x] cancel produces a terminal `Cancelled` event and releases the lock
+- [x] cancelling Scene Detector mid-run retains the scenes detected so far (the checkpoint sink persists before the sequence continues, and a cancel test proves the saved table survives)
+- [x] chunk retention defaults to keeping chunks after success
+- [x] timeline records one entry per sequence attempt with frames and FPS
+- [x] killing the worker thread mid-run leaves the app usable
+- [x] every fixture in `condor/` produces the expected `VideoState`
+- [x] anonymiser fixtures green for every category in [security.md](../security.md#6-log-anonymisation)
+- [x] no `unwrap()` on user-derived data
+- [x] persisted files written by schema v1 load after restart; v1 is the first schema, so it has no older predecessor to migrate yet
+- [x] `docs/progress.md` updated with the contract version
 
 ## 6. Known traps
 
@@ -165,4 +167,4 @@ the whole flow covered by Rust tests.
 | Older `sequence_data` treated as a different state | compare `created_on` for an advisory badge only; completion comes from the data, tested |
 | Empty scene list making "all scenes have X" vacuously true | explicit empty-list rule, tested |
 | A real encode in a unit test | only `FakeRunner`; real encodes are gated integration tests |
-| Path joining with user strings | validate ULIDs, then join |
+| Path joining with user strings | validate the UUID syntax, then join |

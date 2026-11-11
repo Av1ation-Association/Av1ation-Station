@@ -1,0 +1,274 @@
+{
+  "measured_at": "2026-11-07T08:41:29.355Z",
+  "environment": {
+    "platform": "win32",
+    "node": "v26.13.0",
+    "ffmpeg": "ffmpeg version n8.1.1-1-g1068a26663-20260513 Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "parameters": {
+    "intervalSeconds": 5,
+    "width": 320,
+    "quality": 5,
+    "sample": 12,
+    "requests": 120,
+    "concurrency": 6,
+    "coalesceRequests": 30,
+    "hwaccel": "d3d11va"
+  },
+  "videos": [
+    {
+      "name": "video-1",
+      "width": 1920,
+      "height": 1080,
+      "fps": 23.976023976023978,
+      "duration": 31.698,
+      "frames": 760,
+      "bytes": 155400515,
+      "keyframes": 34,
+      "thumbs": 7,
+      "strategies": [
+        {
+          "name": "seek-png",
+          "wallMs": 4132.475200000001,
+          "peak": {
+            "peakBytes": 155267072,
+            "peakProcesses": 1,
+            "samples": 59
+          },
+          "bytes": 904007,
+          "count": 12,
+          "meanMs": 344.3641416666667,
+          "p50Ms": 348.2946000000002,
+          "p95Ms": 388.2963
+        },
+        {
+          "name": "seek-png-concurrent",
+          "wallMs": 1978.6409000000003,
+          "peak": {
+            "peakBytes": 911974400,
+            "peakProcesses": 6,
+            "samples": 19
+          },
+          "bytes": 904007,
+          "count": 12,
+          "meanMs": 944.0435666666667,
+          "p50Ms": 985.6056000000008,
+          "p95Ms": 1052.5977000000003
+        },
+        {
+          "name": "keyframe-cpu",
+          "wallMs": 909.1449000000011,
+          "peak": {
+            "peakBytes": 167698432,
+            "peakProcesses": 1,
+            "samples": 13
+          },
+          "count": 6,
+          "bytes": 31215
+        },
+        {
+          "name": "interval-jpg",
+          "wallMs": 2595.568300000001,
+          "peak": {
+            "peakBytes": 165400576,
+            "peakProcesses": 1,
+            "samples": 31
+          },
+          "count": 6,
+          "bytes": 31731
+        },
+        {
+          "name": "keyframe-hw-progressive",
+          "wallMs": 623.973,
+          "peak": {
+            "peakBytes": 201719808,
+            "peakProcesses": 1,
+            "samples": 9
+          },
+          "count": 6,
+          "bytes": 31215,
+          "firstFileMs": 435.90940000000046,
+          "halfFileMs": 544.2448999999997
+        },
+        {
+          "name": "interval-sprite-10x10",
+          "wallMs": 2567.131299999999,
+          "peak": {
+            "peakBytes": 171515904,
+            "peakProcesses": 1,
+            "samples": 32
+          },
+          "count": 1,
+          "bytes": 65748
+        }
+      ]
+    },
+    {
+      "name": "video-2",
+      "width": 1920,
+      "height": 1080,
+      "fps": 23.976023976023978,
+      "duration": 1420.01,
+      "frames": 34046,
+      "bytes": 1613306064,
+      "keyframes": 710,
+      "thumbs": 285,
+      "strategies": [
+        {
+          "name": "seek-png",
+          "wallMs": 3692.8169000000016,
+          "peak": {
+            "peakBytes": 233721856,
+            "peakProcesses": 1,
+            "samples": 48
+          },
+          "bytes": 834429,
+          "count": 12,
+          "meanMs": 307.729074999999,
+          "p50Ms": 311.84159999999974,
+          "p95Ms": 368.1427999999978
+        },
+        {
+          "name": "seek-png-concurrent",
+          "wallMs": 2258.3577000000005,
+          "peak": {
+            "peakBytes": 1222873088,
+            "peakProcesses": 6,
+            "samples": 19
+          },
+          "bytes": 834429,
+          "count": 12,
+          "meanMs": 1038.6065250000001,
+          "p50Ms": 1058.4779000000017,
+          "p95Ms": 1311.6201
+        },
+        {
+          "name": "keyframe-cpu",
+          "wallMs": 19502.366700000002,
+          "peak": {
+            "peakBytes": 203665408,
+            "peakProcesses": 1,
+            "samples": 280
+          },
+          "count": 284,
+          "bytes": 2313430
+        },
+        {
+          "name": "interval-jpg",
+          "wallMs": 64520.5864,
+          "peak": {
+            "peakBytes": 259502080,
+            "peakProcesses": 1,
+            "samples": 766
+          },
+          "count": 284,
+          "bytes": 2297529
+        },
+        {
+          "name": "keyframe-hw-progressive",
+          "wallMs": 5824.955099999992,
+          "peak": {
+            "peakBytes": 250859520,
+            "peakProcesses": 1,
+            "samples": 82
+          },
+          "count": 284,
+          "bytes": 2313430,
+          "firstFileMs": 558.7419999999984,
+          "halfFileMs": 3169.3502000000008
+        },
+        {
+          "name": "interval-sprite-10x10",
+          "wallMs": 64468.10309999999,
+          "peak": {
+            "peakBytes": 308072448,
+            "peakProcesses": 1,
+            "samples": 779
+          },
+          "count": 3,
+          "bytes": 2236830
+        }
+      ]
+    }
+  ],
+  "serving": [
+    {
+      "video": "video-1",
+      "hwaccel": "d3d11va",
+      "cached": {
+        "requests": 120,
+        "concurrency": 6,
+        "wallMs": 109.48830000000089,
+        "meanMs": 5.411072500000136,
+        "p50Ms": 4.785800000001473,
+        "p95Ms": 8.73869999999988,
+        "serverRssDeltaBytes": 6258688,
+        "files": 6,
+        "bytes": 31215,
+        "intervalFrames": 119.88011988011989
+      },
+      "cold": {
+        "requests": 30,
+        "builds": 1,
+        "wallMs": 685.8073000000004,
+        "meanMs": 569.0433900000003,
+        "p50Ms": 590.5681999999979,
+        "p95Ms": 681.928899999999,
+        "peak": {
+          "peakBytes": 198672384,
+          "peakProcesses": 1,
+          "samples": 8
+        },
+        "serverRssDeltaBytes": 5021696,
+        "count": 6,
+        "bytes": 31215
+      },
+      "pageOfStillsMs": 10330.92425,
+      "progressive": {
+        "firstFileMs": 435.90940000000046,
+        "halfFileMs": 544.2448999999997,
+        "completeMs": 623.973,
+        "files": 6
+      }
+    },
+    {
+      "video": "video-2",
+      "hwaccel": "d3d11va",
+      "cached": {
+        "requests": 120,
+        "concurrency": 6,
+        "wallMs": 126.73320000001695,
+        "meanMs": 6.288423333332806,
+        "p50Ms": 5.856100000004517,
+        "p95Ms": 9.62609999999404,
+        "serverRssDeltaBytes": 6340608,
+        "files": 284,
+        "bytes": 2313430,
+        "intervalFrames": 119.88011988011989
+      },
+      "cold": {
+        "requests": 30,
+        "builds": 1,
+        "wallMs": 5772.357600000018,
+        "meanMs": 3100.9864566666674,
+        "p50Ms": 3168.6869000000006,
+        "p95Ms": 5480.38440000001,
+        "peak": {
+          "peakBytes": 249126912,
+          "peakProcesses": 1,
+          "samples": 81
+        },
+        "serverRssDeltaBytes": 3710976,
+        "count": 284,
+        "bytes": 2313430
+      },
+      "pageOfStillsMs": 9231.87224999997,
+      "progressive": {
+        "firstFileMs": 558.7419999999984,
+        "halfFileMs": 3169.3502000000008,
+        "completeMs": 5824.955099999992,
+        "files": 284
+      }
+    }
+  ]
+}
