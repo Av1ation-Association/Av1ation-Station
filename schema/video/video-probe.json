@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoProbe",
+  "description": "One probe attempt.\n\nA probe can fail for reasons the user can fix — a missing file, an absent VapourSynth,\nor a script that raises — so the failure is data, not an HTTP error; the details screen\nstays usable and shows the reason.",
+  "type": "object",
+  "properties": {
+    "clip": {
+      "description": "The clip, present only when the decode graph opened.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClipDetails"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detail": {
+      "description": "What happened, in the words the details screen shows.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "detail"
+  ],
+  "$defs": {
+    "ClipDetails": {
+      "description": "The source metadata probed from a video's decode graph.\n\nEvery field is what the decoder reported. A field the file did not carry is absent\nrather than guessed, so the details screen can say `not signalled` honestly.",
+      "type": "object",
+      "properties": {
+        "bit_depth": {
+          "description": "Bit depth of that format, when it has one.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "chroma_location": {
+          "description": "Chroma sample location, when the source signalled it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "color_matrix": {
+          "description": "Matrix coefficients, when the source signalled them.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "color_primaries": {
+          "description": "Colour primaries, when the source signalled them.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "color_range": {
+          "description": "Colour range, when the source signalled it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "color_transfer": {
+          "description": "Transfer characteristic, when the source signalled it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration_seconds": {
+          "description": "Duration in seconds derived from the frame count and rate.",
+          "type": "number",
+          "format": "double"
+        },
+        "frame_count": {
+          "description": "Frame count the decoder reported.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "frame_rate": {
+          "description": "Frames per second, as the decode graph reports them.",
+          "type": "number",
+          "format": "double"
+        },
+        "height": {
+          "description": "Decoded height in pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "pixel_format": {
+          "description": "The pixel format name the decoder reported.",
+          "type": "string"
+        },
+        "width": {
+          "description": "Decoded width in pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "frame_count",
+        "frame_rate",
+        "duration_seconds",
+        "pixel_format"
+      ]
+    }
+  }
+}

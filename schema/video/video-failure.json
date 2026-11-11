@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoFailure",
+  "description": "The last run that failed, with the reason the engine reported.\n\nA run can fail before its first sequence starts, so this is run history rather than a\nsequence status: it is recorded in the timeline and never decides a pipeline phase.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "UTC ISO-8601 instant the failure was reported.",
+      "type": "string"
+    },
+    "message": {
+      "description": "The engine's message; may contain a multi-line traceback.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The failed run's correlation id, so its log can be found.",
+      "type": "string"
+    },
+    "sequence": {
+      "description": "The sequence the failed run reached, or `None` when it failed before sequence 1.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "message",
+    "at",
+    "run_id"
+  ]
+}

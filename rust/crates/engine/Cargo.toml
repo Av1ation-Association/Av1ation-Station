@@ -1,0 +1,23 @@
+[package]
+name = "av1ation-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+andean-condor.workspace = true
+# The same grain-table writer the engine's Parallel Encoder calls. Reusing the crate rather
+# than reimplementing the file format keeps a preview's photon-noise table byte-identical to
+# the one a run would write.
+av1-grain = "0.5"
+anyhow = "1"
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+vapoursynth = "0.5"
+
+[dev-dependencies]
+av1ation-test-support.workspace = true

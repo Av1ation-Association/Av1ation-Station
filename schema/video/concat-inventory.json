@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatInventory",
+  "description": "Every stream a concatenation input carries, as the selected muxer numbers them.",
+  "type": "object",
+  "properties": {
+    "attachments": {
+      "description": "Source attachments. Empty when the probe failed.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConcatSourceAttachment"
+      }
+    },
+    "chapter_count": {
+      "description": "Chapter count when the probe can report one; `None` means unknown, not zero.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    },
+    "data_stream_count": {
+      "description": "FFmpeg data streams, which are always copied and have no switch.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "detail": {
+      "description": "Why the inventory is empty or partial, in language the screen can show.",
+      "type": "string"
+    },
+    "method": {
+      "description": "The muxer this inventory came from.",
+      "$ref": "#/$defs/ConcatMethodName"
+    },
+    "tracks": {
+      "description": "Selectable source video, audio, and subtitle streams. Empty when the probe failed.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConcatSourceTrack"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "method",
+    "tracks",
+    "attachments",
+    "data_stream_count",
+    "detail"
+  ],
+  "$defs": {
+    "ConcatMethodName": {
+      "description": "The muxer a concatenation inventory describes.\n\nThe two muxers number source streams in independent namespaces: mkvmerge uses the IDs\nfrom `--identify`, FFmpeg uses the source stream index. A caller must never translate one\ninto the other.",
+      "oneOf": [
+        {
+          "description": "Matroska-native muxing through `mkvmerge`.",
+          "type": "string",
+          "const": "mkvmerge"
+        },
+        {
+          "description": "Remuxing through FFmpeg.",
+          "type": "string",
+          "const": "ffmpeg"
+        }
+      ]
+    },
+    "ConcatSourceAttachment": {
+      "description": "One source attachment the selected muxer reports.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Description when the container records one.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "key": {
+          "description": "The muxer's attachment identifier. It shares a numeric namespace with track IDs for\nmkvmerge, which is why `selectable` is false there.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "label": {
+          "description": "The file name the attachment carries.",
+          "type": "string"
+        },
+        "mime_type": {
+          "description": "MIME type when the container records one.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "selectable": {
+          "description": "Whether the workbench may include or drop this attachment individually.",
+          "type": "boolean"
+        },
+        "size_bytes": {
+          "description": "Size in bytes when the probe reports it.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "default": null,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label",
+        "selectable"
+      ]
+    },
+    "ConcatSourceTrack": {
+      "description": "One selectable source stream, keyed by the selected muxer's own identifier.",
+      "type": "object",
+      "properties": {
+        "channels": {
+          "description": "Channel count for an audio stream.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        },
+        "codec": {
+          "description": "Codec name as the probe reports it.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "default": {
+          "description": "Whether the container marks this stream as the default.",
+          "type": "boolean"
+        },
+        "forced": {
+          "description": "Whether the container marks this stream as forced.",
+          "type": "boolean"
+        },
+        "key": {
+          "description": "mkvmerge track ID, or the FFmpeg source stream index. Never an ordinal.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "kind": {
+          "description": "The stream's role, which decides the engine track variant and its option fields.",
+          "$ref": "#/$defs/ConcatTrackKind"
+        },
+        "label": {
+          "description": "A stable, human-readable row label derived from the probe.",
+          "type": "string"
+        },
+        "language": {
+          "description": "ISO 639 language tag when the container carries one.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "name": {
+          "description": "The container's track title, when it has one.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "kind",
+        "label",
+        "default",
+        "forced"
+      ]
+    },
+    "ConcatTrackKind": {
+      "description": "What a selectable source stream carries.",
+      "oneOf": [
+        {
+          "description": "A picture stream; selectable only on an mkvmerge extra input.",
+          "type": "string",
+          "const": "video"
+        },
+        {
+          "description": "A sound stream.",
+          "type": "string",
+          "const": "audio"
+        },
+        {
+          "description": "A timed text stream.",
+          "type": "string",
+          "const": "subtitle"
+        }
+      ]
+    }
+  }
+}

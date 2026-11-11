@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ParameterValue",
+  "description": "A value a parameter can carry.\n\nIt is untagged on the wire, so a choice is written as the literal `0`, `\"2\"`, or `true`\nrather than a wrapper object. The enum exists so generated TypeScript and Zod describe\nexactly these variants instead of `unknown`.",
+  "anyOf": [
+    {
+      "description": "An explicit null, for a parameter whose unset state is meaningful.",
+      "type": "null"
+    },
+    {
+      "description": "A boolean.",
+      "type": "boolean"
+    },
+    {
+      "description": "A number; integers are not a separate variant.",
+      "type": "number",
+      "format": "double"
+    },
+    {
+      "description": "Text.",
+      "type": "string"
+    },
+    {
+      "description": "A flat list of scalars, for a collection parameter. Nested lists are not a value a\nCLI parameter can carry, so the recursion stops here.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParameterScalar"
+      }
+    }
+  ],
+  "$defs": {
+    "ParameterScalar": {
+      "description": "One item of a [`ParameterValue::List`].",
+      "anyOf": [
+        {
+          "description": "A boolean item.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number item.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "A text item.",
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

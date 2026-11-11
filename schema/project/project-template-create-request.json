@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateCreateRequest",
+  "description": "Creates a template seeded from the engine defaults.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Display name; trimmed, unique, and rejected when empty or longer than 120 characters.",
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ]
+}

@@ -1,0 +1,1228 @@
+{
+  "routes": [
+    {
+      "id": "health",
+      "path": "/api/health",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::health",
+          "owner": "api::routes::system",
+          "purpose": "app and engine package versions, pinned engine revision, API version, and the cached preflight report"
+        }
+      ]
+    },
+    {
+      "id": "update",
+      "path": "/api/update",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::check_for_update",
+          "owner": "api::routes::system",
+          "purpose": "newest published release from the forge; a repository with none answers with no `latest`"
+        }
+      ]
+    },
+    {
+      "id": "diagnostics.bundle",
+      "path": "/api/diagnostics/bundle",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::diagnostics_bundle",
+          "owner": "api::routes::system",
+          "purpose": "redacted support bundle for the chosen `projects` and log tail; built on request, written nowhere"
+        }
+      ]
+    },
+    {
+      "id": "preflight.refresh",
+      "path": "/api/preflight/refresh",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "system::refresh_preflight",
+          "owner": "api::routes::system",
+          "purpose": "discard the cached report, probe again, and return the new report"
+        }
+      ]
+    },
+    {
+      "id": "preflight.custom",
+      "path": "/api/preflight/custom",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "system::add_custom_preflight",
+          "owner": "api::routes::system",
+          "purpose": "probe one user-provided executable and return its check (preflight.md §Custom executables)"
+        }
+      ]
+    },
+    {
+      "id": "preflight.custom.item",
+      "path": "/api/preflight/custom/{id}",
+      "methods": [
+        {
+          "method": "DELETE",
+          "handler": "system::remove_custom_preflight",
+          "owner": "api::routes::system",
+          "purpose": "drop a user-provided executable and re-probe"
+        }
+      ]
+    },
+    {
+      "id": "script.materialise",
+      "path": "/api/script/materialise",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "script::materialise_script",
+          "owner": "api::routes::script",
+          "purpose": "render a script as a standalone `.vpy` with the generated module and injected values"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "path": "/api/settings",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::get_settings",
+          "owner": "api::routes::settings",
+          "purpose": "read the app settings document"
+        },
+        {
+          "method": "PATCH",
+          "handler": "settings::patch_settings",
+          "owner": "api::routes::settings",
+          "purpose": "replace only the settings fields the request presents"
+        }
+      ]
+    },
+    {
+      "id": "settings.scene-model",
+      "path": "/api/settings/scene-model",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "settings::put_scene_model",
+          "owner": "api::routes::settings",
+          "purpose": "the machine-level TransNetV2 ONNX path, or `null`"
+        }
+      ]
+    },
+    {
+      "id": "settings.python-interpreter",
+      "path": "/api/settings/python-interpreter",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "settings::put_python_interpreter",
+          "owner": "api::routes::settings",
+          "purpose": "the interpreter the script editor's language server analyses, or `null`"
+        }
+      ]
+    },
+    {
+      "id": "settings.tool-source",
+      "path": "/api/settings/tool-source",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "settings::put_tool_source",
+          "owner": "api::routes::settings",
+          "purpose": "one capability's provider, `bundled`, `system`, or `null` for automatic; a Bundled choice is refused when this install cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "templates",
+      "path": "/api/settings/templates",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::list_project_templates",
+          "owner": "api::routes::settings",
+          "purpose": "list the project templates"
+        },
+        {
+          "method": "POST",
+          "handler": "settings::add_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "create a project template seeded from the engine defaults"
+        }
+      ]
+    },
+    {
+      "id": "templates.default",
+      "path": "/api/settings/templates/default",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "settings::set_default_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "set or clear the template a new project copies"
+        }
+      ]
+    },
+    {
+      "id": "template",
+      "path": "/api/settings/templates/{template_id}",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "settings::update_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "replace a template's name, configuration, and General defaults"
+        },
+        {
+          "method": "DELETE",
+          "handler": "settings::delete_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "delete a project template"
+        }
+      ]
+    },
+    {
+      "id": "template.defaults",
+      "path": "/api/settings/templates/{template_id}/defaults",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::get_template_defaults",
+          "owner": "api::routes::settings",
+          "purpose": "read a template's effective configuration"
+        },
+        {
+          "method": "PUT",
+          "handler": "settings::put_template_defaults",
+          "owner": "api::routes::settings",
+          "purpose": "replace a template's configuration"
+        }
+      ]
+    },
+    {
+      "id": "template.defaults.reset",
+      "path": "/api/settings/templates/{template_id}/defaults/reset",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "settings::reset_template_defaults",
+          "owner": "api::routes::settings",
+          "purpose": "reset a template to the engine defaults"
+        }
+      ]
+    },
+    {
+      "id": "template.defaults.reset.section",
+      "path": "/api/settings/templates/{template_id}/defaults/reset/{section}",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "settings::reset_template_defaults_section",
+          "owner": "api::routes::settings",
+          "purpose": "reset one template section"
+        }
+      ]
+    },
+    {
+      "id": "template.general",
+      "path": "/api/settings/templates/{template_id}/general",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::get_template_general",
+          "owner": "api::routes::settings",
+          "purpose": "read a template's General defaults"
+        },
+        {
+          "method": "PUT",
+          "handler": "settings::put_template_general",
+          "owner": "api::routes::settings",
+          "purpose": "replace a template's General defaults"
+        }
+      ]
+    },
+    {
+      "id": "template.scripts",
+      "path": "/api/settings/templates/{template_id}/scripts",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::get_template_scripts",
+          "owner": "api::routes::settings",
+          "purpose": "VapourSynth plugin problems in a template's inputs"
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "path": "/api/projects",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "project::list_projects",
+          "owner": "api::routes::project",
+          "purpose": "project summaries (index)"
+        },
+        {
+          "method": "POST",
+          "handler": "project::create_project",
+          "owner": "api::routes::project",
+          "purpose": "create from `name` (and optional `description`); copies the default project template, or the engine defaults when none is marked"
+        }
+      ]
+    },
+    {
+      "id": "projects.import",
+      "path": "/api/projects/import",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "project::import_project",
+          "owner": "api::routes::project",
+          "purpose": "import that archive as a new project; never reuses ids"
+        }
+      ]
+    },
+    {
+      "id": "project",
+      "path": "/api/projects/{project_id}",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "project::get_project",
+          "owner": "api::routes::project",
+          "purpose": "project detail"
+        },
+        {
+          "method": "PATCH",
+          "handler": "project::patch_project",
+          "owner": "api::routes::project",
+          "purpose": "rename, description"
+        },
+        {
+          "method": "DELETE",
+          "handler": "project::delete_project",
+          "owner": "api::routes::project",
+          "purpose": "delete (guarded if a run is active)"
+        }
+      ]
+    },
+    {
+      "id": "project.config",
+      "path": "/api/projects/{project_id}/config",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "project::get_project_config",
+          "owner": "api::routes::project",
+          "purpose": "effective config + provenance, **including the input and its script**"
+        },
+        {
+          "method": "PUT",
+          "handler": "project::put_project_config",
+          "owner": "api::routes::project",
+          "purpose": "replace project config"
+        }
+      ]
+    },
+    {
+      "id": "project.general",
+      "path": "/api/projects/{project_id}/general",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "project::update_general",
+          "owner": "api::routes::project",
+          "purpose": "replace the project's `GeneralDefaults`"
+        }
+      ]
+    },
+    {
+      "id": "project.template",
+      "path": "/api/projects/{project_id}/template",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "project::apply_template",
+          "owner": "api::routes::project",
+          "purpose": "apply a saved template to a project"
+        }
+      ]
+    },
+    {
+      "id": "project.defaults",
+      "path": "/api/projects/{project_id}/defaults",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "project::restore_defaults",
+          "owner": "api::routes::project",
+          "purpose": "restore a project configuration and General snapshot"
+        }
+      ]
+    },
+    {
+      "id": "project.scripts",
+      "path": "/api/projects/{project_id}/scripts",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "project::project_scripts",
+          "owner": "api::routes::project",
+          "purpose": "VapourSynth plugin problems in the project's General input and enabled sequence overrides"
+        }
+      ]
+    },
+    {
+      "id": "project.export",
+      "path": "/api/projects/{project_id}/export",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "project::export_project",
+          "owner": "api::routes::project",
+          "purpose": "portable JSON archive: configuration, queue, overrides, checkpoints"
+        }
+      ]
+    },
+    {
+      "id": "videos",
+      "path": "/api/projects/{project_id}/videos",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::list_videos",
+          "owner": "api::routes::video::queue",
+          "purpose": "queue"
+        },
+        {
+          "method": "POST",
+          "handler": "video::add_video",
+          "owner": "api::routes::video::queue",
+          "purpose": "add one video from an input path"
+        }
+      ]
+    },
+    {
+      "id": "videos.order",
+      "path": "/api/projects/{project_id}/videos/order",
+      "methods": [
+        {
+          "method": "PATCH",
+          "handler": "video::reorder_videos",
+          "owner": "api::routes::video::queue",
+          "purpose": "replace the queue order (`video_ids`)"
+        }
+      ]
+    },
+    {
+      "id": "videos.remove",
+      "path": "/api/projects/{project_id}/videos/remove",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "video::remove_videos",
+          "owner": "api::routes::video::queue",
+          "purpose": "remove several videos atomically"
+        }
+      ]
+    },
+    {
+      "id": "video",
+      "path": "/api/projects/{project_id}/videos/{video_id}",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video",
+          "owner": "api::routes::video::document",
+          "purpose": "video detail: paths, output existence, retained bytes"
+        },
+        {
+          "method": "DELETE",
+          "handler": "video::delete_video",
+          "owner": "api::routes::video::queue",
+          "purpose": "remove one video"
+        }
+      ]
+    },
+    {
+      "id": "video.chunks",
+      "path": "/api/projects/{project_id}/videos/{video_id}/chunks",
+      "methods": [
+        {
+          "method": "DELETE",
+          "handler": "video::delete_video_chunks",
+          "owner": "api::routes::video::queue",
+          "purpose": "delete retained chunks; `423` while that video encodes"
+        }
+      ]
+    },
+    {
+      "id": "video.runs.run",
+      "path": "/api/projects/{project_id}/videos/{video_id}/runs/{run_id}",
+      "methods": [
+        {
+          "method": "DELETE",
+          "handler": "logging::delete_video_run",
+          "owner": "api::routes::logging",
+          "purpose": "forget one run's timeline entries and log directory"
+        }
+      ]
+    },
+    {
+      "id": "video.config",
+      "path": "/api/projects/{project_id}/videos/{video_id}/config",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_config",
+          "owner": "api::routes::video::document",
+          "purpose": "effective config + provenance"
+        }
+      ]
+    },
+    {
+      "id": "video.general",
+      "path": "/api/projects/{project_id}/videos/{video_id}/general",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_general",
+          "owner": "api::routes::video::document",
+          "purpose": "the video's engine `Input` and `Output` documents and its queued source"
+        },
+        {
+          "method": "PUT",
+          "handler": "video::put_video_general",
+          "owner": "api::routes::video::document",
+          "purpose": "replace both documents after validating paths and engine shapes"
+        }
+      ]
+    },
+    {
+      "id": "video.storage",
+      "path": "/api/projects/{project_id}/videos/{video_id}/storage",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_storage",
+          "owner": "api::routes::video::document",
+          "purpose": "its scratch directory, the inherited root, retained bytes, and the volume's free and total space"
+        },
+        {
+          "method": "PUT",
+          "handler": "video::put_video_storage",
+          "owner": "api::routes::video::document",
+          "purpose": "point the scratch work at a directory of its own, or `null` to inherit; `409` while chunks are retained"
+        }
+      ]
+    },
+    {
+      "id": "video.history",
+      "path": "/api/projects/{project_id}/videos/{video_id}/history",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_history",
+          "owner": "api::routes::video::document",
+          "purpose": "the append-only timeline entries, oldest first"
+        }
+      ]
+    },
+    {
+      "id": "video.media",
+      "path": "/api/projects/{project_id}/videos/{video_id}/media",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "crate::media::stream::get_video_media",
+          "owner": "media::stream",
+          "purpose": "byte-range stream of `source=original`, `decoded` (lossless H.264 MP4 from `frame=N`, for `frames=W` or to the end when omitted), or `encode` (a `scene=S` chunk); `encode_from=original` selects the encode's input; `audio=N` serves a cached audio-only extraction of the original source; `206` for a range, `416` when it cannot be satisfied"
+        }
+      ]
+    },
+    {
+      "id": "video.frame",
+      "path": "/api/projects/{project_id}/videos/{video_id}/frame",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "crate::media::stream::get_video_frame",
+          "owner": "media::stream",
+          "purpose": "one lossless PNG of `source=decoded&frame=N`, for scrubbing without a stream build"
+        }
+      ]
+    },
+    {
+      "id": "video.audio-tracks",
+      "path": "/api/projects/{project_id}/videos/{video_id}/audio-tracks",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "crate::media::stream::get_video_audio_tracks",
+          "owner": "media::stream",
+          "purpose": "the source's audio streams as labels, language, codec, channels, and default flag, read from the container header"
+        }
+      ]
+    },
+    {
+      "id": "video.concat-inventory",
+      "path": "/api/projects/{project_id}/videos/{video_id}/concat-inventory",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "crate::media::stream::get_video_concat_inventory",
+          "owner": "media::stream::concat",
+          "purpose": "read one concatenation input's streams"
+        }
+      ]
+    },
+    {
+      "id": "video.concat-source-info",
+      "path": "/api/projects/{project_id}/videos/{video_id}/concat-source-info",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "crate::media::stream::get_video_concat_source_info",
+          "owner": "media::stream::concat",
+          "purpose": "read the source's chapters and global metadata"
+        }
+      ]
+    },
+    {
+      "id": "video.thumbnails",
+      "path": "/api/projects/{project_id}/videos/{video_id}/thumbnails",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "crate::media::thumbnails::get_thumbnails",
+          "owner": "media::thumbnails",
+          "purpose": "read the keyframe grid manifest"
+        }
+      ]
+    },
+    {
+      "id": "video.thumbnail",
+      "path": "/api/projects/{project_id}/videos/{video_id}/thumbnails/{index}",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "crate::media::thumbnails::get_thumbnail",
+          "owner": "media::thumbnails",
+          "purpose": "serve one cached thumbnail"
+        }
+      ]
+    },
+    {
+      "id": "video.probe",
+      "path": "/api/projects/{project_id}/videos/{video_id}/probe",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "video::probe_video",
+          "owner": "api::routes::video::document",
+          "purpose": "open the decode graph and return clip geometry, timing, pixel format and colour, or the reason it could not open; a script input is evaluated with its generated module and the reserved `condor_*` values, exactly as a run would"
+        }
+      ]
+    },
+    {
+      "id": "video.overrides",
+      "path": "/api/projects/{project_id}/videos/{video_id}/overrides",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_overrides",
+          "owner": "api::routes::video::document",
+          "purpose": "the raw sparse override map"
+        },
+        {
+          "method": "PUT",
+          "handler": "video::put_video_overrides",
+          "owner": "api::routes::video::document",
+          "purpose": "replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section"
+        },
+        {
+          "method": "DELETE",
+          "handler": "video::delete_video_overrides",
+          "owner": "api::routes::video::document",
+          "purpose": "reset to inherited"
+        }
+      ]
+    },
+    {
+      "id": "video.state",
+      "path": "/api/projects/{project_id}/videos/{video_id}/state",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::video_state",
+          "owner": "api::routes::video::state",
+          "purpose": "derived phases and the `script_data` documentation view"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_video_scenes",
+          "owner": "api::routes::video::state",
+          "purpose": "one row per scene: frame range, final Target Quality pass, retained chunk bytes, encoder label and override provenance"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.encoders",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/encoder",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "video::put_scene_encoders",
+          "owner": "api::routes::video::state",
+          "purpose": "write one encoder document to named scenes; rejects the whole request if any index is stale or a run holds the lock"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.add",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/add",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "scenes::add_scene",
+          "owner": "api::routes::scenes",
+          "purpose": "insert a scene in an uncovered `start_frame`–`end_frame` range; clears chunks because later indices move"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.split",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/split",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "scenes::split_scene",
+          "owner": "api::routes::scenes",
+          "purpose": "split the scene containing `frame`; clears chunks because later indices move"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.merge",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/merge",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "scenes::merge_scenes",
+          "owner": "api::routes::scenes",
+          "purpose": "merge an adjacent scene selection; clears chunks"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.reset",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/reset",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "scenes::reset_scenes",
+          "owner": "api::routes::scenes",
+          "purpose": "delete the selected scenes' retained chunks only"
+        }
+      ]
+    },
+    {
+      "id": "video.scenes.undo",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/undo",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "scenes::undo_scene_edit",
+          "owner": "api::routes::scenes",
+          "purpose": "restore the scene table before the last structural edit"
+        }
+      ]
+    },
+    {
+      "id": "video.scene",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/{index}",
+      "methods": [
+        {
+          "method": "PATCH",
+          "handler": "scenes::set_scene_range",
+          "owner": "api::routes::scenes",
+          "purpose": "change one scene's boundaries"
+        },
+        {
+          "method": "DELETE",
+          "handler": "scenes::delete_scene",
+          "owner": "api::routes::scenes",
+          "purpose": "delete one scene"
+        }
+      ]
+    },
+    {
+      "id": "video.scene.encoder",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/{index}/encoder",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "video::get_scene_encoder",
+          "owner": "api::routes::video::state",
+          "purpose": "one scene's complete encoder document, for the details sheet"
+        }
+      ]
+    },
+    {
+      "id": "video.scene.sequence-data",
+      "path": "/api/projects/{project_id}/videos/{video_id}/scenes/{index}/sequence-data",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "scenes::set_scene_data",
+          "owner": "api::routes::scenes",
+          "purpose": "replace one scene's custom sequence data"
+        }
+      ]
+    },
+    {
+      "id": "video.validate",
+      "path": "/api/projects/{project_id}/videos/{video_id}/validate",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "video::validate_video",
+          "owner": "api::routes::video::state",
+          "purpose": "preflight for one video, including missing VapourSynth plugin namespaces"
+        }
+      ]
+    },
+    {
+      "id": "video.run",
+      "path": "/api/projects/{project_id}/videos/{video_id}/run",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "run::start_sequence",
+          "owner": "api::routes::run",
+          "purpose": "**run one sequence** (body: sequence id)"
+        }
+      ]
+    },
+    {
+      "id": "video.encode",
+      "path": "/api/projects/{project_id}/videos/{video_id}/encode",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "run::start_encode",
+          "owner": "api::routes::run",
+          "purpose": "**run all sequences** (409 if busy)"
+        },
+        {
+          "method": "DELETE",
+          "handler": "run::cancel_encode",
+          "owner": "api::routes::run",
+          "purpose": "cancel"
+        }
+      ]
+    },
+    {
+      "id": "video.sequence.reset",
+      "path": "/api/projects/{project_id}/videos/{video_id}/sequences/{sequence}/reset",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "run::reset_sequence",
+          "owner": "api::routes::run",
+          "purpose": "clear one sequence's derived data and scratch files; `422` when it has not run, `423` while the lock is held"
+        }
+      ]
+    },
+    {
+      "id": "video.runs",
+      "path": "/api/projects/{project_id}/videos/{video_id}/runs",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "logging::video_runs",
+          "owner": "api::routes::logging",
+          "purpose": "every run that has a log, newest first, joined to its timeline outcome"
+        }
+      ]
+    },
+    {
+      "id": "queue",
+      "path": "/api/projects/{project_id}/queue",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "run::get_queue_batch",
+          "owner": "api::routes::run",
+          "purpose": "the queue batch: running state, current video, and stop reason"
+        },
+        {
+          "method": "POST",
+          "handler": "run::start_queue_batch",
+          "owner": "api::routes::run",
+          "purpose": "start the batch named by `video_ids`, in that order; `409` when a run already owns the singleton"
+        },
+        {
+          "method": "DELETE",
+          "handler": "run::stop_queue_batch",
+          "owner": "api::routes::run",
+          "purpose": "stop the batch and cancel its active run; `404` when none is running"
+        }
+      ]
+    },
+    {
+      "id": "encoders",
+      "path": "/api/encoders",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "encoders::list_encoders",
+          "owner": "api::routes::encoders",
+          "purpose": "encoder catalogue + parameter descriptors"
+        }
+      ]
+    },
+    {
+      "id": "encoders.probe",
+      "path": "/api/encoders/probe",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "encoders::probe_encoder_fork",
+          "owner": "api::routes::encoders",
+          "purpose": "probe one build as a fork of a base encoder without saving (preflight.md §Custom encoder definitions)"
+        }
+      ]
+    },
+    {
+      "id": "encoders.forks",
+      "path": "/api/encoders/forks",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "encoders::create_encoder_fork",
+          "owner": "api::routes::encoders",
+          "purpose": "save a probed encoder fork"
+        }
+      ]
+    },
+    {
+      "id": "encoder.fork",
+      "path": "/api/encoders/forks/{id}",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "encoders::update_encoder_fork",
+          "owner": "api::routes::encoders",
+          "purpose": "replace a fork's name, path, or parameter map"
+        },
+        {
+          "method": "DELETE",
+          "handler": "encoders::delete_encoder_fork",
+          "owner": "api::routes::encoders",
+          "purpose": "drop a saved fork"
+        }
+      ]
+    },
+    {
+      "id": "encoder.parameters",
+      "path": "/api/encoders/{id}/parameters",
+      "methods": [
+        {
+          "method": "PUT",
+          "handler": "encoders::put_encoder_parameters",
+          "owner": "api::routes::encoders",
+          "purpose": "replace one built-in encoder's descriptor set"
+        },
+        {
+          "method": "DELETE",
+          "handler": "encoders::delete_encoder_parameters",
+          "owner": "api::routes::encoders",
+          "purpose": "restore the engine's descriptors for one built-in encoder"
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "path": "/api/storage",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::storage_overview",
+          "owner": "api::routes::system",
+          "purpose": "retained work, scratch and app-data footprint, per-project rows"
+        }
+      ]
+    },
+    {
+      "id": "sequences",
+      "path": "/api/sequences",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::list_sequences",
+          "owner": "api::routes::system",
+          "purpose": "sequence catalogue + config schema"
+        }
+      ]
+    },
+    {
+      "id": "config.schema",
+      "path": "/api/config/schema",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::config_schema",
+          "owner": "api::routes::script",
+          "purpose": "the engine's configuration schema"
+        }
+      ]
+    },
+    {
+      "id": "config.filters",
+      "path": "/api/config/filters",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::input_filter_schemas",
+          "owner": "api::routes::script",
+          "purpose": "`Ffms2Filter` and `VapourSynthFilter` schemas"
+        }
+      ]
+    },
+    {
+      "id": "config.script-guide",
+      "path": "/api/config/script-guide",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::script_guide",
+          "owner": "api::routes::script",
+          "purpose": "the script-guide document"
+        }
+      ]
+    },
+    {
+      "id": "editor.language-server",
+      "path": "/api/editor/language-server",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::language_server_info",
+          "owner": "api::routes::script",
+          "purpose": "whether a Python language server is available"
+        }
+      ]
+    },
+    {
+      "id": "editor.interpreters",
+      "path": "/api/editor/interpreters",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::python_interpreters",
+          "owner": "api::routes::script",
+          "purpose": "every Python interpreter the settings picker can offer"
+        }
+      ]
+    },
+    {
+      "id": "editor.lsp",
+      "path": "/api/editor/lsp",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "script::language_server_socket",
+          "owner": "api::routes::script",
+          "purpose": "WebSocket bridge to that language server"
+        }
+      ]
+    },
+    {
+      "id": "config.scripts.validate",
+      "path": "/api/config/scripts/validate",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "script::validate_script",
+          "owner": "api::routes::script",
+          "purpose": "validate one VapourSynth script and return its outcome"
+        }
+      ]
+    },
+    {
+      "id": "run",
+      "path": "/api/runs/{run_id}",
+      "methods": [
+        {
+          "method": "DELETE",
+          "handler": "run::cancel_run",
+          "owner": "api::routes::run",
+          "purpose": "cancel that run"
+        }
+      ]
+    },
+    {
+      "id": "run.events",
+      "path": "/api/runs/{run_id}/events",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "run::replay_events",
+          "owner": "api::routes::run",
+          "purpose": "event replay from `seq`"
+        }
+      ]
+    },
+    {
+      "id": "run.logs",
+      "path": "/api/runs/{run_id}/logs",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "logging::run_logs",
+          "owner": "api::routes::logging",
+          "purpose": "log page: `offset` or `tail=true`, plus `level` and `q`; filtering happens before slicing, so `total` is the match count"
+        },
+        {
+          "method": "DELETE",
+          "handler": "logging::delete_run_log",
+          "owner": "api::routes::logging",
+          "purpose": "remove the log directory; `409 BUSY` while that run is live, `404` when it is already gone. History keeps the run's record"
+        }
+      ]
+    },
+    {
+      "id": "run.logs.export",
+      "path": "/api/runs/{run_id}/logs/export",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "logging::export_logs",
+          "owner": "api::routes::logging",
+          "purpose": "anonymised export"
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "path": "/api/events",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "run::events",
+          "owner": "api::routes::run",
+          "purpose": "SSE stream; `since` or `Last-Event-ID` replays from a sequence cursor"
+        }
+      ]
+    },
+    {
+      "id": "events.ticket",
+      "path": "/api/events/ticket",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::event_ticket",
+          "owner": "api::routes::lan",
+          "purpose": "one-use streaming ticket for SSE or the editor WebSocket on a LAN session; loopback streams need none"
+        }
+      ]
+    },
+    {
+      "id": "media.ticket",
+      "path": "/api/media/ticket",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::media_ticket",
+          "owner": "api::routes::lan",
+          "purpose": "mint a one-use media credential for a paired LAN session"
+        }
+      ]
+    },
+    {
+      "id": "pair",
+      "path": "/api/pair",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::pair_browser",
+          "owner": "api::routes::lan",
+          "purpose": "exchange an eight-character pairing code for its session token; no bearer token, same-origin only, `401` for every invalid code, `429` with `Retry-After` after five failures from one peer in a minute"
+        }
+      ]
+    },
+    {
+      "id": "lan",
+      "path": "/api/lan",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "lan::lan_status",
+          "owner": "api::routes::lan",
+          "purpose": "LAN status, bound address, and paired sessions with their tokens and shortcodes"
+        }
+      ]
+    },
+    {
+      "id": "lan.enable",
+      "path": "/api/lan/enable",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::enable_lan",
+          "owner": "api::routes::lan",
+          "purpose": "start the LAN listener"
+        }
+      ]
+    },
+    {
+      "id": "lan.disable",
+      "path": "/api/lan/disable",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::disable_lan",
+          "owner": "api::routes::lan",
+          "purpose": "stop the LAN listener"
+        }
+      ]
+    },
+    {
+      "id": "lan.rotate",
+      "path": "/api/lan/rotate",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::rotate_lan",
+          "owner": "api::routes::lan",
+          "purpose": "issue another pairing token; existing sessions remain until revoked"
+        }
+      ]
+    },
+    {
+      "id": "lan.session.revoke",
+      "path": "/api/lan/sessions/{session_id}/revoke",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "lan::revoke_lan_session",
+          "owner": "api::routes::lan",
+          "purpose": "revoke one paired browser"
+        }
+      ]
+    }
+  ]
+}

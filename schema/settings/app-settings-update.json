@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppSettingsUpdate",
+  "description": "The writable fields of app settings as a merge patch. Custom tools have their own\nprobe-validated endpoints, so a settings write preserves them instead of bypassing that\nprobe. An absent field keeps its stored value; a present field replaces it.",
+  "type": "object",
+  "properties": {
+    "delete_chunks_on_success": {
+      "description": "Whether encoded chunks are deleted after a successful run.",
+      "type": "boolean"
+    },
+    "reduce_motion": {
+      "description": "Reduce motion even when the operating system does not ask for it.",
+      "type": "boolean"
+    },
+    "row_density": {
+      "description": "Row density: `comfortable` or `compact`.",
+      "type": "string"
+    },
+    "temp_dir": {
+      "description": "Temporary-directory override; `null` uses the app-data default.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "theme": {
+      "description": "Theme: `system`, `dark`, or `light`.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoStorage",
+  "description": "One video's scratch directory and the space it occupies.\n\nThe directory is named by the video, not by the section, so two videos never share\nchunks and deleting one cannot delete another's work.",
+  "type": "object",
+  "properties": {
+    "custom": {
+      "description": "Whether `directory` comes from this video rather than the inherited root.",
+      "type": "boolean"
+    },
+    "directory": {
+      "description": "Absolute path of the video's scratch directory.",
+      "type": "string"
+    },
+    "free_bytes": {
+      "description": "Free bytes on the volume that owns the directory, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "inherited_directory": {
+      "description": "The scratch root this video would use with no of its own: the project default.",
+      "type": "string"
+    },
+    "retained_bytes": {
+      "description": "Bytes retained there, including scene chunks, and the engine checkpoint's siblings.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "total_bytes": {
+      "description": "Total bytes on that volume, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "directory",
+    "inherited_directory",
+    "custom",
+    "retained_bytes"
+  ]
+}

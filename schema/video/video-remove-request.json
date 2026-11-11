@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoRemoveRequest",
+  "description": "A bulk removal, applied in one lock check and one write.",
+  "type": "object",
+  "properties": {
+    "video_ids": {
+      "description": "The videos to remove. A partial failure leaves the queue unchanged.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_ids"
+  ]
+}

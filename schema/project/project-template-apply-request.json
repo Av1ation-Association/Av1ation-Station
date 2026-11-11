@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateApplyRequest",
+  "description": "Applies one saved template to an existing project.",
+  "type": "object",
+  "properties": {
+    "template_id": {
+      "description": "Template identifier, validated against the saved templates.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "template_id"
+  ]
+}

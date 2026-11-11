@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ParameterKey",
+  "description": "The identity of one encoder parameter, as it is written on the command line.\n\nPrefix is part of the identity: `--crf` and `-crf` are different spellings even when\nboth reach the same encoder. JSON object keys are strings, so the value serialises as the\ncanonical `\"{prefix}{name}\"` form and deserialises from that same string.",
+  "type": "string",
+  "minLength": 1,
+  "pattern": "^-{0,2}[A-Za-z0-9][A-Za-z0-9._-]*$"
+}

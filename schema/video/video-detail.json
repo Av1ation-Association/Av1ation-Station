@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoDetail",
+  "description": "One video as its detail screen reads it.",
+  "type": "object",
+  "properties": {
+    "created_at": {
+      "description": "Creation timestamp in UTC ISO-8601 form.",
+      "type": "string"
+    },
+    "id": {
+      "description": "Stable identifier.",
+      "type": "string"
+    },
+    "input_path": {
+      "description": "The source path the engine decodes.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string"
+    },
+    "order": {
+      "description": "Zero-based position in the project's queue.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "output_exists": {
+      "description": "Whether the engine has produced a complete encode for this video.",
+      "type": "boolean"
+    },
+    "output_path": {
+      "description": "Where the concatenated output is written.",
+      "type": "string"
+    },
+    "retained_bytes": {
+      "description": "Bytes retained under this video's temporary directory, including scene chunks.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "input_path",
+    "output_path",
+    "order",
+    "created_at",
+    "output_exists",
+    "retained_bytes"
+  ]
+}

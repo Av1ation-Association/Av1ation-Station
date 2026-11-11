@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatMetadataEntry",
+  "description": "One global metadata tag the source reports, shown beside the copy setting.",
+  "type": "object",
+  "properties": {
+    "key": {
+      "description": "Tag name exactly as FFmpeg prints it.",
+      "type": "string"
+    },
+    "value": {
+      "description": "Tag value exactly as FFmpeg prints it.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "value"
+  ]
+}

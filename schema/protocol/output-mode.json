@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OutputMode",
+  "description": "Where the output of a newly added video is written.",
+  "oneOf": [
+    {
+      "description": "Beside the source file, named after it.",
+      "type": "string",
+      "const": "next_to_input"
+    },
+    {
+      "description": "Into one folder, named after the source file.",
+      "type": "string",
+      "const": "folder"
+    }
+  ]
+}

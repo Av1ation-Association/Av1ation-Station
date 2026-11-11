@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SequenceRunStatus",
+  "description": "The state of one sequence for one video, derived from the engine's data and the files\non disk.\n\nThe order of this enum is not meaningful; a sequence moves between these states as the\ndata and the files change, and nothing stores it.",
+  "oneOf": [
+    {
+      "description": "The sequence has not produced its data, or the data its prerequisites need is absent.",
+      "type": "string",
+      "const": "never_run"
+    },
+    {
+      "description": "An earlier attempt stopped before the source was covered, and the stored data is a\nvalid prefix the next attempt resumes from. Scene Detector is the incremental case.",
+      "type": "string",
+      "const": "incomplete"
+    },
+    {
+      "description": "The sequence's own data (or, for the encoder and concatenator, its files) is present.",
+      "type": "string",
+      "const": "complete"
+    },
+    {
+      "description": "A live run is executing this sequence.",
+      "type": "string",
+      "const": "active"
+    },
+    {
+      "description": "The last attempt failed, as recorded by the timeline.",
+      "type": "string",
+      "const": "failed"
+    },
+    {
+      "description": "The sequence is not part of this video's chain.",
+      "type": "string",
+      "const": "skipped"
+    }
+  ]
+}

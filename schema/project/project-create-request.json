@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectCreateRequest",
+  "description": "The request that creates a project. The normal UI sends only a name.",
+  "type": "object",
+  "properties": {
+    "description": {
+      "description": "Optional description.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "Display name; trimmed, and rejected when empty or longer than 120 characters.",
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ]
+}

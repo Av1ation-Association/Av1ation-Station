@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ThumbnailManifest",
+  "description": "The state and grid of a video's keyframe thumbnails.\n\nThe rail and the timeline derive an index from a scene's start frame and this grid, so\nboth surfaces read the same cached file rather than decoding a still per request. The\n`revision` changes with the source and the grid; a client puts it in the image URL so a\nre-pointed video cannot show the previous file from a browser cache.",
+  "type": "object",
+  "properties": {
+    "available": {
+      "description": "Number of thumbnails already written, from index zero.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "detail": {
+      "description": "A user-facing reason while building, failed, or unavailable; empty when ready.",
+      "type": "string"
+    },
+    "interval_ms": {
+      "description": "Seconds between two thumbnails, in milliseconds.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "revision": {
+      "description": "Cache revision for the source and grid, used to make image URLs immutable.",
+      "type": "string"
+    },
+    "state": {
+      "description": "Whether the extraction is building, complete, failed, or impossible.",
+      "$ref": "#/$defs/ThumbnailState"
+    },
+    "width": {
+      "description": "Width every thumbnail is scaled to; the height follows the source aspect ratio.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "state",
+    "revision",
+    "interval_ms",
+    "width",
+    "available",
+    "detail"
+  ],
+  "$defs": {
+    "ThumbnailState": {
+      "description": "How far the keyframe thumbnail cache has progressed for one video.\n\nThe build is a background job, so a client asks for the manifest instead of waiting on\nthe extraction. A thumbnail is only addressable while its index is below `available`;\nthe remaining indices fill in as files appear.",
+      "oneOf": [
+        {
+          "description": "The keyframe extraction is running and files may already be readable.",
+          "type": "string",
+          "const": "building"
+        },
+        {
+          "description": "Every keyframe in the grid has been written.",
+          "type": "string",
+          "const": "ready"
+        },
+        {
+          "description": "The extraction ran and failed; `detail` carries FFmpeg's reason.",
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "description": "This video has no file FFmpeg can open, so there is no thumbnail grid.",
+          "type": "string",
+          "const": "unavailable"
+        }
+      ]
+    }
+  }
+}

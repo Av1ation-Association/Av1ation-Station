@@ -1,0 +1,465 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EncodeEvent",
+  "description": "One live encode event, as written to the SSE stream and the run replay buffer.\n\nThe engine's event has no run owner; the service adds `project_id` and `video_id` at the\nboundary so every screen can route the event to the cache entry it describes without a\nsecond lookup. `seq` is monotonic within a run and doubles as the SSE event id.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "UTC ISO-8601 instant stamped at the engine boundary.",
+      "type": "string"
+    },
+    "frames_processed": {
+      "description": "Frames the sequence has processed, when it reports them.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "frames_total": {
+      "description": "Total frames the sequence will process, when it reports them.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "kind": {
+      "description": "The lifecycle stage this event reports.",
+      "$ref": "#/$defs/EncodeEventKind"
+    },
+    "max_passes": {
+      "description": "The most passes the sequence will run, when it knows.\n\nTarget Quality may satisfy its targets in a single pass, so this is a ceiling and\nnot a total: it cannot become a denominator for the bar, and a run must not be\npresented as `pass / max_passes`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "maximum": 255,
+      "minimum": 0
+    },
+    "message": {
+      "description": "Human-readable line for the log strip and the live status.",
+      "type": "string"
+    },
+    "pass": {
+      "description": "The 1-based pass this tick belongs to, when the sequence runs in passes.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "maximum": 255,
+      "minimum": 0
+    },
+    "phase": {
+      "description": "The step inside the sequence this tick belongs to: `Encode`, `Compare`, `Quality`,\nor a worker's scene. Absent when the sequence reports a single stream.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "progress": {
+      "description": "Completion percentage of the sequence, when the engine can measure it.\n\nA sequence that runs in passes reports the current step's own percentage, so the bar\nfills once for `Encode` and once again for `Compare` in every pass. The pass count is\nnot known in advance, so no percentage can span passes.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double",
+      "maximum": 100.0,
+      "minimum": 0.0
+    },
+    "project_id": {
+      "description": "The project whose queue entry is encoding.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "Correlation id shared by the start response, logs, and cancellation.",
+      "type": "string"
+    },
+    "scene": {
+      "description": "The scene this checkpoint appended, so the rail can render it without a refetch.\n\nDetection checkpoints once per scene. The row is the same shape the scene table serves,\nso the client splices it into the cached list rather than maintaining a second model.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SceneView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scene_bytes": {
+      "description": "Bytes the finished chunk holds, when a checkpoint recorded one for `scene_index`.\n\nParallel Encoder checkpoints a scene once its chunk is written, with the size and\nwall-clock duration it recorded. Carrying both on the event lets the rail mark that\nrow encoded and the Encoding chart plot its throughput while the other workers are\nstill running, instead of waiting for the sequence to end and a table read to see\nthe same values on disk.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "scene_count": {
+      "description": "The scene table's size after this append, when the event carries a scene.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "scene_encode_ms": {
+      "description": "Wall-clock milliseconds that scene's chunk took, as the checkpoint recorded them.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "scene_frames_processed": {
+      "description": "Frames that one scene has produced, when a worker reports its own scene.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "scene_frames_total": {
+      "description": "Frames that one scene will produce, when a worker reports its own scene.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "scene_index": {
+      "description": "The scene a tick belongs to (zero-based), when it reports one: the scene a worker is\nencoding, or the scene a per-scene measurement describes.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "scene_noise": {
+      "description": "The noise Noise Detector measured for `scene_index`, when the tick carries one.\n\nThe measurement is evidence, not completion: the sequence's bar comes from its own\nscene tally. Carrying it lets the measured-data charts, and the statistics beneath\nthem, fill in scene by scene instead of waiting for the run's terminal event.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double"
+    },
+    "scene_progress": {
+      "description": "Completion percentage of that one scene, when the sequence reports it.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double",
+      "maximum": 100.0,
+      "minimum": 0.0
+    },
+    "scene_quality": {
+      "description": "The quality score Quality Check measured for `scene_index`, when the tick carries one.\n\nQuality Check scores one scene at a time. Carrying the value lets the client patch the\nrow its score chart reads while the sequence is still running.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double"
+    },
+    "scenes_processed": {
+      "description": "Scenes the sequence has finished, when it counts scenes rather than frames.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "scenes_total": {
+      "description": "Scenes the sequence will process, when it counts scenes.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "seq": {
+      "description": "Monotonic within the run; also the SSE `Last-Event-ID` cursor.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "sequence": {
+      "description": "The sequence the event belongs to; absent on run-level terminal events and while an\ninput is being opened before the first sequence.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "video_id": {
+      "description": "The video whose derived state this event updates.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "video_id",
+    "run_id",
+    "seq",
+    "at",
+    "kind",
+    "message"
+  ],
+  "$defs": {
+    "EncodeEventKind": {
+      "description": "The lifecycle stage one encode event reports.",
+      "oneOf": [
+        {
+          "description": "A sequence started; the run has reserved the singleton.",
+          "type": "string",
+          "const": "started"
+        },
+        {
+          "description": "The sequence is still working; `progress` may be absent while it opens an input.",
+          "type": "string",
+          "const": "progress"
+        },
+        {
+          "description": "One sequence finished successfully and its data is checkpointed.",
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "description": "The run was stopped by the user.",
+          "type": "string",
+          "const": "cancelled"
+        },
+        {
+          "description": "The run ended normally; the singleton is released before this event is published.",
+          "type": "string",
+          "const": "finished"
+        },
+        {
+          "description": "The run stopped because a sequence reported an error.",
+          "type": "string",
+          "const": "failed"
+        }
+      ]
+    },
+    "ScenePassView": {
+      "description": "One Target Quality probe pass for one scene.\n\nThe engine stores a pass as its quantizer, the per-frame metric scores, the probe\nencode's bitrate, and two timestamps. A graph reads the distribution of those frame\nscores rather than the frames themselves, so the projection keeps the mean and the\nextremes; `frames` is how many scores the mean is over, which tells a subset probe from\na whole-scene one.",
+      "type": "object",
+      "properties": {
+        "bitrate": {
+          "description": "Probe encode bitrate in megabits per second, when the pass recorded one.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "duration_ms": {
+          "description": "Wall-clock duration of the probe encode, from the pass timestamps.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "frames": {
+          "description": "How many frame scores the mean is over; zero when the metric returned none.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "pass": {
+          "description": "Probe position, one-based, matching the `P1`–`Pn` the analytics screen labels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quantizer": {
+          "description": "Quantizer this pass encoded at, when the pass recorded one.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score": {
+          "description": "Mean of the pass's frame scores, when the metric produced any.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score_max": {
+          "description": "Highest frame score in the pass.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score_min": {
+          "description": "Lowest frame score in the pass.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pass",
+        "frames"
+      ]
+    },
+    "SceneView": {
+      "description": "One scene as the Scenes tab reads it.\n\nThe rail and the timeline render the same list, so every value is derived from the\nengine checkpoint and the retained chunk directory rather than from a second scene\ntable. A scene whose bounds are malformed is still returned with a zero frame count so\nthe screen can mark it instead of silently dropping it.",
+      "type": "object",
+      "properties": {
+        "chunk_bytes": {
+          "description": "Bytes of the retained chunk, when one exists.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "custom_data": {
+          "description": "The user's own key/value pairs for this scene.\n\nThe engine's sequence data is typed, so it drops a field it does not know when it\nloads a checkpoint. These pairs are kept beside that document instead and merged\ninto `sequence_data` when the runner builds a script's scene table; a script reads\nthem as `condor_data.scenes[i].sequence_data.<key>` without the engine ever seeing\na field it would discard.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "encode_ms": {
+          "description": "Wall-clock milliseconds Parallel Encoder spent on this scene's chunk, when it wrote one.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "encoded": {
+          "description": "Whether a retained encoded chunk exists for this scene.",
+          "type": "boolean"
+        },
+        "encoder_custom": {
+          "description": "Whether this scene carries an encoder document different from the video's effective\nencoder. Every engine scene stores a complete encoder; this is the provenance flag,\nnot a second copy of the document.",
+          "type": "boolean"
+        },
+        "encoder_fingerprint": {
+          "description": "A fingerprint of the encoder document this scene encodes and previews with.\n\nThe Encoded source renders a chunk from that document, so a chunk built before a\nsettings change is a different picture. The player carries this value in its source\nURL: a change makes it a different request, the element is reopened instead of\nreplaying the bytes it already holds, and the service rebuilds the chunk from the\ncurrent document. Absent when the video has no resolved encoder at all.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "encoder_label": {
+          "description": "Human-readable encoder this scene will use, for example `SVT-AV1`.",
+          "type": "string"
+        },
+        "end_frame": {
+          "description": "Last frame, exclusive.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "frame_count": {
+          "description": "`end_frame - start_frame`; zero for an invalid or empty range.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "index": {
+          "description": "Zero-based position in the engine's scene list, which is also the concatenation order.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "noise": {
+          "description": "Measured noise for this scene, when Noise Detector has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "noise_scaler": {
+          "description": "Scale factor Noise Scaler chose for this scene, when it has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "passes": {
+          "description": "Every Target Quality probe pass this scene recorded, in probe order.\n\nThe flattened `quantizer` and `score` above are the final pass; a chart that compares\npasses needs the whole list, and the frame-score spread is reduced here so a scene's\nevent never carries its per-frame arrays.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScenePassView"
+          }
+        },
+        "quality_score": {
+          "description": "Mean Quality Check score for this scene, when the check has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "quantizer": {
+          "description": "The quantizer the last Target Quality pass chose, when a pass exists.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score": {
+          "description": "Mean score of the last Target Quality pass, when that pass recorded scores.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "speed": {
+          "description": "Encoder speed this scene currently carries, for the Speed Scaling chart.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "start_frame": {
+          "description": "First frame, inclusive.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "start_frame",
+        "end_frame",
+        "frame_count",
+        "encoded",
+        "encoder_label",
+        "encoder_custom"
+      ]
+    }
+  }
+}

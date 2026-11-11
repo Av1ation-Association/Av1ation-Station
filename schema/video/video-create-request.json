@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoCreateRequest",
+  "description": "The request that adds a video to a project's queue.",
+  "type": "object",
+  "properties": {
+    "input_path": {
+      "description": "Absolute path to the source video.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Optional display name; defaults to the input's file name.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "output_path": {
+      "description": "Absolute path the concatenated output is written to.\n\nWhen absent or empty, the service derives it from the project's General output\npolicy. A client may still send an explicit path to override the default once.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "input_path"
+  ]
+}

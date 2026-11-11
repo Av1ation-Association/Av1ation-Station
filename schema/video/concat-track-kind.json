@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatTrackKind",
+  "description": "What a selectable source stream carries.",
+  "oneOf": [
+    {
+      "description": "A picture stream; selectable only on an mkvmerge extra input.",
+      "type": "string",
+      "const": "video"
+    },
+    {
+      "description": "A sound stream.",
+      "type": "string",
+      "const": "audio"
+    },
+    {
+      "description": "A timed text stream.",
+      "type": "string",
+      "const": "subtitle"
+    }
+  ]
+}

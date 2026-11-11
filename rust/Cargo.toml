@@ -1,0 +1,58 @@
+[workspace]
+resolver = "3"
+members = ["crates/contracts", "crates/engine", "crates/service", "crates/test-support", "desktop-shell"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+# Pinned to the BoatsMcGee/Av1an fork. Cargo resolves the engine's three path-sibling
+# metric crates from this same git source, so no [patch] entries are needed.
+andean-condor = { git = "https://github.com/BoatsMcGee/Av1an", rev = "e0c34a1727053055228ebefa3cdb4f088d7b7831" }
+av1ation-test-support = { path = "crates/test-support" }
+axum = { version = "0.8", features = ["ws"] }
+futures-util = "0.3"
+regex = "1"
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.39"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4"] }
+
+# Development artifacts live on the 50 GB project volume, where full debug info plus
+# Cargo's retained units filled the drive. Line tables keep panic and backtrace
+# file:line information; dependencies carry no debug info at all, because it is the
+# largest share and is rarely opened. A real debugging session opts back in with
+# CARGO_PROFILE_DEV_DEBUG=2 and CARGO_PROFILE_TEST_DEBUG=2.
+[profile.dev]
+# Measured end-to-end on the 756-frame scene-detection clip: everything at opt-level 0
+# ran at 54 FPS, optimized dependencies alone reached 76, and this plus those
+# dependencies reached 165 — the stock release build measured 163 — because the sequence
+# and frame-feed code lives in this workspace. Level 1 keeps variables inspectable and
+# incremental rebuilds cheap, and is the engine workspace's own dev setting.
+opt-level = 1
+debug = "line-tables-only"
+
+# Scene detection, decoding and metrics run mostly inside dependencies (the engine, its
+# decoders, the ONNX Runtime bindings), which an opt-level-0 dev build leaves unoptimized.
+# Matches the engine workspace's own `[profile.dev.package."*"]` setting.
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.test.package."*"]
+debug = false

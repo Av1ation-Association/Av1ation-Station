@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoStorageRequest",
+  "description": "Points one video's scratch work at its own directory, or back at the inherited root.\n\nThe move is refused while the video retains chunks: the parallel encoder records chunk\npaths in its sidecars, so relocating the directory would leave those paths stale. The\nuser deletes retained work first, which is the same action that makes the move safe.",
+  "type": "object",
+  "properties": {
+    "directory": {
+      "description": "Absolute directory, or `None` to inherit the project's scratch root again.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

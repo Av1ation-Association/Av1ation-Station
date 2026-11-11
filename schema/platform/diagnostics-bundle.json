@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiagnosticsBundle",
+  "description": "The anonymised support bundle a user attaches to a bug report.\n\nIt is plain text so it can be pasted anywhere, and it is built only when the user asks\nfor it: nothing is uploaded and no telemetry is sent.",
+  "type": "object",
+  "properties": {
+    "filename": {
+      "description": "The name a saved copy should use.",
+      "type": "string"
+    },
+    "log_lines": {
+      "description": "Lines of application log that were included.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "replacements": {
+      "description": "Placeholder to the original value it replaced, so the user can audit redactions.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "text": {
+      "description": "The redacted bundle, with a heading for each section it includes.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "replacements",
+    "filename",
+    "log_lines"
+  ]
+}

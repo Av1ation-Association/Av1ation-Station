@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptValueFormat",
+  "description": "How one injected value is meant to be read in Python.",
+  "oneOf": [
+    {
+      "description": "A JSON document, readable with `json.loads`.",
+      "type": "string",
+      "const": "json"
+    },
+    {
+      "description": "A decimal integer, readable with `int(value.decode())`.",
+      "type": "string",
+      "const": "number"
+    },
+    {
+      "description": "Plain text, readable with `value.decode()`.",
+      "type": "string",
+      "const": "text"
+    }
+  ]
+}

@@ -1,0 +1,575 @@
+@import "tailwindcss";
+
+@source "../";
+@source "../../../apps";
+
+/*
+ * Design tokens transcribed from design/penpot/tokens.json.
+ * Every colour used by a screen resolves through a semantic token, so the light
+ * theme is the same markup with the light set active (`data-theme="light"`).
+ */
+
+:root {
+    color-scheme: dark;
+
+    /* Semantic colour — dark set, the application default. */
+    --bg-base: #0d1118;
+    --bg-sunken: #080b11;
+    --bg-surface: #12161e;
+    --bg-raised: #1a202b;
+    --bg-overlay: #232b38;
+    --bg-hover: #232b38;
+    --bg-active: #2e3846;
+    --bg-inverse: #e8edf5;
+
+    --border-subtle: #1a202b;
+    --border-default: #232b38;
+    --border-strong: #2e3846;
+    --border-focus: #38bdf8;
+
+    --text-primary: #e8edf5;
+    --text-secondary: #a3afc2;
+    --text-muted: #8b95a7;
+    --text-inverse: #0d1118;
+    --text-on-brand: #080b11;
+    --text-link: #38bdf8;
+
+    --brand-default: #38bdf8;
+    --brand-hover: #7dd3fc;
+    --brand-subtle: #082f49;
+    --brand-text: #38bdf8;
+
+    --state-success: #34d399;
+    --state-success-bg: #022c22;
+    --state-warning: #fbbf24;
+    --state-warning-bg: #451a03;
+    --state-danger: #f87171;
+    --state-danger-bg: #450a0a;
+    --state-info: #60a5fa;
+    --state-info-bg: #172554;
+    --state-neutral: #77869c;
+    --state-neutral-bg: #1a202b;
+
+    --accent-1: #38bdf8;
+    --accent-2: #a78bfa;
+    --accent-3: #2dd4bf;
+    --accent-4: #fbbf24;
+    --accent-5: #34d399;
+    --accent-6: #f472b6;
+
+    --metal-base: #343b45;
+    --metal-highlight: #656f7d;
+    --metal-shadow: #23282f;
+    --metal-edge: #7f8998;
+    --metal-text: #e4e9ef;
+
+    /* Type */
+    --font-stack-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-stack-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --font-size-2xs: 11px;
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-base: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 30px;
+    --font-size-4xl: 38px;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --leading-tight: 1.25;
+    --leading-snug: 1.35;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.65;
+
+    /* Spacing (board-relative geometry) */
+    --space-1: 1px;
+    --space-2: 2px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-10: 10px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-64: 64px;
+    --space-80: 80px;
+
+    /* Radius */
+    --radius-step-xs: 2px;
+    --radius-step-sm: 4px;
+    --radius-step-md: 6px;
+    --radius-step-lg: 8px;
+    --radius-step-xl: 12px;
+    --radius-step-2xl: 16px;
+    --radius-step-full: 999px;
+
+    /* Motion */
+    --duration-instant: 100ms;
+    --duration-fast: 160ms;
+    --duration-base: 240ms;
+    --duration-slow: 300ms;
+    --opacity-disabled: 0.4;
+    --opacity-muted: 0.64;
+    --opacity-hover: 0.08;
+    --opacity-scrim: 0.7;
+
+    /* Elevation */
+    --elevation-1: 0 1px 2px rgb(0 0 0 / 0.28);
+    --elevation-2: 0 8px 24px rgb(0 0 0 / 0.36);
+    --elevation-3: 0 24px 64px rgb(0 0 0 / 0.48);
+
+    /*
+     * The content frame. Every screen shares one measure so margins, tab strips and
+     * column counts cannot drift between screens. 2600px is the approved ceiling: past
+     * it the eye loses the column, and below it a 2560 or 3840 display centres the page
+     * instead of leaving it stranded against the left edge.
+     */
+    --page-max: 2600px;
+    --page-gutter: clamp(1rem, 2.2vw, 2.5rem);
+    --page-gap: clamp(1.25rem, 1.6vw, 2rem);
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --bg-base: #f4f7fb;
+    --bg-sunken: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-raised: #ffffff;
+    --bg-overlay: #ffffff;
+    --bg-hover: #e8edf5;
+    --bg-active: #c7d0de;
+    --bg-inverse: #12161e;
+
+    --border-subtle: #e8edf5;
+    --border-default: #c7d0de;
+    --border-strong: #77869c;
+    --border-focus: #0284c7;
+
+    --text-primary: #12161e;
+    --text-secondary: #566178;
+    --text-muted: #5d6a7e;
+    --text-inverse: #ffffff;
+    --text-on-brand: #080b11;
+    --text-link: #0369a1;
+
+    --brand-default: #0284c7;
+    --brand-hover: #0ea5e9;
+    --brand-subtle: #e0f2fe;
+    --brand-text: #0369a1;
+
+    --state-success: #047857;
+    --state-success-bg: #d1fae5;
+    --state-warning: #92400e;
+    --state-warning-bg: #fef3c7;
+    --state-danger: #b91c1c;
+    --state-danger-bg: #fee2e2;
+    --state-info: #0369a1;
+    --state-info-bg: #e0f2fe;
+    --state-neutral: #566178;
+    --state-neutral-bg: #e8edf5;
+
+    --accent-1: #0284c7;
+    --accent-2: #8b5cf6;
+    --accent-3: #2dd4bf;
+    --accent-4: #f59e0b;
+    --accent-5: #10b981;
+    --accent-6: #f472b6;
+
+    --metal-base: #d4dbe4;
+    --metal-highlight: #f4f6f9;
+    --metal-shadow: #99a3b1;
+    --metal-edge: #c3cbd6;
+    --metal-text: #343b45;
+
+    --elevation-1: 0 1px 2px rgb(18 22 30 / 0.08);
+    --elevation-2: 0 8px 24px rgb(18 22 30 / 0.12);
+    --elevation-3: 0 24px 64px rgb(18 22 30 / 0.18);
+}
+
+@theme inline {
+    --color-app: var(--bg-base);
+    --color-sunken: var(--bg-sunken);
+    --color-surface: var(--bg-surface);
+    --color-raised: var(--bg-raised);
+    --color-overlay: var(--bg-overlay);
+    --color-hover: var(--bg-hover);
+    --color-active: var(--bg-active);
+    --color-inverse: var(--bg-inverse);
+
+    --color-line: var(--border-default);
+    --color-line-subtle: var(--border-subtle);
+    --color-line-strong: var(--border-strong);
+    --color-focus: var(--border-focus);
+
+    --color-ink: var(--text-primary);
+    --color-ink-secondary: var(--text-secondary);
+    --color-ink-muted: var(--text-muted);
+    --color-ink-inverse: var(--text-inverse);
+    --color-on-brand: var(--text-on-brand);
+    --color-link: var(--text-link);
+
+    --color-brand: var(--brand-default);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-soft: var(--brand-subtle);
+    --color-brand-text: var(--brand-text);
+
+    --color-success: var(--state-success);
+    --color-success-soft: var(--state-success-bg);
+    --color-warning: var(--state-warning);
+    --color-warning-soft: var(--state-warning-bg);
+    --color-danger: var(--state-danger);
+    --color-danger-soft: var(--state-danger-bg);
+    --color-info: var(--state-info);
+    --color-info-soft: var(--state-info-bg);
+    --color-neutral: var(--state-neutral);
+    --color-neutral-soft: var(--state-neutral-bg);
+
+    --color-accent-1: var(--accent-1);
+    --color-accent-2: var(--accent-2);
+    --color-accent-3: var(--accent-3);
+    --color-accent-4: var(--accent-4);
+    --color-accent-5: var(--accent-5);
+    --color-accent-6: var(--accent-6);
+
+    --color-metal-base: var(--metal-base);
+    --color-metal-highlight: var(--metal-highlight);
+    --color-metal-shadow: var(--metal-shadow);
+    --color-metal-edge: var(--metal-edge);
+    --color-metal-text: var(--metal-text);
+
+    --font-sans: var(--font-stack-sans);
+    --font-mono: var(--font-stack-mono);
+    --text-2xs: var(--font-size-2xs);
+
+    --radius-xs: var(--radius-step-xs);
+    --radius-sm: var(--radius-step-sm);
+    --radius-md: var(--radius-step-md);
+    --radius-lg: var(--radius-step-lg);
+    --radius-xl: var(--radius-step-xl);
+    --radius-2xl: var(--radius-step-2xl);
+    --radius-full: var(--radius-step-full);
+
+    --shadow-elevation-1: var(--elevation-1);
+    --shadow-elevation-2: var(--elevation-2);
+    --shadow-elevation-3: var(--elevation-3);
+
+    /* Wide-display steps. Two extra stops let a grid grow columns instead of stretching
+     * the ones it has, which is what keeps a 3840px window from reading as three very
+     * wide cards. */
+    --breakpoint-3xl: 120rem;
+    --breakpoint-4xl: 160rem;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-stack-sans);
+    font-size: var(--font-size-base);
+    line-height: var(--leading-normal);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+::selection {
+    background: var(--brand-subtle);
+    color: var(--brand-hover);
+}
+
+:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+}
+
+/* Only the router outlet animates; the shell must not re-mount or move. */
+@keyframes outlet-enter {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+}
+
+.outlet-enter {
+    animation: outlet-enter var(--duration-fast) ease-out;
+}
+
+/*
+ * The explicit Settings switch adds to the OS preference; it never removes it. Both
+ * selectors reduce the same properties, so the two sources cannot disagree.
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+/*
+ * The one page frame. `page` centres the measure, `page-wide` is the same frame for a
+ * surface that owns its own local rail. Screens must not carry their own max-width.
+ */
+.page {
+    width: 100%;
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+}
+
+/*
+ * A bubble that hangs outside its control must not become page overflow. A hidden tooltip
+ * near the right edge used to widen the document and raise a horizontal scrollbar on a
+ * screen that otherwise fits; clipping the axis, rather than hiding it, keeps sticky
+ * positioning and vertical scrolling intact.
+ */
+html,
+body {
+    overflow-x: clip;
+}
+
+/*
+ * Native tooltips are the window manager's chrome, not the application's, so every
+ * affordance that needs a label renders its own. The bubble is a pseudo-element: it adds
+ * no node, cannot trap a pointer, and inherits the theme tokens.
+ *
+ * These rules live in the base layer on purpose. Unlayered CSS outranks every layered
+ * utility, so `position: relative` here used to override `absolute` on any element that
+ * carried a tooltip — a scene block with `data-tip` collapsed to zero height and the
+ * timeline read as empty. The containing block only needs to be relative when the element
+ * has no positioning of its own, which is exactly what the utility layer decides.
+ */
+@layer base {
+    [data-tip] {
+        position: relative;
+    }
+
+    [data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        z-index: 70;
+        top: calc(100% + 6px);
+        left: 50%;
+        translate: -50% 0;
+        width: max-content;
+        max-width: 18rem;
+        padding: 0.3rem 0.45rem;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-step-md);
+        background: var(--bg-overlay);
+        box-shadow: var(--elevation-2);
+        color: var(--text-primary);
+        font-family: var(--font-stack-sans);
+        font-size: var(--font-size-2xs);
+        font-weight: var(--font-weight-regular);
+        line-height: var(--leading-snug);
+        letter-spacing: normal;
+        text-align: center;
+        white-space: normal;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--duration-instant) ease-out;
+    }
+
+    [data-tip]:hover::after,
+    [data-tip]:focus-visible::after {
+        opacity: 1;
+    }
+
+    /*
+     * A control near an edge grows its bubble inward, so the clipped pane it lives in does
+     * not cut the end of the sentence off.
+     */
+    [data-tip][data-tip-align="end"]::after {
+        left: auto;
+        right: 0;
+        translate: 0 0;
+    }
+
+    [data-tip][data-tip-align="start"]::after {
+        left: 0;
+        translate: 0 0;
+    }
+
+    /*
+     * A control pinned to the bottom of a pane must open its tooltip upward: the pane clips
+     * its overflow, so a bubble below the bar would be cut off. A pane states this once for
+     * every control on its bottom edge; a lone control states it for itself.
+     */
+    [data-tip][data-tip-placement="up"]::after,
+    [data-tips="up"] [data-tip]::after {
+        top: auto;
+        bottom: calc(100% + 6px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        [data-tip]::after {
+            transition: none;
+        }
+    }
+
+    :root[data-motion="reduce"] [data-tip]::after {
+        transition: none;
+    }
+}
+
+/*
+ * One pointer policy. A control that responds to a click says so; a disabled one does
+ * not; a field that accepts text keeps the text cursor. Setting it once is what makes a
+ * command-palette row and a settings radio agree. The base layer lets an explicit
+ * cursor-grab, cursor-col-resize, or cursor-crosshair utility keep its gesture meaning.
+ */
+@layer base {
+    :where(
+        button,
+        [role="button"],
+        [role="menuitem"],
+        [role="menuitemradio"],
+        [role="menuitemcheckbox"],
+        [role="option"],
+        [role="tab"],
+        [role="switch"],
+        [role="checkbox"],
+        [role="radio"],
+        [role="treeitem"],
+        a[href],
+        summary,
+        label[for],
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"]
+    ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+        cursor: pointer;
+    }
+
+    :where(
+        button,
+        [role="button"],
+        [role="menuitem"],
+        [role="menuitemradio"],
+        [role="menuitemcheckbox"],
+        [role="option"],
+        [role="tab"],
+        [role="switch"],
+        [role="checkbox"],
+        [role="radio"],
+        [role="treeitem"],
+        a[href],
+        summary,
+        label[for],
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"]
+    ):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+        cursor: default;
+    }
+
+    /* A wrapped checkbox or radio makes the whole label a click target. */
+    :where(label:has(input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled))) {
+        cursor: pointer;
+    }
+
+    :where(label:has(input[type="checkbox"]:disabled, input[type="radio"]:disabled)) {
+        cursor: default;
+    }
+}
+
+:where(input, textarea, select, [contenteditable="true"]) {
+    cursor: text;
+}
+
+:where(input[type="checkbox"], input[type="radio"], input[type="range"], select) {
+    cursor: pointer;
+}
+
+/*
+ * One select frame. The platform arrow sits hard against the text and leaves an uneven gap
+ * above and below, so every dropdown draws the same chevron inset from the edge instead: a
+ * mask keeps the stroke on `currentColor` and therefore correct in both themes, and the
+ * padding keeps a long option from running under it.
+ */
+select {
+    appearance: none;
+    padding-right: 1.85rem;
+    background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+        calc(100% - 0.95rem) calc(50% - 0.12rem),
+        calc(100% - 0.65rem) calc(50% - 0.12rem);
+    background-size:
+        4px 4px,
+        4px 4px;
+    background-repeat: no-repeat;
+}
+
+select:disabled {
+    cursor: default;
+}
+
+/*
+ * Scrollbars are part of the surface. WebView2 and Chrome honour the standard
+ * properties, and the WebKit block keeps the rounded thumb and hover step.
+ */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-step-full);
+    background: var(--border-strong);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Compact row density is one root attribute; the queue row reads it without a prop. */
+:root[data-density="compact"] .queue-row {
+    min-height: 3rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+}

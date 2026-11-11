@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StorageOverview",
+  "description": "The retained-work summary the Storage screen renders.",
+  "type": "object",
+  "properties": {
+    "app_data_bytes": {
+      "description": "Bytes under the app-data directory, excluding the scratch override.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "app_data_directory": {
+      "description": "The resolved app-data directory that owns manifests, logs, and the catalogue.",
+      "type": "string"
+    },
+    "catalogue_bytes": {
+      "description": "Bytes occupied by settings and saved encoder definitions.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "default_directory": {
+      "description": "The app-data default, shown as the target of \"Use default\".",
+      "type": "string"
+    },
+    "free_bytes": {
+      "description": "Free bytes on the scratch volume, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "log_bytes": {
+      "description": "Bytes occupied by run and application logs.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "manifest_bytes": {
+      "description": "Bytes occupied by project and video manifests.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "projects": {
+      "description": "One row per project that owns retained work, largest first.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StorageProject"
+      }
+    },
+    "retained_bytes": {
+      "description": "Bytes retained under every video's scratch directory.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "temporary_directory": {
+      "description": "The scratch directory in use, whether it is the override or the default.",
+      "type": "string"
+    },
+    "total_bytes": {
+      "description": "Total bytes on the scratch volume, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "video_count": {
+      "description": "Total queue entries across every project.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "temporary_directory",
+    "default_directory",
+    "retained_bytes",
+    "video_count",
+    "app_data_bytes",
+    "app_data_directory",
+    "log_bytes",
+    "manifest_bytes",
+    "catalogue_bytes",
+    "projects"
+  ],
+  "$defs": {
+    "StorageProject": {
+      "description": "One project's retained work, as the Storage screen lists it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable project identifier.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Display name.",
+          "type": "string"
+        },
+        "retained_bytes": {
+          "description": "Bytes retained under the project's videos.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "video_count": {
+          "description": "Queue entries in this project.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "video_count",
+        "retained_bytes"
+      ]
+    }
+  }
+}

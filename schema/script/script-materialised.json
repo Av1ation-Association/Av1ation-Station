@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptMaterialised",
+  "description": "A materialised `.vpy` and the values it was built with.",
+  "type": "object",
+  "properties": {
+    "filename": {
+      "description": "Suggested download name, ending in `.vpy`.",
+      "type": "string"
+    },
+    "source": {
+      "description": "The complete script. A video with generated data on this machine reads that data\nlive; an export with nothing live to point at embeds the module and its document.",
+      "type": "string"
+    },
+    "variables": {
+      "description": "The injected variables, in the order the runner sets them.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ScriptMaterialisedVariable"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "filename",
+    "source",
+    "variables"
+  ],
+  "$defs": {
+    "ScriptMaterialisedVariable": {
+      "description": "One reserved variable as the materialised view lists it.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "What the value contains, in the words the editor shows.",
+          "type": "string"
+        },
+        "format": {
+          "description": "How the value is read in Python.",
+          "$ref": "#/$defs/ScriptValueFormat"
+        },
+        "key": {
+          "description": "Exact VSScript variable name, for example `condor_scenes`.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The exact string the exported file assigns.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "description",
+        "format",
+        "value"
+      ]
+    },
+    "ScriptValueFormat": {
+      "description": "How one injected value is meant to be read in Python.",
+      "oneOf": [
+        {
+          "description": "A JSON document, readable with `json.loads`.",
+          "type": "string",
+          "const": "json"
+        },
+        {
+          "description": "A decimal integer, readable with `int(value.decode())`.",
+          "type": "string",
+          "const": "number"
+        },
+        {
+          "description": "Plain text, readable with `value.decode()`.",
+          "type": "string",
+          "const": "text"
+        }
+      ]
+    }
+  }
+}

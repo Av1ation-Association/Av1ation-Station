@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptCheckStatus",
+  "description": "Whether the service could evaluate a script.",
+  "oneOf": [
+    {
+      "description": "The script evaluated and returned a clip.",
+      "type": "string",
+      "const": "valid"
+    },
+    {
+      "description": "The script failed: a syntax error, a missing module, or a runtime exception.",
+      "type": "string",
+      "const": "invalid"
+    },
+    {
+      "description": "This machine cannot evaluate a script, usually because VapourSynth is absent.",
+      "type": "string",
+      "const": "unavailable"
+    }
+  ]
+}

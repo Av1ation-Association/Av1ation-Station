@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PythonInterpreterUpdate",
+  "description": "Replace the machine-level Python interpreter the script editor's language server uses.\n\nThis is its own endpoint rather than a field on [`AppSettingsUpdate`] because it is\npath-validated: a path is written only after the service confirms the file exists, so a\nsettings write for theme or storage cannot clear or invent an interpreter.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "description": "Absolute path to a Python interpreter, or `null` to let the server pick one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

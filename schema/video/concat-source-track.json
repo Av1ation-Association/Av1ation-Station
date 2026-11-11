@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatSourceTrack",
+  "description": "One selectable source stream, keyed by the selected muxer's own identifier.",
+  "type": "object",
+  "properties": {
+    "channels": {
+      "description": "Channel count for an audio stream.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    },
+    "codec": {
+      "description": "Codec name as the probe reports it.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "default": {
+      "description": "Whether the container marks this stream as the default.",
+      "type": "boolean"
+    },
+    "forced": {
+      "description": "Whether the container marks this stream as forced.",
+      "type": "boolean"
+    },
+    "key": {
+      "description": "mkvmerge track ID, or the FFmpeg source stream index. Never an ordinal.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "kind": {
+      "description": "The stream's role, which decides the engine track variant and its option fields.",
+      "$ref": "#/$defs/ConcatTrackKind"
+    },
+    "label": {
+      "description": "A stable, human-readable row label derived from the probe.",
+      "type": "string"
+    },
+    "language": {
+      "description": "ISO 639 language tag when the container carries one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "name": {
+      "description": "The container's track title, when it has one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "kind",
+    "label",
+    "default",
+    "forced"
+  ],
+  "$defs": {
+    "ConcatTrackKind": {
+      "description": "What a selectable source stream carries.",
+      "oneOf": [
+        {
+          "description": "A picture stream; selectable only on an mkvmerge extra input.",
+          "type": "string",
+          "const": "video"
+        },
+        {
+          "description": "A sound stream.",
+          "type": "string",
+          "const": "audio"
+        },
+        {
+          "description": "A timed text stream.",
+          "type": "string",
+          "const": "subtitle"
+        }
+      ]
+    }
+  }
+}

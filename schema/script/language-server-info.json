@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LanguageServerInfo",
+  "description": "The Python language server the script editor can reach on this machine.\n\nCompletion is bundled with the application, so this is an enhancement rather than a\ndependency: when nothing is installed the editor keeps its own tables and says so.",
+  "type": "object",
+  "properties": {
+    "available": {
+      "description": "Whether a supported server was found.",
+      "type": "boolean"
+    },
+    "command": {
+      "description": "The executable the bridge will spawn, for the user to inspect.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "detail": {
+      "description": "Why completion is bundled, when no server was found.",
+      "type": "string"
+    },
+    "interpreter": {
+      "description": "The interpreter the editor points the server at: the saved setting, or the host's\nresolved `python` (system first, staged bundle last) when none is saved. Always\nnaming it is what makes every server family analyse the same environment, instead of\neach falling back to a different guess.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "interpreter_source": {
+      "description": "Where that interpreter came from: `setting`, `path`, `virtual_env`, `conda_prefix`,\n`launcher`, or `bundled`. The row says so rather than presenting an automatic choice\nas one the user made.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "interpreter_version": {
+      "description": "The version that interpreter reported, so the user can confirm the selection works.\nAbsent when no interpreter was resolved, or when it did not answer.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "description": "Server family: `pyright`, `jedi`, or `pylsp`; empty when nothing was found.",
+      "type": "string"
+    },
+    "label": {
+      "description": "What the editor shows, for example `Pyright 1.1.390`.",
+      "type": "string"
+    },
+    "workspace": {
+      "description": "Where the editor opens its documents, so imports resolve. Absent when no temporary\nworkspace could be created.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "available",
+    "kind",
+    "label",
+    "detail"
+  ]
+}

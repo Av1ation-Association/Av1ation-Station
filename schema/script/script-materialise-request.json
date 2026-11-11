@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptMaterialiseRequest",
+  "description": "Ask for a standalone `.vpy` built from one script input.\n\nThe page supplies the draft script, not the stored one, so the export is the text the\nuser is looking at. A project and video pair adds the persisted scene table and effective\nsequence configuration; without them the template export carries an empty scene table and\nthe defaults, because a template belongs to no video.",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "description": "The video whose scenes and scratch directory the export carries, when there is one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "script": {
+      "description": "The Python source, exactly as the page would save it.",
+      "type": "string"
+    },
+    "sequence_config": {
+      "description": "The sequence document the page has open; absent uses the saved effective document.",
+      "default": null
+    },
+    "video_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "video_path": {
+      "description": "The source file the exported script should open when the page knows one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "script"
+  ]
+}

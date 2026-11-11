@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PreflightReport",
+  "description": "The complete preflight inventory and its availability counts.",
+  "type": "object",
+  "properties": {
+    "available_count": {
+      "description": "Number of checks whose `available` flag is true.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "checks": {
+      "description": "One result per probe, in a stable order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PreflightCheck"
+      }
+    },
+    "total_count": {
+      "description": "Total number of checks in the report.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "checks",
+    "available_count",
+    "total_count"
+  ],
+  "$defs": {
+    "PreflightCheck": {
+      "description": "One dependency result in the preflight inventory.",
+      "type": "object",
+      "properties": {
+        "available": {
+          "description": "Whether the probe found and loaded the dependency.",
+          "type": "boolean"
+        },
+        "capability": {
+          "description": "Capability group: `decode`, `encode`, `muxing`, `metric`, or `application`.",
+          "type": "string"
+        },
+        "configured_source": {
+          "description": "The provider choice saved for this capability, when the user made one.\n\n`None` is automatic selection. It travels beside `selected_source` so a screen can\nsay whether a restart is pending without re-deriving the capability-to-key map\nthat the service owns.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail": {
+          "description": "Observed version, executable name, or the reason it is unavailable.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Stable key, for example `vapoursynth` or `encoder:svt-av1`.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human-readable name for the dependency row.",
+          "type": "string"
+        },
+        "origin": {
+          "description": "How the row entered the inventory: `custom` for a user-provided executable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "The saved executable path for a custom row.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providers": {
+          "description": "Every source this row offers. Empty for a row with a single discovered provider.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PreflightProvider"
+          }
+        },
+        "remediation": {
+          "description": "What the user can install or configure when `available` is false.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selected_source": {
+          "description": "The provider this process is actually using, when the row has selectable sources.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "capability",
+        "available",
+        "detail"
+      ]
+    },
+    "PreflightProvider": {
+      "description": "One source a dependency row can use, as the preflight inventory sees it.",
+      "type": "object",
+      "properties": {
+        "active": {
+          "description": "Whether the running process selected this source.",
+          "type": "boolean"
+        },
+        "available": {
+          "description": "Whether this source was found and could be probed.",
+          "type": "boolean"
+        },
+        "checked": {
+          "description": "Whether this process could check the source. A bundled runtime and a system runtime\ncannot share one VSScript initialisation, so the inactive runtime is left unchecked\nuntil the application restarts with it selected.",
+          "type": "boolean"
+        },
+        "detail": {
+          "description": "The observed version or path, or why the source is unavailable.",
+          "type": "string"
+        },
+        "source": {
+          "description": "The release bundle or the machine's own installation: `bundled` or `system`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "available",
+        "detail",
+        "active",
+        "checked"
+      ]
+    }
+  }
+}

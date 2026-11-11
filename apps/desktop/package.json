@@ -1,0 +1,19 @@
+{
+    "name": "@av1ation/desktop",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@av1ation/api": "*",
+        "@av1ation/ui": "*",
+        "@tauri-apps/api": "^2.12.4",
+        "@tauri-apps/plugin-dialog": "^2.8.4",
+        "@tauri-apps/plugin-opener": "^2.7.2",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1"
+    }
+}

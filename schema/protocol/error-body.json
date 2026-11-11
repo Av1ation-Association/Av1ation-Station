@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ErrorBody",
+  "description": "The uniform error envelope returned by the service.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "description": "Stable machine-readable error code; the only field a client may branch on.",
+      "$ref": "#/$defs/ErrorCode"
+    },
+    "correlation": {
+      "description": "The run this error belongs to, so a toast can be matched to a log file.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "detail": {
+      "description": "Engine or operating-system text, shown in an expandable block and never parsed.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hint": {
+      "description": "Optional next action for the user.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "description": "Human-readable explanation, safe to show as-is.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "message"
+  ],
+  "$defs": {
+    "ErrorCode": {
+      "description": "The stable error categories the frontend switches on, never on `message`.\n\nThe set is deliberately coarse: it is the unit of control flow, while the specific\nreason and the recovery advice travel in `message`, `detail`, and `hint`. A new variant\nis an API change, so it arrives with a contract revision rather than ad hoc.",
+      "oneOf": [
+        {
+          "description": "Another run already holds the singleton.",
+          "type": "string",
+          "const": "BUSY"
+        },
+        {
+          "description": "Configuration, ordering, or removal is read-only during a run.",
+          "type": "string",
+          "const": "LOCKED"
+        },
+        {
+          "description": "A required dependency is missing or unusable.",
+          "type": "string",
+          "const": "PREFLIGHT_FAILED"
+        },
+        {
+          "description": "The request body or the value it carries is semantically invalid.",
+          "type": "string",
+          "const": "INVALID_CONFIG"
+        },
+        {
+          "description": "The addressed resource does not exist.",
+          "type": "string",
+          "const": "NOT_FOUND"
+        },
+        {
+          "description": "Writing or reading persisted state failed.",
+          "type": "string",
+          "const": "IO"
+        },
+        {
+          "description": "The engine panicked inside the run.",
+          "type": "string",
+          "const": "ENGINE_PANIC"
+        },
+        {
+          "description": "The engine rejected the run before or during execution.",
+          "type": "string",
+          "const": "ENGINE_FAILED"
+        },
+        {
+          "description": "The run stopped because the user cancelled it.",
+          "type": "string",
+          "const": "CANCELLED"
+        },
+        {
+          "description": "Not enough free space to start or continue.",
+          "type": "string",
+          "const": "DISK_FULL"
+        },
+        {
+          "description": "A request arrived without a valid LAN token.",
+          "type": "string",
+          "const": "UNAUTHORIZED"
+        },
+        {
+          "description": "The failure has no more specific category.",
+          "type": "string",
+          "const": "INTERNAL"
+        }
+      ]
+    }
+  }
+}

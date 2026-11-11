@@ -1,0 +1,6 @@
+{
+  "code": "BUSY",
+  "message": "An encode is already running.",
+  "hint": "Wait for the current run to finish or cancel it.",
+  "correlation": "6f1c2d9e-0b7a-4b7e-9a1f-3c8d5e2a4b60"
+}

@@ -1,0 +1,6 @@
+{
+  "scenes": [
+    { "start_frame": 0, "end_frame": 24 },
+    { "start_frame": 24, "end_frame": 48 }
+  ]
+}

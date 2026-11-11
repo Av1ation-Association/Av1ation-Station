@@ -1,0 +1,11 @@
+{
+  "id": "b8e92c54-be91-49e8-a8d2-e0bfbf766a9c",
+  "name": "Feature film",
+  "description": "First cut",
+  "created_at": "2026-10-31T08:31:03Z",
+  "accessed_at": "2026-10-31T09:02:41Z",
+  "general": {
+    "input_kind": "ffms2",
+    "output_mode": "next_to_input"
+  }
+}

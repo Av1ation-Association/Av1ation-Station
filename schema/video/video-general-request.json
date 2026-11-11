@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoGeneralRequest",
+  "description": "A whole-subtree replacement request for a video's General documents.",
+  "type": "object",
+  "properties": {
+    "input": {
+      "description": "Engine `Input` JSON; its path must be absolute when it states one."
+    },
+    "output": {
+      "description": "Engine `Output` JSON; its path must be an absolute file in an existing directory."
+    },
+    "source_path": {
+      "description": "The queued source a script input is told to open.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "input",
+    "output"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatInventoryRequest",
+  "description": "One concatenation source probe.\n\n`path` is absent for the main input, which is the video's original source file. An extra\ninput sends its own path; it is not resolved from the video record.",
+  "type": "object",
+  "properties": {
+    "method": {
+      "description": "The muxer whose own key namespace the inventory uses.",
+      "$ref": "#/$defs/ConcatMethodName"
+    },
+    "path": {
+      "description": "The file to inspect. `None` means the video's original source.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "method"
+  ],
+  "$defs": {
+    "ConcatMethodName": {
+      "description": "The muxer a concatenation inventory describes.\n\nThe two muxers number source streams in independent namespaces: mkvmerge uses the IDs\nfrom `--identify`, FFmpeg uses the source stream index. A caller must never translate one\ninto the other.",
+      "oneOf": [
+        {
+          "description": "Matroska-native muxing through `mkvmerge`.",
+          "type": "string",
+          "const": "mkvmerge"
+        },
+        {
+          "description": "Remuxing through FFmpeg.",
+          "type": "string",
+          "const": "ffmpeg"
+        }
+      ]
+    }
+  }
+}

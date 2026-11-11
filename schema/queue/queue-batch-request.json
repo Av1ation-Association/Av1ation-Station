@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueueBatchRequest",
+  "description": "The videos a queue batch should run, in queue order.",
+  "type": "object",
+  "properties": {
+    "video_ids": {
+      "description": "Video ids to start, in the order the service should run them.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_ids"
+  ]
+}

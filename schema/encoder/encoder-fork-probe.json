@@ -1,0 +1,1061 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EncoderForkProbe",
+  "description": "The result of probing one executable's help output, before anything is saved.",
+  "type": "object",
+  "properties": {
+    "available": {
+      "description": "Whether the executable ran and identified as the requested family.",
+      "type": "boolean"
+    },
+    "detail": {
+      "description": "Whatever the executable printed, truncated for a diagnostic block.",
+      "type": "string"
+    },
+    "parameters": {
+      "description": "Parameters parsed from the help output, keyed by canonical spelling.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^-{0,2}[A-Za-z0-9][A-Za-z0-9._-]*$": {
+          "$ref": "#/$defs/ParameterDescriptor"
+        }
+      }
+    },
+    "version": {
+      "description": "Version line, when one was printed.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "available",
+    "detail"
+  ],
+  "$defs": {
+    "Choice": {
+      "description": "One value of a choice parameter.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Optional explanation shown beside the label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "doc_link": {
+          "description": "Documentation link for this value.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the user reads.",
+          "type": "string"
+        },
+        "value": {
+          "description": "What the encoder receives.",
+          "$ref": "#/$defs/ParameterValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "label"
+      ]
+    },
+    "ChoicePresentation": {
+      "description": "How a choice parameter's options are drawn.",
+      "oneOf": [
+        {
+          "description": "Radio or segmented up to four options, a dropdown above that.",
+          "type": "string",
+          "const": "Auto"
+        },
+        {
+          "description": "Radio buttons.",
+          "type": "string",
+          "const": "Radio"
+        },
+        {
+          "description": "Segmented control.",
+          "type": "string",
+          "const": "Segmented"
+        },
+        {
+          "description": "Dropdown list.",
+          "type": "string",
+          "const": "Dropdown"
+        }
+      ]
+    },
+    "ChoiceSpec": {
+      "description": "Constraints on a choice parameter.",
+      "type": "object",
+      "properties": {
+        "max_selected": {
+          "description": "Most selections accepted, when there is a limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_selected": {
+          "description": "Fewest selections accepted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "multiple": {
+          "description": "Whether more than one option may be selected.",
+          "type": "boolean"
+        },
+        "options": {
+          "description": "Every accepted value, with the label the user reads.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Choice"
+          }
+        },
+        "value_kind": {
+          "description": "Declared value type; absent on descriptors authored before the distinction,\nwhere the options themselves decide.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChoiceValueKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "options",
+        "multiple",
+        "min_selected"
+      ]
+    },
+    "ChoiceValueKind": {
+      "description": "The value type a choice parameter's options carry.\n\nA choice is not always text: an encoder that spells a mode as `0`, `1`, `2` still\nwants \"Main\", \"High\", \"Professional\" in the editor, and the editor must know that\nthe value it stores is a number rather than the label it draws.",
+      "oneOf": [
+        {
+          "description": "Options are text values.",
+          "type": "string",
+          "const": "Text"
+        },
+        {
+          "description": "Options are numeric values with human labels.",
+          "type": "string",
+          "const": "Number"
+        }
+      ]
+    },
+    "CollectionItemKind": {
+      "description": "The value type of one collection item.",
+      "oneOf": [
+        {
+          "description": "A number item.",
+          "type": "object",
+          "properties": {
+            "Number": {
+              "$ref": "#/$defs/NumberSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Number"
+          ]
+        },
+        {
+          "description": "A text item.",
+          "type": "object",
+          "properties": {
+            "Text": {
+              "$ref": "#/$defs/TextSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Text"
+          ]
+        },
+        {
+          "description": "A choice item.",
+          "type": "object",
+          "properties": {
+            "Choice": {
+              "$ref": "#/$defs/ChoiceSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Choice"
+          ]
+        },
+        {
+          "description": "A path item.",
+          "type": "object",
+          "properties": {
+            "Path": {
+              "$ref": "#/$defs/PathSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Path"
+          ]
+        },
+        {
+          "description": "A duration item.",
+          "type": "object",
+          "properties": {
+            "Duration": {
+              "$ref": "#/$defs/DurationSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Duration"
+          ]
+        }
+      ]
+    },
+    "CollectionPresentation": {
+      "description": "How a collection parameter's items are drawn.",
+      "oneOf": [
+        {
+          "description": "Removable chips.",
+          "type": "string",
+          "const": "Chips"
+        },
+        {
+          "description": "Values typed into one comma-separated field.",
+          "type": "string",
+          "const": "CommaSeparated"
+        }
+      ]
+    },
+    "CollectionSpec": {
+      "description": "Constraints on a collection parameter.",
+      "type": "object",
+      "properties": {
+        "item": {
+          "description": "The kind of every item. A flag or a nested collection is not a value, so the item\nkind excludes both; that also keeps the schema acyclic.",
+          "$ref": "#/$defs/CollectionItemKind"
+        },
+        "max_items": {
+          "description": "Most items accepted, when there is a limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_items": {
+          "description": "Fewest items accepted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "separator": {
+          "description": "Separator used to encode the list into one argument.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "separator",
+        "min_items"
+      ]
+    },
+    "Delimiter": {
+      "description": "How a parameter's key and value are joined into argv entries.",
+      "oneOf": [
+        {
+          "description": "Two argv entries: the key and the value are separate.",
+          "type": "string",
+          "const": "Space"
+        },
+        {
+          "description": "One argv entry: `--crf=22`.",
+          "type": "object",
+          "properties": {
+            "Joined": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Joined"
+          ]
+        }
+      ]
+    },
+    "DurationSpec": {
+      "description": "Constraints on a duration parameter.",
+      "type": "object",
+      "properties": {
+        "max": {
+          "description": "Largest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "description": "Smallest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "unit": {
+          "description": "Unit the value is expressed in.",
+          "$ref": "#/$defs/DurationUnit"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
+      ]
+    },
+    "DurationUnit": {
+      "description": "The unit a duration parameter is expressed in.",
+      "oneOf": [
+        {
+          "description": "Whole seconds.",
+          "type": "string",
+          "const": "Seconds"
+        },
+        {
+          "description": "Milliseconds.",
+          "type": "string",
+          "const": "Milliseconds"
+        },
+        {
+          "description": "Frame count.",
+          "type": "string",
+          "const": "Frames"
+        }
+      ]
+    },
+    "Mark": {
+      "description": "One labelled position on a slider.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "Optional label at that position.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Position on the slider.",
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ]
+    },
+    "NumberSpec": {
+      "description": "Constraints on a number parameter.",
+      "type": "object",
+      "properties": {
+        "integer": {
+          "description": "Whether the value must be an integer.",
+          "type": "boolean"
+        },
+        "max": {
+          "description": "Largest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "description": "Smallest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "step": {
+          "description": "Increment the editor offers.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "unit": {
+          "description": "Unit shown beside the value, for example `kbps`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "integer"
+      ]
+    },
+    "ParameterDescriptor": {
+      "description": "One encoder parameter, derived from the engine's CLI parameter or authored by the user.",
+      "type": "object",
+      "properties": {
+        "advanced": {
+          "description": "Whether the field belongs behind the advanced disclosure.",
+          "type": "boolean",
+          "default": false
+        },
+        "default": {
+          "description": "Suggested initial value for a user who enables the parameter. It is not applied until\nthe user sets the parameter.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParameterValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delimiter": {
+          "description": "`Some(Space)` emits two argv entries, `Some(Joined(..))` emits one, and `None` is a\nboolean flag with no value.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Delimiter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "description": "Explanation shown beside the field.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "doc_link": {
+          "description": "Documentation link for the parameter.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "group": {
+          "description": "Grouping shown in the parameter editor, for example `Quality`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "description": "The value type and all of its constraints.",
+          "$ref": "#/$defs/ParameterKind"
+        },
+        "label": {
+          "description": "Human-readable field label.",
+          "type": "string"
+        },
+        "relations": {
+          "description": "Validity rules involving another parameter in the same definition.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ParameterRelation"
+          }
+        },
+        "widget": {
+          "description": "The control the renderer draws.",
+          "$ref": "#/$defs/Widget",
+          "default": "Auto"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "kind"
+      ]
+    },
+    "ParameterKey": {
+      "description": "The identity of one encoder parameter, as it is written on the command line.\n\nPrefix is part of the identity: `--crf` and `-crf` are different spellings even when\nboth reach the same encoder. JSON object keys are strings, so the value serialises as the\ncanonical `\"{prefix}{name}\"` form and deserialises from that same string.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^-{0,2}[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "ParameterKind": {
+      "description": "The value type and all of its constraints for one parameter.\n\nThe kind is closed so an ill-typed constraint cannot be built. A `Flag` is a parameter\nthe engine emits when true and omits when false; a boolean spelled `0`/`1` by the CLI is\na two-value `Choice`, not a `Flag`.",
+      "oneOf": [
+        {
+          "description": "Boolean flag with no value.",
+          "type": "string",
+          "const": "Flag"
+        },
+        {
+          "description": "A number, optionally bounded.",
+          "type": "object",
+          "properties": {
+            "Number": {
+              "$ref": "#/$defs/NumberSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Number"
+          ]
+        },
+        {
+          "description": "Text, optionally with a maximum length and a pattern.",
+          "type": "object",
+          "properties": {
+            "Text": {
+              "$ref": "#/$defs/TextSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Text"
+          ]
+        },
+        {
+          "description": "One or more values from a fixed set.",
+          "type": "object",
+          "properties": {
+            "Choice": {
+              "$ref": "#/$defs/ChoiceSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Choice"
+          ]
+        },
+        {
+          "description": "A file or directory path.",
+          "type": "object",
+          "properties": {
+            "Path": {
+              "$ref": "#/$defs/PathSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Path"
+          ]
+        },
+        {
+          "description": "A duration in the unit the encoder expects.",
+          "type": "object",
+          "properties": {
+            "Duration": {
+              "$ref": "#/$defs/DurationSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Duration"
+          ]
+        },
+        {
+          "description": "A list encoded into one delimited string.",
+          "type": "object",
+          "properties": {
+            "Collection": {
+              "$ref": "#/$defs/CollectionSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Collection"
+          ]
+        }
+      ]
+    },
+    "ParameterRelation": {
+      "description": "A validity rule that involves another parameter in the same definition.\n\nA closed set rather than an expression language: Rust gets exhaustiveness and the\ngenerated TypeScript gets a discriminated union. Only *set* parameters participate.",
+      "oneOf": [
+        {
+          "description": "This parameter is only valid when `other` is set to `equals`.",
+          "type": "object",
+          "properties": {
+            "Requires": {
+              "type": "object",
+              "properties": {
+                "equals": {
+                  "description": "The value `other` must have.",
+                  "$ref": "#/$defs/ParameterValue"
+                },
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "other": {
+                  "description": "The parameter this one depends on.",
+                  "$ref": "#/$defs/ParameterKey"
+                }
+              },
+              "required": [
+                "other",
+                "equals",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Requires"
+          ]
+        },
+        {
+          "description": "At least one of `others` must be set.",
+          "type": "object",
+          "properties": {
+            "AtLeastOneOf": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "others": {
+                  "description": "The parameters any one of which satisfies the rule.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ParameterKey"
+                  }
+                }
+              },
+              "required": [
+                "others",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "AtLeastOneOf"
+          ]
+        },
+        {
+          "description": "This number must be at least the value of `other`.",
+          "type": "object",
+          "properties": {
+            "GreaterThanOrEqual": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "other": {
+                  "description": "The parameter this one is compared with.",
+                  "$ref": "#/$defs/ParameterKey"
+                }
+              },
+              "required": [
+                "other",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "GreaterThanOrEqual"
+          ]
+        },
+        {
+          "description": "This number must be at most the value of `other`.",
+          "type": "object",
+          "properties": {
+            "LessThanOrEqual": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "other": {
+                  "description": "The parameter this one is compared with.",
+                  "$ref": "#/$defs/ParameterKey"
+                }
+              },
+              "required": [
+                "other",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "LessThanOrEqual"
+          ]
+        },
+        {
+          "description": "This parameter and `other` may not both be set.",
+          "type": "object",
+          "properties": {
+            "MutuallyExclusive": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "other": {
+                  "description": "The conflicting parameter.",
+                  "$ref": "#/$defs/ParameterKey"
+                }
+              },
+              "required": [
+                "other",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "MutuallyExclusive"
+          ]
+        },
+        {
+          "description": "This parameter and `other` must carry the same value when both are set.",
+          "type": "object",
+          "properties": {
+            "SameValue": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "description": "Message shown when the rule fails.",
+                  "type": "string"
+                },
+                "other": {
+                  "description": "The parameter whose value must match.",
+                  "$ref": "#/$defs/ParameterKey"
+                }
+              },
+              "required": [
+                "other",
+                "message"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "SameValue"
+          ]
+        }
+      ]
+    },
+    "ParameterScalar": {
+      "description": "One item of a [`ParameterValue::List`].",
+      "anyOf": [
+        {
+          "description": "A boolean item.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number item.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "A text item.",
+          "type": "string"
+        }
+      ]
+    },
+    "ParameterValue": {
+      "description": "A value a parameter can carry.\n\nIt is untagged on the wire, so a choice is written as the literal `0`, `\"2\"`, or `true`\nrather than a wrapper object. The enum exists so generated TypeScript and Zod describe\nexactly these variants instead of `unknown`.",
+      "anyOf": [
+        {
+          "description": "An explicit null, for a parameter whose unset state is meaningful.",
+          "type": "null"
+        },
+        {
+          "description": "A boolean.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number; integers are not a separate variant.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "Text.",
+          "type": "string"
+        },
+        {
+          "description": "A flat list of scalars, for a collection parameter. Nested lists are not a value a\nCLI parameter can carry, so the recursion stops here.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterScalar"
+          }
+        }
+      ]
+    },
+    "PathSpec": {
+      "description": "Constraints on a path parameter.",
+      "type": "object",
+      "properties": {
+        "accept": {
+          "description": "Suggested file extensions, without the leading dot.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "directory": {
+          "description": "Whether the path must be a directory.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "accept"
+      ]
+    },
+    "TextFormat": {
+      "description": "The well-known shape of a text value, when the encoder states one.\n\nA format is evidence from the help text, not a guess: the editor validates the value and\nthe service still stores exactly what the encoder accepts.",
+      "oneOf": [
+        {
+          "description": "An email address.",
+          "type": "string",
+          "const": "Email"
+        },
+        {
+          "description": "An absolute or relative URL.",
+          "type": "string",
+          "const": "Url"
+        },
+        {
+          "description": "An ISO-8601 date or date-time.",
+          "type": "string",
+          "const": "DateTime"
+        }
+      ]
+    },
+    "TextSpec": {
+      "description": "Constraints on a text parameter.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "A well-known value shape the editor validates, when the encoder states one.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextFormat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_len": {
+          "description": "Maximum character count.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "multiline": {
+          "description": "Whether the editor should offer a multi-line field.",
+          "type": "boolean"
+        },
+        "pattern": {
+          "description": "Regular expression the whole value must match.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "multiline"
+      ]
+    },
+    "Widget": {
+      "description": "How a parameter's value is presented, independently of its type and constraints.\n\nA range does not determine a control: CRF is best edited with a slider because its useful\nrange is small, while an unbounded frame count needs a plain input. `Auto` lets the\nrenderer apply the documented rules.",
+      "oneOf": [
+        {
+          "description": "Let the renderer choose from the kind and its constraints.",
+          "type": "string",
+          "const": "Auto"
+        },
+        {
+          "description": "A slider with optional marks.",
+          "type": "object",
+          "properties": {
+            "Slider": {
+              "type": "object",
+              "properties": {
+                "marks": {
+                  "description": "Labelled positions on the track.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Mark"
+                  }
+                },
+                "step": {
+                  "description": "Increment the editor offers.",
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "format": "double"
+                }
+              },
+              "required": [
+                "marks"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Slider"
+          ]
+        },
+        {
+          "description": "A plain numeric field.",
+          "type": "object",
+          "properties": {
+            "NumberInput": {
+              "type": "object",
+              "properties": {
+                "step": {
+                  "description": "Increment the editor offers.",
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "NumberInput"
+          ]
+        },
+        {
+          "description": "One control for single- and multi-select; cardinality lives in `ChoiceSpec`.",
+          "type": "object",
+          "properties": {
+            "ChoiceInput": {
+              "type": "object",
+              "properties": {
+                "presentation": {
+                  "description": "How the options are drawn.",
+                  "$ref": "#/$defs/ChoicePresentation"
+                }
+              },
+              "required": [
+                "presentation"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "ChoiceInput"
+          ]
+        },
+        {
+          "description": "A text field, optionally multi-line.",
+          "type": "object",
+          "properties": {
+            "TextInput": {
+              "type": "object",
+              "properties": {
+                "multiline": {
+                  "description": "Whether the field accepts newlines.",
+                  "type": "boolean"
+                },
+                "placeholder": {
+                  "description": "Placeholder shown while the field is empty.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "multiline"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "TextInput"
+          ]
+        },
+        {
+          "description": "A boolean flag; the parameter is emitted when true and omitted when false.",
+          "type": "string",
+          "const": "Toggle"
+        },
+        {
+          "description": "A two-state switch for a number whose only meaningful values are `0` and `1`.\n\nUnlike `Toggle`, the parameter carries a value, so the switch writes `1` or `0` and\nonly clearing the option returns the encoder to its own default.",
+          "type": "string",
+          "const": "Switch"
+        },
+        {
+          "description": "A file or directory picker.",
+          "type": "string",
+          "const": "PathPicker"
+        },
+        {
+          "description": "A duration field with its unit.",
+          "type": "string",
+          "const": "DurationInput"
+        },
+        {
+          "description": "A collection editor.",
+          "type": "object",
+          "properties": {
+            "CollectionInput": {
+              "type": "object",
+              "properties": {
+                "presentation": {
+                  "description": "How the items are drawn.",
+                  "$ref": "#/$defs/CollectionPresentation"
+                }
+              },
+              "required": [
+                "presentation"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "CollectionInput"
+          ]
+        }
+      ]
+    }
+  }
+}

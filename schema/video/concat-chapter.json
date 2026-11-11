@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatChapter",
+  "description": "One chapter the source reports, as a read-only convenience beside the copy setting.",
+  "type": "object",
+  "properties": {
+    "end_seconds": {
+      "description": "End time in seconds when the probe reports one.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double",
+      "default": null
+    },
+    "index": {
+      "description": "Zero-based position in the source's chapter list.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "start_seconds": {
+      "description": "Start time in seconds.",
+      "type": "number",
+      "format": "double"
+    },
+    "title": {
+      "description": "Chapter title when the source records one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "index",
+    "start_seconds"
+  ]
+}

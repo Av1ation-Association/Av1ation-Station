@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Widget",
+  "description": "How a parameter's value is presented, independently of its type and constraints.\n\nA range does not determine a control: CRF is best edited with a slider because its useful\nrange is small, while an unbounded frame count needs a plain input. `Auto` lets the\nrenderer apply the documented rules.",
+  "oneOf": [
+    {
+      "description": "Let the renderer choose from the kind and its constraints.",
+      "type": "string",
+      "const": "Auto"
+    },
+    {
+      "description": "A slider with optional marks.",
+      "type": "object",
+      "properties": {
+        "Slider": {
+          "type": "object",
+          "properties": {
+            "marks": {
+              "description": "Labelled positions on the track.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Mark"
+              }
+            },
+            "step": {
+              "description": "Increment the editor offers.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            }
+          },
+          "required": [
+            "marks"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Slider"
+      ]
+    },
+    {
+      "description": "A plain numeric field.",
+      "type": "object",
+      "properties": {
+        "NumberInput": {
+          "type": "object",
+          "properties": {
+            "step": {
+              "description": "Increment the editor offers.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            }
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "NumberInput"
+      ]
+    },
+    {
+      "description": "One control for single- and multi-select; cardinality lives in `ChoiceSpec`.",
+      "type": "object",
+      "properties": {
+        "ChoiceInput": {
+          "type": "object",
+          "properties": {
+            "presentation": {
+              "description": "How the options are drawn.",
+              "$ref": "#/$defs/ChoicePresentation"
+            }
+          },
+          "required": [
+            "presentation"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ChoiceInput"
+      ]
+    },
+    {
+      "description": "A text field, optionally multi-line.",
+      "type": "object",
+      "properties": {
+        "TextInput": {
+          "type": "object",
+          "properties": {
+            "multiline": {
+              "description": "Whether the field accepts newlines.",
+              "type": "boolean"
+            },
+            "placeholder": {
+              "description": "Placeholder shown while the field is empty.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "multiline"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "TextInput"
+      ]
+    },
+    {
+      "description": "A boolean flag; the parameter is emitted when true and omitted when false.",
+      "type": "string",
+      "const": "Toggle"
+    },
+    {
+      "description": "A two-state switch for a number whose only meaningful values are `0` and `1`.\n\nUnlike `Toggle`, the parameter carries a value, so the switch writes `1` or `0` and\nonly clearing the option returns the encoder to its own default.",
+      "type": "string",
+      "const": "Switch"
+    },
+    {
+      "description": "A file or directory picker.",
+      "type": "string",
+      "const": "PathPicker"
+    },
+    {
+      "description": "A duration field with its unit.",
+      "type": "string",
+      "const": "DurationInput"
+    },
+    {
+      "description": "A collection editor.",
+      "type": "object",
+      "properties": {
+        "CollectionInput": {
+          "type": "object",
+          "properties": {
+            "presentation": {
+              "description": "How the items are drawn.",
+              "$ref": "#/$defs/CollectionPresentation"
+            }
+          },
+          "required": [
+            "presentation"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "CollectionInput"
+      ]
+    }
+  ],
+  "$defs": {
+    "ChoicePresentation": {
+      "description": "How a choice parameter's options are drawn.",
+      "oneOf": [
+        {
+          "description": "Radio or segmented up to four options, a dropdown above that.",
+          "type": "string",
+          "const": "Auto"
+        },
+        {
+          "description": "Radio buttons.",
+          "type": "string",
+          "const": "Radio"
+        },
+        {
+          "description": "Segmented control.",
+          "type": "string",
+          "const": "Segmented"
+        },
+        {
+          "description": "Dropdown list.",
+          "type": "string",
+          "const": "Dropdown"
+        }
+      ]
+    },
+    "CollectionPresentation": {
+      "description": "How a collection parameter's items are drawn.",
+      "oneOf": [
+        {
+          "description": "Removable chips.",
+          "type": "string",
+          "const": "Chips"
+        },
+        {
+          "description": "Values typed into one comma-separated field.",
+          "type": "string",
+          "const": "CommaSeparated"
+        }
+      ]
+    },
+    "Mark": {
+      "description": "One labelled position on a slider.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "Optional label at that position.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Position on the slider.",
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ]
+    }
+  }
+}

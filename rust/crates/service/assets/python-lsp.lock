@@ -1,0 +1,82 @@
+{
+  "version": "jedi-language-server-0.47.0-py3.10",
+  "packages": [
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "filename": "attrs-26.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl",
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+    },
+    {
+      "name": "cattrs",
+      "version": "26.2.1",
+      "filename": "cattrs-26.2.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/e8/cf/22794a399d99480486120e26e879ef008e21f5e85274c2ed591d568bb326/cattrs-26.2.1-py3-none-any.whl",
+      "sha256": "a12aaa3453dc8f633a815293179f08b7421ed18d2575c459c3c736f840beac24"
+    },
+    {
+      "name": "docstring-to-markdown",
+      "version": "0.17",
+      "filename": "docstring_to_markdown-0.17-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/56/7b/af3d0da15bed3a8665419bb3a630585756920f4ad67abfdfef26240ebcc0/docstring_to_markdown-0.17-py3-none-any.whl",
+      "sha256": "fd7d5094aa83943bf5f9e1a13701866b7c452eac19765380dead666e36d3711c"
+    },
+    {
+      "name": "importlib-metadata",
+      "version": "10.1.0",
+      "filename": "importlib_metadata-10.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/65/b6/495438ad95e0102aff8f6786b5474202f38cd5d4700d03a72b77977dec10/importlib_metadata-10.1.0-py3-none-any.whl",
+      "sha256": "cf45ce66a929c64e994185a809c04840d0501db17e663810d993d0f4829265c7"
+    },
+    {
+      "name": "jedi",
+      "version": "0.20.1",
+      "filename": "jedi-0.20.1-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/be/c7/71eb0d51cdcbb63b857c931aa4e9218b078b5d9f8ecd383b234f28fe7b0f/jedi-0.20.1-py2.py3-none-any.whl",
+      "sha256": "0fb16d86c4a4c73c37ba518c77419975e30fcc620658a8d14fbb5720cdd34142"
+    },
+    {
+      "name": "jedi-language-server",
+      "version": "0.47.0",
+      "filename": "jedi_language_server-0.47.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/05/e1/ad4afa632b4ea58f422391d11e86b5100b5578879af6bf04bf5aaf4beede/jedi_language_server-0.47.0-py3-none-any.whl",
+      "sha256": "0e00d5af41c1a966c9ec73221e81b1af3b8c0243d29477e5441c661d5b61ec3e"
+    },
+    {
+      "name": "lsprotocol",
+      "version": "2025.0.0",
+      "filename": "lsprotocol-2025.0.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7b/f0/92f2d609d6642b5f30cb50a885d2bf1483301c69d5786286500d15651ef2/lsprotocol-2025.0.0-py3-none-any.whl",
+      "sha256": "f9d78f25221f2a60eaa4a96d3b4ffae011b107537facee61d3da3313880995c7"
+    },
+    {
+      "name": "parso",
+      "version": "0.8.7",
+      "filename": "parso-0.8.7-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/99/5d/8268b644392ee874ee82a635cd0df1773de230bde356c38de28e298392cc/parso-0.8.7-py2.py3-none-any.whl",
+      "sha256": "a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c"
+    },
+    {
+      "name": "pygls",
+      "version": "2.1.1",
+      "filename": "pygls-2.1.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/fd/1a/208293b6c350f5abea6941d5606080d4a492644052504f5312e5de30a902/pygls-2.1.1-py3-none-any.whl",
+      "sha256": "510a6dea2476177230c7d851125e5948efdf3fdb9ebfd8543fc434972f8faed4"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    },
+    {
+      "name": "zipp",
+      "version": "4.1.2",
+      "filename": "zipp-4.1.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/b8/44/7bd2007260da11cccca29ba2d4c345f1287aa663db38ee7cefeabf6386a5/zipp-4.1.2-py3-none-any.whl",
+      "sha256": "b30cb6cd253122169c47de245ca24a86bac2a5d3802ba15bf7ba6414eb9e144d"
+    }
+  ]
+}

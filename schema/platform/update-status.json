@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UpdateStatus",
+  "description": "How the installed build compares with the newest published release.\n\n`latest` is absent when the repository has no published release yet, which is a normal\nanswer rather than a failed check. The comparison itself is the screen's: a build older\nthan the tag is a newer release, and the tag is what the release page is named after.",
+  "type": "object",
+  "properties": {
+    "checked_at": {
+      "description": "When this answer was produced, so the screen can say how old it is.",
+      "type": "string"
+    },
+    "current": {
+      "description": "Version of this build, from the package manifest.",
+      "type": "string"
+    },
+    "latest": {
+      "description": "Newest published tag without its leading `v`, or absent when none is published.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "published_at": {
+      "description": "When the release was published, as the forge reports it.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "url": {
+      "description": "The release page the result links to.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "current",
+    "checked_at"
+  ]
+}

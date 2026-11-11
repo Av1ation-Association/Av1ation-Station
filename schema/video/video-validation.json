@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoValidation",
+  "description": "The per-video preflight result: whether this video can start an encode right now.\n\nA missing optional dependency removes only the capability it provides, so this is a\nprojection of the global inventory onto one video's paths and encoder, never a global\non/off switch.",
+  "type": "object",
+  "properties": {
+    "blockers": {
+      "description": "Human-readable reasons the run cannot start, empty when it can.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "can_encode": {
+      "description": "Whether every blocking check passed.",
+      "type": "boolean"
+    },
+    "checks": {
+      "description": "The dependency rows relevant to this video, grouped by capability.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PreflightCheck"
+      }
+    },
+    "output_free_bytes": {
+      "description": "Free bytes on the volume that owns the output directory, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "output_writable": {
+      "description": "Whether the output's parent directory can be written.",
+      "type": "boolean"
+    },
+    "plugin_problems": {
+      "description": "VapourSynth plugin references the scripts would use that the loaded core lacks.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VapourSynthPluginProblem"
+      }
+    },
+    "scratch_writable": {
+      "description": "Whether the scratch directory for scene chunks can be written.",
+      "type": "boolean"
+    },
+    "source_exists": {
+      "description": "Whether the source file the input names is readable.",
+      "type": "boolean"
+    },
+    "temp_free_bytes": {
+      "description": "Free bytes on the volume that owns the scratch directory, when it could be read.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "video_id": {
+      "description": "The video this validation describes.",
+      "type": "string"
+    },
+    "warnings": {
+      "description": "Advisory space warnings, such as low free space or an unreadable volume.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_id",
+    "can_encode",
+    "source_exists",
+    "output_writable",
+    "scratch_writable",
+    "warnings",
+    "checks",
+    "plugin_problems",
+    "blockers"
+  ],
+  "$defs": {
+    "PreflightCheck": {
+      "description": "One dependency result in the preflight inventory.",
+      "type": "object",
+      "properties": {
+        "available": {
+          "description": "Whether the probe found and loaded the dependency.",
+          "type": "boolean"
+        },
+        "capability": {
+          "description": "Capability group: `decode`, `encode`, `muxing`, `metric`, or `application`.",
+          "type": "string"
+        },
+        "configured_source": {
+          "description": "The provider choice saved for this capability, when the user made one.\n\n`None` is automatic selection. It travels beside `selected_source` so a screen can\nsay whether a restart is pending without re-deriving the capability-to-key map\nthat the service owns.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail": {
+          "description": "Observed version, executable name, or the reason it is unavailable.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Stable key, for example `vapoursynth` or `encoder:svt-av1`.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human-readable name for the dependency row.",
+          "type": "string"
+        },
+        "origin": {
+          "description": "How the row entered the inventory: `custom` for a user-provided executable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "The saved executable path for a custom row.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providers": {
+          "description": "Every source this row offers. Empty for a row with a single discovered provider.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PreflightProvider"
+          }
+        },
+        "remediation": {
+          "description": "What the user can install or configure when `available` is false.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selected_source": {
+          "description": "The provider this process is actually using, when the row has selectable sources.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "capability",
+        "available",
+        "detail"
+      ]
+    },
+    "PreflightProvider": {
+      "description": "One source a dependency row can use, as the preflight inventory sees it.",
+      "type": "object",
+      "properties": {
+        "active": {
+          "description": "Whether the running process selected this source.",
+          "type": "boolean"
+        },
+        "available": {
+          "description": "Whether this source was found and could be probed.",
+          "type": "boolean"
+        },
+        "checked": {
+          "description": "Whether this process could check the source. A bundled runtime and a system runtime\ncannot share one VSScript initialisation, so the inactive runtime is left unchecked\nuntil the application restarts with it selected.",
+          "type": "boolean"
+        },
+        "detail": {
+          "description": "The observed version or path, or why the source is unavailable.",
+          "type": "string"
+        },
+        "source": {
+          "description": "The release bundle or the machine's own installation: `bundled` or `system`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "available",
+        "detail",
+        "active",
+        "checked"
+      ]
+    },
+    "VapourSynthPluginProblem": {
+      "description": "One VapourSynth plugin reference a run would use but the loaded core does not provide.\n\nThe namespace and the script section stay separate so the Video page can render the\nplugin name beside the input that calls it, instead of asking the user to read it out of\na sentence.",
+      "type": "object",
+      "properties": {
+        "context": {
+          "description": "The script section that made the call, for example `Encoding`.",
+          "type": "string"
+        },
+        "detail": {
+          "description": "One sentence naming the section and what is missing.",
+          "type": "string"
+        },
+        "function": {
+          "description": "The function inside an installed namespace, when only that function is missing.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "namespace": {
+          "description": "The plugin namespace, for example `hqdn3d`.",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "What to install or remove to make the reference valid.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "namespace",
+        "detail",
+        "remediation"
+      ]
+    }
+  }
+}

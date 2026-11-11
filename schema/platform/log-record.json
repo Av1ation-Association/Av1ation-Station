@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LogRecord",
+  "description": "One run-log line.",
+  "type": "object",
+  "properties": {
+    "at": {
+      "description": "UTC ISO-8601 instant.",
+      "type": "string"
+    },
+    "level": {
+      "description": "`info`, `warn`, or `error`.",
+      "type": "string"
+    },
+    "message": {
+      "description": "The human-readable line.",
+      "type": "string"
+    },
+    "project_id": {
+      "description": "The project that owns the video.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The run this line belongs to.",
+      "type": "string"
+    },
+    "scope": {
+      "description": "`app` for process-wide lines, `run` for lines attributed to a video.",
+      "type": "string"
+    },
+    "seq": {
+      "description": "Monotonic within the run; ordering never depends on the wall clock.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "sequence": {
+      "description": "The sequence that emitted the line, when it came from one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "video_id": {
+      "description": "The video this run encodes.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "seq",
+    "at",
+    "level",
+    "scope",
+    "run_id",
+    "video_id",
+    "project_id",
+    "message"
+  ]
+}

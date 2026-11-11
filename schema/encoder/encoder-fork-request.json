@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EncoderForkRequest",
+  "description": "The request to probe one executable against a known encoder family before saving it.",
+  "type": "object",
+  "properties": {
+    "base": {
+      "description": "The engine encoder this build of.",
+      "type": "string"
+    },
+    "label": {
+      "description": "Display name; also the starting point for the slug.",
+      "type": "string"
+    },
+    "path": {
+      "description": "Absolute path to the executable.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "label",
+    "base",
+    "path"
+  ]
+}

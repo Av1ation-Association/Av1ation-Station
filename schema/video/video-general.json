@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoGeneral",
+  "description": "The input and output documents a video's General section owns.\n\nThese are the engine's own documents, not configuration leaves: the source path and the\nexact output file belong to one queue entry, because a second video would collide with\nthem. A sequence override lives in `ConfigOverrides` instead.",
+  "type": "object",
+  "properties": {
+    "input": {
+      "description": "Engine `Input` JSON."
+    },
+    "output": {
+      "description": "Engine `Output` JSON."
+    },
+    "source_path": {
+      "description": "The file the video decodes when its input document names no path.\n\nA `VapourSynthScript` input is a program, not a file; the queued source is kept here\nso a script's `condor_data.video_path` still names the video it belongs to.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "input",
+    "output",
+    "source_path"
+  ]
+}

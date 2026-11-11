@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EventTicket",
+  "description": "A one-use, short-lived credential for an EventSource connection.\n\n`EventSource` cannot send an Authorization header, so the browser exchanges its bearer\ntoken for this ticket and puts the ticket in the stream URL instead.",
+  "type": "object",
+  "properties": {
+    "ticket": {
+      "description": "Opaque one-use ticket; expires sixty seconds after it is issued.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ticket"
+  ]
+}

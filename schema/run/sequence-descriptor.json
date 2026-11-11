@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SequenceDescriptor",
+  "description": "One sequence this build can run, with the configuration section that drives it.",
+  "type": "object",
+  "properties": {
+    "config": {
+      "description": "The effective configuration for this sequence, or `null` when it is disabled."
+    },
+    "id": {
+      "description": "The id the run route accepts, for example `SceneDetector`.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Human-readable name.",
+      "type": "string"
+    },
+    "section": {
+      "description": "The engine configuration key that enables and configures it.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "section",
+    "config"
+  ]
+}

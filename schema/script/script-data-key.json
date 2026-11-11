@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptDataKey",
+  "description": "One reserved variable the runner injects into a custom script, with its current value.\n\nA large value is sent as a bounded preview so the state response stays small; `bytes`\nstill reports the full length and `truncated` says whether `value` is a prefix.",
+  "type": "object",
+  "properties": {
+    "bytes": {
+      "description": "Full length of the injected string in bytes.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "description": {
+      "description": "What the value contains, in the words the script editor shows.",
+      "type": "string"
+    },
+    "format": {
+      "description": "How the value is read in Python.",
+      "$ref": "#/$defs/ScriptDataFormat"
+    },
+    "key": {
+      "description": "The exact VSScript variable name, for example `condor_scenes`.",
+      "type": "string"
+    },
+    "source": {
+      "description": "Where the runner derives the value, for example `condor.scenes`.",
+      "type": "string"
+    },
+    "truncated": {
+      "description": "Whether `value` is a prefix of the injected string rather than the whole value.",
+      "type": "boolean"
+    },
+    "value": {
+      "description": "The value as the engine injects it; bounded when `truncated` is true.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "description",
+    "source",
+    "format",
+    "value",
+    "truncated",
+    "bytes"
+  ],
+  "$defs": {
+    "ScriptDataFormat": {
+      "description": "How a script variable's value is meant to be read once Python receives it.",
+      "oneOf": [
+        {
+          "description": "A JSON document, readable with `json.loads`.",
+          "type": "string",
+          "const": "json"
+        },
+        {
+          "description": "A decimal integer, readable with `int(value.decode())`.",
+          "type": "string",
+          "const": "number"
+        },
+        {
+          "description": "Plain text, readable with `value.decode()`.",
+          "type": "string",
+          "const": "text"
+        }
+      ]
+    }
+  }
+}

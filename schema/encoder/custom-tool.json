@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CustomTool",
+  "description": "One accepted custom executable saved in app settings.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "description": "Executable family, keyed by the engine encoder: `aom`, `svt-av1`, `rav1e`, `vpx`,\n`avm`, `x264`, `x265`, `vvenc`, or `ffmpeg` for muxing.",
+      "type": "string"
+    },
+    "path": {
+      "description": "Absolute path to the executable.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "path"
+  ]
+}

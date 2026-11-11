@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LogExport",
+  "description": "An anonymised export, returned as a preview before the user saves it.",
+  "type": "object",
+  "properties": {
+    "replacements": {
+      "description": "Placeholder to the original value it replaced, so the user can audit redactions.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "text": {
+      "description": "The transformed log text.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "replacements"
+  ]
+}

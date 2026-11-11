@@ -1,0 +1,5 @@
+# Keep Cargo output under the repository's single build-output root. The root
+# `.cargo/config.toml` is ignored because it holds machine-local cache settings; this
+# workspace file is committed so direct Cargo and IDE builds use the same target.
+[build]
+target-dir = "../dist/cargo"

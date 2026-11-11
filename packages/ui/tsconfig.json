@@ -1,0 +1,8 @@
+{
+    "extends": "../config/tsconfig.base.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "../../dist/tsbuildinfo/ui.tsbuildinfo",
+        "types": ["vite/client"]
+    },
+    "include": ["src"]
+}

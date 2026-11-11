@@ -1,0 +1,96 @@
+name: CI
+
+on:
+    push:
+        branches: [main, condor]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    web:
+        name: Web checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - run: npm ci
+            - run: npm run format:check:web
+            - run: npm run lint:js
+            - run: npm run typecheck
+            - run: npm run check:feature-boundaries
+            - run: npm run check:api-json
+            - run: npm run test:web:coverage
+            - run: npm run check:docs
+            - run: npm run build
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: coverage
+                  path: dist/coverage/
+                  if-no-files-found: warn
+
+    rust:
+        name: Rust checks
+        runs-on: windows-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+                  components: rustfmt, clippy
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+            - run: npm run check:service-modules
+            - run: npm run format:check:rust
+            - run: npm run lint:rust
+            - run: npm run test:rust
+            - run: npm run contracts:check
+            - run: npm run routes:check
+            - run: npm run version:check
+
+    e2e:
+        name: Browser smoke
+        runs-on: windows-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+            - run: npx playwright install chromium
+            - run: npm run test:e2e
+              env:
+                  CI: "true"
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: playwright
+                  path: |
+                      dist/playwright-report/
+                      dist/test-results/
+                  if-no-files-found: warn

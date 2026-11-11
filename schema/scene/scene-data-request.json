@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneDataRequest",
+  "description": "Replace one scene's custom sequence data.\n\nThe map is the whole document for that scene, so removing a pair and saving the rest\nis one request. Keys are Python identifiers because a script reads them as attributes;\na key that collides with an engine field is refused rather than allowed to shadow it.",
+  "type": "object",
+  "properties": {
+    "values": {
+      "description": "Replacement pairs; an empty map clears the scene's custom data.",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "values"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatMethodName",
+  "description": "The muxer a concatenation inventory describes.\n\nThe two muxers number source streams in independent namespaces: mkvmerge uses the IDs\nfrom `--identify`, FFmpeg uses the source stream index. A caller must never translate one\ninto the other.",
+  "oneOf": [
+    {
+      "description": "Matroska-native muxing through `mkvmerge`.",
+      "type": "string",
+      "const": "mkvmerge"
+    },
+    {
+      "description": "Remuxing through FFmpeg.",
+      "type": "string",
+      "const": "ffmpeg"
+    }
+  ]
+}

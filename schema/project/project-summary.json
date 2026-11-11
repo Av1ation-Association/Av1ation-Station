@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectSummary",
+  "description": "One row in the Home project list.",
+  "type": "object",
+  "properties": {
+    "accessed_at": {
+      "description": "Last-opened timestamp in UTC ISO-8601 form.",
+      "type": "string"
+    },
+    "completed_videos": {
+      "description": "Videos whose concatenated output exists and is non-empty, derived at read time.",
+      "type": "integer",
+      "format": "uint32",
+      "default": 0,
+      "minimum": 0
+    },
+    "created_at": {
+      "description": "Creation timestamp in UTC ISO-8601 form.",
+      "type": "string"
+    },
+    "id": {
+      "description": "Stable project identifier: a UUID v4 string, also the directory name.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Human-readable project name.",
+      "type": "string"
+    },
+    "path": {
+      "description": "Filesystem path to the project directory.",
+      "type": "string"
+    },
+    "size_bytes": {
+      "description": "Total bytes occupied by the project and its temporary data.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "video_count": {
+      "description": "Number of videos currently in the project queue.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "path",
+    "size_bytes",
+    "video_count",
+    "created_at",
+    "accessed_at"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VapourSynthImporter",
+  "description": "The VapourSynth source plugin that imports a video into the decode graph.",
+  "oneOf": [
+    {
+      "description": "FFmpegSource, which needs no index file of its own.",
+      "type": "string",
+      "const": "ffms2"
+    },
+    {
+      "description": "BestSource, the engine's default and the fastest of the four for most sources.",
+      "type": "string",
+      "const": "best_source"
+    },
+    {
+      "description": "L-SMASH-Works.",
+      "type": "string",
+      "const": "lsmash"
+    },
+    {
+      "description": "DGDecodeNV, which needs the `dgindexnv` executable.",
+      "type": "string",
+      "const": "dgdecnv"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptCheckRequest",
+  "description": "A script to evaluate before it is saved.",
+  "type": "object",
+  "properties": {
+    "script": {
+      "description": "The Python source, exactly as it would be stored.",
+      "type": "string"
+    },
+    "sequence_config": {
+      "description": "The sequence document the page has open.\n\nA script reads it as `condor.sequence_config`, so the check has to receive the values\nthe page would save rather than the engine defaults. Absent means the caller has no\nconfiguration to check against, and the defaults are used.",
+      "default": null
+    },
+    "video_path": {
+      "description": "The source file the script should open, when the page knows one.\n\nA script is checked against the video the page is editing; the project template has\nno video, so it is absent there and a script that opens a file cannot be checked.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "script"
+  ]
+}

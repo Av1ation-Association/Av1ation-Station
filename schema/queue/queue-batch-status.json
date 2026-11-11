@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueueBatchStatus",
+  "description": "The live batch a project is running.\n\nA batch is execution state, not pipeline state: it exists only while the service is\nwalking the list, and every row's own progress still comes from its checkpoint. A\nrestart therefore reports no batch rather than resuming a stale one.",
+  "type": "object",
+  "properties": {
+    "active": {
+      "description": "Whether a batch is running right now.",
+      "type": "boolean"
+    },
+    "current_video_id": {
+      "description": "The video the batch is running, when one is active.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_id": {
+      "description": "The project whose queue the batch belongs to.",
+      "type": "string"
+    },
+    "remaining": {
+      "description": "How many videos have not started yet.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "total": {
+      "description": "How many videos the batch was asked to run.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "active",
+    "total",
+    "remaining"
+  ]
+}

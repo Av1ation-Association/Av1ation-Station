@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolSourceUpdate",
+  "description": "Replace the source one capability uses.\n\nThe write is immediate, but VapourSynth takes effect only on the next start because\nVSScript and its bundled Python initialise once per process. `null` removes the entry\nand restores automatic selection.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "The capability id, for example `vapoursynth`.",
+      "type": "string"
+    },
+    "source": {
+      "description": "`bundled`, `system`, or `null` to choose automatically.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ]
+}

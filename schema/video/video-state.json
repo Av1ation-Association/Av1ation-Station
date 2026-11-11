@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoState",
+  "description": "A video's derived pipeline state.\n\nEvery field is computed from the engine's stored data, the run progress, the files on\ndisk, and the run history. Nothing here is persisted, so it cannot disagree with the\nencoder.",
+  "type": "object",
+  "properties": {
+    "active": {
+      "description": "Whether an encode currently owns the singleton.",
+      "type": "boolean"
+    },
+    "failure": {
+      "description": "The latest run's failure, when the run after it has not completed or been cancelled.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VideoFailure"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next": {
+      "description": "The sequences that may run right now, in pipeline order. More than one may be valid.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "output_exists": {
+      "description": "Whether the concatenated output exists and is non-empty.",
+      "type": "boolean"
+    },
+    "retained_bytes": {
+      "description": "Bytes retained under this video's temporary directory.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "run_id": {
+      "description": "The active run's correlation id, when there is one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scene_count": {
+      "description": "Number of scenes the engine has detected, zero before scene detection.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "script_data": {
+      "description": "The reserved variables each script input will receive, in configuration order.\nEmpty when this video has no VapourSynth-script input.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ScriptData"
+      }
+    },
+    "sequences": {
+      "description": "Every sequence this build can run, in pipeline order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SequenceState"
+      }
+    },
+    "video_id": {
+      "description": "The video this state describes.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_id",
+    "scene_count",
+    "sequences",
+    "next",
+    "active",
+    "output_exists",
+    "retained_bytes",
+    "script_data"
+  ],
+  "$defs": {
+    "ScriptData": {
+      "description": "One script input and the reserved variables its next open will receive.",
+      "type": "object",
+      "properties": {
+        "input": {
+          "description": "Configuration path of the input, for example `input` or\n`sequences.parallel_encoder.input`.",
+          "type": "string"
+        },
+        "keys": {
+          "description": "One row per reserved key, in the runner's insertion order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScriptDataKey"
+          }
+        },
+        "sequence": {
+          "description": "The sequence whose open will see these values; empty when no sequence is due.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "sequence",
+        "keys"
+      ]
+    },
+    "ScriptDataFormat": {
+      "description": "How a script variable's value is meant to be read once Python receives it.",
+      "oneOf": [
+        {
+          "description": "A JSON document, readable with `json.loads`.",
+          "type": "string",
+          "const": "json"
+        },
+        {
+          "description": "A decimal integer, readable with `int(value.decode())`.",
+          "type": "string",
+          "const": "number"
+        },
+        {
+          "description": "Plain text, readable with `value.decode()`.",
+          "type": "string",
+          "const": "text"
+        }
+      ]
+    },
+    "ScriptDataKey": {
+      "description": "One reserved variable the runner injects into a custom script, with its current value.\n\nA large value is sent as a bounded preview so the state response stays small; `bytes`\nstill reports the full length and `truncated` says whether `value` is a prefix.",
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "description": "Full length of the injected string in bytes.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "description": {
+          "description": "What the value contains, in the words the script editor shows.",
+          "type": "string"
+        },
+        "format": {
+          "description": "How the value is read in Python.",
+          "$ref": "#/$defs/ScriptDataFormat"
+        },
+        "key": {
+          "description": "The exact VSScript variable name, for example `condor_scenes`.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the runner derives the value, for example `condor.scenes`.",
+          "type": "string"
+        },
+        "truncated": {
+          "description": "Whether `value` is a prefix of the injected string rather than the whole value.",
+          "type": "boolean"
+        },
+        "value": {
+          "description": "The value as the engine injects it; bounded when `truncated` is true.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "description",
+        "source",
+        "format",
+        "value",
+        "truncated",
+        "bytes"
+      ]
+    },
+    "SequenceRunStatus": {
+      "description": "The state of one sequence for one video, derived from the engine's data and the files\non disk.\n\nThe order of this enum is not meaningful; a sequence moves between these states as the\ndata and the files change, and nothing stores it.",
+      "oneOf": [
+        {
+          "description": "The sequence has not produced its data, or the data its prerequisites need is absent.",
+          "type": "string",
+          "const": "never_run"
+        },
+        {
+          "description": "An earlier attempt stopped before the source was covered, and the stored data is a\nvalid prefix the next attempt resumes from. Scene Detector is the incremental case.",
+          "type": "string",
+          "const": "incomplete"
+        },
+        {
+          "description": "The sequence's own data (or, for the encoder and concatenator, its files) is present.",
+          "type": "string",
+          "const": "complete"
+        },
+        {
+          "description": "A live run is executing this sequence.",
+          "type": "string",
+          "const": "active"
+        },
+        {
+          "description": "The last attempt failed, as recorded by the timeline.",
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "description": "The sequence is not part of this video's chain.",
+          "type": "string",
+          "const": "skipped"
+        }
+      ]
+    },
+    "SequenceState": {
+      "description": "One sequence's state for one video.",
+      "type": "object",
+      "properties": {
+        "detail": {
+          "description": "Short human-readable evidence for the state, for example `42/48 scenes encoded`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "The sequence id the run route accepts, for example `SceneDetector`.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The engine's display name for the sequence.",
+          "type": "string"
+        },
+        "progress": {
+          "description": "Completion percentage: live while the sequence is `Active`, and the fraction a\ncancelled detection already covered while it is `Incomplete`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "maximum": 100.0,
+          "minimum": 0.0
+        },
+        "runnable": {
+          "description": "Whether this sequence may run now, given the states above it.",
+          "type": "boolean"
+        },
+        "status": {
+          "description": "The derived state.",
+          "$ref": "#/$defs/SequenceRunStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "status",
+        "runnable"
+      ]
+    },
+    "VideoFailure": {
+      "description": "The last run that failed, with the reason the engine reported.\n\nA run can fail before its first sequence starts, so this is run history rather than a\nsequence status: it is recorded in the timeline and never decides a pipeline phase.",
+      "type": "object",
+      "properties": {
+        "at": {
+          "description": "UTC ISO-8601 instant the failure was reported.",
+          "type": "string"
+        },
+        "message": {
+          "description": "The engine's message; may contain a multi-line traceback.",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "The failed run's correlation id, so its log can be found.",
+          "type": "string"
+        },
+        "sequence": {
+          "description": "The sequence the failed run reached, or `None` when it failed before sequence 1.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "at",
+        "run_id"
+      ]
+    }
+  }
+}

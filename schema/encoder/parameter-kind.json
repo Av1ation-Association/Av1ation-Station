@@ -1,0 +1,519 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ParameterKind",
+  "description": "The value type and all of its constraints for one parameter.\n\nThe kind is closed so an ill-typed constraint cannot be built. A `Flag` is a parameter\nthe engine emits when true and omits when false; a boolean spelled `0`/`1` by the CLI is\na two-value `Choice`, not a `Flag`.",
+  "oneOf": [
+    {
+      "description": "Boolean flag with no value.",
+      "type": "string",
+      "const": "Flag"
+    },
+    {
+      "description": "A number, optionally bounded.",
+      "type": "object",
+      "properties": {
+        "Number": {
+          "$ref": "#/$defs/NumberSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Number"
+      ]
+    },
+    {
+      "description": "Text, optionally with a maximum length and a pattern.",
+      "type": "object",
+      "properties": {
+        "Text": {
+          "$ref": "#/$defs/TextSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Text"
+      ]
+    },
+    {
+      "description": "One or more values from a fixed set.",
+      "type": "object",
+      "properties": {
+        "Choice": {
+          "$ref": "#/$defs/ChoiceSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Choice"
+      ]
+    },
+    {
+      "description": "A file or directory path.",
+      "type": "object",
+      "properties": {
+        "Path": {
+          "$ref": "#/$defs/PathSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Path"
+      ]
+    },
+    {
+      "description": "A duration in the unit the encoder expects.",
+      "type": "object",
+      "properties": {
+        "Duration": {
+          "$ref": "#/$defs/DurationSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Duration"
+      ]
+    },
+    {
+      "description": "A list encoded into one delimited string.",
+      "type": "object",
+      "properties": {
+        "Collection": {
+          "$ref": "#/$defs/CollectionSpec"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Collection"
+      ]
+    }
+  ],
+  "$defs": {
+    "Choice": {
+      "description": "One value of a choice parameter.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Optional explanation shown beside the label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "doc_link": {
+          "description": "Documentation link for this value.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the user reads.",
+          "type": "string"
+        },
+        "value": {
+          "description": "What the encoder receives.",
+          "$ref": "#/$defs/ParameterValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "label"
+      ]
+    },
+    "ChoiceSpec": {
+      "description": "Constraints on a choice parameter.",
+      "type": "object",
+      "properties": {
+        "max_selected": {
+          "description": "Most selections accepted, when there is a limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_selected": {
+          "description": "Fewest selections accepted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "multiple": {
+          "description": "Whether more than one option may be selected.",
+          "type": "boolean"
+        },
+        "options": {
+          "description": "Every accepted value, with the label the user reads.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Choice"
+          }
+        },
+        "value_kind": {
+          "description": "Declared value type; absent on descriptors authored before the distinction,\nwhere the options themselves decide.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChoiceValueKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "options",
+        "multiple",
+        "min_selected"
+      ]
+    },
+    "ChoiceValueKind": {
+      "description": "The value type a choice parameter's options carry.\n\nA choice is not always text: an encoder that spells a mode as `0`, `1`, `2` still\nwants \"Main\", \"High\", \"Professional\" in the editor, and the editor must know that\nthe value it stores is a number rather than the label it draws.",
+      "oneOf": [
+        {
+          "description": "Options are text values.",
+          "type": "string",
+          "const": "Text"
+        },
+        {
+          "description": "Options are numeric values with human labels.",
+          "type": "string",
+          "const": "Number"
+        }
+      ]
+    },
+    "CollectionItemKind": {
+      "description": "The value type of one collection item.",
+      "oneOf": [
+        {
+          "description": "A number item.",
+          "type": "object",
+          "properties": {
+            "Number": {
+              "$ref": "#/$defs/NumberSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Number"
+          ]
+        },
+        {
+          "description": "A text item.",
+          "type": "object",
+          "properties": {
+            "Text": {
+              "$ref": "#/$defs/TextSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Text"
+          ]
+        },
+        {
+          "description": "A choice item.",
+          "type": "object",
+          "properties": {
+            "Choice": {
+              "$ref": "#/$defs/ChoiceSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Choice"
+          ]
+        },
+        {
+          "description": "A path item.",
+          "type": "object",
+          "properties": {
+            "Path": {
+              "$ref": "#/$defs/PathSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Path"
+          ]
+        },
+        {
+          "description": "A duration item.",
+          "type": "object",
+          "properties": {
+            "Duration": {
+              "$ref": "#/$defs/DurationSpec"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Duration"
+          ]
+        }
+      ]
+    },
+    "CollectionSpec": {
+      "description": "Constraints on a collection parameter.",
+      "type": "object",
+      "properties": {
+        "item": {
+          "description": "The kind of every item. A flag or a nested collection is not a value, so the item\nkind excludes both; that also keeps the schema acyclic.",
+          "$ref": "#/$defs/CollectionItemKind"
+        },
+        "max_items": {
+          "description": "Most items accepted, when there is a limit.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_items": {
+          "description": "Fewest items accepted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "separator": {
+          "description": "Separator used to encode the list into one argument.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "separator",
+        "min_items"
+      ]
+    },
+    "DurationSpec": {
+      "description": "Constraints on a duration parameter.",
+      "type": "object",
+      "properties": {
+        "max": {
+          "description": "Largest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "description": "Smallest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "unit": {
+          "description": "Unit the value is expressed in.",
+          "$ref": "#/$defs/DurationUnit"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit"
+      ]
+    },
+    "DurationUnit": {
+      "description": "The unit a duration parameter is expressed in.",
+      "oneOf": [
+        {
+          "description": "Whole seconds.",
+          "type": "string",
+          "const": "Seconds"
+        },
+        {
+          "description": "Milliseconds.",
+          "type": "string",
+          "const": "Milliseconds"
+        },
+        {
+          "description": "Frame count.",
+          "type": "string",
+          "const": "Frames"
+        }
+      ]
+    },
+    "NumberSpec": {
+      "description": "Constraints on a number parameter.",
+      "type": "object",
+      "properties": {
+        "integer": {
+          "description": "Whether the value must be an integer.",
+          "type": "boolean"
+        },
+        "max": {
+          "description": "Largest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "description": "Smallest accepted value, when one is known.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "step": {
+          "description": "Increment the editor offers.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "unit": {
+          "description": "Unit shown beside the value, for example `kbps`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "integer"
+      ]
+    },
+    "ParameterScalar": {
+      "description": "One item of a [`ParameterValue::List`].",
+      "anyOf": [
+        {
+          "description": "A boolean item.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number item.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "A text item.",
+          "type": "string"
+        }
+      ]
+    },
+    "ParameterValue": {
+      "description": "A value a parameter can carry.\n\nIt is untagged on the wire, so a choice is written as the literal `0`, `\"2\"`, or `true`\nrather than a wrapper object. The enum exists so generated TypeScript and Zod describe\nexactly these variants instead of `unknown`.",
+      "anyOf": [
+        {
+          "description": "An explicit null, for a parameter whose unset state is meaningful.",
+          "type": "null"
+        },
+        {
+          "description": "A boolean.",
+          "type": "boolean"
+        },
+        {
+          "description": "A number; integers are not a separate variant.",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "description": "Text.",
+          "type": "string"
+        },
+        {
+          "description": "A flat list of scalars, for a collection parameter. Nested lists are not a value a\nCLI parameter can carry, so the recursion stops here.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterScalar"
+          }
+        }
+      ]
+    },
+    "PathSpec": {
+      "description": "Constraints on a path parameter.",
+      "type": "object",
+      "properties": {
+        "accept": {
+          "description": "Suggested file extensions, without the leading dot.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "directory": {
+          "description": "Whether the path must be a directory.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "accept"
+      ]
+    },
+    "TextFormat": {
+      "description": "The well-known shape of a text value, when the encoder states one.\n\nA format is evidence from the help text, not a guess: the editor validates the value and\nthe service still stores exactly what the encoder accepts.",
+      "oneOf": [
+        {
+          "description": "An email address.",
+          "type": "string",
+          "const": "Email"
+        },
+        {
+          "description": "An absolute or relative URL.",
+          "type": "string",
+          "const": "Url"
+        },
+        {
+          "description": "An ISO-8601 date or date-time.",
+          "type": "string",
+          "const": "DateTime"
+        }
+      ]
+    },
+    "TextSpec": {
+      "description": "Constraints on a text parameter.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "A well-known value shape the editor validates, when the encoder states one.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextFormat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_len": {
+          "description": "Maximum character count.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "multiline": {
+          "description": "Whether the editor should offer a multi-line field.",
+          "type": "boolean"
+        },
+        "pattern": {
+          "description": "Regular expression the whole value must match.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "multiline"
+      ]
+    }
+  }
+}

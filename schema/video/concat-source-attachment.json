@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatSourceAttachment",
+  "description": "One source attachment the selected muxer reports.",
+  "type": "object",
+  "properties": {
+    "description": {
+      "description": "Description when the container records one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "key": {
+      "description": "The muxer's attachment identifier. It shares a numeric namespace with track IDs for\nmkvmerge, which is why `selectable` is false there.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "label": {
+      "description": "The file name the attachment carries.",
+      "type": "string"
+    },
+    "mime_type": {
+      "description": "MIME type when the container records one.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "selectable": {
+      "description": "Whether the workbench may include or drop this attachment individually.",
+      "type": "boolean"
+    },
+    "size_bytes": {
+      "description": "Size in bytes when the probe reports it.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "default": null,
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "label",
+    "selectable"
+  ]
+}

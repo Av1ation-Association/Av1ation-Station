@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MediaTicket",
+  "description": "A repeatable credential for the media routes a `<video>` element opens.\n\nA media element makes many requests for one source — range requests, a new element per\nscene, a still per paused frame — and cannot attach an Authorization header to any of\nthem. A one-use ticket would be consumed by the first range request, so this ticket is\nreusable until its session is revoked, and the listener accepts it only on a GET for a\nmedia or frame route. It is never the bearer token: a leaked media URL cannot change\nconfiguration, start an encode, or read project data.",
+  "type": "object",
+  "properties": {
+    "ticket": {
+      "description": "Opaque ticket for one paired session; valid while that session is.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ticket"
+  ]
+}

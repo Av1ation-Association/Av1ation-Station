@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectUpdateRequest",
+  "description": "The request that renames a project or replaces its description.\n\nAn absent field is left unchanged; an empty description clears it, because a patch\ncannot otherwise distinguish \"clear this\" from \"do not touch it\".",
+  "type": "object",
+  "properties": {
+    "description": {
+      "description": "Replacement description; an empty string clears it.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "New display name, validated like the create request.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

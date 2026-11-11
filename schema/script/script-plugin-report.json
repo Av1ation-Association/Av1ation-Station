@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptPluginReport",
+  "description": "VapourSynth plugin problems a stored document would hit before a video is queued.\n\nThe rows are the same ones `VideoValidation` carries; this report exists because a\nproject or template has no video to validate. `error` is separate because a script whose\nfile cannot be read is a different failure from a plugin that is not installed, and\npresenting it as a missing namespace would send the user looking for the wrong fix.",
+  "type": "object",
+  "properties": {
+    "error": {
+      "description": "Why the scripts could not be checked, when the stored document was unreadable.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "problems": {
+      "description": "References the scripts make that the loaded core does not provide.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VapourSynthPluginProblem"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "problems"
+  ],
+  "$defs": {
+    "VapourSynthPluginProblem": {
+      "description": "One VapourSynth plugin reference a run would use but the loaded core does not provide.\n\nThe namespace and the script section stay separate so the Video page can render the\nplugin name beside the input that calls it, instead of asking the user to read it out of\na sentence.",
+      "type": "object",
+      "properties": {
+        "context": {
+          "description": "The script section that made the call, for example `Encoding`.",
+          "type": "string"
+        },
+        "detail": {
+          "description": "One sentence naming the section and what is missing.",
+          "type": "string"
+        },
+        "function": {
+          "description": "The function inside an installed namespace, when only that function is missing.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "namespace": {
+          "description": "The plugin namespace, for example `hqdn3d`.",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "What to install or remove to make the reference valid.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "namespace",
+        "detail",
+        "remediation"
+      ]
+    }
+  }
+}

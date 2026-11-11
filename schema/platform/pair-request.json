@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PairRequest",
+  "description": "A browser asking to exchange a pairing code for a bearer token.",
+  "type": "object",
+  "properties": {
+    "shortcode": {
+      "description": "The code shown in Settings, with or without its hyphen.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "shortcode"
+  ]
+}

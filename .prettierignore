@@ -1,0 +1,27 @@
+# Build and dependency output
+node_modules/
+dist/
+target/
+coverage/
+playwright-report/
+test-results/
+.cache/
+
+# Generated or machine-owned inputs
+schema/
+packages/contracts/src/index.ts
+packages/contracts/src/versions.ts
+fixtures/
+package-lock.json
+Cargo.lock
+
+# Design and review artifacts
+design/
+docs/
+*.md
+screenshots/
+.cargo/
+.cloud-attachments/
+
+# Tool-owned schemas
+rust/desktop-shell/gen/schemas/

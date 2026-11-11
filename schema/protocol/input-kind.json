@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InputKind",
+  "description": "How the project decodes the sources of videos added to its queue.",
+  "oneOf": [
+    {
+      "description": "Native FFMS2 decode; requires no optional dependency.",
+      "type": "string",
+      "const": "ffms2"
+    },
+    {
+      "description": "VapourSynth decode through the project's selected import method.",
+      "type": "string",
+      "const": "vapour_synth"
+    },
+    {
+      "description": "A VapourSynth script file the engine loads and feeds its scene variables to.",
+      "type": "string",
+      "const": "vapour_synth_script"
+    }
+  ]
+}

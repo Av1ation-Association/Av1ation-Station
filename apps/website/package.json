@@ -1,0 +1,16 @@
+{
+    "name": "@av1ation/website",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@av1ation/api": "*",
+        "@av1ation/ui": "*",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1"
+    }
+}

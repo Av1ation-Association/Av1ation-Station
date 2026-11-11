@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EffectiveConfig",
+  "description": "Every configuration leaf with its provenance.\n\nThe map is keyed by a dotted path into the configuration document\n(`sequences.target_quality.maximum_probes`). A leaf is any non-object value, so a list\nis one leaf and replaces as a unit; an object is a section whose keys resolve\nindividually.",
+  "type": "object",
+  "properties": {
+    "updated_at": {
+      "description": "When the project configuration was last written, in UTC ISO-8601 form.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "values": {
+      "description": "Dotted leaf path to its effective value and source.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ResolvedValue"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "values"
+  ],
+  "$defs": {
+    "ResolvedValue": {
+      "description": "One configuration leaf and the level it resolved from.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Which level supplied the value.",
+          "$ref": "#/$defs/ValueSource"
+        },
+        "value": {
+          "description": "The effective value of this leaf."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "source"
+      ]
+    },
+    "ValueSource": {
+      "description": "The uniform error envelope returned by the service.\nWhere one resolved configuration leaf came from.",
+      "oneOf": [
+        {
+          "description": "The engine's own default; neither the project nor the video set it.",
+          "type": "string",
+          "const": "default"
+        },
+        {
+          "description": "The project sets it and the video does not override it.",
+          "type": "string",
+          "const": "inherited"
+        },
+        {
+          "description": "The video sets it.",
+          "type": "string",
+          "const": "overridden"
+        }
+      ]
+    }
+  }
+}

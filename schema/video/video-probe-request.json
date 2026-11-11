@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoProbeRequest",
+  "description": "The optional input document a probe should open.\n\nGeneral's probe omits it and the service opens the video's own input. A sequence\noverride sends its own document, because the clip details belong to the graph that\noverride decodes, not to General's. An absent field keeps the older request shape\nworking: the client posts `{}` when it probes the video itself.",
+  "type": "object",
+  "properties": {
+    "input": {
+      "description": "Engine `Input` JSON; when absent, the video's General input."
+    }
+  },
+  "additionalProperties": false
+}

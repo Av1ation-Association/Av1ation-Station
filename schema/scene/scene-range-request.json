@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneRangeRequest",
+  "description": "Change one scene's boundaries from the Scenes details panel.\n\nThe range is not clamped to its neighbours: a narrowed range leaves a gap and a widened\none overlaps, and the validation strip reports both. Editing a boundary never silently\nmoves another scene.",
+  "type": "object",
+  "properties": {
+    "end_frame": {
+      "description": "Last frame, exclusive. Must be greater than `start_frame`.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "start_frame": {
+      "description": "First frame, inclusive.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "start_frame",
+    "end_frame"
+  ]
+}

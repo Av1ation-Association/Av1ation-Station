@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptCheck",
+  "description": "One script evaluation result.",
+  "type": "object",
+  "properties": {
+    "clip": {
+      "description": "The clip the script returned, present only for `Valid`.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScriptClip"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detail": {
+      "description": "What happened, in the words the editor shows; the interpreter's own message on failure.",
+      "type": "string"
+    },
+    "status": {
+      "description": "The outcome.",
+      "$ref": "#/$defs/ScriptCheckStatus"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "detail"
+  ],
+  "$defs": {
+    "ScriptCheckStatus": {
+      "description": "Whether the service could evaluate a script.",
+      "oneOf": [
+        {
+          "description": "The script evaluated and returned a clip.",
+          "type": "string",
+          "const": "valid"
+        },
+        {
+          "description": "The script failed: a syntax error, a missing module, or a runtime exception.",
+          "type": "string",
+          "const": "invalid"
+        },
+        {
+          "description": "This machine cannot evaluate a script, usually because VapourSynth is absent.",
+          "type": "string",
+          "const": "unavailable"
+        }
+      ]
+    },
+    "ScriptClip": {
+      "description": "The clip a validated script returned.",
+      "type": "object",
+      "properties": {
+        "bit_depth": {
+          "description": "Bit depth of the clip's pixel format.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "fps": {
+          "description": "Frames per second, as the script's output node reports it.",
+          "type": "number",
+          "format": "double"
+        },
+        "frames": {
+          "description": "Frame count the script reported.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "height": {
+          "description": "Decoded height in pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "width": {
+          "description": "Decoded width in pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "frames",
+        "fps",
+        "bit_depth"
+      ]
+    }
+  }
+}

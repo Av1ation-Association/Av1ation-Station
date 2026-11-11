@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneEncoderRequest",
+  "description": "Write one complete encoder document to the selected scenes.\n\nThe encoder is a section replacement: switching variants must not leave the previous\nvariant's options beside the new one.",
+  "type": "object",
+  "properties": {
+    "encoder": {
+      "description": "The complete engine `Encoder` document to write."
+    },
+    "scenes": {
+      "description": "Scene indices in engine order. Duplicates are harmless; the empty list is rejected.",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "scenes",
+    "encoder"
+  ]
+}

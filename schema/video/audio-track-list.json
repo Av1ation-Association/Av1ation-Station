@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AudioTrackList",
+  "description": "The audio streams of one media source.",
+  "type": "object",
+  "properties": {
+    "detail": {
+      "description": "What the player should say when the list is empty or incomplete.",
+      "type": "string"
+    },
+    "tracks": {
+      "description": "Streams in container order. Empty means selection is unavailable, not that the video\nis silent: `detail` says why.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AudioTrack"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "tracks",
+    "detail"
+  ],
+  "$defs": {
+    "AudioTrack": {
+      "description": "One audio stream the preview can play.\n\nThe browser cannot switch a `<video>` element's audio track, and the engine's decoder\ngraph is not exposed to the page. The service therefore lists the container's audio\nstreams and serves a selected one as its own audio-only file.",
+      "type": "object",
+      "properties": {
+        "channels": {
+          "description": "Channel count when it can be read from the stream description.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "codec": {
+          "description": "Codec name as the container reports it, for example `aac` or `opus`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": {
+          "description": "Whether the container marks this stream as the default.",
+          "type": "boolean"
+        },
+        "index": {
+          "description": "Zero-based index among audio streams, which is ffmpeg's `0:a:N` selector.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "label": {
+          "description": "A complete label for the player's selector.",
+          "type": "string"
+        },
+        "language": {
+          "description": "ISO 639 language tag when the container carries one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "label",
+        "default"
+      ]
+    }
+  }
+}

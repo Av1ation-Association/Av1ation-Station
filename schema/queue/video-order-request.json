@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoOrderRequest",
+  "description": "The replacement queue order, sent as the full list so a stale client cannot drop or\nduplicate a video.",
+  "type": "object",
+  "properties": {
+    "video_ids": {
+      "description": "Every video id, in the new order; must be a permutation of the current queue.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_ids"
+  ]
+}

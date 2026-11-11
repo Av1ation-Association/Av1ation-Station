@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PythonInterpreter",
+  "description": "One Python interpreter the machine can be pointed at.\n\nThe picker needs the same three facts the row states — path, version, and how the file\nwas found — because two installs can share a version and only the path tells them apart.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "description": "Absolute path to the interpreter executable, as it will be forwarded to a server.",
+      "type": "string"
+    },
+    "source": {
+      "description": "How it was found: `setting`, `path`, `virtual_env`, `conda_prefix`, `launcher`, or\n`bundled`.",
+      "type": "string"
+    },
+    "version": {
+      "description": "The version it reported; absent when it did not answer.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "path",
+    "source"
+  ]
+}

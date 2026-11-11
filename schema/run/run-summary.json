@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunSummary",
+  "description": "One run of one video, as the log viewer's run selector lists it.\n\nA run exists once its log directory does. The outcome comes from the timeline's\nrun-level record; a run that is still live has none yet.",
+  "type": "object",
+  "properties": {
+    "ended_at": {
+      "description": "UTC ISO-8601 instant of the terminal record, when there is one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "description": "The engine's terminal message, when it recorded one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outcome": {
+      "description": "The run's terminal outcome, or `running` while it holds the lock.",
+      "$ref": "#/$defs/RunOutcome"
+    },
+    "run_id": {
+      "description": "The run id that addresses its log.",
+      "type": "string"
+    },
+    "started_at": {
+      "description": "UTC ISO-8601 instant the log was opened.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "started_at",
+    "outcome"
+  ],
+  "$defs": {
+    "RunOutcome": {
+      "description": "How a run ended, or whether it is still running.",
+      "oneOf": [
+        {
+          "description": "The run holds the encode lock and has not produced a terminal event.",
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "description": "Every requested sequence finished.",
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "description": "The user asked the run to stop.",
+          "type": "string",
+          "const": "cancelled"
+        },
+        {
+          "description": "The runner or a sequence reported a failure.",
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "description": "The log predates the run-level timeline record, so its outcome is unknown.",
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    }
+  }
+}

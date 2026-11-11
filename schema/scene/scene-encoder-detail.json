@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneEncoderDetail",
+  "description": "One scene's encoder document, for the sheet that edits a selection.\n\nA scene's encoder is a complete engine document, not a sparse patch, so it is fetched\nfor one scene rather than embedded in a table that may carry thousands of them.",
+  "type": "object",
+  "properties": {
+    "encoder": {
+      "description": "The engine `Encoder` document this scene currently carries."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "encoder"
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneList",
+  "description": "The scene table one video's Scenes tab renders.",
+  "type": "object",
+  "properties": {
+    "scene_fingerprint": {
+      "description": "A fingerprint of the scene table a script receives.\n\nA script's decode can read each scene's `sequence_data` — its own pairs included —\nand change the picture for that range, so the table itself is part of what a\npreview renders. The player carries this value in its preview URLs and the service\nkeys its preview cache by the same value, so a changed table opens a different\nrequest and decodes the window again instead of replaying the old bytes.",
+      "type": "string"
+    },
+    "scenes": {
+      "description": "Scenes in the engine's order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SceneView"
+      }
+    },
+    "total_frames": {
+      "description": "The end of the last scene, which is the span the timeline draws from frame zero.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "video_id": {
+      "description": "The video this table describes.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "video_id",
+    "total_frames",
+    "scene_fingerprint",
+    "scenes"
+  ],
+  "$defs": {
+    "ScenePassView": {
+      "description": "One Target Quality probe pass for one scene.\n\nThe engine stores a pass as its quantizer, the per-frame metric scores, the probe\nencode's bitrate, and two timestamps. A graph reads the distribution of those frame\nscores rather than the frames themselves, so the projection keeps the mean and the\nextremes; `frames` is how many scores the mean is over, which tells a subset probe from\na whole-scene one.",
+      "type": "object",
+      "properties": {
+        "bitrate": {
+          "description": "Probe encode bitrate in megabits per second, when the pass recorded one.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "duration_ms": {
+          "description": "Wall-clock duration of the probe encode, from the pass timestamps.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "frames": {
+          "description": "How many frame scores the mean is over; zero when the metric returned none.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "pass": {
+          "description": "Probe position, one-based, matching the `P1`–`Pn` the analytics screen labels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quantizer": {
+          "description": "Quantizer this pass encoded at, when the pass recorded one.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score": {
+          "description": "Mean of the pass's frame scores, when the metric produced any.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score_max": {
+          "description": "Highest frame score in the pass.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score_min": {
+          "description": "Lowest frame score in the pass.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pass",
+        "frames"
+      ]
+    },
+    "SceneView": {
+      "description": "One scene as the Scenes tab reads it.\n\nThe rail and the timeline render the same list, so every value is derived from the\nengine checkpoint and the retained chunk directory rather than from a second scene\ntable. A scene whose bounds are malformed is still returned with a zero frame count so\nthe screen can mark it instead of silently dropping it.",
+      "type": "object",
+      "properties": {
+        "chunk_bytes": {
+          "description": "Bytes of the retained chunk, when one exists.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "custom_data": {
+          "description": "The user's own key/value pairs for this scene.\n\nThe engine's sequence data is typed, so it drops a field it does not know when it\nloads a checkpoint. These pairs are kept beside that document instead and merged\ninto `sequence_data` when the runner builds a script's scene table; a script reads\nthem as `condor_data.scenes[i].sequence_data.<key>` without the engine ever seeing\na field it would discard.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "encode_ms": {
+          "description": "Wall-clock milliseconds Parallel Encoder spent on this scene's chunk, when it wrote one.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "encoded": {
+          "description": "Whether a retained encoded chunk exists for this scene.",
+          "type": "boolean"
+        },
+        "encoder_custom": {
+          "description": "Whether this scene carries an encoder document different from the video's effective\nencoder. Every engine scene stores a complete encoder; this is the provenance flag,\nnot a second copy of the document.",
+          "type": "boolean"
+        },
+        "encoder_fingerprint": {
+          "description": "A fingerprint of the encoder document this scene encodes and previews with.\n\nThe Encoded source renders a chunk from that document, so a chunk built before a\nsettings change is a different picture. The player carries this value in its source\nURL: a change makes it a different request, the element is reopened instead of\nreplaying the bytes it already holds, and the service rebuilds the chunk from the\ncurrent document. Absent when the video has no resolved encoder at all.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "encoder_label": {
+          "description": "Human-readable encoder this scene will use, for example `SVT-AV1`.",
+          "type": "string"
+        },
+        "end_frame": {
+          "description": "Last frame, exclusive.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "frame_count": {
+          "description": "`end_frame - start_frame`; zero for an invalid or empty range.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "index": {
+          "description": "Zero-based position in the engine's scene list, which is also the concatenation order.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "noise": {
+          "description": "Measured noise for this scene, when Noise Detector has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "noise_scaler": {
+          "description": "Scale factor Noise Scaler chose for this scene, when it has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "passes": {
+          "description": "Every Target Quality probe pass this scene recorded, in probe order.\n\nThe flattened `quantizer` and `score` above are the final pass; a chart that compares\npasses needs the whole list, and the frame-score spread is reduced here so a scene's\nevent never carries its per-frame arrays.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScenePassView"
+          }
+        },
+        "quality_score": {
+          "description": "Mean Quality Check score for this scene, when the check has run.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "quantizer": {
+          "description": "The quantizer the last Target Quality pass chose, when a pass exists.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "score": {
+          "description": "Mean score of the last Target Quality pass, when that pass recorded scores.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "speed": {
+          "description": "Encoder speed this scene currently carries, for the Speed Scaling chart.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "start_frame": {
+          "description": "First frame, inclusive.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "start_frame",
+        "end_frame",
+        "frame_count",
+        "encoded",
+        "encoder_label",
+        "encoder_custom"
+      ]
+    }
+  }
+}

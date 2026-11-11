@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SceneModelUpdate",
+  "description": "Replace the machine-level TransNetV2 model path.\n\nThis is its own endpoint rather than a field on [`AppSettingsUpdate`] because it is\nprobe-validated: a path is written only after the service confirms the file exists, so\na settings write for theme or storage cannot clear or invent a model path.",
+  "type": "object",
+  "properties": {
+    "path": {
+      "description": "Absolute path to the ONNX model, or `null` to search the engine's standard locations.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigOverrides",
+  "description": "Sparse, path-addressed configuration overrides owned by one video.\n\nA missing path means \"inherit the project value\". The resolver accepts this type at\nboth project and video scope; a video document stores the same map.",
+  "type": "object",
+  "properties": {
+    "fields": {
+      "description": "A missing path means \"inherit from the project\".",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "fields"
+  ]
+}

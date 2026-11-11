@@ -1,0 +1,16 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "Capabilities granted to the main application window.",
+    "windows": ["main"],
+    "remote": {
+        "urls": ["http://127.0.0.1:*"]
+    },
+    "permissions": [
+        "core:default",
+        "dialog:default",
+        "opener:default",
+        "opener:allow-open-path",
+        "os:default"
+    ]
+}

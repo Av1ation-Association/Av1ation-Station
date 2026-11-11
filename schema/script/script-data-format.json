@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptDataFormat",
+  "description": "How a script variable's value is meant to be read once Python receives it.",
+  "oneOf": [
+    {
+      "description": "A JSON document, readable with `json.loads`.",
+      "type": "string",
+      "const": "json"
+    },
+    {
+      "description": "A decimal integer, readable with `int(value.decode())`.",
+      "type": "string",
+      "const": "number"
+    },
+    {
+      "description": "Plain text, readable with `value.decode()`.",
+      "type": "string",
+      "const": "text"
+    }
+  ]
+}

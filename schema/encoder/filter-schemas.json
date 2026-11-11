@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FilterSchemas",
+  "description": "The engine's own JSON Schemas for the two typed input filter lists.\n\nThe filter enums belong to the engine and change with its revision, so the application\nasks for their schema at runtime instead of copying their fields into a hand-written form.",
+  "type": "object",
+  "properties": {
+    "ffms2": {
+      "description": "Native `Ffms2Filter` schema."
+    },
+    "vapour_synth": {
+      "description": "`VapourSynthFilter` schema."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ffms2",
+    "vapour_synth"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScriptClip",
+  "description": "The clip a validated script returned.",
+  "type": "object",
+  "properties": {
+    "bit_depth": {
+      "description": "Bit depth of the clip's pixel format.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "fps": {
+      "description": "Frames per second, as the script's output node reports it.",
+      "type": "number",
+      "format": "double"
+    },
+    "frames": {
+      "description": "Frame count the script reported.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "height": {
+      "description": "Decoded height in pixels.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "width": {
+      "description": "Decoded width in pixels.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "width",
+    "height",
+    "frames",
+    "fps",
+    "bit_depth"
+  ]
+}

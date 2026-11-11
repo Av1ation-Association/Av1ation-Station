@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConcatSourceInfo",
+  "description": "Chapters and global metadata from one source probe, read without changing the draft.\n\nBoth read-only sheets share this document so opening the second sheet does not start\na second media process.",
+  "type": "object",
+  "properties": {
+    "chapters": {
+      "description": "Chapters in source order. Empty when the probe failed or the source has none.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConcatChapter"
+      }
+    },
+    "chapters_detail": {
+      "description": "Why the chapter list is empty, or how many chapters it carries.",
+      "type": "string"
+    },
+    "metadata": {
+      "description": "Global tags in source order. Empty when the probe failed or the file carries none.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConcatMetadataEntry"
+      }
+    },
+    "metadata_detail": {
+      "description": "Why the metadata list is empty, or how many fields it carries.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "chapters",
+    "metadata",
+    "chapters_detail",
+    "metadata_detail"
+  ],
+  "$defs": {
+    "ConcatChapter": {
+      "description": "One chapter the source reports, as a read-only convenience beside the copy setting.",
+      "type": "object",
+      "properties": {
+        "end_seconds": {
+          "description": "End time in seconds when the probe reports one.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        },
+        "index": {
+          "description": "Zero-based position in the source's chapter list.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "start_seconds": {
+          "description": "Start time in seconds.",
+          "type": "number",
+          "format": "double"
+        },
+        "title": {
+          "description": "Chapter title when the source records one.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "start_seconds"
+      ]
+    },
+    "ConcatMetadataEntry": {
+      "description": "One global metadata tag the source reports, shown beside the copy setting.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Tag name exactly as FFmpeg prints it.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Tag value exactly as FFmpeg prints it.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ]
+    }
+  }
+}

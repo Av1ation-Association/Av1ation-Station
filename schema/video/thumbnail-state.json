@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ThumbnailState",
+  "description": "How far the keyframe thumbnail cache has progressed for one video.\n\nThe build is a background job, so a client asks for the manifest instead of waiting on\nthe extraction. A thumbnail is only addressable while its index is below `available`;\nthe remaining indices fill in as files appear.",
+  "oneOf": [
+    {
+      "description": "The keyframe extraction is running and files may already be readable.",
+      "type": "string",
+      "const": "building"
+    },
+    {
+      "description": "Every keyframe in the grid has been written.",
+      "type": "string",
+      "const": "ready"
+    },
+    {
+      "description": "The extraction ran and failed; `detail` carries FFmpeg's reason.",
+      "type": "string",
+      "const": "failed"
+    },
+    {
+      "description": "This video has no file FFmpeg can open, so there is no thumbnail grid.",
+      "type": "string",
+      "const": "unavailable"
+    }
+  ]
+}

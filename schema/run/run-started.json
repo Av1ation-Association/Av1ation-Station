@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunStarted",
+  "description": "The response returned when a run has been accepted.",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "description": "Correlation id for the run, events, cancellation, and logs.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ]
+}

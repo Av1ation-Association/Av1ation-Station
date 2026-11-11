@@ -1,5 +1,4 @@
 # ---- Rust ----
-/target
 **/target
 Cargo.lock.bak
 *.pdb
@@ -18,13 +17,17 @@ dist/
 build/
 out/
 *.tsbuildinfo
+# The language-server archive is built from its pinned lock; never commit it.
+rust/crates/service/assets/*.zip
 
 # ---- Tauri ----
-/src-tauri/target
-/src-tauri/gen/schemas
+rust/desktop-shell/gen/schemas
+rust/desktop-shell/tauri.release.generated.json
+rust/desktop-shell/tauri.system.conf.json
 
 # ---- Test output ----
 test-results/
+screenshots/
 playwright-report/
 playwright/.cache/
 coverage/
@@ -33,8 +36,8 @@ coverage/
 
 # ---- Editors / OS ----
 .idea/
+# Editor settings are local; shared launch, task, and extension configs stay tracked.
 .vscode/*
-!.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
@@ -43,6 +46,18 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---- Local toolchain (optional; kache is not required to build) ----
+# The root `.cargo/` is machine-local cache configuration. The workspace file only
+# pins the shared build-output location, so it is committed.
+.cargo/
+!rust/.cargo/
+rust/.cargo/*
+!rust/.cargo/config.toml
+.dev-cache/
+# Legacy local toolchain caches; current output lives in dist/dev-tools and dist/cache.
+# The suffix also covers a failed swap's staging copy or previous cache.
+.dev-tools*
 
 # ---- Local env / secrets ----
 .env
@@ -57,7 +72,7 @@ desktop.ini
 
 # ---- Logs and caches ----
 *.log
-logs/
+/logs/
 .cache/
 .eslintcache
 .stylelintcache
@@ -65,6 +80,14 @@ logs/
 
 # ---- Generated contracts (committed, but never hand-edited) ----
 # schema/ and packages/contracts/src/generated/ ARE committed — see docs/contracts.md
+
+# ---- Local design-audit scratch (service data, screenshots, dumped schema) ----
+.audit-*
+/analytics-*.png
+/design/penpot/.check-*.png
+/.cfg.json
+/.run-start.json
+/.dev-data/
 
 # ---- Spikes (deleted once verdicts are recorded) ----
 spikes/*/target

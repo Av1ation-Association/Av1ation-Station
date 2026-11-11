@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineRecord",
+  "description": "One attempt in a video's append-only execution history.\n\nA sequence attempt names its `sequence`; the record that closes a run has none and\ncarries the terminal message. `outcome` is `completed`, `cancelled`, or `failed`.",
+  "type": "object",
+  "properties": {
+    "ended_at": {
+      "type": "string"
+    },
+    "fps": {
+      "description": "Frames processed per second of wall-clock duration.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double"
+    },
+    "frames_processed": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "frames_total": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0
+    },
+    "message": {
+      "description": "The engine's terminal message, including a failure reason.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outcome": {
+      "description": "`completed`, `cancelled`, or `failed`.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The run this attempt belongs to.",
+      "type": "string"
+    },
+    "sequence": {
+      "description": "The sequence that ran, or `None` for the run's terminal record.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "started_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "started_at",
+    "ended_at",
+    "outcome"
+  ]
+}

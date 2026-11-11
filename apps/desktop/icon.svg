@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="180" fill="#0D1118"/>
+  <g transform="translate(267.2 224) scale(3.2)">
+    <path
+      fill="#E8EDF5"
+      fill-rule="evenodd"
+      d="M153 90 0 0 41.9178 54.4187 6.2877 71.1628 31.4384 90 6.2877 108.8372 41.9178 125.5813 0 180ZM127.8493 90 117.3699 97.3257 108.9863 90 117.3699 82.6743Z"
+    />
+  </g>
+</svg>
