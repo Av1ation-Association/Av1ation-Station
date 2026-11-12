@@ -12,6 +12,7 @@ schema/
 packages/contracts/src/index.ts
 packages/contracts/src/versions.ts
 fixtures/
+apps/website/src/gallery/
 package-lock.json
 Cargo.lock
 

@@ -1,0 +1,1873 @@
+{
+    "svt-av1": {
+        "--ac-bias": {
+            "delimiter": "Space",
+            "label": "AC bias",
+            "description": "Strength of the RD bias toward high-frequency error, from 0.0 to 8.0. Helps texture and grain retention.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": false,
+                    "min": 0,
+                    "max": 8,
+                    "step": 0.05,
+                    "unit": null
+                }
+            },
+            "default": 0.25,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--adaptive-film-grain": {
+            "delimiter": "Space",
+            "label": "Adaptive film grain",
+            "description": "0 fixed block size, 1 chooses the grain block size from the frame resolution.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Film grain",
+            "relations": []
+        },
+        "--aq-mode": {
+            "delimiter": "Space",
+            "label": "Adaptive quantisation",
+            "description": "How adaptive quantisation distributes bits across the frame and temporal layers.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance-based AV1 segments",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Delta-q prediction",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--asm": {
+            "delimiter": "Space",
+            "label": "Assembly limit",
+            "description": "Limit the instruction set the encoder may use. Unset lets it pick the fastest one this CPU supports.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "c",
+                            "label": "c",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "mmx",
+                            "label": "mmx",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "sse",
+                            "label": "sse",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "sse2",
+                            "label": "sse2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "sse3",
+                            "label": "sse3",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "ssse3",
+                            "label": "ssse3",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "sse4_1",
+                            "label": "sse4_1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "sse4_2",
+                            "label": "sse4_2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "avx",
+                            "label": "avx",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "avx2",
+                            "label": "avx2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "avx512",
+                            "label": "avx512",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "max",
+                            "label": "max",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "max",
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Diagnostics",
+            "relations": []
+        },
+        "--auto-tiling": {
+            "delimiter": "Space",
+            "label": "Automatic tiling",
+            "description": "Chooses tile rows and columns from the resolution. 0 off, 1 on (the encoder's own default).",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--avif": {
+            "delimiter": "Space",
+            "label": "Still-picture coding",
+            "description": "Optimises the bitstream for a single still image. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--chroma-qm-max": {
+            "delimiter": "Space",
+            "label": "Maximum chroma QM level",
+            "description": "Most detailed chroma quantisation matrix level from 0 to 15.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 15,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 15,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--chroma-qm-min": {
+            "delimiter": "Space",
+            "label": "Minimum chroma QM level",
+            "description": "Flattest chroma quantisation matrix level from 0 to 15.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 15,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 4,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--color-format": {
+            "delimiter": "Space",
+            "label": "Colour format",
+            "description": "Chroma format of the output. 4:4:4 keeps the most colour detail.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "YUV 4:0:0",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "YUV 4:2:0",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "YUV 4:2:2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "YUV 4:4:4",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--complex-hvs": {
+            "delimiter": "Space",
+            "label": "Complex HVS model",
+            "description": "Uses the highest-complexity HVS model for rate-distortion decisions. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--crf": {
+            "delimiter": "Space",
+            "label": "Constant Rate Factor",
+            "description": "Constant rate factor from 1 to 70 in 0.25 steps. Lower keeps more detail; equivalent to --rc 0 --aq-mode 2 --qp.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": false,
+                    "min": 1,
+                    "max": 70,
+                    "step": 0.25,
+                    "unit": null
+                }
+            },
+            "default": 25,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--enable-cdef": {
+            "delimiter": "Space",
+            "label": "CDEF",
+            "description": "0 off, 1 on (the encoder's own default). Constrained directional enhancement filter.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-dg": {
+            "delimiter": "Space",
+            "label": "Dynamic GOP",
+            "description": "0 off, 1 adapts the hierarchical structure to the content.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--enable-dlf": {
+            "delimiter": "Space",
+            "label": "Deblocking filter",
+            "description": "0 off, 1 enabled, 2 and 3 slower but more accurate filtering.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 3,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-mfmv": {
+            "delimiter": "Space",
+            "label": "Motion field motion vectors",
+            "description": "-1 automatic, 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -1,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": -1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-overlays": {
+            "delimiter": "Space",
+            "label": "Overlay pictures",
+            "description": "0 off, 1 inserts overlayer pictures as an additional reference for the base layer.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-qm": {
+            "delimiter": "Space",
+            "label": "Quantisation matrices",
+            "description": "0 off, 1 on (the encoder's own default). Uses adaptive quantisation matrices.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--enable-restoration": {
+            "delimiter": "Space",
+            "label": "Loop restoration",
+            "description": "0 off, 1 on (the encoder's own default). Enables the loop restoration filter.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-stat-report": {
+            "delimiter": "Space",
+            "label": "PSNR/SSIM report",
+            "description": "0 off, 1 prints PSNR and SSIM at the end of the encode.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Diagnostics",
+            "relations": []
+        },
+        "--enable-tf": {
+            "delimiter": "Space",
+            "label": "Temporal filtering",
+            "description": "0 off, 1 on, 2 and 3 adaptive with a stronger filter.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 3,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--enable-variance-boost": {
+            "delimiter": "Space",
+            "label": "Variance boost",
+            "description": "0 off, 1 on (the encoder's own default). Improves texture and grain retention.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--fast-decode": {
+            "delimiter": "Space",
+            "label": "Fast decode",
+            "description": "0 off; 1 and 2 trade compression for decoder speed.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--film-grain": {
+            "delimiter": "Space",
+            "label": "Film grain synthesis",
+            "description": "Synthesise grain at this strength from 1 to 50 instead of encoding source grain; 0 disables it.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 50,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Film grain",
+            "relations": []
+        },
+        "--film-grain-denoise": {
+            "delimiter": "Space",
+            "label": "Denoise before grain",
+            "description": "0 keeps source grain in the frame header, 1 derives the denoise level from the grain strength. Only applies when film grain is on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Film grain",
+            "relations": []
+        },
+        "--gop-constraint-rc": {
+            "delimiter": "Space",
+            "label": "GOP-constrained rate control",
+            "description": "Matches the target bitrate within each GOP instead of across the whole encode. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--hierarchical-levels": {
+            "delimiter": "Space",
+            "label": "Hierarchical levels",
+            "description": "Temporal layers beyond the base layer, from 2 to 5.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 2,
+                    "max": 5,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--input-depth": {
+            "delimiter": "Space",
+            "label": "Input bit depth",
+            "description": "Bits per sample of the frames handed to the encoder.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 8,
+                            "label": "8-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 10,
+                            "label": "10-bit",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--irefresh-type": {
+            "delimiter": "Space",
+            "label": "Intra refresh type",
+            "description": "Forward frame keeps an open GOP; key frame starts a closed GOP.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 1,
+                            "label": "Forward frame (open GOP)",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Key frame (closed GOP)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--keyint": {
+            "delimiter": "Space",
+            "label": "Keyframe interval",
+            "description": "Maximum GOP length in frames. -2 is about 5 seconds, -1 is infinite (CRF only), 0 is the same as -1.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -2,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "GOP",
+            "relations": []
+        },
+        "--level": {
+            "delimiter": "Space",
+            "label": "Level",
+            "description": "AV1 level such as 5.1; 0 chooses it automatically.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": "0",
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--lookahead": {
+            "delimiter": "Space",
+            "label": "Lookahead",
+            "description": "Frames to look ahead beyond the mini-GOP, temporal filtering and rate control; -1 is automatic.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -1,
+                    "max": 32,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": -1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--lossless": {
+            "delimiter": "Space",
+            "label": "Lossless coding",
+            "description": "Encodes without quantisation. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--low-memory": {
+            "delimiter": "Space",
+            "label": "Low memory",
+            "description": "Reduces memory use at a possible speed and efficiency cost; most effective in CRF or CQP random-access mode. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--lp": {
+            "delimiter": "Space",
+            "label": "Level of parallelism",
+            "description": "0 chooses from the core count; 1 to 6 create more threads and picture buffers.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--luminance-qp-bias": {
+            "delimiter": "Space",
+            "label": "Luminance QP bias",
+            "description": "Adjust a frame's QP from its average luma, 0 to 100.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 100,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 10,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--max-qp": {
+            "delimiter": "Space",
+            "label": "Maximum QP",
+            "description": "Highest (worst) quantiser allowed, from 0 to 63.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 63,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--mbr": {
+            "delimiter": "Space",
+            "label": "Maximum bitrate",
+            "description": "Maximum bitrate in kbps for capped CRF; b, k and m suffixes are accepted.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--min-keyint": {
+            "delimiter": "Space",
+            "label": "Minimum keyframe interval",
+            "description": "Shortest GOP in frames; -1 derives it from the mini-GOP length and 0 removes the minimum.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -1,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": -1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--min-qp": {
+            "delimiter": "Space",
+            "label": "Minimum QP",
+            "description": "Lowest (best) quantiser allowed, from 0 to 63.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": "Space",
+            "label": "Passes",
+            "description": "1 single pass, 2 multi-pass. The engine also sets the pass for each run.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--photon-noise-chroma": {
+            "delimiter": "Space",
+            "label": "Chroma photon noise",
+            "description": "Adds chroma noise to the photon-noise table. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Film grain",
+            "relations": []
+        },
+        "--pred-struct": {
+            "delimiter": "Space",
+            "label": "Prediction structure",
+            "description": "1 low delay, 2 random access.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--preset": {
+            "delimiter": "Space",
+            "label": "Encoder preset",
+            "description": "Encoder preset from -1 (slowest) to 13 (fastest). Higher presets encode faster with a quality trade-off.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -1,
+                    "max": 13,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 4,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": "Space",
+            "label": "Profile",
+            "description": "Bitstream profile written to the sequence header.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "High",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Professional",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--progress": {
+            "delimiter": "Space",
+            "label": "Progress reporting",
+            "description": "0 quiet, 1 default output, 2 detailed output.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Diagnostics",
+            "relations": []
+        },
+        "--qm-max": {
+            "delimiter": "Space",
+            "label": "Maximum QM level",
+            "description": "Most detailed quantisation matrix level from 0 to 15.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 15,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 15,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--qm-min": {
+            "delimiter": "Space",
+            "label": "Minimum QM level",
+            "description": "Flattest quantisation matrix level from 0 to 15; lower is more aggressive.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 15,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--qp": {
+            "delimiter": "Space",
+            "label": "Quantiser",
+            "description": "Initial QP from 1 to 63, used by constant-QP mode and as the base for CRF.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--qp-scale-compress-strength": {
+            "delimiter": "Space",
+            "label": "QP scale compress",
+            "description": "Compress QP variation across temporal layers, 0 to 8; higher is more consistent.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 8,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--rc": {
+            "delimiter": "Space",
+            "label": "Rate-control mode",
+            "description": "CRF keeps quality constant; VBR and CBR target a bitrate.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "CRF or CQP",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "VBR",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "CBR",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--rtc": {
+            "delimiter": "Space",
+            "label": "Real-time mode",
+            "description": "Fast settings for low-delay real-time encoding; forces the low-delay prediction structure. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--scd": {
+            "delimiter": "Space",
+            "label": "Scene-change detection",
+            "description": "Start a new GOP at a detected scene cut.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "GOP",
+            "relations": []
+        },
+        "--scm": {
+            "delimiter": "Space",
+            "label": "Screen-content detection",
+            "description": "0 off, 1 on, 2 content adaptive, 3 content adaptive with anti-alias awareness.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 3,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "AV1 tools",
+            "relations": []
+        },
+        "--sharp-tx": {
+            "delimiter": "Space",
+            "label": "Sharp transform",
+            "description": "Enables the sharp transform optimisation. 0 off, 1 on.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--sharpness": {
+            "delimiter": "Space",
+            "label": "Sharpness",
+            "description": "Bias toward decreased (-7) or increased (7) sharpness.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -7,
+                    "max": 7,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--startup-mg-size": {
+            "delimiter": "Space",
+            "label": "Startup mini-GOP size",
+            "description": "0 off, 2 three temporal layers, 3 four temporal layers, 4 five temporal layers.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 4,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "GOP",
+            "relations": []
+        },
+        "--svtav1-params": {
+            "delimiter": "Space",
+            "label": "SVT-AV1 parameters",
+            "description": "Colon-separated key=value pairs for options that have no dedicated flag here.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Advanced",
+            "relations": []
+        },
+        "--tbr": {
+            "delimiter": "Space",
+            "label": "Target bitrate",
+            "description": "Target bitrate in kbps for VBR and CBR; b, k and m suffixes are accepted.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Rate control",
+            "relations": []
+        },
+        "--tf-strength": {
+            "delimiter": "Space",
+            "label": "Temporal filtering strength",
+            "description": "Manually set motion-compensated temporal filtering strength, 0 to 4; higher is stronger.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 4,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--tier": {
+            "delimiter": "Space",
+            "label": "Tier",
+            "description": "Bitstream tier.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "High",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--tile-columns": {
+            "delimiter": "Space",
+            "label": "Tile columns",
+            "description": "Log2 number of tile columns from 0 to 4; 0 keeps one column.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 4,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": "Space",
+            "label": "Tile rows",
+            "description": "Log2 number of tile rows from 0 to 6; 0 keeps one row.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tune": {
+            "delimiter": "Space",
+            "label": "Tune",
+            "description": "Quality metric the encoder optimises for.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "VQ",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "PSNR",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "SSIM",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "IQ (still images)",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "MS-SSIM",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--variance-boost-strength": {
+            "delimiter": "Space",
+            "label": "Variance boost strength",
+            "description": "1 mild, 2 gentle, 3 medium, 4 aggressive.",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 4,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--variance-octile": {
+            "delimiter": "Space",
+            "label": "Variance octile",
+            "description": "Block selectivity from 1 (first octile) to 8 (maximum).",
+            "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 8,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 4,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        }
+    },
+    "x265": {
+        "--aq-mode": {
+            "delimiter": "Space",
+            "label": "Adaptive quantisation",
+            "description": "0 off, 1 variance, 2 auto-variance, 3 auto-variance with bias.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 3,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--bframes": {
+            "delimiter": "Space",
+            "label": "B-frames",
+            "description": "Maximum consecutive B-frames.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 16,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--crf": {
+            "delimiter": "Space",
+            "label": "CRF",
+            "description": "Constant rate factor from 0 (lossless) to 51. Lower keeps more detail.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 51,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 25,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--deblock": {
+            "delimiter": "Space",
+            "label": "Deblocking",
+            "description": "Two strengths as alpha:beta.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--frame-threads": {
+            "delimiter": "Space",
+            "label": "Frame threads",
+            "description": "Frames encoded in parallel.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--keyint": {
+            "delimiter": "Space",
+            "label": "Keyframe interval",
+            "description": "Maximum GOP length in frames; -1 lets the encoder choose.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -1,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": -1,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--level-idc": {
+            "delimiter": "Space",
+            "label": "Level",
+            "description": "Signalled decoder level, for example 5.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 7,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 5,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        },
+        "--min-keyint": {
+            "delimiter": "Space",
+            "label": "Minimum keyframe interval",
+            "description": "Shortest GOP length in frames.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--pools": {
+            "delimiter": "Space",
+            "label": "Thread pools",
+            "description": "Thread pools such as 8 or 4,4.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--preset": {
+            "delimiter": "Space",
+            "label": "Preset",
+            "description": "ultrafast through placebo.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": "slow",
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": "Space",
+            "label": "Profile",
+            "description": "main, main10 or mainstillpicture.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--psy-rd": {
+            "delimiter": "Space",
+            "label": "Psy-rd",
+            "description": "Psychovisual strength as rd:rdoq.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--rc-lookahead": {
+            "delimiter": "Space",
+            "label": "Lookahead",
+            "description": "Frames buffered for rate-control decisions.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 250,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--ref": {
+            "delimiter": "Space",
+            "label": "Reference frames",
+            "description": "Number of reference frames.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 16,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--scenecut": {
+            "delimiter": "Space",
+            "label": "Scene cut threshold",
+            "description": "Sensitivity to detected cuts, 0 to 100.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 100,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--tune": {
+            "delimiter": "Space",
+            "label": "Tune",
+            "description": "psnr, ssim, grain, zerolatency, fastdecode or animation.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--y4m": {
+            "delimiter": null,
+            "label": "Y4M input",
+            "description": "Read the input as a raw Y4M stream.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        },
+        "-D": {
+            "delimiter": "Space",
+            "label": "Output depth",
+            "description": "Bits per sample in the output, 8, 10 or 12.",
+            "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 8,
+                    "max": 12,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 10,
+            "widget": "Auto",
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        }
+    }
+}
