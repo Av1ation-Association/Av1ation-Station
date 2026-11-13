@@ -1,0 +1,9 @@
+{
+  "id": "fixture-id",
+  "name": "fixture",
+  "path": "fixture-path",
+  "size_bytes": 0,
+  "video_count": 0,
+  "created_at": "fixture",
+  "accessed_at": "fixture"
+}

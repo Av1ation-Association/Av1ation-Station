@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { PythonInterpreterGroup } from "./PythonInterpreterGroup";
 
 /**
@@ -32,11 +33,9 @@ afterEach(() => {
 
 it("picks a located interpreter and can return to the machine's Python", async () => {
     const path = "C:/venvs/encode/Scripts/python.exe";
-    render(
-        <ApiProvider transport={new MockTransport({}, { pickExecutable: async () => path })}>
-            <PythonInterpreterGroup />
-        </ApiProvider>,
-    );
+    renderWithApi(<PythonInterpreterGroup />, {
+        transport: new MockTransport({}, { pickExecutable: async () => path }),
+    });
 
     // Locating saves the picked interpreter, so the picker and the inventory agree without
     // a second confirmation.
@@ -89,11 +88,9 @@ it("offers the staged bundle as its own interpreter", async () => {
         }
     }
 
-    render(
-        <ApiProvider transport={new BundledInterpreterTransport()}>
-            <PythonInterpreterGroup />
-        </ApiProvider>,
-    );
+    renderWithApi(<PythonInterpreterGroup />, {
+        transport: new BundledInterpreterTransport(),
+    });
 
     // The automatic choice names the bundled runtime and where it came from, so a clean
     // install never reads as a machine Python the user does not have.
@@ -102,11 +99,9 @@ it("offers the staged bundle as its own interpreter", async () => {
 });
 
 it("names the active completion server beside the interpreter", async () => {
-    render(
-        <ApiProvider transport={new BundledServerTransport()}>
-            <PythonInterpreterGroup />
-        </ApiProvider>,
-    );
+    renderWithApi(<PythonInterpreterGroup />, {
+        transport: new BundledServerTransport(),
+    });
 
     // The provider is part of the row, not a page elsewhere: the interpreter and the server
     // analysing it are one decision, and a bundled version has to be visible as such.

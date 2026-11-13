@@ -1,6 +1,7 @@
 //! HTTP tests for the `script` route family.
 
 use crate::common::*;
+use tower::ServiceExt;
 
 #[tokio::test]
 async fn the_language_server_inventory_answers_without_a_server() {
@@ -27,6 +28,23 @@ async fn the_language_server_inventory_answers_without_a_server() {
             .is_some_and(|detail| !detail.is_empty())
     );
     assert!(body["kind"].is_string());
+}
+
+/// The bridge exists only as a WebSocket upgrade. A plain GET is a typed client error, not
+/// a hung request or a server failure, so the editor can fall back to bundled completion.
+#[tokio::test]
+async fn the_language_server_bridge_requires_an_upgrade() {
+    let app = router(health_state());
+    let response = app
+        .oneshot(Request::get("/api/editor/lsp").body(Body::empty()).unwrap())
+        .await
+        .expect("router response");
+    let status = response.status();
+
+    assert!(
+        status == StatusCode::BAD_REQUEST || status == StatusCode::UPGRADE_REQUIRED,
+        "a plain GET is refused: {status}"
+    );
 }
 
 #[tokio::test]
@@ -267,4 +285,50 @@ async fn a_missing_plugin_is_reported_for_a_project_and_the_template() {
     assert_eq!(validation["plugin_problems"][0]["context"], "General input");
 
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+/// The script validation and materialisation routes reject an unreadable body, and
+/// materialisation reports an unknown project/video pair instead of returning a stub.
+#[tokio::test]
+async fn script_routes_report_bad_bodies_and_unknown_videos() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/config/scripts/validate")
+            .header("content-type", "application/json")
+            .body(Body::from("{"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/script/materialise")
+            .header("content-type", "application/json")
+            .body(Body::from("{"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    let missing = uuid::Uuid::new_v4().to_string();
+    let (status, body) = send(
+        app,
+        Request::post("/api/script/materialise")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "project_id": missing,
+                    "video_id": missing,
+                    "script": "clip.set_output()"
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }

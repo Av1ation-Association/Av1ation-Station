@@ -56,7 +56,7 @@ monaco.editor.defineTheme(MONACO_THEMES.dark, {
     colors: {
         "editor.background": "#12161e",
         "editor.foreground": "#e8edf5",
-        "editorLineNumber.foreground": "#3c4757",
+        "editorLineNumber.foreground": "#7c8a9e",
         "editorLineNumber.activeForeground": "#a3afc2",
         "editor.selectionBackground": "#2e3846",
         "editor.lineHighlightBackground": "#151a23",
@@ -88,7 +88,7 @@ monaco.editor.defineTheme(MONACO_THEMES.light, {
     colors: {
         "editor.background": "#ffffff",
         "editor.foreground": "#12161e",
-        "editorLineNumber.foreground": "#9aa6b8",
+        "editorLineNumber.foreground": "#667085",
         "editorLineNumber.activeForeground": "#566178",
         "editor.selectionBackground": "#c7d0de",
         "editor.lineHighlightBackground": "#f4f7fb",

@@ -676,6 +676,7 @@ async fn a_corrupt_project_document_is_an_invalid_resource_not_a_server_fault() 
         serde_json::from_str(&std::fs::read_to_string(&path).expect("read")).expect("json");
     document["created_at"] = Value::from("yesterday");
     std::fs::write(&path, serde_json::to_string(&document).expect("render")).expect("write");
+    let corrupt = std::fs::read(&path).expect("corrupt bytes");
 
     let (status, body) = send(
         app,
@@ -686,6 +687,20 @@ async fn a_corrupt_project_document_is_an_invalid_resource_not_a_server_fault() 
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body["code"], "INVALID_CONFIG");
+    assert_eq!(
+        std::fs::read(&path).expect("document after the read"),
+        corrupt,
+        "a failed read must not rewrite the user's document"
+    );
+    let rendered = body.to_string();
+    assert!(
+        !rendered.contains(&dir.to_string_lossy().to_string()),
+        "the error must not disclose the app-data path: {rendered}"
+    );
+    assert!(
+        !rendered.contains("project.json"),
+        "the error must name the resource, not its implementation file: {rendered}"
+    );
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
@@ -923,6 +938,166 @@ async fn general_defaults_round_trip_and_derive_the_next_output_path() {
         project["general"]["output_folder"],
         output_folder.display().to_string()
     );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// The project-level writes share the run guard, and a missing project is reported from the
+/// same routes instead of being mistaken for a validation failure.
+#[tokio::test]
+async fn project_writes_report_the_lock_validation_and_unknown_projects() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project_id = create_project(app.clone(), "Guarded").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let general = serde_json::json!({
+        "input_kind": "ffms2",
+        "output_mode": "next_to_input"
+    });
+    let defaults = serde_json::json!({
+        "config": {},
+        "general": general
+    });
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(
+        app.clone(),
+        Request::delete(format!("/api/projects/{project_id}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(general.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{project_id}/template"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"template_id":"missing"}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/defaults"))
+            .header("content-type", "application/json")
+            .body(Body::from(defaults.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project_id).await;
+
+    for (method, path) in [
+        ("POST", format!("/api/projects/{project_id}/template")),
+        ("PUT", format!("/api/projects/{project_id}/defaults")),
+    ] {
+        let request = match method {
+            "POST" => Request::post(&path),
+            "PUT" => Request::put(&path),
+            _ => unreachable!("only POST and PUT are in this table"),
+        };
+        let (status, body) = send(
+            app.clone(),
+            request
+                .header("content-type", "application/json")
+                .body(Body::from("{"))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{method} {path}: {body}");
+    }
+
+    let missing = uuid::Uuid::new_v4().to_string();
+    for (method, path, body) in [
+        ("GET", format!("/api/projects/{missing}/scripts"), None),
+        (
+            "POST",
+            format!("/api/projects/{missing}/template"),
+            Some(serde_json::json!({ "template_id": "missing" })),
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{missing}/defaults"),
+            Some(defaults.clone()),
+        ),
+        (
+            "PATCH",
+            format!("/api/projects/{missing}"),
+            Some(serde_json::json!({ "name": "Renamed" })),
+        ),
+        ("DELETE", format!("/api/projects/{missing}"), None),
+        (
+            "PUT",
+            format!("/api/projects/{missing}/config"),
+            Some(serde_json::json!({})),
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{missing}/general"),
+            Some(general.clone()),
+        ),
+        ("GET", format!("/api/projects/{missing}/export"), None),
+        (
+            "POST",
+            format!("/api/projects/{missing}/videos"),
+            Some(serde_json::json!({ "input_path": dir.join("source.mkv") })),
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}: {response}");
+    }
+
+    let (status, body) = send(
+        app.clone(),
+        Request::patch(format!("/api/projects/{project_id}"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"name":" "}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input_kind": "ffms2",
+                    "output_mode": "folder",
+                    "output_folder": "relative"
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }

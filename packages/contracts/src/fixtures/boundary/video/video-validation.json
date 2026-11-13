@@ -1,0 +1,11 @@
+{
+  "video_id": "fixture-id",
+  "can_encode": false,
+  "source_exists": false,
+  "output_writable": false,
+  "scratch_writable": false,
+  "warnings": [],
+  "checks": [],
+  "plugin_problems": [],
+  "blockers": []
+}

@@ -42,6 +42,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 
 | Document | Scope |
 | --- | --- |
+| [commands.md](commands.md) | every npm script, grouped by purpose, with the four local gates first |
 | [glossary.md](glossary.md) | definitions of project terms and their primary locations |
 
 ### Quality and delivery
@@ -49,11 +50,15 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | Document | Scope |
 | --- | --- |
 | [testing.md](testing.md) | test pyramid, fixtures, screenshot policy, feasibility spikes |
+| [test-inventory.md](test-inventory.md) | generated Vitest and Playwright test inventory; do not edit by hand |
+| [route-test-matrix.md](route-test-matrix.md) | generated route-method × Rust-test matrix from the route manifest |
+| [error-evidence.json](error-evidence.json) | typed evidence registry behind the error-path table |
 | [plan/00-overview.md](plan/00-overview.md) | phase map and sequencing |
 | [plan/01-scaffolding.md](plan/01-scaffolding.md) | repository, workspace, dependency and shell tasks |
 | [plan/02-backend.md](plan/02-backend.md) | engine integration, persistence, HTTP and preflight tasks |
 | [plan/03-ui.md](plan/03-ui.md) | shell, screens, configuration renderer and guards |
 | [plan/04-testing.md](plan/04-testing.md) | test pyramid, fixtures and spike procedures |
+| [plan/04-testing-coverage-proposal.md](plan/04-testing-coverage-proposal.md) | Phase 4 coverage inventory, testing-practice audit, and prioritized improvement proposal |
 | [plan/05-ci.md](plan/05-ci.md) | pipeline jobs, caching and branch protection |
 | [plan/06-deployment.md](plan/06-deployment.md) | release matrix, signing, packaging and updates |
 | [progress.md](progress.md) | the only current delivery-status surface, with every open phase task |
@@ -77,6 +82,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | If you need to answer… | Read |
 | --- | --- |
 | how to set up, run, test, or package the application | [CONTRIBUTING.md](../CONTRIBUTING.md) + [AGENTS.md](../AGENTS.md) |
+| which command to run for a local check, verification, E2E, or real encode | [commands.md](commands.md) |
 | what the system is made of, and which way dependencies point | [architecture.md](architecture.md) |
 | what a term means, or where an area of responsibility lives | [glossary.md](glossary.md) + [architecture.md](architecture.md#31-where-a-change-belongs) |
 | what the service does with the engine, a run, or a config write | [backend.md](backend.md) + [data-model.md](data-model.md) |
@@ -144,7 +150,7 @@ confirmed on 2026-10-30; the phase column records where the assumption is first 
 | --- | --- | --- |
 | A1 | **v0.1 scope** — home, settings, about, project configuration defaults, video queue, video configuration with inheritance, video timeline, logs, and one real end-to-end encode. Monaco editing, scene editing, preview, charts, and LAN access shipped in increments 2–3. | 2 |
 | A2 | **Persistence** — one JSON document per project under the app-data directory, plus a small rebuildable index for the home screen. No SQLite or other embedded database; the execution timeline is append-only JSONL. | 2 |
-| A3 | **Test stack** — Vitest for unit/component, `cargo test` with fake sequences, and a Playwright smoke against the real headless service are in the tree. The pull-request CI workflow and frontend coverage artifact are checked in. Screenshot artifacts, the full E2E journey, and branch protection are planned. | 4 |
+| A3 | **Test stack** — Vitest for unit/component, `cargo test` with fake sequences, and a Playwright smoke plus fake-engine completion, held-open cancel/navigation, locked-scope/`409`, and LAN pairing journeys against the real headless service are in the tree. The pull-request CI workflow and the frontend/Rust coverage policy are checked in. The screenshot gallery and error-path matrix are wired; branch protection is planned. | 4 |
 | A4 | **`mpv` is not used.** Preview renders through `<video>` with a fragmented-MP4 stream in both the desktop app and the browser, preserving the single-source-of-truth rule. S2 confirmed play/seek in Chromium and the WebView2 engine family on 2026-11-02; WebKit remains a release check. | 4a (spike S2); Phase 3 increment 3 |
 | A5 | **Node 26 LTS** — `.nvmrc` pins 26 and `package.json` requires Node `>=26` with npm `>=11`; local development is verified with 26.13.0 and npm 11.20.0. CI reads the same `.nvmrc`. | 1 |
 | A6 | **No multi-window.** The desktop app is a single window; secondary views are routes. This keeps the encode guard and the LAN session model simple. | 3 |

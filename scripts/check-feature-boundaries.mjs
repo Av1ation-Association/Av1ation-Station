@@ -159,6 +159,12 @@ function categoryOf(file) {
     if (relative.startsWith("shared/")) {
         return { kind: "shared", name: "shared" };
     }
+    // Test-only helpers (renderRoute, transport fixtures) are shared by test files in
+    // several features. They are not a production feature, so only a test file may reach
+    // them; the loop below enforces that.
+    if (relative.startsWith("test/")) {
+        return { kind: "test", name: "test" };
+    }
     if (relative.startsWith("features/")) {
         const name = relative.split("/")[1];
         if (name !== undefined) {
@@ -293,7 +299,15 @@ for (const file of files) {
             fail(`${relativeFile}:${line}: cannot classify ${specifier}`);
             continue;
         }
-        if (source.kind === "app") {
+        if (destination.kind === "test") {
+            if (source.kind !== "test" && !/\.test\.(ts|tsx)$/u.test(relativeFile)) {
+                fail(
+                    `${relativeFile}:${line}: production code may not import a test helper (${specifier})`,
+                );
+            }
+            continue;
+        }
+        if (source.kind === "app" || source.kind === "test") {
             continue;
         }
         if (source.kind === "shared") {

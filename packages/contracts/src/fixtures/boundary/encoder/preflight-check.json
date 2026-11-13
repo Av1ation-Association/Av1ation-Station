@@ -1,0 +1,21 @@
+{
+  "id": "encoder:svt-av1",
+  "label": "SVT-AV1",
+  "capability": "encode",
+  "available": true,
+  "detail": "SVT-AV1 3.0.0",
+  "providers": [
+    {
+      "source": "system",
+      "available": true,
+      "detail": "SVT-AV1 3.0.0",
+      "active": true,
+      "checked": true
+    }
+  ],
+  "selected_source": "system",
+  "configured_source": null,
+  "origin": null,
+  "path": null,
+  "remediation": null
+}

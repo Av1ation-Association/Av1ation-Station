@@ -1,20 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import { EncoderDescriptorSchema } from "@av1ation/contracts";
 
+import { renderWithApi } from "../../test/render";
 import { AddForkSheet } from "./AddForkSheet";
-
-beforeAll(() => {
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(cleanup);
 
@@ -25,10 +17,9 @@ describe("AddForkSheet", () => {
         const families = encoders.filter((encoder) => !encoder.fork);
         const saved = vi.fn();
 
-        render(
-            <ApiProvider transport={transport}>
-                <AddForkSheet open families={families} onClose={() => {}} onSaved={saved} />
-            </ApiProvider>,
+        renderWithApi(
+            <AddForkSheet open families={families} onClose={() => {}} onSaved={saved} />,
+            { transport },
         );
 
         const dialog = screen.getByRole("dialog", { name: "Add a build" });

@@ -110,6 +110,72 @@ async fn the_encoder_and_sequence_catalogues_come_from_the_engine() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Fork routes validate before they touch the settings document. These requests never need a
+/// real encoder binary: an unknown base is refused, an unnamed fork is refused, and edits of
+/// a missing id are not found rather than silently created.
+#[tokio::test]
+async fn encoder_fork_routes_reject_invalid_and_missing_forks() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+
+    for (path, body) in [
+        (
+            "/api/encoders/probe",
+            serde_json::json!({ "label": "Probe", "base": "not-an-encoder", "path": "C:/missing.exe" }),
+        ),
+        (
+            "/api/encoders/forks",
+            serde_json::json!({ "label": " ", "base": "svt-av1", "path": "C:/missing.exe" }),
+        ),
+    ] {
+        let (status, error) = send(
+            app.clone(),
+            Request::post(path)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{path}: {error}");
+        assert_eq!(error["code"], "INVALID_CONFIG", "{path}");
+    }
+
+    let (status, error) = send(
+        app.clone(),
+        Request::put("/api/encoders/forks/kept")
+            .header("content-type", "application/json")
+            .body(Body::from("{"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+
+    let (status, error) = send(
+        app.clone(),
+        Request::put("/api/encoders/forks/missing")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "label": "Renamed" }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{error}");
+    assert_eq!(error["code"], "NOT_FOUND");
+
+    let (status, error) = send(
+        app,
+        Request::delete("/api/encoders/forks/missing")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{error}");
+    assert_eq!(error["code"], "NOT_FOUND");
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[tokio::test]
 async fn a_built_in_encoder_keeps_its_edited_descriptors_until_reset() {
     let dir = project_dir();
@@ -200,6 +266,95 @@ async fn a_built_in_encoder_keeps_its_edited_descriptors_until_reset() {
     assert_eq!(svt["parameters"]["--crf"]["label"], "Constant Rate Factor");
     assert!(svt["parameters"]["--crf"]["description"].is_string());
     assert!(svt["parameters"].get("--preset").is_some());
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A saved fork can be renamed and removed without re-probing its executable; probing a file
+/// that cannot identify itself is a successful report with `available: false`; unknown
+/// built-in ids are not silently treated as fork ids.
+#[tokio::test]
+async fn encoder_forks_and_parameter_routes_report_their_status_surface() {
+    let dir = project_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .expect("test data directory");
+    tokio::fs::write(
+        dir.join("config.json"),
+        serde_json::json!({
+            "encoder_forks": [{
+                "id": "kept",
+                "label": "Kept",
+                "base": "svt-av1",
+                "executable": "C:/definitely-missing/av1ation-svt.exe",
+                "version": null,
+                "parameters": {}
+            }]
+        })
+        .to_string(),
+    )
+    .await
+    .expect("seed settings");
+    let state = AppState::with_runner_and_data_dir(None, Arc::new(FakeRunner), Some(dir.clone()));
+    state.hydrate_encoder_forks().await;
+    let app = router(state);
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put("/api/encoders/forks/kept")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"label":"Renamed"}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["label"], "Renamed");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::delete("/api/encoders/forks/kept")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let executable = dir.join("not-an-encoder.exe");
+    tokio::fs::write(&executable, b"this is not an encoder")
+        .await
+        .expect("fake executable");
+    let (status, probe) = send(
+        app.clone(),
+        Request::post("/api/encoders/probe")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "label": "Probe",
+                    "base": "svt-av1",
+                    "path": executable.display().to_string()
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{probe}");
+    assert_eq!(probe["available"], false, "{probe}");
+
+    for method in ["PUT", "DELETE"] {
+        let request = if method == "PUT" {
+            Request::put("/api/encoders/not-an-encoder/parameters")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"parameters":{}}"#))
+                .unwrap()
+        } else {
+            Request::delete("/api/encoders/not-an-encoder/parameters")
+                .body(Body::empty())
+                .unwrap()
+        };
+        let (status, body) = send(app.clone(), request).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method}: {body}");
+    }
 
     let _ = std::fs::remove_dir_all(dir);
 }

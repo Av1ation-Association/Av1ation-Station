@@ -7,6 +7,8 @@ import {
 
 import { AppShell } from "./AppShell";
 import { NotFoundScreen } from "./NotFoundScreen";
+// Include the TanStack static-data augmentation for every host that mounts this tree.
+import type {} from "./route-static-data";
 import { ROUTE_META, routeFor } from "./route-meta";
 import { RouteErrorScreen } from "./RouteErrorScreen";
 

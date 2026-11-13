@@ -12,39 +12,97 @@ concurrency:
     group: ci-${{ github.ref }}
     cancel-in-progress: true
 
+# Path filtering lives on the jobs, never on the pull_request trigger: a workflow-level
+# filter skips the gate jobs too, leaving branch protection waiting on checks that will
+# never report. Branch protection should require the three "... gate" jobs below.
 jobs:
+    changes:
+        name: Changed paths
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            run: ${{ steps.filter.outputs.run }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Decide whether code checks are needed
+              id: filter
+              shell: bash
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+              run: |
+                  set -euo pipefail
+                  run=true
+                  if [ "$EVENT_NAME" = "pull_request" ]; then
+                    if merge_base=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null) &&
+                       changed=$(git diff --name-only "$merge_base" "$HEAD_SHA") &&
+                       [ -n "$changed" ]; then
+                      run=false
+                      while IFS= read -r path; do
+                        case "$path" in
+                          docs/*|*.md) ;;
+                          *) run=true; break ;;
+                        esac
+                      done <<< "$changed"
+                    else
+                      echo "::warning::Could not determine a docs-only diff; running the full check set."
+                    fi
+                  fi
+                  echo "run=$run" >> "$GITHUB_OUTPUT"
+            - uses: actions/setup-node@v4
+              if: steps.filter.outputs.run == 'false'
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - name: Check documentation
+              if: steps.filter.outputs.run == 'false'
+              run: |
+                  npm ci
+                  npm run check:docs
+
     web:
         name: Web checks
         runs-on: ubuntu-latest
         timeout-minutes: 20
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
         steps:
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
             - uses: actions/setup-node@v4
               with:
                   node-version-file: .nvmrc
                   cache: npm
             - run: npm ci
-            - run: npm run format:check:web
-            - run: npm run lint:js
-            - run: npm run typecheck
-            - run: npm run check:feature-boundaries
-            - run: npm run check:api-json
-            - run: npm run test:web:coverage
-            - run: npm run check:docs
+            - name: Run web static profile
+              run: npm run check:web
+            - name: Run web verification profile
+              run: npm run verify:web
+            - run: npm run coverage:check:changed -- --frontend
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
             - run: npm run build
             - uses: actions/upload-artifact@v4
               if: always()
               with:
                   name: coverage
-                  path: dist/coverage/
+                  path: dist/coverage/web/
                   if-no-files-found: warn
 
     rust:
         name: Rust checks
         runs-on: windows-latest
         timeout-minutes: 30
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
         steps:
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
             - uses: actions/setup-node@v4
               with:
                   node-version-file: .nvmrc
@@ -56,19 +114,33 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                   workspaces: rust -> ../dist/cargo
+            - uses: taiki-e/install-action@v2
+              with:
+                  tool: cargo-llvm-cov
+            - run: rustup component add llvm-tools-preview
             - run: npm ci
-            - run: npm run check:service-modules
-            - run: npm run format:check:rust
-            - run: npm run lint:rust
-            - run: npm run test:rust
-            - run: npm run contracts:check
-            - run: npm run routes:check
-            - run: npm run version:check
+            - name: Run Rust static profile
+              run: npm run check:rust
+            - name: Run Rust verification profile
+              run: npm run verify:rust
+            - run: npm run coverage:check:changed -- --rust
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: rust-coverage
+                  path: dist/coverage/rust/
+                  if-no-files-found: warn
 
     e2e:
-        name: Browser smoke
+        name: Browser E2E
         runs-on: windows-latest
         timeout-minutes: 30
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
+        env:
+            CI: "true"
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -83,9 +155,8 @@ jobs:
                   workspaces: rust -> ../dist/cargo
             - run: npm ci
             - run: npx playwright install chromium
-            - run: npm run test:e2e
-              env:
-                  CI: "true"
+            - name: Run browser E2E profile
+              run: npm run test:e2e
             - uses: actions/upload-artifact@v4
               if: always()
               with:
@@ -94,3 +165,81 @@ jobs:
                       dist/playwright-report/
                       dist/test-results/
                   if-no-files-found: warn
+
+    web-gate:
+        name: Web checks gate
+        needs: [changes, web]
+        if: always()
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Require Web checks
+              env:
+                  CHANGES_RESULT: ${{ needs.changes.result }}
+                  JOB_RESULT: ${{ needs.web.result }}
+                  RUN: ${{ needs.changes.outputs.run }}
+              run: |
+                  if [ "$CHANGES_RESULT" != "success" ]; then
+                    echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
+                    exit 1
+                  fi
+                  if [ "$JOB_RESULT" = "success" ]; then
+                    echo "Web checks passed."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
+                    echo "Web checks skipped for a docs-only change."
+                  else
+                    echo "Web checks did not pass ($JOB_RESULT)." >&2
+                    exit 1
+                  fi
+
+    rust-gate:
+        name: Rust checks gate
+        needs: [changes, rust]
+        if: always()
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Require Rust checks
+              env:
+                  CHANGES_RESULT: ${{ needs.changes.result }}
+                  JOB_RESULT: ${{ needs.rust.result }}
+                  RUN: ${{ needs.changes.outputs.run }}
+              run: |
+                  if [ "$CHANGES_RESULT" != "success" ]; then
+                    echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
+                    exit 1
+                  fi
+                  if [ "$JOB_RESULT" = "success" ]; then
+                    echo "Rust checks passed."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
+                    echo "Rust checks skipped for a docs-only change."
+                  else
+                    echo "Rust checks did not pass ($JOB_RESULT)." >&2
+                    exit 1
+                  fi
+
+    e2e-gate:
+        name: Browser E2E gate
+        needs: [changes, e2e]
+        if: always()
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Require Browser E2E
+              env:
+                  CHANGES_RESULT: ${{ needs.changes.result }}
+                  JOB_RESULT: ${{ needs.e2e.result }}
+                  RUN: ${{ needs.changes.outputs.run }}
+              run: |
+                  if [ "$CHANGES_RESULT" != "success" ]; then
+                    echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
+                    exit 1
+                  fi
+                  if [ "$JOB_RESULT" = "success" ]; then
+                    echo "Browser E2E passed."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
+                    echo "Browser E2E skipped for a docs-only change."
+                  else
+                    echo "Browser E2E did not pass ($JOB_RESULT)." >&2
+                    exit 1
+                  fi

@@ -137,7 +137,7 @@ export function ScriptEditorScreen() {
     const dirty =
         ready &&
         (override ? scriptOverride : true) &&
-        (mode !== savedMode || path !== savedPath || text !== savedText);
+        (mode !== savedMode || (mode === "file" && path !== savedPath) || text !== savedText);
     const changes: GuardChange[] = useMemo(() => {
         if (!ready || (override && !scriptOverride)) {
             return [];
@@ -306,7 +306,7 @@ export function ScriptEditorScreen() {
 
     if (loading) {
         return (
-            <main id="main" className="page py-6">
+            <main id="main" aria-busy="true" className="page py-6">
                 <div className="h-[520px] animate-pulse rounded-lg border border-line bg-surface" />
             </main>
         );

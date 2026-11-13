@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
 import type { DocumentScope } from "../../shared/model/project-sections";
+import { renderWithApi } from "../../test/render";
 import { NoiseGenerationEditor } from "./NoiseGenerationEditor";
 
 afterEach(cleanup);
@@ -27,16 +28,15 @@ const DETECTOR = {
 };
 
 function renderEditor(scope: DocumentScope) {
-    render(
-        <ApiProvider transport={new MockTransport()}>
-            <NoiseGenerationEditor
-                parts={PARTS}
-                draft={{ noise_detector: DETECTOR, noise_scaler: null }}
-                setDraft={() => undefined}
-                locked={false}
-                scope={scope}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <NoiseGenerationEditor
+            parts={PARTS}
+            draft={{ noise_detector: DETECTOR, noise_scaler: null }}
+            setDraft={() => undefined}
+            locked={false}
+            scope={scope}
+        />,
+        { transport: new MockTransport() },
     );
 }
 

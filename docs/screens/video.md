@@ -455,9 +455,10 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
 21. **Reset chunks.** **Reset chunks** deletes retained chunks for every selected scene after
     confirmation. Scene ranges, custom sequence data, and the finished output stay. There is no
     undo; run Encoding to write the chunks again.
-22. **Undo.** **Undo** restores the scene table before the last structural edit and clears the
-    selection. It does not restore chunks already deleted, and **Reset chunks** is not
-    undoable.
+22. **Undo.** **Undo** restores the scene table before the last structural edit or bulk scene
+    encoder assignment and clears the selection. One bulk write is one entry, so a single
+    undo restores every scene in the selection. It does not restore chunks already deleted,
+    and **Reset chunks** is not undoable.
 
 ### Scenes states
 

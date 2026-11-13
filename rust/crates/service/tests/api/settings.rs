@@ -849,3 +849,197 @@ async fn a_section_reset_leaves_the_other_sections_alone() {
 
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
 }
+
+/// Every template route with a JSON body goes through the one unreadable-body envelope, and
+/// every route that names a template reports a missing id instead of creating or editing one.
+#[tokio::test]
+async fn template_routes_serve_validate_bodies_and_report_unknown_ids() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let template_id = saved_template_id(&app).await;
+
+    for (method, path) in [
+        ("POST", "/api/settings/templates".to_owned()),
+        ("PUT", "/api/settings/templates/default".to_owned()),
+        ("PUT", format!("/api/settings/templates/{template_id}")),
+        (
+            "PUT",
+            format!("/api/settings/templates/{template_id}/defaults"),
+        ),
+        (
+            "PUT",
+            format!("/api/settings/templates/{template_id}/general"),
+        ),
+    ] {
+        let request = match method {
+            "POST" => Request::post(&path),
+            "PUT" => Request::put(&path),
+            _ => unreachable!("only POST and PUT are in this table"),
+        };
+        let (status, body) = send(
+            app.clone(),
+            request
+                .header("content-type", "application/json")
+                .body(Body::from("{"))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{method} {path}: {body}");
+        assert_eq!(body["code"], "INVALID_CONFIG");
+    }
+
+    let (status, templates) = send(
+        app.clone(),
+        Request::get("/api/settings/templates")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{templates}");
+    assert_eq!(templates.as_array().map(Vec::len), Some(1));
+
+    let (status, defaults) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{template_id}/defaults"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{defaults}");
+    assert!(defaults["values"].is_object());
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{template_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    assert!(general["input_kind"].is_string());
+
+    let (status, settings) = send(
+        app.clone(),
+        Request::get("/api/settings").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{settings}");
+    let template = settings["project_templates"][0].clone();
+    let update = serde_json::json!({
+        "name": "Unknown target",
+        "config": template["config"],
+        "general": template["general"]
+    });
+    let missing = "not-a-template";
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{missing}"))
+            .header("content-type", "application/json")
+            .body(Body::from(update.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::delete(format!("/api/settings/templates/{missing}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{missing}/defaults"))
+            .header("content-type", "application/json")
+            .body(Body::from(template["config"].to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/settings/templates/{missing}/defaults/reset"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{missing}/defaults"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{missing}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{missing}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(template["general"].to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app,
+        Request::get(format!("/api/settings/templates/{missing}/scripts"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+/// The machine-level scene model is part of the encode lock even though it is not a project
+/// setting: changing it would alter the next decode while the current run reads the old one.
+#[tokio::test]
+async fn the_scene_model_is_locked_while_a_run_is_active() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Scene model").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+
+    let (status, started) = send(app.clone(), start_request(&project, &video)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put("/api/settings/scene-model")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "path": "models/missing.onnx" }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app, &project).await;
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}

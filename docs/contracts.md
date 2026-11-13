@@ -201,7 +201,7 @@ unbounded `Number` with `integer` inferred from its default, and a `String` beco
 The engine exposes no minima, maxima, units, labels, or choice lists, so those stay absent
 and `widget` is `Auto`; the renderer chooses a plain control instead of inventing a range.
 
-The renderer in `packages/ui/src/features/config/` maps `Widget` to a control and uses
+The renderer in `packages/ui/src/features/configuration/` maps `Widget` to a control and uses
 provenance to render the inherited/overridden badge and reset affordance. Field grouping
 comes from `group`; the `advanced` flag drives a disclosure rather than a second screen.
 
@@ -571,122 +571,29 @@ directly.
 
 ### 6.6 User-supplied encoders and forks
 
-The engine's built-in catalogue covers the encoders it knows about. It cannot know about a
-user's fork of `svt-av1` that adds `--enable-custom-thing`, nor about an encoder build with
-a different parameter set. Hand-maintaining forms for those does not scale past the
-encoders the author happened to test.
+The engine's built-in catalogue covers the encoders it knows about. A saved fork is an
+additive catalogue entry for another build of a known encoder; it is not a provider
+replacement.
 
-**Therefore the encoder catalogue is user-extensible, and the extension file is JSON with a
-published `$schema`.**
+A fork is stored as an `EncoderFork` in `AppSettings.encoder_forks` (`config.json`), with
+`id`, `label`, `base`, `executable`, `version`, `parameters`, and `parameters_edited`.
+`base` names the engine family (`aom`, `svt-av1`, `rav1e`, `vpx`, `avm`, `x264`, `x265`,
+or `vvenc`). `POST /api/encoders/probe` returns an `EncoderForkProbe` without saving it;
+`POST /api/encoders/forks` saves the accepted result, and `PUT`/`DELETE
+/api/encoders/forks/:id` update or remove it. On startup the service re-probes a fork whose
+parameters the user has not edited; `parameters_edited` keeps hand-authored changes.
+`GET /api/encoders` appends each fork with `fork: true` and its `base`.
 
-The committed schema is `schema/encoder/encoder-definition.schema.json`, emitted by the same
-contracts pipeline as every other boundary type. Its title is `EncoderDefinition`; the file
-name is a publication detail so an editor can use it as `$schema`.
+Selecting a fork writes its executable and starting options into the project's engine
+encoder document, so the run uses that binary and never resolves the catalogue. The
+settings screen owns the probe, save, edit, and delete flow; see
+[preflight.md](preflight.md#custom-encoder-definitions) and
+[screens/settings.md](screens/settings.md#encoders).
 
-```rust
-/// Same shape as §6.2; repeated here only to show the file envelope.
-pub struct EncoderDefinition {
-    pub schema: Option<String>,     // the "$schema" field, when the file names one
-    pub id: String,                 // user-chosen slug, e.g. "svt-av1-fork"
-    pub display_name: String,
-    pub executable: String,         // resolved on PATH or absolute
-    pub version: Option<String>,    // from `--version`
-    pub parameters: BTreeMap<ParameterKey, ParameterDescriptor>,
-    pub source: DescriptorSource,
-}
-
-pub enum DescriptorSource {
-    /// Parsed from the executable's `--help` at probe time.
-    Probed,
-    /// Authored by the user in `encoders/<id>.json`.
-    Declared,
-    /// Shipped by the engine for a known encoder.
-    Builtin,
-}
-```
-
-JSON, not TOML, because the file needs a `$schema` key. With `"$schema"` pointing at the
-committed schema document, an editor gives completion, inline documentation, and
-validation for every field — including the widget and constraint vocabulary, which is the
-part a user is most likely to get wrong. TOML has no equivalent, so a TOML file would mean
-authoring blind and discovering mistakes at load time.
-
-The file is `encoders/<id>.json` under app-data:
-
-```jsonc
-{
-  "$schema": "https://av1ation.app/schema/encoder/encoder-definition.schema.json",
-  "id": "svt-av1-fork",
-  "display_name": "SVT-AV1 (my fork)",
-  "executable": "svt-av1-fork",
-  "parameters": {
-    "--crf": {
-      "label": "CRF",
-      "description": "Controls the quality of the video",
-      "doc_link": "https://example.com/docs.html#crf",
-      "delimiter": "Space",
-      "kind": { "Number": {
-        "integer": true, "min": 0, "max": 63, "step": 1, "unit": null } },
-      "default": 35,
-      "widget": { "Slider": { "step": 1,
-        "marks": [{ "value": 20 }, { "value": 35 }, { "value": 50 }] } },
-      "advanced": false, "group": "Quality", "relations": []
-    },
-
-    "--tune": {
-      "label": "Tune",
-      "delimiter": "Space",
-      "kind": { "Choice": {
-        "options": [
-          { "value": 0, "label": "VQ" },
-          { "value": 1, "label": "PSNR" },
-          { "value": 2, "label": "SSIM" } ],
-        "value_kind": "Number",
-        "multiple": false, "min_selected": 1, "max_selected": 1 } },
-      "widget": { "ChoiceInput": { "presentation": "Segmented" } },
-      "advanced": true, "group": "Quality", "relations": []
-    }
-  }
-}
-```
-
-`Value` is untagged in JSON, so a choice is written as the literal `0`, `"2"`, or
-`true`, not wrapped in a `{"Number": …}` object. `ParameterKind` and `Widget` are
-externally tagged, which keeps the generated schema unambiguous; the editor is the primary
-editing surface and the JSON is the escape hatch.
-
-Flow:
-
-1. The user adds an encoder in Settings by pointing at an executable (or a name on `PATH`).
-2. The backend runs `<exe> --help` (and `--version`) and parses the parameter list into
-   `ParameterDescriptor`s — flags become `Toggle`, `--name <value>` becomes `TextInput` or
-   `NumberInput` by inspecting the metavar, and enumerated values become `Choice` where
-   `--help` lists them. A probed descriptor has no invented range or unit; those are added
-   by the user, which is the point of the correction step.
-3. The parsed result is written as a `Declared` JSON file the user can open and edit. The
-   user is the correction mechanism, not a bug report.
-4. On load, the file is validated against `schema/encoder/encoder-definition.schema.json`. An invalid file
-   is reported with the schema path that failed, and the encoder is excluded rather than
-   half-loaded.
-
-Why this and not the alternatives:
-
-| Alternative | Why not |
-| --- | --- |
-| Hand-maintained parameter tables | cannot track encoder forks; wrong for any build we did not test |
-| Only support engine-built-in encoders | blocks users whose encoder is not in the engine catalogue |
-| Require users to hand-write JSON Schema | too steep; nobody will do it |
-| TOML definitions | no `$schema`, so no editor validation or completion |
-| Shell out to the encoder to validate every keystroke | slow, and encoders have side effects |
-
-The `--help` parse is a **best-effort probe with a human correction step**, which is the
-only design that stays correct as encoders change without us shipping a release. The
-emitted file is valid on first write, so editing is optional and targeted.
-
-Note that `EncoderBase` in the engine remains the source of truth for *known* encoders;
-user definitions are an additive overlay, never a replacement, so an engine upgrade cannot
-silently drop a user's encoder. `id` collisions resolve in favour of the user definition,
-with a warning naming the built-in it shadows.
+The contracts crate still emits `EncoderDefinition` and
+`schema/encoder/encoder-definition.schema.json` as the complete catalogue-entry shape, but
+the service has no file-backed `encoders/<id>.json` loader. Do not document or add a second
+save format without an ADR.
 
 ## 7. What is intentionally *not* generated
 

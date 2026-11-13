@@ -63,7 +63,7 @@ if (result.error) {
 const status = result.status ?? 1;
 if (status === 0) {
     try {
-        collectReleaseArtifacts();
+        collectReleaseArtifacts({ variant: "system", productName: config.productName });
     } catch (error) {
         console.error(`release artifacts could not be collected: ${error.message}`);
         process.exit(1);

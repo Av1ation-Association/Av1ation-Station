@@ -1,0 +1,24 @@
+{
+  "id": "fixture-id",
+  "name": "fixture",
+  "created_at": "fixture",
+  "accessed_at": "fixture",
+  "general": {
+    "ffms2_filters": [
+      {
+        "OutputFormat": {
+          "bit_depth": 10
+        }
+      }
+    ],
+    "input_kind": "ffms2",
+    "output_mode": "next_to_input",
+    "vapour_synth_filters": [
+      {
+        "Resize": {
+          "format": "YUV420P10LE"
+        }
+      }
+    ]
+  }
+}

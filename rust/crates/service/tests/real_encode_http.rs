@@ -193,13 +193,26 @@ async fn a_real_encode_runs_end_to_end_over_http() {
         .lines()
         .map(|line| serde_json::from_str(line).expect("a readable timeline entry"))
         .collect();
-    assert_eq!(entries.len(), 3, "{history}");
+    // Three pipeline sequences, the benchmarker the default config enables, and the run-level
+    // terminal record. The benchmarker is part of a completed run even though it does not
+    // encode; the null-sequence record is the durable terminal message.
+    assert_eq!(entries.len(), 5, "{history}");
     assert!(
         entries
             .iter()
             .all(|entry| entry["run_id"] == run_id.as_str())
     );
     assert!(entries.iter().all(|entry| entry["outcome"] == "completed"));
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry["sequence"] == "Benchmarker"),
+        "the benchmarker did not leave a timeline entry: {history}"
+    );
+    assert!(
+        entries.iter().any(|entry| entry["sequence"].is_null()),
+        "the run-level terminal record is missing: {history}"
+    );
     assert!(
         entries
             .iter()

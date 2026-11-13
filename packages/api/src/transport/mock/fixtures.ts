@@ -1,4 +1,4 @@
-import type { AppInfo, AppSettings, ProjectSummary } from "@av1ation/contracts";
+import type { AppInfo, AppSettings, ProjectSummary, VideoValidation } from "@av1ation/contracts";
 import {
     API_VERSION,
     APP_VERSION,
@@ -10,6 +10,10 @@ export interface MockFixtures {
     health: AppInfo;
     projects: ProjectSummary[];
     settings: AppSettings;
+    /** Optional per-video preflight, for route and error-state tests. */
+    validation?: Partial<VideoValidation>;
+    /** Optional media mapping, so a deterministic gallery can show real images. */
+    mediaUrl?: (path: string) => string;
 }
 
 interface MockFamily {

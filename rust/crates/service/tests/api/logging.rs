@@ -338,3 +338,41 @@ async fn deleting_a_run_removes_its_history_and_its_log() {
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
+
+/// The run selector resolves its video first. A stale address is a 404, not a video that
+/// happens to have no recorded runs.
+#[tokio::test]
+async fn an_unknown_video_has_no_runs() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Missing runs").await;
+    let missing = uuid::Uuid::new_v4().to_string();
+
+    let (status, body) = send(
+        app,
+        Request::get(format!("/api/projects/{id}/videos/{missing}/runs"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    assert_eq!(body["code"], "NOT_FOUND", "{body}");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// An export for a run that has no log reports the missing log rather than an empty file.
+#[tokio::test]
+async fn exporting_an_unknown_run_log_is_not_found() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let (status, body) = send(
+        app,
+        Request::post("/api/runs/not-a-run/logs/export")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -1,0 +1,189 @@
+name: Nightly checks
+
+# The real engine paths are environment-gated and too slow for pull requests. The real-encode
+# job runs every ignored Rust test on a generated clip, including the VapourSynth, encoder,
+# muxer, and HTTP journeys. The coverage-trend job records the same coverage policy used in
+# pull request CI. Both jobs are deliberately Windows-only: that is the host the service and
+# the bundled toolchain target first, and the real-encode suite was written against it.
+on:
+    schedule:
+        - cron: "17 3 * * *"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: nightly
+    cancel-in-progress: false
+
+jobs:
+    real-encode:
+        name: Real-encode tests
+        runs-on: windows-latest
+        timeout-minutes: 45
+        env:
+            AV1ATION_REAL_ENCODE_TESTS: "12"
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+
+            - name: Install FFmpeg and MKVToolNix
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  choco install ffmpeg mkvtoolnix --yes --no-progress
+                  if ($LASTEXITCODE -ne 0) { throw "Chocolatey could not install FFmpeg and MKVToolNix" }
+                  $chocoBin = Join-Path $env:ProgramData "chocolatey\bin"
+                  $chocoBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  $env:Path = "$chocoBin;$env:Path"
+                  $ffmpeg = (Get-Command ffmpeg).Source
+                  "AV1ATION_FFMPEG=$ffmpeg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+            - name: Install pinned x264 and SVT-AV1
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  $tools = Join-Path $PWD "dist/nightly/tools"
+                  New-Item -ItemType Directory -Force -Path $tools | Out-Null
+                  $assets = @(
+                      @{
+                          Name = "x264"
+                          Uri = "https://github.com/frankie1024/x264-windows-builds/releases/download/stable-20250608-b35605ace3dd/x264-stable-20250608-b35605ace3dd-x64.zip"
+                          Sha256 = "3f60ff87f577307c1d452ff4a221b833d0978627b8ada96819b8d1f2d970cbbb"
+                          Executable = "x264.exe"
+                      },
+                      @{
+                          Name = "svt-av1"
+                          Uri = "https://github.com/frankie1024/svt-av1-windows-builds/releases/download/v4.3.0/svt-av1-4.3.0-x64.zip"
+                          Sha256 = "caf4df0ac5393436e4e63455d1be09b935bb8bfe7acd013653cd34fa228c05bb"
+                          Executable = "SvtAv1EncApp.exe"
+                      }
+                  )
+                  foreach ($asset in $assets) {
+                      $archive = Join-Path $tools "$($asset.Name).zip"
+                      Invoke-WebRequest -Uri $asset.Uri -OutFile $archive
+                      $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+                      if ($actual -ne $asset.Sha256) {
+                          throw "$($asset.Name) checksum mismatch: $actual"
+                      }
+                      $destination = Join-Path $tools $asset.Name
+                      Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+                      $executable = Get-ChildItem -LiteralPath $destination -Filter $asset.Executable -Recurse |
+                          Select-Object -First 1
+                      if ($null -eq $executable) { throw "$($asset.Name) did not contain $($asset.Executable)" }
+                      $executable.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                      $env:Path = "$($executable.Directory.FullName);$env:Path"
+                  }
+
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+
+            - name: Install VapourSynth and BestSource
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  python -m pip install --disable-pip-version-check --no-input "vapoursynth==80" "vapoursynth-bestsource==22"
+                  if ($LASTEXITCODE -ne 0) { throw "pip could not install VapourSynth and BestSource" }
+
+                  $vsscript = @(vapoursynth get-vsscript | Where-Object { $_.Trim() -ne "" })[-1].Trim()
+                  if (-not (Test-Path -LiteralPath $vsscript)) { throw "vapoursynth get-vsscript did not return a file: $vsscript" }
+                  $vapoursynthDirectory = Split-Path -Parent $vsscript
+                  "VSSCRIPT_PATH=$vsscript" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  $vapoursynthDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  $env:VSSCRIPT_PATH = $vsscript
+                  $env:Path = "$vapoursynthDirectory;$env:Path"
+
+                  $probe = python -c "import vapoursynth as vs; core = vs.core; assert hasattr(core, 'bs'), 'BestSource namespace missing'; print('VapourSynth core and BestSource are available')" 2>&1
+                  if ($LASTEXITCODE -ne 0) { throw ($probe -join "`n") }
+                  $probe
+
+            - name: Verify the real-encode toolchain
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  foreach ($name in @("ffmpeg", "mkvmerge", "x264", "SvtAv1EncApp", "vapoursynth")) {
+                      if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name is not on PATH" }
+                  }
+                  $encoders = (& ffmpeg -hide_banner -encoders 2>&1) -join "`n"
+                  if ($encoders -notmatch "libx264") { throw "the FFmpeg build has no libx264 encoder" }
+
+                  New-Item -ItemType Directory -Force -Path "dist/nightly" | Out-Null
+                  $log = "dist/nightly/toolchain.txt"
+                  @(
+                      "ffmpeg: $(& ffmpeg -version 2>&1 | Select-Object -First 1)"
+                      "mkvmerge: $(& mkvmerge --version 2>&1 | Select-Object -First 1)"
+                      "x264: $(& x264 --version 2>&1 | Select-Object -First 2 | Out-String)"
+                      "SvtAv1EncApp: $(& SvtAv1EncApp --version 2>&1 | Select-Object -First 2 | Out-String)"
+                      "vsscript: $env:VSSCRIPT_PATH"
+                      "Python: $(python --version 2>&1)"
+                  ) | Set-Content -LiteralPath $log -Encoding utf8
+                  Get-Content -LiteralPath $log
+
+            - name: Run the 12 ignored real-encode tests
+              run: npm run test:real-encode
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: nightly-real-encode
+                  path: dist/nightly/
+                  if-no-files-found: warn
+
+    coverage-trend:
+        name: Coverage trend
+        runs-on: windows-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - uses: taiki-e/install-action@v2
+              with:
+                  tool: cargo-llvm-cov
+            - run: rustup component add llvm-tools-preview
+            - run: npm ci
+
+            - name: Measure frontend coverage
+              run: npm run test:web:coverage
+
+            - name: Measure Rust coverage
+              run: npm run test:rust:coverage
+
+            - name: Write the coverage trend report
+              run: npm run coverage:report
+
+            - name: Publish the coverage trend summary
+              if: always()
+              shell: pwsh
+              run: |
+                  if (Test-Path -LiteralPath "dist/coverage/coverage-trend.md") {
+                      Get-Content -LiteralPath "dist/coverage/coverage-trend.md" |
+                          Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+                  }
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: nightly-coverage
+                  path: dist/coverage/
+                  if-no-files-found: warn

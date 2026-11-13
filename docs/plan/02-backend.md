@@ -95,7 +95,7 @@ the whole flow covered by Rust tests.
 | # | Task | Notes |
 | --- | --- | --- |
 | 2.6.1 | Implement every route in [backend.md](../backend.md#5-http-surface) | |
-| 2.6.2 | Status codes: `409`, `423`, `412`, `422`, `507` | part of the contract |
+| 2.6.2 | Status codes: `409`, `423`, `422`, `507` | part of the contract |
 | 2.6.3 | SSE with `Last-Event-ID` resume | |
 | 2.6.4 | `/api/encoders` and `/api/sequences` descriptors from the engine | drives the generated config UI |
 | 2.6.5 | Enforce the lock on every mutating route | server is the authority |

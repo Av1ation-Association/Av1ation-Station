@@ -1,10 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const servicePort = Number(process.env.AV1ATION_E2E_PORT ?? 8731);
-const serviceUrl = `http://127.0.0.1:${servicePort}`;
-
 export default defineConfig({
     testDir: "./e2e",
+    // The deterministic screenshot gallery has its own website server and publisher.
+    testIgnore: ["screenshots/**"],
     fullyParallel: false,
     workers: 1,
     forbidOnly: process.env.CI === "true",
@@ -13,8 +12,9 @@ export default defineConfig({
     expect: { timeout: 10_000 },
     outputDir: "dist/test-results/playwright",
     reporter: [["list"], ["html", { open: "never", outputFolder: "dist/playwright-report" }]],
+    globalSetup: "./e2e/global-setup.ts",
+    globalTeardown: "./e2e/global-teardown.ts",
     use: {
-        baseURL: serviceUrl,
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
         locale: "en-US",
@@ -27,12 +27,4 @@ export default defineConfig({
             use: { ...devices["Desktop Chrome"] },
         },
     ],
-    webServer: {
-        command: `node scripts/dev-headless.mjs --static --no-open --no-build --fresh --data-dir dist/test-data/e2e --port ${servicePort}`,
-        url: `${serviceUrl}/api/health`,
-        reuseExistingServer: false,
-        timeout: 120_000,
-        stdout: "pipe",
-        stderr: "pipe",
-    },
 });

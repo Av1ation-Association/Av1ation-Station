@@ -275,7 +275,7 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 
 ## 9. Security checklist per release
 
-Maintained in the Phase 6 plan, and required before any tagged release:
+Required before any tagged release:
 
 - [ ] LAN mode defaults to off
 - [ ] Token required for every non-static route when LAN mode is on

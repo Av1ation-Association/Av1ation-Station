@@ -738,7 +738,7 @@ runs on a low-priority task; a full encode wins every arbitration.
 
 ## 6. Feasibility spikes (gate for this feature)
 
-These run in Phase 4 before any preview UI is built. Full procedure in
+These were the Phase 4 gate before the preview UI was built. Full procedure in
 [testing.md](testing.md#4-feasibility-spikes).
 
 | Spike | Question | Pass criterion | If it fails |

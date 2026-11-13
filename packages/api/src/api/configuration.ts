@@ -37,7 +37,7 @@ export interface ConfigSchemas {
     sequences: Record<string, unknown>;
 }
 
-const ConfigSchemasSchema = z.object({
+export const ConfigSchemasSchema = z.object({
     encoder: z.record(z.string(), z.unknown()),
     sequences: z.record(z.string(), z.unknown()),
 });

@@ -1,0 +1,57 @@
+name: Screenshots
+
+# The deterministic gallery is an advisory visual record, never a merge gate. It runs only
+# when a change can alter the renderer or the gallery fixture, so a Rust-only or docs-only
+# pull request does not pay for it.
+on:
+    pull_request:
+        paths:
+            - "packages/ui/**"
+            - "packages/api/**"
+            - "packages/contracts/**"
+            - "apps/desktop/**"
+            - "apps/web/**"
+            - "apps/website/**"
+            - "e2e/screenshots/**"
+            - "scripts/build-gallery-media.mjs"
+            - "scripts/generate-screenshots.mjs"
+            - "scripts/publish-screenshots.mjs"
+            - "scripts/serve-static.mjs"
+            - "playwright.screenshots.config.ts"
+            - "package.json"
+            - "package-lock.json"
+            - ".github/workflows/screenshots.yml"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: screenshots-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    gallery:
+        name: Screenshot gallery
+        runs-on: windows-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - run: npm ci
+            - run: npx playwright install chromium
+            # The gallery generates a tiny WebM and converts the finished PNGs to AVIF with
+            # the same FFmpeg. No encoder, VapourSynth install, or service is involved.
+            - run: choco install ffmpeg -y --no-progress
+            - run: npm run screenshots
+              env:
+                  CI: "true"
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: screenshots
+                  path: dist/screenshots/
+                  if-no-files-found: warn

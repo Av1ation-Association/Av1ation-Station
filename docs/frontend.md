@@ -455,9 +455,10 @@ skeleton or progress indicator for anything over ~300ms.
   repeats that name. Focus reveals the same label, so the pattern is not mouse-only.
 - Charts get a text summary and a "view as table" toggle — pie and line charts are not
   accessible on their own.
-- `axe-core` runs in the component-test screen harness and fails on a violation. Its jsdom
-  environment cannot measure contrast, so the contrast half is audited against the populated
-  application in a real browser (Phase 4 wires that into E2E).
+- `axe-core` runs in the component-test screen harness over all 17 route families and fails
+  on a violation. Its jsdom environment cannot measure contrast or target size, so the route
+  gallery runs the full rule set against each populated route in Chromium in both themes;
+  the browser journeys add the same pass for interactive and locked states.
 
 ## 10. Performance strategy
 
@@ -472,15 +473,22 @@ skeleton or progress indicator for anything over ~300ms.
 | route chunking | every route is a lazy boundary |
 
 Bundle budget: initial JS under 250 KB gzipped excluding Monaco and ECharts; those must
-stay in lazy chunks. Enforced by a size check in CI from Phase 5.
+stay in lazy chunks. A bundle-size check is planned for Phase 5.
 
 ## 11. Error and empty-state design
 
 Every screen defines four states before it is considered done: **loading** (skeleton
 matching final layout), **empty** (what this is, how to fill it), **error** (what failed,
 what to do, how to see details), **populated**. A screen without all four is incomplete.
-Phase 4's component pass (4.2.2) records per-route certification; Phase 3's exit checklist
-does not claim it early.
+Phase 4's component pass (4.2.2) records the certification in
+`packages/ui/src/app/route-states.test.tsx`: 68 cells over all 17 route families, with
+loading, error, and populated rendered through `MockTransport`. Home, Project, Scenes,
+History, and Logs also render the empty branch. The other 12 record an explicit **N/A**
+reason because their empty branch is the same form or list with no rows, not a separate
+screen; an optional sequence's empty document is one of those cases and remains covered
+by the section editor's own empty state. The LAN Pairing form is a gate before the app
+router, not one of the 17 routes, and is certified by the LAN E2E journey in
+[testing.md](testing.md#3-frontend-tests). Phase 3 did not claim this certification early.
 
 ## 12. i18n readiness
 

@@ -4,6 +4,7 @@
     "type": "module",
     "exports": {
         ".": "./src/index.ts",
+        "./boundaries": "./src/boundaries.ts",
         "./versions": "./src/versions.ts"
     },
     "dependencies": {

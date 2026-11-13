@@ -4,9 +4,12 @@
 the provider rules, and the release gate. Current delivery status lives in
 [progress.md](progress.md).
 
-The Windows x64 staging command is `npm run stage:tools`. The pinned lock, verifier, and
-installers are part of this contract. A normal development build uses the machine's
-toolchain unless a staged tree is supplied.
+The Windows x64 staging command is `npm run stage:tools`; it requires the full provider set.
+On Linux the same command stages a **partial** tree with `--partial`: the encoders, FFmpeg,
+MKVToolNix and scene model that the distribution provides, with VapourSynth/Python and the
+native metrics left to System until the relocation and audit gates in §7 pass. The pinned
+lock, verifier, and installers are part of this contract. A normal development build uses the
+machine's toolchain unless a staged tree is supplied.
 
 Each release installs one toolchain per target under the application's resource directory.
 Nothing is downloaded, resolved, or installed at run time, and no binary is committed to Git:
@@ -118,6 +121,13 @@ already require.
     model/transnetv2.onnx
     vcruntime/               # Windows only: the app-local MSVC runtime DLLs
 ```
+
+A partial staging tree contains only `bin/`, `lib/` and `model/`; a row with no staged artefact
+is served by System, never by a placeholder file. Linux staging copies the ELF closure of
+`bin/` into `lib/` and writes `$ORIGIN` rpaths on the binaries and those libraries, because
+Debian's `ffmpeg`, `mkvmerge` and `aomenc` do not run without their distribution libraries;
+`patchelf` is therefore required for a Linux staging run. `lib/` then carries runtime
+libraries as well as any metric libraries the tree includes.
 
 On macOS/Linux the service also owns `<app-data>/vapoursynth/vapoursynth.toml`, written on
 startup from the resolved library and interpreter paths and rewritten when those paths
@@ -417,15 +427,16 @@ moves back to the official repository as a version bump, not as a new exception.
 
 ## 5. CI
 
-Verification is the required `toolchain` job in `ci.yml` (Phase 5): it runs on every pull
-request that touches `packaging/**` or a recipe, and on the default branch. The heavier staging workflow
-is `toolchain.yml`: it runs on the default branch, on release tags, and as a dependency of
-`release.yml`, never on every pull request.
+The Phase 6 contract adds a required `toolchain` job to `ci.yml` (Phase 5 work). It will run
+on every pull request that touches `packaging/**` or a recipe, and on the default branch.
+The heavier staging workflow will be `toolchain.yml`: it will run on the default branch, on
+release tags, and as a dependency of `release.yml`, never on every pull request. The current
+`ci.yml` runs web, Rust, and browser E2E only; none of the toolchain jobs below exists yet.
 
 | Job | Runs | Gate |
 | --- | --- | --- |
 | `toolchain` (in `ci.yml`) | schema, immutable refs (no `latest`, no branch as the only pin, no git tag without a commit, no release asset without a hash), fork base and patch pins, recorded build-tool versions, SPDX allowlist, `provides`/install agreement per target, no `.pdb`/build trees in outputs, one `vapoursynth` provider per target, wheel tags matching the target | required on PRs that touch packaging; required on the default branch |
-| `toolchain-build` (matrix: `windows-latest`, `macos-14`, `macos-13`, `ubuntu-22.04`) | recipes, staged Python, target wheel install, Tauri resource tree, notices, SBOM, source offer, one artefact per target | required before a release tag; not on every PR |
+| `toolchain-build` (matrix: `windows-latest`, `macos-14`, `macos-13`, `ubuntu-24.04`) | recipes, staged Python, target wheel install, Tauri resource tree, notices, SBOM, source offer, one artefact per target | required before a release tag; not on every PR |
 | `toolchain-smoke-<target>` | start the headless service with only `--tools-dir`, no toolchain on `PATH`, and no user VapourSynth config; assert every bundled row is available, the app-data TOML selects the bundled interpreter on macOS/Linux, and a fixture encode reaches a terminal event; verify the platform's native artefacts (PE signatures, Mach-O signatures, ELF linkage) | release candidate and nightly, one leg per target |
 | `toolchain-outdated` | compare pinned versions with upstream tags; open one issue with the diff | scheduled, never blocking, never auto-bumps |
 
@@ -434,8 +445,9 @@ downloads and outputs by the SHA-256 of `toolchain.lock.json` **and its target t
 unchanged target costs a cache restore, not a rebuild. A cache is the only place a release
 build takes a binary from; a cache miss runs that target's recipes again. The Windows leg runs
 on `windows-latest`; the macOS legs are native thin builds (`macos-14` arm64 and `macos-13`
-x64), never a universal binary; Linux builds on `ubuntu-22.04`, not `ubuntu-latest`, so the
-glibc floor does not drift with the runner image.
+x64), never a universal binary; Linux builds on `ubuntu-24.04`, not `ubuntu-latest`, so the
+glibc floor does not drift with the runner image. The engine's prebuilt ONNX Runtime requires
+glibc 2.38; the Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 
 Signing is part of the same job, not a later manual step. Every bundled PE and DLL is
 Authenticode-signed on Windows. On macOS, every nested Mach-O — `python3`, `libpython`,
@@ -509,11 +521,14 @@ keeps **System** VapourSynth and says so; it cannot load the bundled wheel. macO
 are thin (arm64 and x64), not universal: the Python, VapourSynth and plugin wheels are
 architecture-specific, and a universal app would still need both trees.
 
-The Linux floor is Ubuntu 22.04 / Debian 12, which provide WebKitGTK 4.1. The `.deb` declares
-its WebKitGTK and GTK dependency; the AppImage is built on that baseline. WebKitGTK is never
-copied into `<tools>`, and the app does not ask the user to install a Python or VapourSynth
-runtime to make the webview work. Building on a newer image silently raises the glibc floor,
-so the release job pins 22.04 rather than `ubuntu-latest`.
+The Linux floor is Ubuntu 24.04 / Debian 13. The engine's prebuilt ONNX Runtime requires
+glibc 2.38, and the current Ubuntu 24.04 build emits GLIBC_2.39 symbols; the effective
+artifact floor is therefore 2.39. Debian 12 and Ubuntu 22.04 cannot link this build. Both
+supported distributions provide WebKitGTK 4.1. The `.deb` declares its WebKitGTK and GTK
+dependency; the AppImage is built on that baseline.
+WebKitGTK is never copied into `<tools>`, and the app does not ask the user to install a
+Python or VapourSynth runtime to make the webview work. Building on a newer image silently
+raises the glibc floor, so the release job pins 24.04 rather than `ubuntu-latest`.
 
 The other targets stage in this order:
 
@@ -547,11 +562,20 @@ bundle — Python, VapourSynth, plugins, encoders, FFmpeg, MKVToolNix, model, me
 the main installer. A runtime download is never the fallback. A size decision for Windows does
 not move a macOS or Linux component without its own measurement.
 
-Local packaging retains only installers and archives under `dist/release`. Both Tauri
-wrappers collect a successful bundle there; the Cargo `release/bundle/` tree is an
-intermediate form. The expanded `portable/` tree is also intermediate; remove it with
-`npm run clean:outputs` after the archives exist. `dist/tools` is a staging input, not a
-release artifact.
+Local packaging writes each variant under `dist/release/<platform>/<variant>/`: installers
+plus a portable artifact (a Windows ZIP, a zipped macOS `.app`, or the Linux AppImage), with
+a per-variant `SHA256SUMS.txt`. `npm run release:build` builds bundled and system variants on
+the host, clears only that host's platform directory so another platform's artifacts survive,
+and writes the aggregate checksum list at `dist/release/SHA256SUMS.txt`, together with
+`RELEASE-NOTES.md` and `release-manifest.json` for a manual GitHub pre-release. It also
+stages every uploadable file in the flat `dist/release/assets/` directory: each installer
+or portable gets `-bundled` or `-system` inserted before its extension, `release-manifest`
+rejects duplicate flat names, and `upload.asset_paths` lists only that one directory.
+`SHA256SUMS-github.txt` uses those flat names; the aggregate `SHA256SUMS.txt` keeps the
+platform and variant paths for local checks. The Cargo
+`release/bundle/` tree and the expanded `dist/release/portable/` staging tree are
+intermediate; remove them with `npm run clean:outputs` after the archives exist. `dist/tools`
+is a staging input, not a release artifact.
 
 ## 9. Licence positions
 
@@ -636,7 +660,7 @@ by component and by target:
 | Manifest and recipes exist for every target | 6.15 | `toolchain:verify` green; every claimed target has a source, licence, install path and wheel tag; no floating ref |
 | Windows bundle builds and installs | 6.16, 6.18 | the installer lands `<resources>/tools`; the service starts with only `--tools-dir`, every bundled row is available, and a fixture encode completes |
 | macOS bundle signs and notarises | 6.4, 6.16, 6.18, 6.22 | every nested Mach-O is signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict` and `spctl`, and a clean Mac runs the encode |
-| Linux bundle builds and installs | 6.5, 6.16, 6.18, 6.22 | the `.deb` declares WebKitGTK and the AppImage runs on the 22.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
+| Linux bundle builds and installs | 6.5, 6.16, 6.18, 6.22 | the `.deb` declares WebKitGTK and the AppImage runs on the 24.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
 | Fork-built fmetrics reproduces | 6.16 | the shared library builds from the pinned fork commit on every claimed target, the upstream-base and target patch checks pass, and a metric probe loads it |
 | Provider selection works | 6.17, 6.19 | the mixed matrix in [plan/06-deployment.md](plan/06-deployment.md) passes, including a restart-required VapourSynth switch |
 | Clean-VM behaviour per target | 6.20 | a machine with no Python, VapourSynth or FFmpeg encodes with the bundle only; macOS is 13+, Linux has WebKitGTK 4.1 and no other toolchain |

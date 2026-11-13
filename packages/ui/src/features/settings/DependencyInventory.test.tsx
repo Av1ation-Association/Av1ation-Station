@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import type { PreflightCheck, PreflightReport } from "@av1ation/contracts";
 
+import { renderWithApi } from "../../test/render";
 import { DependencyInventory, Diagnostics, LoadingSettings } from "./DependencyInventory";
 
 afterEach(() => {
@@ -33,11 +34,9 @@ function report(checks: PreflightCheck[]): PreflightReport {
 }
 
 function renderInventory(value: PreflightReport) {
-    return render(
-        <ApiProvider transport={new MockTransport()}>
-            <DependencyInventory report={value} />
-        </ApiProvider>,
-    );
+    return renderWithApi(<DependencyInventory report={value} />, {
+        transport: new MockTransport(),
+    });
 }
 
 it("says when preflight reported no executable probes", () => {
@@ -110,11 +109,9 @@ class FailingRefreshTransport extends MockTransport {
 }
 
 it("surfaces a failed preflight refresh beside the diagnosis", async () => {
-    render(
-        <ApiProvider transport={new FailingRefreshTransport()}>
-            <Diagnostics report={report([])} />
-        </ApiProvider>,
-    );
+    renderWithApi(<Diagnostics report={report([])} />, {
+        transport: new FailingRefreshTransport(),
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Run preflight" }));
 

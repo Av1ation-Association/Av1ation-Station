@@ -1,0 +1,11 @@
+{
+    "frontend": {
+        "api": 83.07,
+        "ui": 73.46,
+        "total": 74.91
+    },
+    "rust": {
+        "engine": 73.9,
+        "service": 80.05
+    }
+}

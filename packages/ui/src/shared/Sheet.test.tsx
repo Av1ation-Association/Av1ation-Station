@@ -1,18 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { Sheet } from "./Sheet";
-
-beforeAll(() => {
-    // jsdom has no top layer; these are the only native dialog methods the sheet uses.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(cleanup);
 

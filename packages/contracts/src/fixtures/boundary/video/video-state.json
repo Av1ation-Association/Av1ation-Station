@@ -1,0 +1,10 @@
+{
+  "video_id": "fixture-id",
+  "scene_count": 0,
+  "sequences": [],
+  "next": [],
+  "active": false,
+  "output_exists": false,
+  "retained_bytes": 0,
+  "script_data": []
+}

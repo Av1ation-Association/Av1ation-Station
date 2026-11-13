@@ -6,11 +6,14 @@ import type {
     EncoderDescriptor,
     EncoderFork,
     GeneralDefaults,
+    LogRecord,
     ParameterDescriptor,
     PreflightCheck,
     ProjectSummary,
     ProjectTemplate,
+    TimelineRecord,
     VideoSummary,
+    VideoValidation,
 } from "@av1ation/contracts";
 import type { Transport } from "./types";
 import type { MockFixtures } from "./mock/fixtures";
@@ -23,6 +26,28 @@ import { deleteRoute } from "./mock/routes/delete";
 import { fixtures, MOCK_FILTER_SCHEMAS, MOCK_SCRIPT_GUIDE } from "./mock/fixtures";
 import { pickBrowserFile, pickBrowserFiles } from "./mock/pickers";
 
+export interface EffectiveConfigValues {
+    values: Record<string, { source: string; value: unknown }>;
+}
+
+/** Flattens a configuration document into the service's dotted effective leaves. */
+function effectiveConfigValues(document: Record<string, unknown>): EffectiveConfigValues {
+    const values: EffectiveConfigValues["values"] = {};
+    const walk = (value: unknown, prefix: string): void => {
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+            if (prefix !== "") {
+                values[prefix] = { source: "default", value };
+            }
+            return;
+        }
+        for (const [key, child] of Object.entries(value)) {
+            walk(child, prefix === "" ? key : `${prefix}.${key}`);
+        }
+    };
+    walk(document, "");
+    return { values };
+}
+
 export class MockTransport implements Transport {
     readonly routes: Map<string, unknown>;
     readonly health: AppInfo;
@@ -32,12 +57,28 @@ export class MockTransport implements Transport {
     readonly videos = new Map<string, VideoSummary[]>();
     /** General defaults per project, so the editor round-trips in the demo. */
     readonly general = new Map<string, GeneralDefaults>();
+    /** Project configuration documents, keyed by project id, so a section save round-trips. */
+    readonly projectConfigs = new Map<string, Record<string, unknown>>();
+    /** Sparse video overrides, keyed by `project/video`, so a section save round-trips. */
+    readonly videoOverrideFields = new Map<string, Record<string, unknown>>();
+    /** Template configuration documents, keyed by template id, so a section save round-trips. */
+    readonly templateDefaults = new Map<string, Record<string, unknown>>();
+    /** The demo's clean preflight unless a route test supplies another. */
+    readonly validation: Partial<VideoValidation> | undefined;
     /** Saved encoder forks, so the Encoders tab round-trips without a backend. */
     forks: Array<{ record: EncoderFork; descriptor: EncoderDescriptor }> = [];
     /** User edits to the demo's built-in descriptors, keyed by encoder id. */
     readonly parameterOverrides = new Map<string, Record<string, ParameterDescriptor>>();
     /** Runs whose demo log was deleted, so the viewer and its list agree. */
     readonly deletedRuns = new Set<string>();
+    /** Per-video History entries, keyed by video id; empty unless a fixture seeds them. */
+    readonly history = new Map<string, TimelineRecord[]>();
+    /** Per-video run summaries, keyed by video id; absent uses the demo runs. */
+    readonly runs = new Map<string, unknown[]>();
+    /** Per-video scene tables, keyed by `project/video`; absent uses the demo table. */
+    readonly scenes = new Map<string, unknown>();
+    /** Captured run logs, keyed by run id; absent synthesises the demo's own records. */
+    readonly logs = new Map<string, LogRecord[]>();
     /** The demo offers a browser file picker and synthesises a demo path. */
     readonly pickFile: Transport["pickFile"] =
         typeof document === "undefined"
@@ -94,8 +135,8 @@ export class MockTransport implements Transport {
     readonly openPath = undefined;
     /** Only a test seam here; the demo must not restart the browser tab. */
     readonly restartApp: Transport["restartApp"] = undefined;
-    /** The demo has no media bytes to range over. */
-    readonly mediaUrl: Transport["mediaUrl"] = undefined;
+    /** The demo has no media bytes to range over unless its fixture supplies a mapping. */
+    readonly mediaUrl: Transport["mediaUrl"];
     /** The demo cannot own a language-server process, so completion stays bundled. */
     readonly openLanguageServer = undefined;
 
@@ -120,6 +161,8 @@ export class MockTransport implements Transport {
         this.pickExecutable = pickers.pickExecutable;
         this.pickIndex = pickers.pickIndex ?? this.pickIndex;
         this.pickModel = pickers.pickModel ?? this.pickModel;
+        this.validation = overrides.validation;
+        this.mediaUrl = overrides.mediaUrl;
         const source = overrides.health ?? fixtures.health;
         this.health = {
             ...source,
@@ -200,6 +243,9 @@ export class MockTransport implements Transport {
                     vapour_synth_filters: [{ Resize: { format: "YUV420P10LE" } }],
                 },
             ],
+            // The demo has no engine schema. Empty objects keep the section editors in
+            // their empty state instead of failing the whole page.
+            ["/api/config/schema", { encoder: {}, sequences: {} }],
             ["/api/config/filters", MOCK_FILTER_SCHEMAS],
             // The demo mirrors the generated module's shape, so the script page renders its
             // tabs and its injected-data table without a service behind it.
@@ -323,6 +369,30 @@ export class MockTransport implements Transport {
         };
         this.general.set(projectId, created);
         return created;
+    }
+
+    /** The effective values shape the section editors read from the service. */
+    projectConfigFor(projectId: string): EffectiveConfigValues {
+        return effectiveConfigValues(this.projectConfigs.get(projectId) ?? {});
+    }
+
+    /** One template's effective defaults, or an empty document before the first save. */
+    templateDefaultsFor(templateId: string): EffectiveConfigValues {
+        return effectiveConfigValues(this.templateDefaults.get(templateId) ?? {});
+    }
+
+    /** The video's effective values: its project's leaves with its own roots overlaid. */
+    videoConfigFor(projectId: string, videoId: string): EffectiveConfigValues {
+        const values = effectiveConfigValues(this.projectConfigs.get(projectId) ?? {}).values;
+        for (const [path, value] of Object.entries(this.overridesFor(projectId, videoId))) {
+            values[path] = { source: "overridden", value };
+        }
+        return { values };
+    }
+
+    /** The raw sparse override map, so a section save keeps fields it does not show. */
+    overridesFor(projectId: string, videoId: string): Record<string, unknown> {
+        return this.videoOverrideFields.get(`${projectId}/${videoId}`) ?? {};
     }
 
     videosFor(projectId: string): VideoSummary[] {

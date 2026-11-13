@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { ScenePlayer } from "./ScenePlayer";
 
 /** A transport that can hand a media element a URL, which the demo transport cannot. */
@@ -80,19 +81,18 @@ function renderPlayer(
     transport: MockTransport,
     overrides: Partial<Parameters<typeof ScenePlayer>[0]> = {},
 ) {
-    return render(
-        <ApiProvider transport={transport}>
-            <ScenePlayer
-                projectId="project-1"
-                videoId="video-1"
-                source="original"
-                onSourceChange={vi.fn()}
-                frameRate={24}
-                playhead={0}
-                onSeek={vi.fn()}
-                {...overrides}
-            />
-        </ApiProvider>,
+    return renderWithApi(
+        <ScenePlayer
+            projectId="project-1"
+            videoId="video-1"
+            source="original"
+            onSourceChange={vi.fn()}
+            frameRate={24}
+            playhead={0}
+            onSeek={vi.fn()}
+            {...overrides}
+        />,
+        { transport },
     );
 }
 
@@ -311,22 +311,16 @@ describe("ScenePlayer", () => {
             sceneStarts: [0, 240],
             totalFrames: 960,
         };
-        const view = render(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} playhead={0} onSeek={vi.fn()} />
-            </ApiProvider>,
-        );
+        const view = renderWithApi(<ScenePlayer {...props} playhead={0} onSeek={vi.fn()} />, {
+            transport,
+        });
 
         fireEvent.play(document.querySelector("video")!);
         expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
 
         // Another six-second window starts at a frame grid boundary, so this seek changes
         // the URL and mounts a new element instead of seeking the old one.
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />);
 
         // The new element has not started yet, so the transport must not claim Pause.
         expect(screen.getByRole("button", { name: "Play" })).toBeDefined();
@@ -370,11 +364,9 @@ describe("ScenePlayer", () => {
             sceneStarts: [0, 240],
             totalFrames: 960,
         };
-        const view = render(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} playhead={144} onSeek={vi.fn()} />
-            </ApiProvider>,
-        );
+        const view = renderWithApi(<ScenePlayer {...props} playhead={144} onSeek={vi.fn()} />, {
+            transport,
+        });
         const video = document.querySelector("video")!;
         expect(video.getAttribute("src")).toContain("frame=144");
         expect(video.getAttribute("src")).not.toContain("epoch=1");
@@ -386,11 +378,7 @@ describe("ScenePlayer", () => {
             configurable: true,
             value: { length: 1, start: () => 17, end: () => 25 },
         });
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />);
 
         expect(document.querySelector("video")?.getAttribute("src")).toContain("frame=144");
         expect(document.querySelector("video")?.getAttribute("src")).toContain("epoch=1");
@@ -411,21 +399,16 @@ describe("ScenePlayer", () => {
             sceneEnds: [181, 271, 431],
             totalFrames: 431,
         };
-        const view = render(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} encoderFingerprints={["a", "b", "c"]} />
-            </ApiProvider>,
+        const view = renderWithApi(
+            <ScenePlayer {...props} encoderFingerprints={["a", "b", "c"]} />,
+            { transport },
         );
         expect(document.querySelector("video")?.getAttribute("src")).toContain("scene=1");
         expect(document.querySelector("video")?.getAttribute("src")).toContain("encoder=b");
 
         // A saved encoder setting is a different chunk, so the URL has to say so: the
         // element is reopened and the service encodes with the document the row describes.
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} encoderFingerprints={["a", "c9", "c"]} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} encoderFingerprints={["a", "c9", "c"]} />);
         const video = document.querySelector("video");
         expect(video?.getAttribute("src")).toContain("encoder=c9");
         expect(video?.getAttribute("src")).not.toContain("encoder=b");
@@ -446,11 +429,7 @@ describe("ScenePlayer", () => {
             totalFrames: 756,
             onSeek,
         };
-        const view = render(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} playhead={181} />
-            </ApiProvider>,
-        );
+        const view = renderWithApi(<ScenePlayer {...props} playhead={181} />, { transport });
 
         const video = document.querySelector("video")!;
         expect(video.getAttribute("src")).toContain("scene=1");
@@ -463,11 +442,7 @@ describe("ScenePlayer", () => {
         // The screen answers the seek, which opens the next scene's element. That reset
         // clears nearly every piece of playback state; the notice has to survive it or the
         // user never learns why the picture moved.
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} sceneIndex={2} playhead={276} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} sceneIndex={2} playhead={276} />);
         expect(document.querySelector("video")?.getAttribute("src")).toContain("scene=2");
         expect(screen.getByText("Skipped 5 uncovered frames")).toBeDefined();
     });
@@ -484,31 +459,21 @@ describe("ScenePlayer", () => {
             sceneStarts: [0, 240, 480],
             totalFrames: 960,
         };
-        const view = render(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} source="original" sceneIndex={1} />
-            </ApiProvider>,
-        );
+        const view = renderWithApi(<ScenePlayer {...props} source="original" sceneIndex={1} />, {
+            transport,
+        });
         const bar = () =>
             screen.getByRole("slider", { name: "Seek the preview" }) as HTMLInputElement;
         expect(bar().max).toBe("40");
 
         // An encoded chunk is one scene long, but the bar still spans the video, so the
         // three sources cannot read as three different lengths.
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} source="encode" sceneIndex={1} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} source="encode" sceneIndex={1} />);
         expect(bar().max).toBe("40");
         // And the thumb is at the scene's own place, not at zero of its chunk.
         expect(bar().value).toBe("10");
 
-        view.rerender(
-            <ApiProvider transport={transport}>
-                <ScenePlayer {...props} source="decoded" sceneIndex={1} />
-            </ApiProvider>,
-        );
+        view.rerenderWithApi(<ScenePlayer {...props} source="decoded" sceneIndex={1} />);
         expect(bar().max).toBe("40");
     });
 

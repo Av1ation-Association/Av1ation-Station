@@ -1,0 +1,133 @@
+{
+    "targets": [
+        {
+            "id": "scene-selection",
+            "label": "Scene selection",
+            "file": "packages/ui/src/features/scenes/scene-selection.ts",
+            "test": {
+                "args": [
+                    "node_modules/vitest/vitest.mjs",
+                    "run",
+                    "packages/ui/src/features/scenes/scene-selection.test.ts",
+                    "--reporter=dot"
+                ]
+            },
+            "mutants": [
+                {
+                    "id": "range-excludes-last",
+                    "description": "Drop the final index from a swept range.",
+                    "find": "for (let index = start; index <= end; index += 1) {",
+                    "replace": "for (let index = start; index < end; index += 1) {"
+                },
+                {
+                    "id": "clamp-low-edge",
+                    "description": "Clamp a negative click to row one instead of row zero.",
+                    "find": "return Math.max(0, Math.min(count - 1, index));",
+                    "replace": "return Math.max(1, Math.min(count - 1, index));"
+                },
+                {
+                    "id": "reconcile-cursor-at-end",
+                    "description": "Treat a cursor equal to the scene count as still in range.",
+                    "find": "selection.cursor >= 0 && selection.cursor < count",
+                    "replace": "selection.cursor >= 0 && selection.cursor <= count"
+                },
+                {
+                    "id": "pagedown-ignores-minimum",
+                    "description": "Use a zero page size on PageDown instead of the one-row minimum.",
+                    "find": "return moveCursor(selection, Math.max(1, pageSize), extend, count);",
+                    "replace": "return moveCursor(selection, pageSize, extend, count);"
+                },
+                {
+                    "id": "toggle-prefers-anchor",
+                    "description": "Toggle the anchor row instead of the cursor row when they differ.",
+                    "find": "const target = selection.cursor ?? selection.anchor ?? 0;",
+                    "replace": "const target = selection.anchor ?? selection.cursor ?? 0;"
+                }
+            ]
+        },
+        {
+            "id": "config-resolution",
+            "label": "Configuration resolution",
+            "file": "rust/crates/service/src/project/config.rs",
+            "test": {
+                "args": [
+                    "scripts/run-cargo.mjs",
+                    "test",
+                    "-p",
+                    "av1ation-service",
+                    "--locked",
+                    "--lib",
+                    "project::config::tests"
+                ]
+            },
+            "mutants": [
+                {
+                    "id": "sequence-override-rejected",
+                    "description": "Accept only the encoder root, not a sequence, as a replaceable section.",
+                    "find": "let section = matches!(segments.as_slice(), [\"encoder\"] | [\"sequences\", _]);",
+                    "replace": "let section = matches!(segments.as_slice(), [\"encoder\"]);"
+                },
+                {
+                    "id": "nullable-input-and",
+                    "description": "Require both input spellings before allowing a null override.",
+                    "find": "rest.ends_with(\".input\") || rest.ends_with(\".metric_input\")",
+                    "replace": "rest.ends_with(\".input\") && rest.ends_with(\".metric_input\")"
+                },
+                {
+                    "id": "metric-input-not-filled",
+                    "description": "Skip metric_input when inheriting a source path.",
+                    "find": "for key in [\"input\", \"metric_input\"] {",
+                    "replace": "for key in [\"input\"] {"
+                },
+                {
+                    "id": "numbers-never-equal",
+                    "description": "Treat equal numeric representations as an inherited edit.",
+                    "find": "(left - right).abs() < f64::EPSILON",
+                    "replace": "(left - right).abs() > f64::EPSILON"
+                }
+            ]
+        },
+        {
+            "id": "run-supervisor",
+            "label": "Run supervisor",
+            "file": "rust/crates/service/src/run/runs/mod.rs",
+            "test": {
+                "args": [
+                    "scripts/run-cargo.mjs",
+                    "test",
+                    "-p",
+                    "av1ation-service",
+                    "--locked",
+                    "--lib",
+                    "run::runs::tests"
+                ]
+            },
+            "mutants": [
+                {
+                    "id": "throttle-interval-inverted",
+                    "description": "Publish only when the progress interval has already elapsed.",
+                    "find": "now.saturating_duration_since(*last) < LIVE_PROGRESS_INTERVAL",
+                    "replace": "now.saturating_duration_since(*last) > LIVE_PROGRESS_INTERVAL"
+                },
+                {
+                    "id": "throttle-never-remembers",
+                    "description": "Store a stale timestamp so the next tick is never suppressed.",
+                    "find": "self.last.insert(key, now);",
+                    "replace": "self.last.insert(key, now - LIVE_PROGRESS_INTERVAL);"
+                },
+                {
+                    "id": "scene-end-throttled",
+                    "description": "Treat any progress tick carrying either a scene index or no percentage as a scene end.",
+                    "find": "if event.scene_index.is_some() && event.scene_progress.is_none() {",
+                    "replace": "if event.scene_index.is_some() || event.scene_progress.is_none() {"
+                },
+                {
+                    "id": "live-noise-run-mismatch",
+                    "description": "Reject measurements from the run that owns the live tally.",
+                    "find": "if entry.run_id == event.run_id {",
+                    "replace": "if entry.run_id != event.run_id {"
+                }
+            ]
+        }
+    ]
+}

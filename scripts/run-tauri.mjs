@@ -20,6 +20,7 @@ import { sanitizedPath } from "./sanitize-path.mjs";
 const cli = fileURLToPath(new URL("../node_modules/@tauri-apps/cli/tauri.js", import.meta.url));
 const tauriDir = fileURLToPath(new URL("../rust/desktop-shell/", import.meta.url));
 const baseConfig = resolve(tauriDir, "tauri.conf.json");
+const productName = JSON.parse(readFileSync(baseConfig, "utf8")).productName;
 const generatedReleaseConfig = resolve(tauriDir, "tauri.release.generated.json");
 const args = process.argv.slice(2);
 const helpOrVersion =
@@ -56,6 +57,11 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
     const config = JSON.parse(readFileSync(baseConfig, "utf8"));
     config.bundle = {
         ...config.bundle,
+        targets: process.env.AV1ATION_BUNDLES
+            ? process.env.AV1ATION_BUNDLES.split(",")
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+            : config.bundle.targets,
         resources: {
             "../../dist/apps/desktop/": "web/",
             "../../dist/tools/": "tools/",
@@ -92,7 +98,7 @@ if (
     !args.includes("-d")
 ) {
     try {
-        collectReleaseArtifacts();
+        collectReleaseArtifacts({ variant: "bundled", productName });
     } catch (error) {
         console.error(`release artifacts could not be collected: ${error.message}`);
         process.exit(1);

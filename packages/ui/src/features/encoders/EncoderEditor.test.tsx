@@ -1,350 +1,278 @@
 // @vitest-environment jsdom
-import type { ReactElement } from "react";
+import { useState } from "react";
 
-import type { ParameterDescriptor } from "@av1ation/contracts";
-import { ApiProvider, HttpTransport, MockTransport } from "@av1ation/api";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 
-import { ParameterControl } from "./parameter-control";
+import { MockTransport } from "@av1ation/api";
+
+import type { JsonSchema } from "../../shared/schema/config-schema";
+import { renderRoute } from "../../test/render";
+import { EncoderEditor } from "./EncoderEditor";
 
 afterEach(cleanup);
 
-function renderControl(element: ReactElement) {
-    return render(
-        <ApiProvider
-            transport={new MockTransport({}, { pickFile: async () => "C:/config/svt.toml" })}
-        >
-            {element}
-        </ApiProvider>,
-    );
-}
-
-function choice(
-    values: string[],
-    widget: ParameterDescriptor["widget"] = "Auto",
-): ParameterDescriptor {
-    return {
-        delimiter: "Space",
-        label: "Assembly",
-        description: null,
-        doc_link: null,
-        kind: {
-            Choice: {
-                options: values.map((value) => ({
-                    value,
-                    label: value,
-                    description: null,
-                    doc_link: null,
-                })),
-                value_kind: "Text",
-                multiple: false,
-                min_selected: 1,
-                max_selected: 1,
+const ROOT: JsonSchema = {
+    $defs: {
+        Encoder: {
+            oneOf: [
+                { properties: { X265: { $ref: "#/$defs/X265" } } },
+                { properties: { SVTAV1: { $ref: "#/$defs/SVTAV1" } } },
+            ],
+        },
+        X265: {
+            properties: {
+                executable: { type: ["string", "null"] },
+                options: { type: "object" },
+                pass: { type: "object" },
+                append_color_data: { type: "boolean" },
+                ffmpeg_filter: { type: ["string", "null"] },
             },
         },
-        default: null,
-        widget,
-        advanced: false,
-        group: null,
-        relations: [],
-    };
+        SVTAV1: {
+            properties: {
+                executable: { type: ["string", "null"] },
+                options: { type: "object" },
+                pass: { type: "object" },
+                append_color_data: { type: "boolean" },
+                ffmpeg_filter: { type: ["string", "null"] },
+                photon_noise: { type: ["object", "null"] },
+            },
+        },
+    },
+};
+
+const NODE: JsonSchema = { $ref: "#/$defs/Encoder" };
+
+const X265_VALUE = {
+    X265: {
+        executable: null,
+        options: {},
+        pass: { All: 1 },
+        append_color_data: true,
+        ffmpeg_filter: null,
+    },
+};
+
+interface EditorOptions {
+    initial?: unknown;
+    locked?: boolean;
+    scope?: "project" | "video" | "template" | "scene";
 }
 
-const stringOption = { String: { prefix: "--", delimiter: " ", value: "c" } };
-
-it("shows a short enumeration as radios and a long one as a dropdown", () => {
-    const { unmount } = renderControl(
-        <ParameterControl
-            descriptor={choice(["c", "mmx", "sse"])}
-            parameter={stringOption}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
-    expect(screen.getByRole("radiogroup", { name: "Assembly" })).toBeTruthy();
-    expect(screen.getAllByRole("radio")).toHaveLength(3);
-    unmount();
-
-    renderControl(
-        <ParameterControl
-            descriptor={choice(["c", "mmx", "sse", "sse2", "avx2"])}
-            parameter={stringOption}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
-    expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Assembly" })).toBeTruthy();
-});
-
-it("honours a presentation the descriptor names", () => {
-    const { unmount } = renderControl(
-        <ParameterControl
-            descriptor={choice(["c", "mmx", "sse"], {
-                ChoiceInput: { presentation: "Dropdown" },
-            })}
-            parameter={stringOption}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
-    expect(screen.getByRole("combobox", { name: "Assembly" })).toBeTruthy();
-    unmount();
-
-    // Segmented draws the same values as radios, even when there are more than four.
-    renderControl(
-        <ParameterControl
-            descriptor={choice(["c", "mmx", "sse", "sse2", "avx2"], {
-                ChoiceInput: { presentation: "Segmented" },
-            })}
-            parameter={stringOption}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
-    expect(screen.getAllByRole("radio")).toHaveLength(5);
-});
-
-function pathDescriptor(): ParameterDescriptor {
-    return {
-        delimiter: "Space",
-        label: "Config file",
-        description: null,
-        doc_link: null,
-        kind: { Path: { directory: false, accept: ["toml", "json"] } },
-        default: null,
-        widget: "Auto",
-        advanced: false,
-        group: null,
-        relations: [],
-    };
-}
-
-function textDescriptor(label: string, format: "Email" | "Url" | "DateTime"): ParameterDescriptor {
-    return {
-        delimiter: "Space",
-        label,
-        description: null,
-        doc_link: null,
-        kind: { Text: { max_len: null, pattern: null, multiline: false, format } },
-        default: null,
-        widget: "Auto",
-        advanced: false,
-        group: null,
-        relations: [],
-    };
-}
-
-it("browses a path from inside its text field", async () => {
-    let picked = "";
-    renderControl(
-        <ParameterControl
-            descriptor={pathDescriptor()}
-            parameter={{ String: { prefix: "--", delimiter: " ", value: "" } }}
+/** Keep the editor live so a change is observable in both the callback and the next render. */
+function Harness({
+    initial,
+    locked = false,
+    scope = "project",
+    onChange,
+}: EditorOptions & { onChange: (next: unknown) => void }) {
+    const [value, setValue] = useState<unknown>(initial ?? X265_VALUE);
+    return (
+        <EncoderEditor
+            root={ROOT}
+            node={NODE}
+            value={value}
             onChange={(next) => {
-                picked = String(next);
+                setValue(next);
+                onChange(next);
             }}
-            disabled={false}
-        />,
+            locked={locked}
+            scope={scope}
+        />
     );
+}
 
-    fireEvent.click(screen.getByRole("button", { name: "Browse for Config file" }));
-    await waitFor(() => expect(picked).toBe("C:/config/svt.toml"));
-    expect(screen.getByRole("textbox", { name: "Config file" })).toBeTruthy();
+function mount(options: EditorOptions = {}) {
+    const onChange = vi.fn();
+    renderRoute(<Harness {...options} onChange={onChange} />, {
+        transport: new MockTransport(),
+        route: "/settings",
+        initialEntry: "/settings",
+    });
+    return onChange;
+}
+
+function bodyOf(call: unknown): Record<string, unknown> {
+    const encoder = call as {
+        X265?: Record<string, unknown>;
+        SVTAV1?: Record<string, unknown>;
+    };
+    return encoder.X265 ?? encoder.SVTAV1 ?? {};
+}
+
+it("switches encoder and seeds the new encoder's required fields", async () => {
+    const onChange = mount();
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    expect(select.value).toBe("base:X265");
+
+    fireEvent.change(select, { target: { value: "base:SVTAV1" } });
+
+    await waitFor(() => expect(select.value).toBe("base:SVTAV1"));
+    expect(onChange).toHaveBeenLastCalledWith({
+        SVTAV1: {
+            executable: null,
+            options: {},
+            pass: { All: 1 },
+            append_color_data: true,
+            ffmpeg_filter: null,
+            photon_noise: null,
+        },
+    });
+    // SVT-AV1's descriptor is in the catalogue but the mock marks the binary missing.
+    expect(screen.getByText("Missing")).toBeTruthy();
+    expect(screen.getByRole("spinbutton", { name: "Encoder passes" })).toBeTruthy();
 });
 
-it("explains an invalid validated text value", () => {
-    renderControl(
-        <ParameterControl
-            descriptor={textDescriptor("Contact", "Email")}
-            parameter={{ String: { prefix: "--", delimiter: " ", value: "nope" } }}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
+it("writes passes as All(n) and toggles colour and filter fields", async () => {
+    const onChange = mount();
+    await screen.findByRole("heading", { name: "Parameters" });
 
-    expect(screen.getByRole("alert").textContent).toContain("email address");
+    const passes = screen.getByRole<HTMLInputElement>("spinbutton", { name: "Encoder passes" });
+    fireEvent.change(passes, { target: { value: "3" } });
+    await waitFor(() => expect(bodyOf(onChange.mock.lastCall?.[0]).pass).toEqual({ All: 3 }));
+
+    const colour = screen.getByRole("switch", { name: "Append colour data" });
+    fireEvent.click(colour);
+    await waitFor(() => expect(bodyOf(onChange.mock.lastCall?.[0]).append_color_data).toBe(false));
+
+    const filter = screen.getByRole("textbox", { name: "FFmpeg filter" });
+    fireEvent.change(filter, { target: { value: "scale=1920:-2" } });
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).ffmpeg_filter).toBe("scale=1920:-2"),
+    );
+    expect(screen.getByText(/Quality Check scores the unfiltered source/u)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(bodyOf(onChange.mock.lastCall?.[0]).ffmpeg_filter).toBeNull());
 });
 
-function numberedChoice(): ParameterDescriptor {
-    return {
-        delimiter: "Space",
-        label: "Colour format",
-        description: null,
-        doc_link: null,
-        kind: {
-            Choice: {
-                options: [
-                    {
-                        value: 0,
-                        label: "4:0:0",
-                        description: "Luma only, for monochrome sources",
-                        doc_link: null,
-                    },
-                    {
-                        value: 1,
-                        label: "4:2:0",
-                        description: "Default broadcast sampling",
-                        doc_link: null,
-                    },
-                    {
-                        value: 2,
-                        label: "4:2:2",
-                        description: "Mezzanine sampling",
-                        doc_link: null,
-                    },
-                ],
-                value_kind: "Number",
-                multiple: false,
-                min_selected: 1,
-                max_selected: 1,
+it("adds a catalogue parameter, previews the command, and removes it again", async () => {
+    const onChange = mount();
+    await screen.findByRole("heading", { name: "Parameters" });
+    expect(
+        screen.getByText("No parameter set. The executable runs with its own defaults."),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    const add = await screen.findByRole("dialog", { name: "Add parameter" });
+    fireEvent.change(within(add).getByPlaceholderText("Search flags"), {
+        target: { value: "constant" },
+    });
+    fireEvent.click(within(add).getByRole("button", { name: /Constant Rate Factor/u }));
+
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).options).toEqual({
+            crf: { Number: { prefix: "--", delimiter: " ", value: 24 } },
+        }),
+    );
+    expect(screen.getByRole("button", { name: "Remove Constant Rate Factor" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview command" }));
+    const preview = await screen.findByRole("dialog", { name: "Preview command" });
+    expect(within(preview).getByText("x265 --crf 24")).toBeTruthy();
+    fireEvent.click(
+        within(preview).getAllByRole("button", { name: "Close" }).at(-1) as HTMLButtonElement,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Constant Rate Factor" }));
+    await waitFor(() => expect(bodyOf(onChange.mock.lastCall?.[0]).options).toEqual({}));
+});
+
+it("adds a flag the catalogue does not know and searches the set parameters", async () => {
+    const onChange = mount({
+        initial: {
+            X265: {
+                ...X265_VALUE.X265,
+                options: {
+                    crf: { Number: { prefix: "--", delimiter: " ", value: 24 } },
+                    tune: { String: { prefix: "--", delimiter: " ", value: "film" } },
+                },
             },
         },
-        default: 1,
-        widget: "Auto",
-        advanced: false,
-        group: null,
-        relations: [],
-    };
-}
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
 
-it("shows a numbered choice's labels and sends its number", () => {
-    const picked: Array<string | number | boolean> = [];
-    renderControl(
-        <ParameterControl
-            descriptor={numberedChoice()}
-            parameter={{ String: { prefix: "--", delimiter: " ", value: "1" } }}
-            onChange={(next) => picked.push(next)}
-            disabled={false}
-        />,
+    const search = screen.getByRole("searchbox", { name: "Search parameters" });
+    fireEvent.change(search, { target: { value: "tune" } });
+    expect(screen.getByText("tune")).toBeTruthy();
+    expect(screen.queryByText("Constant Rate Factor")).toBeNull();
+
+    fireEvent.change(search, { target: { value: "missing" } });
+    expect(screen.getByText("No parameter matches “missing”.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    const add = await screen.findByRole("dialog", { name: "Add parameter" });
+    fireEvent.change(within(add).getByRole("textbox", { name: "Parameter flag" }), {
+        target: { value: "custom" },
+    });
+    fireEvent.click(within(add).getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).options).toMatchObject({
+            custom: { Bool: { prefix: "--", value: true } },
+        }),
     );
-
-    expect(screen.getByRole("radiogroup", { name: "Colour format" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "4:2:0" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("Default broadcast sampling")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "4:2:2" }).getAttribute("title")).toBe(
-        "Mezzanine sampling",
-    );
-
-    fireEvent.click(screen.getByRole("radio", { name: "4:2:2" }));
-    expect(picked).toEqual([2]);
 });
 
-it("keeps a typeable path field where the host has no picker", () => {
-    render(
-        <ApiProvider transport={new HttpTransport("http://127.0.0.1:1")}>
-            <ParameterControl
-                descriptor={pathDescriptor()}
-                parameter={{ String: { prefix: "--", delimiter: " ", value: "" } }}
-                onChange={() => undefined}
-                disabled={false}
-            />
-        </ApiProvider>,
+it("enables photon noise with its required ISO and opens the coefficient sheet", async () => {
+    const onChange = mount({
+        initial: {
+            SVTAV1: {
+                executable: null,
+                options: {},
+                pass: { All: 1 },
+                append_color_data: true,
+                ffmpeg_filter: null,
+                photon_noise: null,
+            },
+        },
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    fireEvent.click(screen.getByRole("switch", { name: "Photon noise" }));
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ iso: 1600 }),
     );
 
-    expect(screen.queryByRole("button", { name: "Browse for Config file" })).toBeNull();
-    expect(screen.getByRole("textbox", { name: "Config file" })).toBeTruthy();
+    const iso = screen.getByRole<HTMLInputElement>("textbox", { name: "ISO" });
+    fireEvent.change(iso, { target: { value: "3200" } });
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ iso: 3200 }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Custom coefficients" }));
+    expect(await screen.findByRole("dialog", { name: /coefficients/iu })).toBeTruthy();
 });
 
-it("commits the value a radio picks", () => {
-    const picked: string[] = [];
-    renderControl(
-        <ParameterControl
-            descriptor={choice(["c", "mmx"])}
-            parameter={stringOption}
-            onChange={(next) => picked.push(String(next))}
-            disabled={false}
-        />,
-    );
+it("disables every authoring control when the document is locked", async () => {
+    mount({ locked: true });
+    await screen.findByRole("heading", { name: "Parameters" });
 
-    fireEvent.click(screen.getByRole("radio", { name: "mmx" }));
-    expect(picked).toEqual(["mmx"]);
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" }).disabled).toBe(
+        true,
+    );
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Add parameter" }).disabled).toBe(
+        true,
+    );
+    expect(
+        screen.getByRole<HTMLInputElement>("spinbutton", { name: "Encoder passes" }).disabled,
+    ).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>("textbox", { name: "FFmpeg filter" }).disabled).toBe(
+        true,
+    );
+    expect(
+        screen.getByRole<HTMLButtonElement>("switch", { name: "Append colour data" }).disabled,
+    ).toBe(true);
 });
 
-function zeroOrOneDescriptor(min: number, max: number): ParameterDescriptor {
-    return {
-        delimiter: "Space",
-        label: "Quantisation matrices",
-        description: null,
-        doc_link: null,
-        kind: { Number: { integer: true, min, max, step: null, unit: null } },
-        default: 1,
-        widget: "Auto",
-        advanced: false,
-        group: null,
-        relations: [],
-    };
-}
-
-it("renders a 0/1 number as a switch and writes the literal", () => {
-    const picked: Array<string | number | boolean> = [];
-    renderControl(
-        <ParameterControl
-            descriptor={zeroOrOneDescriptor(0, 1)}
-            parameter={{ Number: { prefix: "--", delimiter: " ", value: 0 } }}
-            onChange={(next) => picked.push(next)}
-            disabled={false}
-        />,
-    );
-
-    const toggle = screen.getByRole("switch", { name: "Quantisation matrices" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(toggle);
-    expect(picked).toEqual([1]);
-});
-
-it("keeps a wider numeric range out of a switch", () => {
-    // SVT-AV1's `--enable-tf` also takes 2 and 3; turning it into a switch would make the
-    // adaptive values unreachable.
-    renderControl(
-        <ParameterControl
-            descriptor={zeroOrOneDescriptor(0, 3)}
-            parameter={{ Number: { prefix: "--", delimiter: " ", value: 1 } }}
-            onChange={() => undefined}
-            disabled={false}
-        />,
-    );
-
-    expect(screen.queryByRole("switch")).toBeNull();
-});
-
-it("shows a numeric parameter's unit beside the field and names it in the field", () => {
-    const picked: Array<string | number | boolean> = [];
-    renderControl(
-        <ParameterControl
-            descriptor={{
-                delimiter: "Space",
-                label: "Keyframes",
-                description: null,
-                doc_link: null,
-                kind: {
-                    Number: {
-                        integer: true,
-                        min: 1,
-                        max: 500,
-                        step: null,
-                        unit: "frames",
-                    },
-                },
-                default: null,
-                widget: "DurationInput",
-                advanced: false,
-                group: null,
-                relations: [],
-            }}
-            parameter={{ Number: { prefix: "--", delimiter: " ", value: 12 } }}
-            onChange={(next) => picked.push(next)}
-            disabled={false}
-        />,
-    );
-
-    // The unit is the value's meaning; a field that shows `12` for both `--frames` and a
-    // second count would read as the same parameter.
-    expect(screen.getByText("frames")).toBeTruthy();
-    const field = screen.getByRole("textbox", { name: "Keyframes (frames)" });
-    expect((field as HTMLInputElement).value).toBe("12");
-
-    fireEvent.change(field, { target: { value: "48" } });
-    expect(picked).toEqual([48]);
+it("names the scope whose encoder is being edited", async () => {
+    mount({ scope: "video" });
+    await screen.findByRole("heading", { name: "Parameters" });
+    expect(
+        screen.getByText(
+            "The encoder every scene of this video is encoded with. A scene can choose another.",
+        ),
+    ).toBeTruthy();
+    expect(screen.getByText(/An individual scene can override this encoder/u)).toBeTruthy();
 });

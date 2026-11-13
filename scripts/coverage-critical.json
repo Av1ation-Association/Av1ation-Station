@@ -1,0 +1,53 @@
+{
+    "reviewed": "2026-11-12",
+    "files": [
+        {
+            "path": "packages/ui/src/features/encoders/EncoderEditor.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/settings/AboutPanel.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/projects/ProjectScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/projects/ProjectGeneralScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/projects/ProjectSectionScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/videos/VideoScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/videos/VideoSectionScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/logs/HistoryScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/logs/LogsScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/settings/SettingsScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/ui/src/features/encoders/EncoderJsonScreen.tsx",
+            "min": 50
+        },
+        {
+            "path": "packages/api/src/transport/http.ts",
+            "min": 50
+        }
+    ]
+}

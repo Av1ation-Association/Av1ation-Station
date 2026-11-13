@@ -1,28 +1,19 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import type { TimelineRecord } from "@av1ation/contracts";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
 
+import { renderRoute } from "../../test/render";
 import { HistoryScreen } from "./HistoryScreen";
-
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
 
 const HISTORY = "/api/projects/demo/videos/demo-video/history";
 
 const ENTRIES: TimelineRecord[] = [
     {
-        run_id: "unrecognized-run",
+        run_id: "demo-run-1",
         sequence: "SceneDetector",
         started_at: "2026-10-30T14:22:31Z",
         ended_at: "2026-10-30T14:23:00Z",
@@ -33,7 +24,7 @@ const ENTRIES: TimelineRecord[] = [
         message: null,
     },
     {
-        run_id: "unrecognized-run",
+        run_id: "demo-run-1",
         sequence: null,
         started_at: "2026-10-30T14:22:31Z",
         ended_at: "2026-10-30T14:24:02Z",
@@ -47,58 +38,32 @@ const ENTRIES: TimelineRecord[] = [
 
 /** The demo has no timeline; this run's terminal record names an outcome History cannot. */
 class HistoryTransport extends MockTransport {
+    readonly deleted: string[] = [];
+
     override async get<T>(path: string, schema: ZodType<T>): Promise<T> {
         if (path === HISTORY) {
             return schema.parse({ entries: ENTRIES });
         }
         return super.get(path, schema);
     }
+
+    override async delete(path: string): Promise<void> {
+        this.deleted.push(path);
+        return await super.delete(path);
+    }
 }
 
-afterEach(() => {
-    cleanup();
-    vi.restoreAllMocks();
-    document.body.innerHTML = "";
-});
-
-function renderHistory() {
-    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const historyRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/history",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <HistoryScreen />,
+function renderHistory(transport = new HistoryTransport()) {
+    renderRoute(<HistoryScreen />, {
+        route: "/projects/$projectId/videos/$videoId/history",
+        initialEntry: "/projects/demo/videos/demo-video/history",
+        stubs: [
+            "/projects/$projectId/videos/$videoId",
+            "/projects/$projectId/videos/$videoId/scenes",
+            "/projects/$projectId/videos/$videoId/logs",
+        ],
+        transport,
     });
-    const videoRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const scenesRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/scenes",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const logsRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/logs",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([historyRoute, videoRoute, scenesRoute, logsRoute]),
-        history: createMemoryHistory({
-            initialEntries: ["/projects/demo/videos/demo-video/history"],
-        }),
-    });
-    render(
-        <ApiProvider transport={new HistoryTransport()}>
-            <RouterProvider router={router} />
-        </ApiProvider>,
-    );
 }
 
 it("shows Unknown for a terminal outcome the UI does not recognize", async () => {
@@ -106,5 +71,22 @@ it("shows Unknown for a terminal outcome the UI does not recognize", async () =>
 
     const chip = await screen.findByText("Unknown");
     expect(chip.className).toContain("text-ink-secondary");
-    expect(screen.getByText("unrecognized-run")).toBeTruthy();
+    expect(screen.getByText("demo-run-1")).toBeTruthy();
+});
+
+it("deletes a run only after its confirmation dialog", async () => {
+    const transport = new HistoryTransport();
+    renderHistory(transport);
+
+    await screen.findByText("demo-run-1");
+    fireEvent.click(screen.getByRole("button", { name: "Delete run demo-run-1" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Delete this run?" });
+    expect(dialog.textContent).toContain("history entries and the log");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete run" }));
+
+    await waitFor(() =>
+        expect(transport.deleted).toEqual(["/api/projects/demo/videos/demo-video/runs/demo-run-1"]),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });

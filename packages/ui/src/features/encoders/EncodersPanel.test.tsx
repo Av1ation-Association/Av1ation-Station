@@ -1,71 +1,25 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { expect, it } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
-import { TopBarTargetContext } from "../../shared/TopBarActions";
+import { renderRoute } from "../../test/render";
 import { EncodersPanel } from "./EncodersPanel";
-
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
-beforeAll(() => {
-    // jsdom has no top layer; the sheet's native dialog API is the only gap this test needs.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
-
-afterEach(() => {
-    cleanup();
-    document.body.innerHTML = "";
-});
 
 /** Mount the panel with a real portal target, so the top-bar group is observable. */
 function mount(transport: MockTransport = new MockTransport()): HTMLElement {
-    const target = document.createElement("div");
-    document.body.append(target);
-    // The parameter header links to the JSON editor, so the panel needs a router the way
-    // the application shell gives it one.
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const settings = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/settings",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => (
-            <TopBarTargetContext.Provider value={target}>
-                <ApiProvider transport={transport}>
-                    <EncodersPanel />
-                </ApiProvider>
-            </TopBarTargetContext.Provider>
-        ),
+    const { topBar } = renderRoute(<EncodersPanel />, {
+        route: "/settings",
+        initialEntry: "/settings",
+        stubs: ["/settings/encoders/$encoderId/json"],
+        topBar: true,
+        transport,
     });
-    const json = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/settings/encoders/$encoderId/json",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <div>JSON editor</div>,
-    });
-    render(
-        <RouterProvider
-            router={createRouter({
-                routeTree: rootRoute.addChildren([settings, json]),
-                history: createMemoryHistory({ initialEntries: ["/settings"] }),
-            })}
-        />,
-    );
-    return target;
+    if (topBar === null) {
+        throw new Error("The test route did not create a top-bar target.");
+    }
+    return topBar;
 }
 
 it("replaces one encoder's pane instead of appending a second one", async () => {

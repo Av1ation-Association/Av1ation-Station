@@ -344,6 +344,7 @@ pub(crate) fn now_epoch() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     fn temporary_dir() -> PathBuf {
         std::env::temp_dir().join(format!("av1ation-timeline-{}", uuid::Uuid::new_v4()))
@@ -640,5 +641,35 @@ mod tests {
         assert_eq!(entry.frames_processed, Some(3_441));
         assert_eq!(entry.frames_total, Some(3_850));
         assert!(entry.fps.is_some_and(|fps| fps > 0.0));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        /// Observations can arrive out of order or repeat. The recorded attempt must use
+        /// the widest counts, subtract only its first position, and never underflow.
+        #[test]
+        fn attempt_accounting_uses_the_widest_observation(
+            samples in prop::collection::vec((0u64..20_000, 0u64..40_000), 1..20),
+        ) {
+            let mut attempt = Attempt::start("run", "ParallelEncoder");
+            for (processed, total) in &samples {
+                attempt.observe(Some(*processed), Some(*total));
+            }
+            let entry = attempt.finish("completed", None);
+
+            let baseline = samples[0].0;
+            let widest_processed = samples.iter().map(|(processed, _)| *processed).max().unwrap_or(0);
+            let widest_total = samples.iter().map(|(_, total)| *total).max().unwrap_or(0);
+            prop_assert_eq!(
+                entry.frames_processed,
+                Some(widest_processed.saturating_sub(baseline))
+            );
+            prop_assert_eq!(
+                entry.frames_total,
+                Some(widest_total.saturating_sub(baseline))
+            );
+            prop_assert!(entry.fps.is_some_and(f64::is_finite));
+        }
     }
 }

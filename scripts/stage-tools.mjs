@@ -8,9 +8,11 @@
 // VapourSynth's relocation gate still decides whether a Python tree belongs in a given
 // bundle. When one is staged it is copied; when it is not, the executable and metric subset
 // is staged alone and the caller is told that the build will select System VapourSynth.
+// Pass --partial to allow a non-Windows tree to omit providers that stay on System.
 
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -22,6 +24,7 @@ const value = (flag, fallback) => {
 
 const source = resolve(value("--from", join(root, "dist", "dev-tools")));
 const out = resolve(value("--out", join(root, "dist", "tools")));
+const partial = args.includes("--partial");
 
 if (!existsSync(source) || !statSync(source).isDirectory()) {
     console.error(`The staged toolchain is missing: ${source}`);
@@ -115,6 +118,89 @@ if (copy("python", keep)) {
     console.log("  python: copied without doc, headers, tests, pip and GPU payloads");
 }
 
+/**
+ * Debian's ffmpeg, mkvmerge and aomenc link against more than glibc, so a copied binary is
+ * not a working tool. Copy that closure into `lib/` and give every ELF an rpath to its
+ * siblings; the tree then runs on a machine with none of those packages installed. Windows
+ * and macOS stage self-contained binaries and are not touched.
+ */
+function bundleLinuxRuntime() {
+    const binDir = join(out, "bin");
+    if (!existsSync(binDir)) {
+        return;
+    }
+    const libDir = join(out, "lib");
+    mkdirSync(libDir, { recursive: true });
+    const binaries = readdirSync(binDir, { withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => join(binDir, entry.name));
+    const glibc = new Set([
+        "libc.so.6",
+        "libm.so.6",
+        "libpthread.so.0",
+        "libdl.so.2",
+        "librt.so.1",
+        "libresolv.so.2",
+        "libutil.so.2",
+        "ld-linux-x86-64.so.2",
+    ]);
+    const libraries = new Set();
+    for (const binary of binaries) {
+        const output = execFileSync("ldd", [binary], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+        });
+        const missing = output
+            .split("\n")
+            .filter((line) => line.includes("not found"))
+            .map((line) => line.split("=>")[0].trim());
+        if (missing.length > 0) {
+            throw new Error(
+                `${binary} cannot find ${missing.join(", ")}; install its package first`,
+            );
+        }
+        for (const line of output.split("\n")) {
+            const match = /=>\s+(\/\S+)\s+\(0x/u.exec(line);
+            if (match !== null) {
+                libraries.add(match[1]);
+            }
+        }
+    }
+    let copied = 0;
+    for (const library of [...libraries].sort()) {
+        const name = basename(library);
+        if (glibc.has(name)) {
+            continue;
+        }
+        const destination = join(libDir, name);
+        if (existsSync(destination)) {
+            continue;
+        }
+        cpSync(library, destination);
+        copied += 1;
+    }
+    for (const binary of binaries) {
+        execFileSync("patchelf", ["--set-rpath", "$ORIGIN/../lib", binary]);
+    }
+    for (const name of readdirSync(libDir)) {
+        execFileSync("patchelf", ["--set-rpath", "$ORIGIN", join(libDir, name)]);
+    }
+    console.log(`  lib: ${copied} runtime libraries staged with \$ORIGIN rpaths`);
+}
+
+if (process.platform === "linux") {
+    try {
+        bundleLinuxRuntime();
+    } catch (error) {
+        if (error.code === "ENOENT" && error.path === "patchelf") {
+            console.error("patchelf is required to stage the Linux runtime libraries");
+            console.error("Install it first: apt install patchelf");
+            process.exit(1);
+        }
+        throw error;
+    }
+}
+
 const executable = (name) => (process.platform === "win32" ? `${name}.exe` : name);
 const metrics =
     process.platform === "win32"
@@ -126,18 +212,30 @@ const metrics =
 const required = [
     join("bin", executable("ffmpeg")),
     join("bin", executable("mkvmerge")),
-    join("bin", executable("x264")),
-    join("bin", executable("x265")),
-    join("bin", executable("aomenc")),
-    join("bin", executable("SvtAv1EncApp")),
-    join("bin", executable("rav1e")),
-    join("bin", executable("avmenc")),
-    ...metrics.map((name) => join("lib", name)),
     join("model", "transnetv2.onnx"),
 ];
+const expected =
+    process.platform === "win32"
+        ? []
+        : [
+              join("bin", executable("x264")),
+              join("bin", executable("x265")),
+              join("bin", executable("aomenc")),
+              join("bin", executable("SvtAv1EncApp")),
+              join("bin", executable("rav1e")),
+              join("bin", executable("vpxenc")),
+              ...metrics.map((name) => join("lib", name)),
+          ];
 if (process.platform === "win32") {
     // Windows is the only target whose VapourSynth relocation gate has passed.
     required.push(
+        join("bin", executable("x264")),
+        join("bin", executable("x265")),
+        join("bin", executable("aomenc")),
+        join("bin", executable("SvtAv1EncApp")),
+        join("bin", executable("rav1e")),
+        join("bin", executable("avmenc")),
+        ...metrics.map((name) => join("lib", name)),
         join("python", "python.exe"),
         join("python", "Lib", "site-packages", "vapoursynth", "vsscript.dll"),
     );
@@ -147,6 +245,17 @@ const missing = required.filter((relativePath) => !existsSync(join(out, relative
 if (missing.length > 0) {
     console.error(`The staged toolchain is incomplete: ${missing.join(", ")}`);
     process.exit(1);
+}
+
+const missingExpected = expected.filter((relativePath) => !existsSync(join(out, relativePath)));
+if (missingExpected.length > 0) {
+    const message = `The staged toolchain is missing optional providers: ${missingExpected.join(", ")}`;
+    if (!partial) {
+        console.error(message);
+        console.error("Rerun with --partial to stage a tree that selects System for them.");
+        process.exit(1);
+    }
+    console.warn(message);
 }
 
 if (process.platform !== "win32" && !existsSync(join(out, "python", "bin", "python3"))) {

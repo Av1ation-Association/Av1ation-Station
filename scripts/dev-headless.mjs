@@ -24,7 +24,9 @@ function usage() {
   --static            serve the built SPA from the service; do not start Vite
   --no-build          use the existing service binary; do not run cargo build
   --fresh             delete the data directory before starting
-  --fake-engine       debug builds only: use the synthetic encode runner
+  --fake-engine       debug builds only: use the holding synthetic encode runner
+  --fake-engine-complete
+                      debug builds only: use the synthetic runner that finishes on its own
   --no-open           do not open the review URL in a browser
   --help              show this message`);
 }
@@ -35,6 +37,7 @@ let staticMode = false;
 let noBuild = false;
 let fresh = false;
 let fakeEngine = false;
+let fakeEngineComplete = false;
 let open = process.env.CI !== "true";
 
 for (let index = 0; index < args.length; index += 1) {
@@ -65,6 +68,10 @@ for (let index = 0; index < args.length; index += 1) {
     }
     if (argument === "--fake-engine") {
         fakeEngine = true;
+        continue;
+    }
+    if (argument === "--fake-engine-complete") {
+        fakeEngineComplete = true;
         continue;
     }
     if (argument === "--no-open") {
@@ -207,6 +214,9 @@ if (staticMode) {
 }
 if (fakeEngine) {
     serviceArgs.push("--fake-engine");
+}
+if (fakeEngineComplete) {
+    serviceArgs.push("--fake-engine-complete");
 }
 
 const children = [];

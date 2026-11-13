@@ -1,0 +1,162 @@
+{
+    "reviewed": "2026-11-12",
+    "rows": [
+        {
+            "id": 1,
+            "failure": "VapourSynth missing",
+            "behaviour": "Native input still validates and starts; a script input names the missing runtime; the Start panel renders the blocker and links to Dependencies.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/video.rs",
+                        "contains": "a_missing_vapoursynth_only_blocks_the_script_inputs_that_need_it"
+                    },
+                    {
+                        "file": "packages/ui/src/features/videos/VideoRunActions.test.tsx",
+                        "contains": "names validation blockers and links to Dependencies when a provider is missing"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 2,
+            "failure": "FFmpeg missing",
+            "behaviour": "Only the FFmpeg muxing path is unavailable; another muxing provider still permits encode. No muxing provider at all is a blocker.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/video.rs",
+                        "contains": "a_missing_ffmpeg_does_not_block_encoding_when_mkvtoolnix_is_available"
+                    },
+                    {
+                        "file": "rust/crates/service/tests/api/video.rs",
+                        "contains": "validating_a_video_reports_a_missing_source_and_writable_directories"
+                    },
+                    {
+                        "file": "rust/crates/service/tests/api/video.rs",
+                        "contains": "concat_source_info_is_a_typed_empty_result_when_ffmpeg_is_absent"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 3,
+            "failure": "Engine panic",
+            "behaviour": "The run ends with the engine's terminal message, releases the singleton, preserves the log, and keeps partial output.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/run.rs",
+                        "contains": "an_engine_panic_leaves_a_terminal_message_log_and_partial_output"
+                    },
+                    {
+                        "file": "rust/crates/service/tests/api/run.rs",
+                        "contains": "a_failure_at_each_pipeline_sequence_names_that_sequence"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 4,
+            "failure": "Silent worker death",
+            "behaviour": "A closed event channel releases the singleton and appends `The run ended without a terminal event.`",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/run.rs",
+                        "contains": "a_closed_event_stream_releases_the_singleton"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 5,
+            "failure": "Disk full",
+            "behaviour": "The terminal message is retained, the partial file stays on disk, and the lock is released.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/run.rs",
+                        "contains": "a_mid_write_disk_full_keeps_the_partial_file_and_releases_the_lock"
+                    },
+                    {
+                        "file": "rust/crates/service/tests/api/run.rs",
+                        "contains": "a_failure_at_each_pipeline_sequence_names_that_sequence"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 6,
+            "failure": "Corrupt project",
+            "behaviour": "The list skips the project, the detail returns `422 INVALID_CONFIG` with a generic message, and the raw file is not rewritten or disclosed.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/project.rs",
+                        "contains": "a_corrupt_project_document_is_an_invalid_resource_not_a_server_fault"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 7,
+            "failure": "LAN client disconnect mid-stream",
+            "behaviour": "Dropping the SSE socket does not stop the LAN listener; the encode owns its own worker and the event fan-out has no backpressure into it.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/lan.rs",
+                        "contains": "lan_access_is_opt_in_and_requires_its_token"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 8,
+            "failure": "Second app instance",
+            "behaviour": "The second process exits without opening a window; the first window is restored from minimized, shown, and focused.",
+            "evidence": {
+                "kind": "manual",
+                "check": "Packaged Windows system portable layout built from this tree; second process exited 0 in 215 ms; first window was no longer minimized and the foreground PID matched.",
+                "date": "2026-11-12",
+                "result": "pass"
+            }
+        },
+        {
+            "id": 9,
+            "failure": "Port collision",
+            "behaviour": "Startup reports the bind error without retrying; an ephemeral port keeps the collision rare.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "rust/crates/service/tests/api/system.rs",
+                        "contains": "a_port_collision_is_reported_as_a_bind_error_without_retrying"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 10,
+            "failure": "Malformed or out-of-order SSE",
+            "behaviour": "Malformed and schema-invalid frames are discarded, the reconnect cursor only moves forward, and the next reconnect resumes from the last accepted id.",
+            "evidence": {
+                "kind": "test",
+                "refs": [
+                    {
+                        "file": "packages/api/src/transport/event-stream.test.ts",
+                        "contains": "survives malformed frames and never rewinds its reconnect cursor"
+                    }
+                ]
+            }
+        }
+    ]
+}

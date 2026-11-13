@@ -1,24 +1,14 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import { MockTransport } from "@av1ation/api";
 import type { VideoFailure } from "@av1ation/contracts";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
 
+import { renderRoute } from "../../test/render";
 import type { TimelineStep } from "../../shared/model/video-timeline";
 
 import { SequenceSectionCard } from "./SequenceSectionCard";
-
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
-afterEach(cleanup);
 
 const STEP: TimelineStep = {
     id: "SceneDetector",
@@ -44,42 +34,34 @@ function renderCard(
     runFailure: VideoFailure | null = null,
     blockedElsewhere = false,
 ) {
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const route = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/config/$section",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => (
-            <SequenceSectionCard
-                projectId="project-1"
-                videoId="video-1"
-                section="scene-detection"
-                title="Scene detection"
-                lines={["AVSceneChange · 24–240 frames"]}
-                badge={null}
-                steps={[STEP]}
-                locked={false}
-                lockedLabel="Locked while an encode runs"
-                runningVideo={false}
-                blockedElsewhere={blockedElsewhere}
-                onRun={onRun}
-                onStop={() => undefined}
-                onResetData={() => undefined}
-                onResetConfiguration={() => undefined}
-                resetConfigurationDisabled
-                pending={false}
-                refusal={refusal}
-                runFailure={runFailure}
-            />
-        ),
-    });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([route]),
-        history: createMemoryHistory({
-            initialEntries: ["/projects/project-1/videos/video-1/config/scene-detection"],
-        }),
-    });
-    render(<RouterProvider router={router} />);
+    renderRoute(
+        <SequenceSectionCard
+            projectId="project-1"
+            videoId="video-1"
+            section="scene-detection"
+            title="Scene detection"
+            lines={["AVSceneChange · 24–240 frames"]}
+            badge={null}
+            steps={[STEP]}
+            locked={false}
+            lockedLabel="Locked while an encode runs"
+            runningVideo={false}
+            blockedElsewhere={blockedElsewhere}
+            onRun={onRun}
+            onStop={() => undefined}
+            onResetData={() => undefined}
+            onResetConfiguration={() => undefined}
+            resetConfigurationDisabled
+            pending={false}
+            refusal={refusal}
+            runFailure={runFailure}
+        />,
+        {
+            route: "/projects/$projectId/videos/$videoId/config/$section",
+            initialEntry: "/projects/project-1/videos/video-1/config/scene-detection",
+            transport: new MockTransport(),
+        },
+    );
 }
 
 describe("SequenceSectionCard", () => {

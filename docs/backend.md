@@ -147,9 +147,11 @@ The `axum` router, application state, the encode singleton, persistence, SSE fan
 and error mapping. Depends on `engine` and `contracts`. Never depends on `tauri`.
 
 This crate is also the **headless test target**: the `av1ation-service --port <port>`
-binary exposes the same router as the desktop build. The checked-in Playwright smoke drives
-that real HTTP surface without a GUI; the full journey is planned for Phase 4b (see
-[testing.md](testing.md)).
+binary exposes the same router as the desktop build. The checked-in Playwright smoke and
+fake-engine journeys drive that real HTTP surface without a GUI, including LAN pairing,
+locked-scope writes, and the process-wide `409`. Nine of the ten error-path rows are
+automated; the native second-instance row was recorded as a packaged Windows release check
+on 2026-11-12 (see [testing.md](testing.md#39-error-path-matrix)).
 
 ## 2. The engine dependency
 
@@ -815,7 +817,6 @@ Status codes matter and are part of the contract:
 | ----- | -------------------------------------------------------------- |
 | `409` | a run is already active                                        |
 | `423` | resource is locked by an active run                            |
-| `412` | preflight failed (missing dependency)                          |
 | `422` | semantically invalid config, or an invalid sequence transition |
 | `507` | insufficient disk space                                        |
 

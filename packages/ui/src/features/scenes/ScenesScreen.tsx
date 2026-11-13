@@ -789,6 +789,7 @@ export function ScenesScreen() {
                     <SceneEncoderSheet
                         open={encoderOpen}
                         onClose={() => setEncoderOpen(false)}
+                        onSaved={() => setCanUndo(true)}
                         projectId={projectId}
                         videoId={videoId}
                         scenes={chosen}

@@ -1,0 +1,6 @@
+{
+  "id": "fixture-id",
+  "label": "fixture",
+  "base": "fixture",
+  "executable": "fixture-path"
+}

@@ -1,21 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport, type Transport } from "@av1ation/api";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
+import { MockTransport, type Transport } from "@av1ation/api";
 
-import { TopBarTargetContext } from "../../shared/TopBarActions";
+import { renderRoute } from "../../test/render";
 import { EncoderJsonScreen } from "./EncoderJsonScreen";
-
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
 
 /** The real editor needs a canvas host; what it is handed is what this test reads. */
 const handed = vi.hoisted(() => ({
@@ -43,36 +33,21 @@ vi.mock("./JsonEditor", () => ({
 }));
 
 afterEach(() => {
-    cleanup();
-    document.body.innerHTML = "";
     handed.markers = [];
     handed.focus = null;
 });
 
 /** x265 is the mock's encoder with a descriptor, so the page has a document to edit. */
-function renderScreen(saveTextFile: Transport["saveTextFile"] = undefined) {
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const route = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/settings/encoders/$encoderId/json",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <EncoderJsonScreen />,
+function renderScreen(saveTextFile: Transport["saveTextFile"] = undefined): HTMLElement {
+    const { topBar } = renderRoute(<EncoderJsonScreen />, {
+        route: "/settings/encoders/$encoderId/json",
+        initialEntry: "/settings/encoders/x265/json",
+        topBar: true,
+        transport: new MockTransport({}, { saveTextFile }),
     });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([route]),
-        history: createMemoryHistory({
-            initialEntries: ["/settings/encoders/x265/json"],
-        }),
-    });
-    const topBar = document.createElement("div");
-    document.body.append(topBar);
-    render(
-        <TopBarTargetContext.Provider value={topBar}>
-            <ApiProvider transport={new MockTransport({}, { saveTextFile })}>
-                <RouterProvider router={router} />
-            </ApiProvider>
-        </TopBarTargetContext.Provider>,
-    );
+    if (topBar === null) {
+        throw new Error("The test route did not create a top-bar target.");
+    }
     return topBar;
 }
 

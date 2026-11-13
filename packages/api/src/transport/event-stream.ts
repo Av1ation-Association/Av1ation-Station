@@ -44,8 +44,15 @@ export function subscribeToEvents<T>(
                 return;
             }
             // The id belongs to the event we accepted, not to an event a future schema might
-            // reject. Keeping it here lets a reconnect start at the very next sequence.
-            if (message.lastEventId !== "") {
+            // reject. A replay can deliver an older frame after a newer one, so only a
+            // forward numeric id moves the cursor: otherwise one late frame would make the
+            // next reconnect replay the whole gap again.
+            const next = eventSequence(message.lastEventId);
+            const previous = eventSequence(lastEventId);
+            if (
+                message.lastEventId !== "" &&
+                (next === null || previous === null || next > previous)
+            ) {
                 lastEventId = message.lastEventId;
             }
             onEvent(parsed.data);
@@ -121,14 +128,19 @@ export function subscribeToEvents<T>(
  * than send a query the service cannot parse.
  */
 function nextSince(lastEventId: string | null): string | null {
+    const sequence = eventSequence(lastEventId);
+    if (sequence === null || sequence === Number.MAX_SAFE_INTEGER) {
+        return null;
+    }
+    return String(sequence + 1);
+}
+
+function eventSequence(lastEventId: string | null): number | null {
     if (lastEventId === null || lastEventId === "") {
         return null;
     }
     const sequence = Number(lastEventId);
-    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence === Number.MAX_SAFE_INTEGER) {
-        return null;
-    }
-    return String(sequence + 1);
+    return Number.isSafeInteger(sequence) && sequence >= 0 ? sequence : null;
 }
 
 function sourceUrl(

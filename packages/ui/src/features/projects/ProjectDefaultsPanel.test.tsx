@@ -1,25 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { expect, it } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
+import { MockTransport } from "@av1ation/api";
 
+import { renderRoute } from "../../test/render";
 import { ProjectDefaultsSectionScreen } from "./ProjectDefaultsSectionScreen";
-
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
-afterEach(() => {
-    cleanup();
-    document.body.innerHTML = "";
-});
 
 /**
  * The template's General section is a route, and it is the same editor a project uses. The
@@ -27,24 +13,11 @@ afterEach(() => {
  * are exercised, not a second copy that could drift.
  */
 function renderSection() {
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const sectionRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/settings/templates/$templateId/$section",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <ProjectDefaultsSectionScreen />,
+    renderRoute(<ProjectDefaultsSectionScreen />, {
+        route: "/settings/templates/$templateId/$section",
+        initialEntry: "/settings/templates/default/general",
+        transport: new MockTransport(),
     });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([sectionRoute]),
-        history: createMemoryHistory({
-            initialEntries: ["/settings/templates/default/general"],
-        }),
-    });
-    render(
-        <ApiProvider transport={new MockTransport()}>
-            <RouterProvider router={router} />
-        </ApiProvider>,
-    );
 }
 
 it("gives the General template draft the active undo history", async () => {

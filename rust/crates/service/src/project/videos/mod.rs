@@ -48,11 +48,13 @@ pub(crate) struct VideoRecord {
     /// The engine's `CondorModel` blob, written by the engine's own save callback.
     #[serde(default)]
     pub(crate) condor: Option<Value>,
-    /// The scene table the last structural edit replaced, for one-step undo.
+    /// The scene table the last structural edit or bulk encoder assignment replaced, for
+    /// one-step undo.
     ///
-    /// Only the scene matrix is kept: a structural edit never changes the top-level encoder
-    /// or encoder documents. It is cleared when a run checkpoints, because a new detection
-    /// result is a new starting point rather than an edit of the previous table.
+    /// Only the scene matrix is kept: neither a structural edit nor a bulk encoder assignment
+    /// changes the top-level encoder or encoder documents. It is cleared when a run
+    /// checkpoints, because a new detection result is a new starting point rather than an
+    /// edit of the previous table.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) scene_undo: Option<Value>,
     /// The user's own sequence data per scene index.

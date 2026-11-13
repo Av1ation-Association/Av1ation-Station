@@ -1,7 +1,7 @@
 use std::{convert::Infallible, sync::Arc, time::Duration};
 
 use av1ation_contracts::protocol::ErrorCode;
-use av1ation_contracts::queue::{QueueBatchRequest, QueueBatchStatus};
+use av1ation_contracts::queue::QueueBatchRequest;
 use av1ation_contracts::run::{EncodeEvent, SequenceRunRequest};
 use axum::{
     Json,
@@ -237,11 +237,22 @@ async fn drive_batch(state: AppState, project_id: String) {
 }
 
 /// The live batch for a project, or an inactive status when none is running.
+///
+/// A project that no longer exists is a 404, not an inactive batch: an empty status for a
+/// stale id would make a deleted project look like a queue that had simply finished.
 pub(crate) async fn get_queue_batch(
     State(state): State<AppState>,
     AxumPath(project_id): AxumPath<String>,
-) -> Json<QueueBatchStatus> {
-    Json(state.runs().batch_status(&project_id))
+) -> Response {
+    let Some(projects) = state.projects() else {
+        return no_storage();
+    };
+    match projects.document(&project_id).await {
+        Ok(Some(_)) => {}
+        Ok(None) => return project_not_found(&project_id),
+        Err(error) => return project_error(error),
+    }
+    Json(state.runs().batch_status(&project_id)).into_response()
 }
 
 /// Stop a batch and the run it is waiting on. The run releases the singleton itself.

@@ -1,0 +1,7 @@
+{
+  "theme": "fixture",
+  "row_density": "fixture",
+  "reduce_motion": false,
+  "delete_chunks_on_success": false,
+  "custom_tools": []
+}

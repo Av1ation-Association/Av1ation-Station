@@ -16,6 +16,19 @@ export const websiteBuild = resolve(appsRoot, "website");
 export const tsBuildInfoDir = resolve(outputRoot, "tsbuildinfo");
 export const testDataRoot = resolve(outputRoot, "test-data");
 export const coverageDir = resolve(outputRoot, "coverage");
+export const webCoverageDir = resolve(coverageDir, "web");
+export const rustCoverageDir = resolve(coverageDir, "rust");
 export const testResultsDir = resolve(outputRoot, "test-results");
 export const playwrightReportDir = resolve(outputRoot, "playwright-report");
 export const releaseDir = resolve(outputRoot, "release");
+
+/** Directory name for this host's release artifacts, so platforms never overwrite each other. */
+export function releasePlatform(platform = process.platform) {
+    if (platform === "win32") {
+        return "windows";
+    }
+    if (platform === "darwin") {
+        return "macos";
+    }
+    return "linux";
+}

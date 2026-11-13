@@ -417,6 +417,7 @@ impl VideoStore {
         let Some(mut record) = self.record(project_id, video_id).await? else {
             return Ok(None);
         };
+        let previous = previous_scenes(record.condor.as_ref());
         let Some(list) = record
             .condor
             .as_mut()
@@ -443,6 +444,10 @@ impl VideoStore {
                 scene.insert("encoder".to_owned(), encoder.clone());
             }
         }
+        // Writing one encoder to a whole selection is one user action. Keep the table from
+        // before that action, exactly as a structural edit does, so one Undo restores every
+        // scene it touched instead of leaving the selection half reverted.
+        record.scene_undo = Some(previous);
         write_document(&self.document(project_id, video_id), &record).await?;
         Ok(Some(record))
     }
@@ -680,8 +685,9 @@ impl VideoStore {
 
     /// Replace the checkpoint after a structural scene edit and remember what it replaced.
     ///
-    /// The snapshot is the scene matrix, not the whole blob: a split, merge, delete or range
-    /// edit leaves the input, output and top-level encoder documents untouched. One step is
+    /// The snapshot is the scene matrix, not the whole blob: a split, merge, delete, range
+    /// edit, or bulk scene-encoder assignment leaves the input, output and top-level encoder
+    /// documents untouched. One step is
     /// kept; a second structural edit overwrites the entry, so undo always means "the table
     /// as it was before this action" rather than a rewind that can contradict the chunks on
     /// disk.

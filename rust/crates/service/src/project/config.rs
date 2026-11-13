@@ -444,6 +444,7 @@ fn insert_path(root: &mut Map<String, Value>, path: &str, value: Value) {
 mod tests {
     use std::collections::BTreeSet;
 
+    use proptest::prelude::*;
     use serde_json::json;
 
     use super::*;
@@ -894,5 +895,185 @@ mod tests {
             document["sequences"]["noise_detector"]["input"]["VapourSynthScript"]["source"]["Path"],
             json!("/scripts/a.vpy")
         );
+    }
+
+    /// A JSON leaf for generated documents. Numbers stay integral so every generated value
+    /// round-trips through `serde_json` without a floating-point representation change.
+    fn generated_leaf() -> impl Strategy<Value = Value> {
+        prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            any::<i64>().prop_map(Value::from),
+            "[ -~]{0,16}".prop_map(Value::String),
+            prop::collection::vec(any::<i64>().prop_map(Value::from), 0..3).prop_map(Value::Array),
+        ]
+    }
+
+    /// An arbitrary JSON document whose object keys are valid single path segments.
+    fn generated_json() -> impl Strategy<Value = Value> {
+        generated_leaf().prop_recursive(4, 32, 4, |inner| {
+            prop::collection::btree_map("[a-z][a-z0-9_]{0,7}", inner, 0..4)
+                .prop_map(|entries| Value::Object(entries.into_iter().collect()))
+        })
+    }
+
+    /// An arbitrary configuration-shaped document.
+    fn generated_object() -> impl Strategy<Value = Value> {
+        prop::collection::btree_map("[a-z][a-z0-9_]{0,7}", generated_json(), 0..4)
+            .prop_map(|entries| Value::Object(entries.into_iter().collect()))
+    }
+
+    /// A default document and a project built only from paths that exist in it.
+    fn generated_defaults_with_selections() -> impl Strategy<Value = (Value, Vec<(String, Value)>)>
+    {
+        generated_object().prop_flat_map(|defaults| {
+            let paths = leaf_paths(&defaults);
+            let max = paths.len().min(4);
+            prop::sample::subsequence(paths, 0..=max).prop_flat_map(move |chosen| {
+                let values = prop::collection::vec(generated_json(), chosen.len());
+                let defaults = defaults.clone();
+                values.prop_map(move |values| {
+                    (
+                        defaults.clone(),
+                        chosen.iter().cloned().zip(values).collect(),
+                    )
+                })
+            })
+        })
+    }
+
+    /// A default document and an override map over a subset of its leaf paths.
+    fn generated_defaults_with_overrides() -> impl Strategy<Value = (Value, BTreeMap<String, Value>)>
+    {
+        generated_object().prop_flat_map(|defaults| {
+            let paths = leaf_paths(&defaults);
+            let max = paths.len().min(4);
+            prop::sample::subsequence(paths, 0..=max).prop_flat_map(move |chosen| {
+                let values = prop::collection::vec(generated_json(), chosen.len());
+                let defaults = defaults.clone();
+                values.prop_map(move |values| {
+                    (
+                        defaults.clone(),
+                        chosen.iter().cloned().zip(values).collect(),
+                    )
+                })
+            })
+        })
+    }
+
+    /// A project document carrying only the supplied leaf values.
+    fn project_from(selections: &[(String, Value)]) -> Value {
+        let mut project = Map::new();
+        for (path, value) in selections {
+            insert_path(&mut project, path, value.clone());
+        }
+        Value::Object(project)
+    }
+
+    /// Every addressable path in a document, sections included.
+    fn document_paths(value: &Value) -> BTreeSet<String> {
+        fn walk(value: &Value, path: &str, paths: &mut BTreeSet<String>) {
+            if !path.is_empty() {
+                paths.insert(path.to_owned());
+            }
+            if let Value::Object(fields) = value {
+                for (key, child) in fields {
+                    let child_path = join(path, key);
+                    walk(child, &child_path, paths);
+                }
+            }
+        }
+
+        let mut paths = BTreeSet::new();
+        walk(value, "", &mut paths);
+        paths
+    }
+
+    fn value_at_path<'a>(document: &'a Value, path: &str) -> Option<&'a Value> {
+        let mut cursor = document;
+        for segment in path.split('.') {
+            cursor = cursor.get(segment)?;
+        }
+        Some(cursor)
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        #[test]
+        fn arbitrary_documents_never_panic_and_keep_every_override(
+            defaults in generated_object(),
+            project in generated_object(),
+            overrides in prop::collection::btree_map(".{0,12}", generated_json(), 0..4),
+        ) {
+            let resolved = resolve(&defaults, &project, &overrides);
+            let materialised = materialise(&defaults, &project, &overrides);
+
+            prop_assert!(materialised.is_object());
+            for (path, value) in &overrides {
+                let entry = resolved
+                    .values
+                    .get(path)
+                    .unwrap_or_else(|| panic!("override {path} was dropped"));
+                prop_assert_eq!(&entry.value, value);
+                prop_assert_eq!(entry.source, ValueSource::Overridden);
+            }
+        }
+
+        #[test]
+        fn every_resolved_path_is_in_the_default_shape(
+            (defaults, selections) in generated_defaults_with_selections(),
+        ) {
+            let project = project_from(&selections);
+            let resolved = resolve(&defaults, &project, &BTreeMap::new());
+            let default_paths = document_paths(&defaults);
+
+            for path in resolved.values.keys() {
+                prop_assert!(
+                    default_paths.contains(path),
+                    "resolved {path}, which is not in the default document"
+                );
+            }
+        }
+
+        #[test]
+        fn overrides_are_exactly_the_paths_reported_as_overridden(
+            (defaults, overrides) in generated_defaults_with_overrides(),
+            project in generated_object(),
+        ) {
+            let resolved = resolve(&defaults, &project, &overrides);
+            let reported: BTreeSet<&String> = resolved
+                .values
+                .iter()
+                .filter(|(_, value)| value.source == ValueSource::Overridden)
+                .map(|(path, _)| path)
+                .collect();
+
+            prop_assert_eq!(reported, overrides.keys().collect::<BTreeSet<_>>());
+            for (path, value) in &overrides {
+                prop_assert_eq!(&resolved.values[path].value, value, "{}", path);
+            }
+        }
+
+        #[test]
+        fn materialising_the_defaults_returns_them_unchanged(defaults in generated_object()) {
+            let materialised = materialise(&defaults, &defaults, &BTreeMap::new());
+            prop_assert_eq!(materialised, defaults);
+        }
+
+        #[test]
+        fn a_materialised_override_keeps_its_value(
+            (defaults, overrides) in generated_defaults_with_overrides(),
+        ) {
+            let materialised = materialise(&defaults, &defaults, &overrides);
+            for (path, value) in &overrides {
+                prop_assert_eq!(
+                    value_at_path(&materialised, path),
+                    Some(value),
+                    "override at {} did not survive materialisation",
+                    path
+                );
+            }
+        }
     }
 }

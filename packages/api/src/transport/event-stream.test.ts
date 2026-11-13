@@ -96,6 +96,55 @@ describe("subscribeToEvents", () => {
         expect(sources).toHaveLength(2);
     });
 
+    it("survives malformed frames and never rewinds its reconnect cursor", async () => {
+        vi.useFakeTimers();
+        const sources: FakeEventSource[] = [];
+        const received: string[] = [];
+        const close = subscribeToEvents(
+            {
+                baseUrl: "http://service",
+                path: "/api/events",
+                eventSourceFactory: (url) => {
+                    const source = new FakeEventSource(url);
+                    sources.push(source);
+                    return source as unknown as EventSource;
+                },
+            },
+            schema,
+            (event) => received.push(event.value),
+        );
+
+        await flush();
+        expect(sources).toHaveLength(1);
+
+        // A broken frame and a schema-invalid frame are independent failures: neither may
+        // close the stream or move the cursor.
+        sources[0]?.emit("encode", {
+            data: "{not json",
+            lastEventId: "99",
+        } as MessageEvent<string>);
+        sources[0]?.emit("encode", {
+            data: JSON.stringify({ value: 7 }),
+            lastEventId: "99",
+        } as MessageEvent<string>);
+        expect(received).toEqual([]);
+        expect(sources[0]?.closed).toBe(false);
+
+        sources[0]?.emit("encode", encodeEvent("first", "12"));
+        sources[0]?.emit("encode", encodeEvent("late", "4"));
+        sources[0]?.emit("encode", encodeEvent("second", "13"));
+        expect(received).toEqual(["first", "late", "second"]);
+
+        sources[0]?.emit("error", {} as Event);
+        await vi.advanceTimersByTimeAsync(1_000);
+        await flush();
+
+        expect(sources).toHaveLength(2);
+        expect(sources[1]?.url).toBe("http://service/api/events?since=14");
+
+        close();
+    });
+
     it("keeps retrying when the ticket exchange fails", async () => {
         vi.useFakeTimers();
         let attempts = 0;

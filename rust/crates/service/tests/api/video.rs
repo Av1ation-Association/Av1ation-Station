@@ -42,6 +42,82 @@ async fn deleting_chunks_is_idempotent_and_leaves_the_video() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// A video may keep its scratch work outside the inherited root, and returning to the
+/// inherited root is the same operation with a null directory. The overview must report the
+/// resolved directory, not only the stored choice.
+#[tokio::test]
+async fn a_video_storage_directory_can_be_chosen_and_cleared() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Storage").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let scratch = dir.join("per-video");
+
+    let (status, before) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{project}/videos/{video}/storage"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{before}");
+    assert_eq!(before["custom"], false);
+
+    let (status, chosen) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project}/videos/{video}/storage"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "directory": scratch }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chosen}");
+    assert_eq!(chosen["custom"], true);
+    assert_eq!(chosen["directory"], scratch.display().to_string());
+
+    let (status, cleared) = send(
+        app,
+        Request::put(format!("/api/projects/{project}/videos/{video}/storage"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "directory": null }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{cleared}");
+    assert_eq!(cleared["custom"], false);
+    assert_eq!(cleared["directory"], before["directory"]);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A project with no batch answers with the inactive shape rather than a 404, so the queue
+/// screen can poll one URL before and after a batch starts.
+#[tokio::test]
+async fn an_inactive_queue_batch_is_a_status_not_a_missing_route() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Queue status").await;
+
+    let (status, batch) = send(
+        app,
+        Request::get(format!("/api/projects/{project}/queue"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{batch}");
+    assert_eq!(batch["project_id"], project.as_str());
+    assert_eq!(batch["active"], false);
+    assert_eq!(batch["total"], 0);
+    assert_eq!(batch["remaining"], 0);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 #[tokio::test]
 async fn a_video_is_added_listed_and_its_state_is_derived() {
     let dir = project_dir();
@@ -313,6 +389,18 @@ async fn a_script_path_reports_no_thumbnail_grid_and_no_image() {
         "{manifest}"
     );
 
+    let (status, missing) = send(
+        app.clone(),
+        Request::get(format!(
+            "/api/projects/{id}/videos/{}/thumbnails",
+            uuid::Uuid::new_v4()
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+
     let (status, image) = send(
         app,
         Request::get(format!("/api/projects/{id}/videos/{video_id}/thumbnails/0"))
@@ -322,6 +410,68 @@ async fn a_script_path_reports_no_thumbnail_grid_and_no_image() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(image["code"], "NOT_FOUND");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A thumbnail that a previous build already wrote is served from the cache without
+/// decoding the source again. The route still needs to know FFmpeg is installed, so the
+/// probe is supplied by the test even though no keyframe extraction runs here.
+#[tokio::test]
+async fn a_cached_thumbnail_is_served_as_a_jpeg() {
+    let dir = project_dir();
+    let mut probes = test_probes();
+    probes.push(Probe {
+        id: "ffmpeg".to_owned(),
+        label: "FFmpeg".to_owned(),
+        capability: Capability::Muxing,
+        available: true,
+        detail: "ffmpeg version 7".to_owned(),
+        remediation: None,
+    });
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(FakeRunner),
+        probes,
+        dir.clone(),
+    ));
+    let id = create_project(app.clone(), "Cached thumbnail").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, manifest) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/thumbnails"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{manifest}");
+    let revision = manifest["revision"].as_str().expect("revision");
+    let cache = dir.join("cache").join("thumbnails").join(revision);
+    tokio::fs::create_dir_all(&cache)
+        .await
+        .expect("thumbnail cache");
+    tokio::fs::write(cache.join("thumb-00001.jpg"), b"jpeg")
+        .await
+        .expect("cached thumbnail");
+
+    let response = app
+        .oneshot(
+            Request::get(format!("/api/projects/{id}/videos/{video_id}/thumbnails/0"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("router response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CONTENT_TYPE], "image/jpeg");
+    // The global API middleware owns this header and currently overrides the handler's
+    // immutable value, so assert the posture that actually reaches the browser.
+    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(
+        to_bytes(response.into_body(), 64).await.expect("body"),
+        "jpeg"
+    );
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
@@ -618,6 +768,35 @@ async fn a_malformed_video_probe_uses_the_body_envelope() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// The queue routes resolve the project before reading or writing. Without that guard an
+/// unknown id looked like an empty queue, or a removal of nothing, instead of a 404.
+#[tokio::test]
+async fn queue_routes_report_an_unknown_project() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let missing = uuid::Uuid::new_v4().to_string();
+
+    for (method, path, body) in [
+        ("GET", format!("/api/projects/{missing}/videos"), None),
+        (
+            "PATCH",
+            format!("/api/projects/{missing}/videos/order"),
+            Some(serde_json::json!({ "video_ids": [] })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{missing}/videos/remove"),
+            Some(serde_json::json!({ "video_ids": [] })),
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}: {response}");
+        assert_eq!(response["code"], "NOT_FOUND", "{method} {path}: {response}");
+    }
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[tokio::test]
 async fn the_queue_order_is_a_full_permutation_and_removal_is_atomic() {
     let dir = project_dir();
@@ -775,6 +954,161 @@ async fn validating_a_video_reports_a_missing_source_and_writable_directories() 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// A missing VapourSynth removes script inputs, not native decoding. The validation report
+/// is a projection of the inventory onto this video, so a native video still starts while a
+/// script video names the missing runtime.
+#[tokio::test]
+async fn a_missing_vapoursynth_only_blocks_the_script_inputs_that_need_it() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(FakeRunner),
+        vec![
+            Probe {
+                id: "vapoursynth".to_owned(),
+                label: "VapourSynth".to_owned(),
+                capability: Capability::Decode,
+                available: false,
+                detail: "VSScript could not be loaded".to_owned(),
+                remediation: Some("Install or repair the bundled VapourSynth runtime.".to_owned()),
+            },
+            Probe {
+                id: "ffmpeg".to_owned(),
+                label: "FFmpeg".to_owned(),
+                capability: Capability::Muxing,
+                available: true,
+                detail: "ffmpeg 8.1".to_owned(),
+                remediation: None,
+            },
+        ],
+        dir.clone(),
+    ));
+    let id = create_project(app.clone(), "Scoped").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, native) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/validate"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{native}");
+    assert_eq!(
+        native["can_encode"], true,
+        "a native source does not need VapourSynth: {native}"
+    );
+    assert!(
+        native["blockers"].as_array().is_some_and(Vec::is_empty),
+        "{native}"
+    );
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    record["input"] = script_input("clip.set_output()");
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let (status, scripted) = send(
+        app,
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/validate"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{scripted}");
+    assert_eq!(scripted["can_encode"], false);
+    let blockers = scripted["blockers"].as_array().expect("blockers");
+    assert!(
+        blockers
+            .iter()
+            .any(|row| row.as_str().is_some_and(|row| row.contains("VapourSynth"))),
+        "{scripted}"
+    );
+    assert!(
+        blockers.iter().all(|row| row
+            .as_str()
+            .is_none_or(|row| !row.contains("FFmpeg") && !row.contains("MKVToolNix"))),
+        "the available muxer must not be reported as a blocker: {scripted}"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A missing FFmpeg removes the FFmpeg muxing path, not the capability. MKVToolNix is an
+/// independent provider for the same job, so a native video still starts and the report
+/// keeps the unavailable row visible instead of turning it into a blocker.
+#[tokio::test]
+async fn a_missing_ffmpeg_does_not_block_encoding_when_mkvtoolnix_is_available() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(FakeRunner),
+        vec![
+            Probe {
+                id: "ffmpeg".to_owned(),
+                label: "FFmpeg".to_owned(),
+                capability: Capability::Muxing,
+                available: false,
+                detail: "ffmpeg was not found".to_owned(),
+                remediation: Some("Install FFmpeg or select MKVToolNix.".to_owned()),
+            },
+            Probe {
+                id: "mkvmerge".to_owned(),
+                label: "MKVToolNix".to_owned(),
+                capability: Capability::Muxing,
+                available: true,
+                detail: "mkvmerge v90.0".to_owned(),
+                remediation: None,
+            },
+        ],
+        dir.clone(),
+    ));
+    let id = create_project(app.clone(), "Muxer fallback").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let (status, report) = send(
+        app,
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/validate"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(
+        report["can_encode"], true,
+        "MKVToolNix satisfies muxing when FFmpeg is absent: {report}"
+    );
+    assert!(
+        report["blockers"].as_array().is_some_and(Vec::is_empty),
+        "{report}"
+    );
+    let checks = report["checks"].as_array().expect("checks");
+    assert!(
+        checks
+            .iter()
+            .any(|check| check["id"] == "ffmpeg" && check["available"] == false),
+        "the unavailable FFmpeg row stays visible: {report}"
+    );
+    assert!(
+        checks
+            .iter()
+            .any(|check| check["id"] == "mkvmerge" && check["available"] == true),
+        "{report}"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 /// Removing a video takes its history directory with it; the timeline used to survive the
 /// document and leave `videos/<id>/timeline.jsonl` with nothing that could address it.
 #[tokio::test]
@@ -904,6 +1238,18 @@ async fn a_video_media_route_streams_its_source_and_honours_ranges() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(missing["code"], "NOT_FOUND");
 
+    let gone = send(
+        app.clone(),
+        Request::get(format!(
+            "/api/projects/{id}/videos/{}/media",
+            uuid::Uuid::new_v4()
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(gone.0, StatusCode::NOT_FOUND, "{}", gone.1);
+
     // A single-frame request needs an explicit frame, and only the Decoded source has one.
     let frame_url = format!("/api/projects/{id}/videos/{video_id}/frame");
     let (status, missing) = send(
@@ -947,7 +1293,7 @@ async fn concat_source_info_is_a_typed_empty_result_when_ffmpeg_is_absent() {
     let video_id = add_video(app.clone(), &project_id, &dir).await;
 
     let (status, body) = send(
-        app,
+        app.clone(),
         Request::post(format!(
             "/api/projects/{project_id}/videos/{video_id}/concat-source-info"
         ))
@@ -970,6 +1316,18 @@ async fn concat_source_info_is_a_typed_empty_result_when_ffmpeg_is_absent() {
         );
     }
 
+    let (status, missing) = send(
+        app,
+        Request::post(format!(
+            "/api/projects/{project_id}/videos/{}/concat-source-info",
+            uuid::Uuid::new_v4()
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
 
@@ -981,7 +1339,7 @@ async fn concat_inventory_is_a_typed_empty_result_when_the_muxer_is_absent() {
     let video_id = add_video(app.clone(), &project_id, &dir).await;
 
     let (status, body) = send(
-        app,
+        app.clone(),
         Request::post(format!(
             "/api/projects/{project_id}/videos/{video_id}/concat-inventory"
         ))
@@ -1009,6 +1367,19 @@ async fn concat_inventory_is_a_typed_empty_result_when_the_muxer_is_absent() {
         "{body}"
     );
 
+    let (status, missing) = send(
+        app,
+        Request::post(format!(
+            "/api/projects/{project_id}/videos/{}/concat-inventory",
+            uuid::Uuid::new_v4()
+        ))
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"method":"mkvmerge"}"#))
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
 
@@ -1033,4 +1404,162 @@ async fn a_malformed_concat_inventory_uses_the_body_envelope() {
     assert_unreadable_body(status, &body);
 
     let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
+/// The video document, storage, and retained-chunk routes share one parent lookup and one
+/// run guard. A missing video is a 404, an unreadable body is a 400, and the active video's
+/// configuration surface is a 423.
+#[tokio::test]
+async fn video_routes_report_missing_videos_validation_and_the_run_lock() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Video surface").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let missing = uuid::Uuid::new_v4().to_string();
+
+    let (status, started) = send(app.clone(), start_request(&project, &video)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    for (method, path, body) in [
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/general"),
+            Some(serde_json::json!({ "input": {}, "output": {} })),
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/storage"),
+            Some(serde_json::json!({ "directory": null })),
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{video}/chunks"),
+            None,
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{video}/overrides"),
+            None,
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::LOCKED, "{method} {path}: {response}");
+    }
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project).await;
+
+    for (method, path, body) in [
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{missing}/chunks"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/general"),
+            None,
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{missing}/general"),
+            Some(serde_json::json!({ "input": {}, "output": {} })),
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/storage"),
+            None,
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{missing}/storage"),
+            Some(serde_json::json!({ "directory": null })),
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{missing}"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/config"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/history"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/overrides"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/state"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/frame?source=decoded&frame=0"),
+            None,
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/probe"),
+            Some(serde_json::json!({})),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/validate"),
+            None,
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{missing}/overrides"),
+            Some(serde_json::json!({ "fields": {} })),
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{missing}/overrides"),
+            None,
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}: {response}");
+    }
+
+    for (method, path) in [
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/general"),
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/storage"),
+        ),
+    ] {
+        let (status, response) = send(
+            app.clone(),
+            route_request(
+                method,
+                &path,
+                Some(serde_json::json!({ "unexpected": true })),
+            ),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "{method} {path}: {response}"
+        );
+    }
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
 }

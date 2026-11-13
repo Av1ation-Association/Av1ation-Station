@@ -273,7 +273,7 @@ async fn a_scene_read_during_a_noise_run_contains_the_earlier_measurements() {
 }
 
 #[tokio::test]
-async fn cancelling_a_run_keeps_the_scenes_already_checkpointed() {
+async fn cancelling_a_run_keeps_the_scenes_already_checkpointed_until_reset() {
     let dir = project_dir();
     let app = router(AppState::with_runner_probes_and_data_dir(
         None,
@@ -311,7 +311,7 @@ async fn cancelling_a_run_keeps_the_scenes_already_checkpointed() {
     wait_for_config_write(app.clone(), &project_id).await;
 
     let (status, state) = send(
-        app,
+        app.clone(),
         Request::get(format!(
             "/api/projects/{project_id}/videos/{video_id}/state"
         ))
@@ -325,6 +325,32 @@ async fn cancelling_a_run_keeps_the_scenes_already_checkpointed() {
         "cancelling must not discard detected scenes"
     );
     assert_eq!(state["sequences"][0]["status"], "complete");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!(
+            "/api/projects/{project_id}/videos/{video_id}/sequences/SceneDetector/reset"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (status, state) = send(
+        app,
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/state"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        state["scene_count"], 0,
+        "a reset removes the detected scene table"
+    );
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
@@ -402,10 +428,126 @@ async fn a_closed_event_stream_releases_the_singleton() {
     let project_id = create_project(app.clone(), "Silent").await;
     let video_id = add_video(app.clone(), &project_id, &dir).await;
 
+    let (status, started) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    // The watchdog releases the singleton; the event bridge also leaves a terminal record,
+    // so the silence is explainable after the process is healthy again.
+    wait_for_start(app.clone(), &project_id, &video_id).await;
+    let (status, history) = send(
+        app,
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/history"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    let entry = history["entries"]
+        .as_array()
+        .and_then(|entries| {
+            entries
+                .iter()
+                .find(|entry| entry["run_id"] == run_id.as_str())
+        })
+        .expect("the silent run has a terminal record");
+    assert_eq!(entry["outcome"], "failed");
+    assert_eq!(entry["message"], "The run ended without a terminal event.");
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn an_engine_panic_leaves_a_terminal_message_log_and_partial_output() {
+    let dir = project_dir();
+    let message = "thread 'worker' panicked at engine/src/run/runner/mod.rs:1:1:\nthe engine worker lost its state";
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(CrashingRunner {
+            message,
+            sequence: "ParallelEncoder",
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Panic").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, started) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    wait_for_config_write(app.clone(), &project_id).await;
+    let (status, state) = send(
+        app.clone(),
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/state"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{state}");
+    assert_eq!(state["failure"]["message"], message);
+    assert_eq!(state["failure"]["sequence"], "ParallelEncoder");
+    assert_eq!(
+        std::fs::read(dir.join("output.mkv")).expect("partial output"),
+        b"partial"
+    );
+
+    let (status, export) = send(
+        app.clone(),
+        Request::post(format!("/api/runs/{run_id}/logs/export"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{export}");
+    let text = export["text"].as_str().expect("log text");
+    assert!(text.contains("panicked"), "{text}");
+    assert!(text.contains("lost its state"), "{text}");
+
+    cleanup_after_cancel(&dir);
+}
+
+#[tokio::test]
+async fn a_mid_write_disk_full_keeps_the_partial_file_and_releases_the_lock() {
+    let dir = project_dir();
+    let message = "No space left on device (os error 28)";
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(CrashingRunner {
+            message,
+            sequence: "ParallelEncoder",
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Disk full").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
     let (status, _) = send(app.clone(), start_request(&project_id, &video_id)).await;
     assert_eq!(status, StatusCode::ACCEPTED);
 
-    wait_for_start(app, &project_id, &video_id).await;
+    wait_for_config_write(app.clone(), &project_id).await;
+    let (status, state) = send(
+        app,
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{video_id}/state"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{state}");
+    assert_eq!(state["failure"]["message"], message);
+    assert_eq!(
+        std::fs::read(dir.join("output.mkv")).expect("partial output"),
+        b"partial",
+        "a failed write must not delete what reached the disk"
+    );
 
     cleanup_after_cancel(&dir);
 }
@@ -842,6 +984,208 @@ async fn an_encode_without_free_space_is_507_and_leaves_the_lock_free() {
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A sequence that has produced no checkpoints has nothing to reset. The route says so with
+/// the same error envelope as the rest of the API instead of writing an empty table.
+#[tokio::test]
+async fn resetting_a_sequence_without_data_is_unprocessable() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Reset").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+
+    let (status, body) = send(
+        app,
+        Request::post(format!(
+            "/api/projects/{project}/videos/{video}/sequences/SceneDetector/reset"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Every required pipeline sequence is a possible failure boundary, not only the encoder.
+/// Optional sequences are absent from the default chain this fixture runs.
+///
+/// The runner reports a terminal failure attached to one sequence at a time. The state
+/// projection must keep that name, mark only that row failed, and release the config lock
+/// so a retry can start again. This is the named failure-mode matrix behind the error table.
+#[tokio::test]
+async fn a_failure_at_each_pipeline_sequence_names_that_sequence() {
+    for sequence in ["SceneDetector", "ParallelEncoder", "SceneConcatenator"] {
+        let dir = project_dir();
+        let message = format!("the {sequence} sequence failed");
+        let app = router(AppState::with_runner_probes_and_data_dir(
+            None,
+            Arc::new(CrashingRunner {
+                message: Box::leak(message.clone().into_boxed_str()),
+                sequence,
+            }),
+            test_probes(),
+            dir.clone(),
+        ));
+        let project_id = create_project(app.clone(), sequence).await;
+        let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+        let (status, _) = send(app.clone(), start_request(&project_id, &video_id)).await;
+        assert_eq!(status, StatusCode::ACCEPTED, "{sequence}");
+        wait_for_config_write(app.clone(), &project_id).await;
+
+        let (status, state) = send(
+            app,
+            Request::get(format!(
+                "/api/projects/{project_id}/videos/{video_id}/state"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{state}");
+        assert_eq!(state["failure"]["message"], message, "{sequence}");
+        assert_eq!(state["failure"]["sequence"], sequence, "{sequence}");
+        let row = state["sequences"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|row| row["id"] == sequence))
+            .unwrap_or_else(|| panic!("{sequence} is missing from the state rows"));
+        assert_eq!(row["status"], "failed", "{sequence}");
+
+        std::fs::remove_dir_all(dir).expect("cleanup");
+    }
+}
+
+/// The run event routes reject a bad cursor and an unknown run, while the queue and sequence
+/// reset routes share the project/video lookup and the singleton guard.
+#[tokio::test]
+async fn run_routes_report_events_queue_and_sequence_reset_statuses() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Run surface").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let missing = uuid::Uuid::new_v4().to_string();
+
+    let rejected = app
+        .clone()
+        .oneshot(
+            Request::get("/api/events?since=not-a-number")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("events response");
+    assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+
+    let rejected = app
+        .clone()
+        .oneshot(
+            Request::get("/api/runs/not-a-run/events?since=not-a-number")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("run events response");
+    assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+
+    let (status, body) = send(
+        app.clone(),
+        Request::get("/api/runs/not-a-run/events")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    for method in ["GET", "POST", "DELETE"] {
+        let request = if method == "POST" {
+            route_request(
+                method,
+                &format!("/api/projects/{missing}/queue"),
+                Some(serde_json::json!({ "video_ids": [] })),
+            )
+        } else {
+            route_request(method, &format!("/api/projects/{missing}/queue"), None)
+        };
+        let (status, body) = send(app.clone(), request).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method}: {body}");
+    }
+
+    let (status, started) = send(app.clone(), start_request(&project, &video)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    let (status, body) = send(
+        app.clone(),
+        route_request(
+            "POST",
+            &format!("/api/projects/{project}/videos/{video}/run"),
+            Some(serde_json::json!({ "sequence": "SceneDetector" })),
+        ),
+    )
+    .await;
+    // The singleton refuses a second start before sequence preparation, so this path's
+    // lock is BUSY rather than the sequence lock's 423.
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BUSY", "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        route_request(
+            "POST",
+            &format!("/api/projects/{project}/videos/{video}/sequences/SceneDetector/reset"),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED, "{body}");
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project).await;
+
+    // The fake runner records no checkpoint, so resetting a configured sequence is a
+    // validation refusal rather than a 404: the address is valid, the result is absent.
+    let (status, body) = send(
+        app.clone(),
+        route_request(
+            "POST",
+            &format!("/api/projects/{project}/videos/{video}/sequences/SceneDetector/reset"),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        route_request(
+            "POST",
+            &format!("/api/projects/{project}/videos/{missing}/sequences/SceneDetector/reset"),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app,
+        route_request(
+            "POST",
+            &format!("/api/projects/{project}/videos/{missing}/run"),
+            Some(serde_json::json!({ "sequence": "SceneDetector" })),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }

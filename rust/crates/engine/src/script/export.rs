@@ -323,6 +323,9 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
+    use andean_condor::models::encoder::{Encoder, EncoderBase};
+    use proptest::prelude::*;
+    use rustpython_parser::{Parse, ast};
     use serde_json::json;
 
     use super::*;
@@ -498,5 +501,101 @@ mod tests {
             python_string_literal("C:\\Users\\ana\\Temp"),
             "\"C:\\\\Users\\\\ana\\\\Temp\""
         );
+    }
+
+    /// The user part of every generated export. It has one output assignment, which the
+    /// materialised prefix must neither duplicate nor remove.
+    const PROPERTY_SCRIPT: &str = "\
+import condor_data as cd
+
+source = cd.video_path
+out = source
+out.set_output()
+";
+
+    /// A scene with a valid, non-empty range and the engine's default data.
+    fn generated_scene() -> impl Strategy<Value = Scene<DefaultSequenceData>> {
+        (0usize..1_000, 1usize..1_000).prop_map(|(start, length)| Scene {
+            start_frame: start,
+            end_frame: start + length,
+            sub_scenes: None,
+            encoder: Encoder::default_from_base(&EncoderBase::X264, false),
+            sequence_data: Default::default(),
+        })
+    }
+
+    /// Arbitrary scene data, including nested objects and values that need escaping.
+    fn generated_json() -> impl Strategy<Value = Value> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            any::<i64>().prop_map(Value::from),
+            "[ -~éüλ漢]{0,24}".prop_map(Value::String),
+            prop::collection::vec(any::<i64>().prop_map(Value::from), 0..4).prop_map(Value::Array),
+        ];
+        leaf.prop_recursive(3, 24, 4, |inner| {
+            prop::collection::btree_map("[a-z_][a-z0-9_]{0,7}", inner, 0..4)
+                .prop_map(|entries| Value::Object(entries.into_iter().collect()))
+        })
+    }
+
+    fn generated_custom_data() -> impl Strategy<Value = script_data::CustomSceneData> {
+        prop::collection::btree_map(
+            0u32..8,
+            prop::collection::btree_map("[a-z_][a-z0-9_]{0,7}", generated_json(), 0..3),
+            0..3,
+        )
+    }
+
+    /// A path-shaped string with the punctuation a Windows path and a script need escaped.
+    fn generated_path() -> impl Strategy<Value = String> {
+        "[ -~éüλ漢]{0,24}".prop_map(|value| value.to_owned())
+    }
+
+    /// A directory that does not exist, so the export takes its embedded branch.
+    fn generated_missing_temp_dir() -> impl Strategy<Value = String> {
+        generated_path().prop_map(|suffix| format!("__av1ation_property_missing__/{suffix}"))
+    }
+
+    fn condor_for(
+        scenes: &[Scene<DefaultSequenceData>],
+        custom: &script_data::CustomSceneData,
+    ) -> Option<Value> {
+        let scenes: Vec<Value> = scenes
+            .iter()
+            .map(|scene| serde_json::to_value(scene).expect("a scene serialises"))
+            .collect();
+        script_data::attach_custom_scene_data(Some(&json!({ "scenes": scenes })), custom)
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(48))]
+
+        #[test]
+        fn every_materialised_script_is_valid_python_with_one_output(
+            scenes in prop::collection::vec(generated_scene(), 0..6),
+            custom in generated_custom_data(),
+            temp_dir in generated_missing_temp_dir(),
+            video_path in generated_path(),
+        ) {
+            let condor = condor_for(&scenes, &custom);
+            let exported = materialise(
+                PROPERTY_SCRIPT,
+                condor.as_ref(),
+                &RunnerConfig::default(),
+                &temp_dir,
+                &video_path,
+            );
+
+            if let Err(error) = ast::Suite::parse(&exported.source, "<materialised export>") {
+                prop_assert!(false, "the materialised export does not parse: {error}");
+            }
+            prop_assert_eq!(
+                exported.source.matches("out.set_output()").count(),
+                1,
+                "the export must contain exactly one output assignment"
+            );
+            prop_assert!(exported.source.ends_with(PROPERTY_SCRIPT));
+        }
     }
 }

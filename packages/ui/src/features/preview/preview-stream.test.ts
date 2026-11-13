@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { previewCodec, previewRefusal } from "./preview-stream";
+import { PreviewStream, previewCodec, previewRefusal } from "./preview-stream";
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -108,5 +113,140 @@ describe("previewRefusal", () => {
         const response = new Response("<html>proxy error</html>", { status: 503 });
 
         expect(await previewRefusal(response)).toBe("The preview could not be prepared (503).");
+    });
+});
+
+function fakeVideo() {
+    const element = new EventTarget() as unknown as HTMLVideoElement & {
+        buffered: { length: number; start: () => number; end: () => number };
+        currentTime: number;
+        paused: boolean;
+        src: string;
+        load: () => void;
+        removeAttribute: () => void;
+    };
+    element.buffered = { length: 1, start: () => 0, end: () => 20 };
+    element.currentTime = 0;
+    element.paused = true;
+    element.load = vi.fn();
+    element.removeAttribute = vi.fn();
+    return element;
+}
+
+/** A MediaSource/SourceBuffer pair that finishes an append on the next microtask. */
+function installMediaSource() {
+    class Buffer extends EventTarget {
+        timestampOffset = 0;
+        appended: Uint8Array[] = [];
+        appendBuffer = vi.fn((bytes: Uint8Array) => {
+            this.appended.push(bytes);
+            queueMicrotask(() => this.dispatchEvent(new Event("updateend")));
+        });
+        remove = vi.fn((_start: number, _end: number) => undefined);
+    }
+    const buffer = new Buffer();
+    class Media extends EventTarget {
+        static isTypeSupported = () => true;
+        readyState = "open";
+        addSourceBuffer = () => buffer;
+        constructor() {
+            super();
+            queueMicrotask(() => this.dispatchEvent(new Event("sourceopen")));
+        }
+    }
+    vi.stubGlobal("MediaSource", Media);
+    Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: vi.fn(() => "blob:preview"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: vi.fn(),
+    });
+    return { buffer };
+}
+
+describe("PreviewStream", () => {
+    it("opens a MediaSource, appends the init segment, and reports it playable", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes, { headers: { "content-type": "video/mp4" } })),
+        );
+        const element = fakeVideo();
+        const onPlayable = vi.fn();
+        const onError = vi.fn();
+        const stream = new PreviewStream(element, { onPlayable, onError });
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(onPlayable).toHaveBeenCalledOnce());
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(stream.started).toBe(true);
+        expect(stream.idle).toBe(true);
+        expect(stream.supportsAppend).toBe(true);
+        expect(buffer.appended.some((chunk) => chunk.length > 0)).toBe(true);
+        expect(element.src).toBe("blob:preview");
+    });
+
+    it("places a later proxy at its offset and closes the object URL", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("av01", box("av1C", new Uint8Array([0x81, 0x04, 0x4c]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        const element = fakeVideo();
+        const stream = new PreviewStream(element);
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.started).toBe(true));
+        stream.append("http://service/api/media/2", 12);
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+        expect(buffer.timestampOffset).toBe(12);
+
+        stream.close();
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview");
+        expect(element.removeAttribute).toHaveBeenCalledWith("src");
+        expect(stream.started).toBe(false);
+    });
+
+    it("falls back to the element source when MediaSource rejects the codec", async () => {
+        installMediaSource();
+        (MediaSource as unknown as { isTypeSupported: () => boolean }).isTypeSupported = () =>
+            false;
+        const bytes = init(sampleEntry("hvc1", box("hvcC", new Uint8Array(13))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        const element = fakeVideo();
+        const stream = new PreviewStream(element);
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.supportsAppend).toBe(false));
+        expect(element.src).toBe("http://service/api/media/1");
+        expect(stream.started).toBe(false);
+    });
+
+    it("reports a refused proxy with the service's own reason", async () => {
+        installMediaSource();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(
+                async () =>
+                    new Response(JSON.stringify({ message: "The source cannot be decoded." }), {
+                        status: 422,
+                    }),
+            ),
+        );
+        const onError = vi.fn();
+        const stream = new PreviewStream(fakeVideo(), { onError });
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() =>
+            expect(onError).toHaveBeenCalledWith("The source cannot be decoded."),
+        );
     });
 });

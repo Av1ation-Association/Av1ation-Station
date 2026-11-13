@@ -468,6 +468,7 @@ mod tests {
         scene::Scene,
         sequence::DefaultSequenceData,
     };
+    use proptest::prelude::*;
     use serde_json::json;
 
     use super::*;
@@ -719,5 +720,45 @@ mod tests {
             10
         );
         assert!(next["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null());
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        /// A sorted table is the shape Scene Detector produces. Repair may only move the
+        /// end of the scene before a hole, never a start, and it must close every hole it
+        /// can see without touching an already adjacent pair.
+        #[test]
+        fn closing_gaps_repairs_only_the_end_before_a_hole(
+            mut starts in prop::collection::vec(0usize..4_000, 1..12),
+        ) {
+            starts.sort_unstable();
+            starts.dedup();
+            let lengths: Vec<usize> = (0..starts.len())
+                .map(|index| starts.get(index + 1).map_or(24, |next| next - starts[index]))
+                .collect();
+            let ends: Vec<usize> = starts.iter().zip(&lengths).map(|(start, length)| start + length).collect();
+            let mut scenes: Vec<Scene<DefaultSequenceData>> = starts
+                .iter()
+                .zip(&ends)
+                .map(|(start, end)| scene(*start, *end, 30.0))
+                .collect();
+
+            close_scene_gaps_in(&mut scenes);
+
+            prop_assert_eq!(scenes[0].start_frame, 0);
+            for (index, scene) in scenes.iter().enumerate().skip(1) {
+                prop_assert_eq!(scene.start_frame, starts[index]);
+                if starts[index] > ends[index - 1] {
+                    prop_assert_eq!(
+                        scenes[index - 1].end_frame,
+                        starts[index],
+                        "the hole is given to the scene before it"
+                    );
+                } else {
+                    prop_assert_eq!(scenes[index - 1].end_frame, ends[index - 1]);
+                }
+            }
+        }
     }
 }

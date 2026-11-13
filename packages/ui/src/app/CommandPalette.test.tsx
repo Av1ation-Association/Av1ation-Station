@@ -25,13 +25,6 @@ beforeAll(() => {
             }
         },
     );
-    // jsdom has no top layer either; every modal in the shell uses the native dialog API.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
 });
 
 afterEach(() => {

@@ -73,7 +73,11 @@ the path a save dialog returned).
 That choice is deliberate. If the desktop UI used Tauri IPC for data and the browser
 used HTTP, there would be two transports to test and two ways for behaviour to differ.
 Because both use HTTP, a browser-mode E2E suite can exercise the exact code path the
-desktop uses; the checked-in Playwright smoke creates a project and opens Settings against the real headless service, while the full journey suite is planned for Phase 4b.
+desktop uses; the checked-in Playwright suite creates a project and runs fake-engine
+journeys through start, progress, navigation, cancellation, reload, locked-scope writes,
+the process-wide `409`, and LAN pairing against the real headless service. The error-path
+matrix is recorded in [testing.md](testing.md#39-error-path-matrix); only its native
+second-instance row is a desktop release check, recorded on 2026-11-12.
 
 A packaged desktop window loads the service's loopback origin rather than a `tauri://` page,
 so `rust/desktop-shell/capabilities/default.json` grants that origin (`remote`) the IPC
@@ -470,16 +474,16 @@ configuration, not process-wide flags. Full derivation is in `preflight.md`.
 
 | Failure | Detection | Behaviour |
 | --- | --- | --- |
-| Engine panics inside a sequence | worker thread `catch_unwind` boundary | run terminates with `ENGINE_PANIC`, lock released, log preserved |
-| Worker thread dies without a terminal event | the run's event channel closes | a run-level timeline record says the run ended without a terminal event, and the lock is released |
-| Disk full while writing output | encoder error propagated | run fails with `DISK_FULL`, partial output kept for inspection |
-| Project file corrupt | deserialize error | project is skipped by the Home list and its detail answers `422 INVALID_CONFIG`; the raw file is never rewritten |
+| Engine panics inside a sequence | the engine reports or the event channel closes | the run ends with the engine's terminal message in the timeline; the lock is released and the log and partial output are kept. There is no code field to decode |
+| Worker thread dies without a terminal event | the run's event channel closes | a run-level timeline record says `The run ended without a terminal event.`, and the lock is released |
+| Disk full while writing output | encoder error propagated as its terminal message | the run fails with that message; partial output is kept for inspection |
+| Project file corrupt | deserialize error | project is skipped by the Home list and its detail answers `422 INVALID_CONFIG` with a generic message; the raw file is never rewritten |
 | LAN client disconnects mid-stream | SSE write error | dropped from fan-out, encode continues |
-| Two app instances | Tauri `single-instance` plugin | second instance focuses the first |
-| Port collision on loopback | the OS refuses the bind | startup reports the address error; the ephemeral port makes a collision rare |
+| Two app instances | Tauri `single-instance` plugin | second instance restores and focuses the first; this is a recorded release check, not an automated test |
+| Port collision on loopback | the OS refuses the bind | startup reports the address error without retrying; the ephemeral port makes a collision rare |
 | Clock skew affecting log ordering | monotonic sequence numbers in the event stream | ordering never depends on wall clock |
 
-Every entry in both tables needs a test in Phase 4.
+The automated rows are the error-path matrix in [testing.md](testing.md#39-error-path-matrix); the single-instance row is a recorded release check because it needs a native window.
 
 ## 7. Capability model
 

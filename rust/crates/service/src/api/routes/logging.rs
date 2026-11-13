@@ -11,7 +11,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use super::no_storage;
+use super::{no_storage, project_error, video_not_found};
 use crate::{
     api::error::error_response,
     run::anonymise,
@@ -264,6 +264,16 @@ pub(crate) async fn video_runs(
     State(state): State<AppState>,
     AxumPath((project_id, video_id)): AxumPath<(String, String)>,
 ) -> Response {
+    // The log store answers an empty list for any id. Resolve the video first so a stale
+    // selector address is a 404 rather than a video that appears to have no runs.
+    let Some(videos) = state.videos() else {
+        return no_storage();
+    };
+    match videos.record(&project_id, &video_id).await {
+        Ok(Some(_)) => {}
+        Ok(None) => return video_not_found(&video_id),
+        Err(error) => return project_error(error),
+    }
     let Some(logs) = state.logs() else {
         return no_storage();
     };

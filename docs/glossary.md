@@ -12,6 +12,7 @@ without scanning the whole file.
 - [Projects, videos, and runs](#projects-videos-and-runs)
 - [Editing and presentation](#editing-and-presentation)
 - [Concatenation](#concatenation)
+- [Testing and evidence](#testing-and-evidence)
 - [Build and delivery](#build-and-delivery)
 - [Reading the top level](#reading-the-top-level)
 
@@ -65,6 +66,7 @@ without scanning the whole file.
 | **Terminal record** | The run-level timeline entry (`sequence: null`) that closes a run and carries its terminal message. | `docs/data-model.md` §6.1 |
 | **Unrecognized outcome** | A terminal timeline record whose outcome is outside `completed`, `cancelled`, and `failed`; History shows `Unknown`. | `packages/ui/src/shared/model/history-model.ts` |
 | **Unrecorded outcome** | A run with no run-level timeline record; Logs shows no outcome chip. | `packages/ui/src/shared/model/run-presentation.ts` |
+| **Validation blocker** | A reason a video's current configuration cannot start: missing source, unwritable path, missing capability, plugin problem, or insufficient space. It is shown before Start and is distinct from a **Control refusal**. | `VideoValidation.blockers` |
 | **Video** | A queued source file with materialised input/output documents and optional configuration overrides. | service storage |
 
 ## Editing and presentation
@@ -96,6 +98,18 @@ without scanning the whole file.
 | **Source inventory** | The selected muxer's own report of a source file's streams, attachments, and chapters. It is read-only input to the track map, never persisted. | `ConcatInventory`; [video.md](screens/video.md#concatenation-workbench) |
 | **Track map** | A method's per-source selection and overrides, keyed by that muxer's own identifiers. `null` means copy every selectable source track. | `SceneConcatenatorConfig.method.*.tracks`; [video.md](screens/video.md#concatenation-workbench) |
 | **Unmatched override** | A saved track-map entry whose key the latest source inventory does not report. It is retained and removable instead of being applied to another row. | concatenation model; [video.md](screens/video.md#concatenation-workbench) |
+
+## Testing and evidence
+
+| Term | Meaning | Primary location |
+| --- | --- | --- |
+| **Boundary schema** | A contract type that crosses an API boundary as a hook response or a top-level request body. Nested schemas are covered through their parent boundary. | `packages/contracts/src/boundaries.ts`, `packages/contracts/src/fixtures/boundary/` |
+| **Error-path row** | One failure mode from architecture §6 with recorded evidence: an automated test at a named layer, or a named manual release check. | [testing.md](testing.md) |
+| **Four-state certification** | The automated per-route-family evidence that loading, empty, error, and populated states exist. A structurally impossible state is recorded as `N/A` with its reason. | [testing.md](testing.md) |
+| **Screenshot gallery** | The deterministic, both-theme, no-encode image set for every catalogued surface, with AVIF images, a catalog, and a contact sheet. | `e2e/screenshots/`, `dist/screenshots/` |
+| **Feature screenshot manifest** | The optional subset written for release notes when a feature run selects one group or screen id. | `dist/screenshots/feature-screenshots.json` |
+| **Route family** | One path registered in `ROUTE_META`; dynamic section values share the family. It is the unit of four-state certification. | `packages/ui/src/app/route-meta.ts` |
+
 
 ## Build and delivery
 

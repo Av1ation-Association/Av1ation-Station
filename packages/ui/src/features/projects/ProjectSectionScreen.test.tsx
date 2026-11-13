@@ -1,24 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderRoute } from "../../test/render";
+import { ROUTE_PROJECT, populatedTransport } from "../../test/route-fixtures";
 import { ProjectSectionScreen } from "./ProjectSectionScreen";
 
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
 afterEach(() => {
-    cleanup();
     vi.restoreAllMocks();
 });
 
@@ -36,25 +27,12 @@ it("shows the load error and retries the failed project reads", async () => {
             queries: { retry: false, refetchOnWindowFocus: false },
         },
     });
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const sectionRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/config/$section",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <ProjectSectionScreen />,
+    renderRoute(<ProjectSectionScreen />, {
+        route: "/projects/$projectId/config/$section",
+        initialEntry: "/projects/project-1/config/scene-detection",
+        transport,
+        queryClient,
     });
-    render(
-        <ApiProvider transport={transport} queryClient={queryClient}>
-            <RouterProvider
-                router={createRouter({
-                    routeTree: rootRoute.addChildren([sectionRoute]),
-                    history: createMemoryHistory({
-                        initialEntries: ["/projects/project-1/config/scene-detection"],
-                    }),
-                })}
-            />
-        </ApiProvider>,
-    );
 
     expect(await screen.findByRole("heading", { level: 1, name: "Scene detection" })).toBeTruthy();
     const panel = await screen.findByRole("alert");
@@ -71,4 +49,40 @@ it("shows the load error and retries the failed project reads", async () => {
     fireEvent.click(within(panel).getByRole("button", { name: "Retry" }));
 
     await waitFor(() => expect(configCalls()).toBeGreaterThan(before));
+});
+
+it("saves a changed detector and restores the saved value on discard", async () => {
+    const transport = populatedTransport();
+    const { topBar } = renderRoute(<ProjectSectionScreen />, {
+        route: "/projects/$projectId/config/$section",
+        initialEntry: "/projects/demo-project/config/scene-detection",
+        transport,
+        topBar: true,
+    });
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Scene detection" })).toBeTruthy();
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+
+    fireEvent.click(await screen.findByRole("radio", { name: "TransNetV2" }));
+    expect(within(topBar).getByText("Unsaved changes")).toBeTruthy();
+    const save = within(topBar).getByRole("button", { name: "Save" });
+    expect(save.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(save);
+
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(true));
+    const sequences = transport.projectConfigs.get(ROUTE_PROJECT.id)?.sequences as
+        Record<string, unknown> | undefined;
+    const detector = sequences?.scene_detector as { method?: Record<string, unknown> } | undefined;
+    expect(Object.keys(detector?.method ?? {})).toEqual(["TransNetV2"]);
+
+    const minimum = (await screen.findByLabelText(
+        "Minimum scene length in frames",
+    )) as HTMLInputElement;
+    expect(minimum.value).toBe("24");
+    fireEvent.change(minimum, { target: { value: "12" } });
+    expect(within(topBar).getByText("Unsaved changes")).toBeTruthy();
+    fireEvent.click(within(topBar).getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(minimum.value).toBe("24"));
+    expect(within(topBar).queryByText("Unsaved changes")).toBeNull();
 });

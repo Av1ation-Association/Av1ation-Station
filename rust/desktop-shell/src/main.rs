@@ -59,6 +59,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         .plugin(tauri_plugin_single_instance::init(
             |app, _arguments, _cwd| {
                 if let Some(window) = app.get_webview_window("main") {
+                    // A second launch must bring the existing window back, not merely mark a
+                    // minimized window as foreground: the user sees nothing if it stays iconic.
+                    let _ = window.unminimize();
+                    let _ = window.show();
                     let _ = window.set_focus();
                 }
             },

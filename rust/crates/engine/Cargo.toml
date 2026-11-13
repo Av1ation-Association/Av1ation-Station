@@ -21,3 +21,5 @@ vapoursynth = "0.5"
 
 [dev-dependencies]
 av1ation-test-support.workspace = true
+proptest = "1.12.0"
+rustpython-parser = "0.4.0"

@@ -1,0 +1,12 @@
+{
+  "temporary_directory": "fixture-path",
+  "default_directory": "fixture-path",
+  "retained_bytes": 0,
+  "video_count": 0,
+  "app_data_bytes": 0,
+  "app_data_directory": "fixture-path",
+  "log_bytes": 0,
+  "manifest_bytes": 0,
+  "catalogue_bytes": 0,
+  "projects": []
+}

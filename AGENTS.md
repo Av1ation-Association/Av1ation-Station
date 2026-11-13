@@ -54,7 +54,7 @@ transport types are forbidden: an encoder parameter set differs per encoder and 
 so a hand-maintained profile is wrong for any build its author did not test.
 
 Run `npm run contracts` after changing any Rust model. `npm run contracts:check` fails on
-drift; a CI workflow will run it once one is added. Contract models live in the public
+drift; the Rust CI job runs it. Contract models live in the public
 module for their schema group (`av1ation_contracts::<group>`); `lib.rs` declares the modules
 and `API_VERSION` and re-exports no contract type.
 

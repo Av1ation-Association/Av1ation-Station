@@ -13,6 +13,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
+/** The ids the server removed from the queue in one transaction. */
+export const RemovedVideoIdsSchema = z.array(z.string());
+
 /**
  * The project's live queue batch.
  *
@@ -119,7 +122,7 @@ export function useRemoveVideos(projectId: string) {
             transport.post(
                 videosRemovePath(projectId),
                 { video_ids: videoIds },
-                z.array(z.string()),
+                RemovedVideoIdsSchema,
             ),
         onSuccess: () => {
             invalidateVideoQueue(queryClient, projectId);

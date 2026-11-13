@@ -1,0 +1,14 @@
+{
+  "id": "fixture-id",
+  "label": "fixture",
+  "default": null,
+  "parameters": {
+    "key": {
+      "label": "fixture",
+      "kind": "Flag",
+      "widget": "Auto"
+    }
+  },
+  "available": false,
+  "source": "Builtin"
+}

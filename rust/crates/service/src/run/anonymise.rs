@@ -31,6 +31,12 @@ static WINDOWS_PATH: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?i)\b[A-Z]:\\(?:[^\\\s"'<>|]+\\)*[^\\\s"'<>|]+"#)
         .expect("valid Windows path pattern")
 });
+/// The same path after JSONL serialisation doubles each separator. The export reads the
+/// stored lines verbatim, so the plain Windows pattern cannot see through the escape.
+static JSON_WINDOWS_PATH: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?i)\b[A-Z]:\\\\(?:[^\\\s"'<>|]+\\\\)*[^\\\s"'<>|]+"#)
+        .expect("valid JSON-escaped Windows path pattern")
+});
 static UNC_PATH: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"\\\\[^\s"'<>|]+"#).expect("valid UNC path pattern"));
 /// A Unix absolute path. The leading whitespace or delimiter is captured so it survives the
@@ -55,6 +61,9 @@ pub(crate) fn anonymise(text: &str) -> LogExport {
     let text = replace(&SID, &text, "SID", &mut state);
     let text = replace(&IPV4, &text, "IP", &mut state);
     let text = replace(&WINDOWS_PATH, &text, "PATH", &mut state);
+    // JSONL stores each Windows separator twice; replace the escaped spelling as one path
+    // so the preview never leaks the directory while the value stays a valid JSON string.
+    let text = replace(&JSON_WINDOWS_PATH, &text, "PATH", &mut state);
     let text = replace(&UNC_PATH, &text, "PATH", &mut state);
     let text = replace_unix_paths(&text, &mut state);
     let text = replace(&FILE, &text, "FILE", &mut state);
@@ -132,6 +141,7 @@ fn host_names() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn every_category_is_replaced_with_a_stable_placeholder() {
@@ -173,6 +183,15 @@ mod tests {
     }
 
     #[test]
+    fn a_json_escaped_windows_path_is_redacted_as_one_value() {
+        let export =
+            anonymise(r#"{"message":"Source file: C:\\Users\\ana\\Videos\\wedding2019.mkv"}"#);
+        assert!(export.text.contains("<PATH:1>"), "{}", export.text);
+        assert!(!export.text.contains("Users"), "{}", export.text);
+        assert!(!export.text.contains("wedding2019"), "{}", export.text);
+    }
+
+    #[test]
     fn prose_without_identifiers_is_untouched() {
         let text = "Scene Detector completed 42 of 48 scenes at 4.5 fps";
         assert_eq!(anonymise(text).text, text);
@@ -182,5 +201,24 @@ mod tests {
     fn a_version_string_is_not_an_ip_address() {
         let text = "SVT-AV1 3.0.0 / FFmpeg 7.1";
         assert_eq!(anonymise(text).text, text);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        /// An address that reaches the export must never reach the clipboard in its
+        /// original form, and the audit view must be able to name what was replaced.
+        #[test]
+        fn a_generated_email_is_redacted_and_kept_in_the_audit(
+            local in "[a-z0-9]{1,12}",
+            domain in "[a-z0-9]{1,12}",
+        ) {
+            let email = format!("{local}@{domain}.example");
+            let export = anonymise(&format!("contact {email} now"));
+
+            prop_assert!(!export.text.contains(&email), "{}", export.text);
+            prop_assert!(export.text.contains("<EMAIL:1>"), "{}", export.text);
+            prop_assert_eq!(export.replacements.get("<EMAIL:1>"), Some(&email));
+        }
     }
 }

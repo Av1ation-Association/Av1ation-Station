@@ -2,23 +2,13 @@
 import { useState } from "react";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import type { ConcatInventory } from "@av1ation/contracts";
 
 import { useDraftBlockers } from "../../shared/draft-blockers";
 import type { JsonSchema } from "../../shared/schema/config-schema";
 import { TrackMapPanel, trackOptionFields } from "./TrackMapEditor";
-
-beforeAll(() => {
-    // jsdom has no top layer; these are the only native dialog methods the sheet uses.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(cleanup);
 

@@ -210,6 +210,108 @@ async fn a_scene_range_edit_and_a_delete_are_undoable() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// Structural edits share one route family: split at a frame, merge adjacent scenes, reset a
+/// scene's retained output, and write custom sequence data. They all renumber or rewrite the
+/// same table, so a request that returns 204 must also leave a table the next route can read.
+#[tokio::test]
+async fn scene_structure_edits_and_custom_data_round_trip() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Scene structure").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let encoder = av1ation_engine::default_project_config()["encoder"].clone();
+    let mut first = saved_scene(encoder.clone());
+    first["end_frame"] = Value::from(240);
+    let mut second = saved_scene(encoder);
+    second["start_frame"] = Value::from(240);
+    second["end_frame"] = Value::from(480);
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/split"))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::json!({ "frame": 100 }).to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (_, list) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/scenes"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(list["scenes"].as_array().map(Vec::len), Some(3));
+    assert_eq!(list["scenes"][1]["start_frame"], 100);
+
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!(
+            "/api/projects/{id}/videos/{video_id}/scenes/0/sequence-data"
+        ))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "values": { "note": "keep" } }).to_string(),
+        ))
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/merge"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "scenes": [1, 2] }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/reset"))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::json!({ "scenes": [0] }).to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (_, list) = send(
+        app,
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/scenes"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    let scenes = list["scenes"].as_array().expect("scene rows");
+    assert_eq!(scenes.len(), 2);
+    assert_eq!(scenes[0]["start_frame"], 0);
+    assert_eq!(scenes[1]["start_frame"], 100);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 /// A scene's encoder is a complete document, so provenance is equality with the video's
 /// resolved encoder rather than a second boolean stored beside it. The sheet must be able
 /// to fetch one scene and write the selection without changing any other scene.
@@ -301,6 +403,30 @@ async fn scene_encoders_are_read_and_written_with_explicit_provenance() {
         persisted["condor"]["scenes"][1]["start_frame"], 24,
         "writing an encoder leaves the scene range alone"
     );
+
+    // One bulk write is one undo entry: the single undo restores the table from before the
+    // whole selection was changed, not only the last scene in it.
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/undo"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (_, restored) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/scenes"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(
+        restored["scenes"][1]["encoder_label"], "FFmpeg",
+        "undo restores the scene encoder the bulk write replaced"
+    );
+    assert_eq!(restored["scenes"][1]["encoder_custom"], true);
 
     let (status, error) = send(
         app.clone(),
@@ -451,6 +577,31 @@ async fn a_manual_scene_fills_a_gap_and_an_overlap_is_refused() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body["code"], "INVALID_CONFIG");
 
+    let (status, missing) = send(
+        app.clone(),
+        Request::get(format!(
+            "/api/projects/{project_id}/videos/{}/audio-tracks?source=original",
+            uuid::Uuid::new_v4()
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+
+    let invalid_query = app
+        .clone()
+        .oneshot(
+            Request::get(format!(
+                "/api/projects/{project_id}/videos/{video_id}/audio-tracks?frame=not-a-number"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .expect("router response");
+    assert_eq!(invalid_query.status(), StatusCode::BAD_REQUEST);
+
     // Without FFmpeg in the fixed inventory the selector is simply absent, not an error.
     let (status, tracks) = send(
         app,
@@ -471,4 +622,179 @@ async fn a_manual_scene_fills_a_gap_and_an_overlap_is_refused() {
     );
 
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+/// Scene edits are one guarded surface: every mutation is refused while the video encodes,
+/// every video-scoped route reports an unknown video, and each body route rejects an
+/// unreadable document.
+#[tokio::test]
+async fn scene_routes_report_the_lock_unknown_videos_and_bad_bodies() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Scene surface").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let missing = uuid::Uuid::new_v4().to_string();
+    let encoder = av1ation_engine::default_project_config()["encoder"].clone();
+
+    let (status, started) = send(app.clone(), start_request(&project, &video)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let run_id = started["run_id"].as_str().expect("run id").to_owned();
+
+    for (method, path, body) in [
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/scenes/encoder"),
+            Some(serde_json::json!({ "scenes": [0], "encoder": {} })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/add"),
+            Some(serde_json::json!({ "start_frame": 0, "end_frame": 24 })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/split"),
+            Some(serde_json::json!({ "frame": 1 })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/merge"),
+            Some(serde_json::json!({ "scenes": [0] })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/reset"),
+            Some(serde_json::json!({ "scenes": [0] })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/undo"),
+            None,
+        ),
+        (
+            "PATCH",
+            format!("/api/projects/{project}/videos/{video}/scenes/0"),
+            Some(serde_json::json!({ "start_frame": 0, "end_frame": 12 })),
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{video}/scenes/0"),
+            None,
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/scenes/0/sequence-data"),
+            Some(serde_json::json!({ "values": {} })),
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::LOCKED, "{method} {path}: {response}");
+    }
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project).await;
+
+    for (method, path, body) in [
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{missing}/scenes/encoder"),
+            Some(serde_json::json!({ "scenes": [0], "encoder": encoder })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/scenes/add"),
+            Some(serde_json::json!({ "start_frame": 0, "end_frame": 24 })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/scenes/split"),
+            Some(serde_json::json!({ "frame": 1 })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/scenes/merge"),
+            Some(serde_json::json!({ "scenes": [0] })),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{missing}/scenes/reset"),
+            Some(serde_json::json!({ "scenes": [0] })),
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/scenes"),
+            None,
+        ),
+        (
+            "GET",
+            format!("/api/projects/{project}/videos/{missing}/scenes/0/encoder"),
+            None,
+        ),
+        (
+            "PATCH",
+            format!("/api/projects/{project}/videos/{missing}/scenes/0"),
+            Some(serde_json::json!({ "start_frame": 0, "end_frame": 12 })),
+        ),
+        (
+            "DELETE",
+            format!("/api/projects/{project}/videos/{missing}/scenes/0"),
+            None,
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{missing}/scenes/0/sequence-data"),
+            Some(serde_json::json!({ "values": {} })),
+        ),
+    ] {
+        let (status, response) = send(app.clone(), route_request(method, &path, body)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}: {response}");
+    }
+
+    for (method, path) in [
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/scenes/encoder"),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/split"),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/merge"),
+        ),
+        (
+            "POST",
+            format!("/api/projects/{project}/videos/{video}/scenes/reset"),
+        ),
+        (
+            "PATCH",
+            format!("/api/projects/{project}/videos/{video}/scenes/0"),
+        ),
+        (
+            "PUT",
+            format!("/api/projects/{project}/videos/{video}/scenes/0/sequence-data"),
+        ),
+    ] {
+        let (status, response) = send(
+            app.clone(),
+            route_request(
+                method,
+                &path,
+                Some(serde_json::json!({ "unexpected": true })),
+            ),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "{method} {path}: {response}"
+        );
+    }
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
 }

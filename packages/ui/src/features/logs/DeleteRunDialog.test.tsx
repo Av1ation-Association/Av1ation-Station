@@ -1,22 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import { LogPageSchema, RunSummarySchema, VideoHistorySchema } from "@av1ation/contracts";
 
+import { renderWithApi } from "../../test/render";
 import { runWhen } from "../../shared/model/run-presentation";
 import { DeleteRunDialog } from "./DeleteRunDialog";
-
-beforeAll(() => {
-    // jsdom has no top layer; these are the only native dialog methods the modal uses.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(() => {
     cleanup();
@@ -29,17 +20,16 @@ const HISTORY = "/api/projects/demo/videos/demo-video/history";
 const STARTED_AT = "2026-10-30T14:22:00";
 
 function renderDialog(transport: MockTransport, onClose: () => void, kind?: "log" | "run") {
-    render(
-        <ApiProvider transport={transport}>
-            <DeleteRunDialog
-                projectId="demo-project"
-                videoId="demo-video"
-                runId="demo-run-2"
-                startedAt={STARTED_AT}
-                {...(kind === undefined ? {} : { kind })}
-                onClose={onClose}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <DeleteRunDialog
+            projectId="demo-project"
+            videoId="demo-video"
+            runId="demo-run-2"
+            startedAt={STARTED_AT}
+            {...(kind === undefined ? {} : { kind })}
+            onClose={onClose}
+        />,
+        { transport },
     );
 }
 

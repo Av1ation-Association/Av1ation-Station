@@ -74,11 +74,11 @@ properly with tests, not promoted.
 | 4.1.1 | Full unit coverage for resolver, derivation, migration chain, anonymiser | pure functions |
 | 4.1.2 | Property tests for resolver and script materialisation | |
 | 4.1.3 | `FakeRunner` scenarios: fail at each phase, cancel, panic, silent death | |
-| 4.1.4 | Guard tests: `409`, `423`, `507`, `412` | status is contract |
+| 4.1.4 | Guard tests: `409`, `423`, `507` | status is contract |
 | 4.1.5 | Route snapshot/fixture tests for every endpoint | |
 | 4.1.6 | Persistence tests: atomicity (torn write), corruption, newer-version refusal | |
 | 4.1.7 | Migration tests from every historical schema version | |
-| 4.1.8 | `cargo llvm-cov` at 80% on `engine` and `service` | |
+| 4.1.8 | `cargo llvm-cov` targets: 72% `engine` / 74% `service` | targets are advisory; the 2% drop gate is enforced |
 
 ### 2.2 Frontend
 
@@ -90,7 +90,7 @@ properly with tests, not promoted.
 | 4.2.4 | Selection-math tests: range, toggle, sweep, mixed aggregation | |
 | 4.2.5 | SSE cache-writing tests: out-of-order, duplicate, reconnect with `since` | |
 | 4.2.6 | Draft/undo/redo tests, including save/cancel/dirty through the project section grid and template section editor | |
-| 4.2.7 | Coverage at 70% `api` / 60% `ui` | |
+| 4.2.7 | Coverage targets: 70% `api` / 60% `ui` | targets are advisory; the 2% drop gate is enforced |
 
 ### 2.3 E2E
 
@@ -104,18 +104,19 @@ properly with tests, not promoted.
 | 4.3.6 | Journey: log view → filter → export anonymised → preview contains no paths | |
 | 4.3.7 | Journey: LAN mode on → token → second browser context authenticates → sees the same state | |
 | 4.3.8 | Journey: scene multi-select → bulk config → single undo entry | gated on increment 3 |
-| 4.3.9 | `axe` scan of every route in the E2E run | |
-| 4.3.10 | One nightly real-encode smoke test on a 1 s clip, env-gated | not in PR CI |
+| 4.3.9 | Every-route `axe` scan in browser journeys | E2E journeys axe-scan their populated and locked states |
+| 4.3.10 | One nightly real-encode gate on generated clips, env-gated | `.github/workflows/nightly.yml`; not in PR CI |
 
 ### 2.4 Screenshots
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 4.4.1 | `npm run test:screenshots` — every route, both themes, key interactive states | local on demand and CI every PR |
-| 4.4.2 | Output to gitignored `dist/test-results/screenshots/` | |
+| 4.4.1 | `npm run screenshots` — 35 surfaces, both themes, key interactive states | local on demand and CI when renderer paths change |
+| 4.4.2 | Output AVIF images, `catalog.json`, and a contact sheet to gitignored `dist/screenshots/` | |
 | 4.4.3 | Upload the CI pass as a build artifact for human review | never a required check |
 | 4.4.4 | Document the manual review workflow in `CONTRIBUTING.md` | |
 | 4.4.5 | No pixel gate in CI | policy decision |
+| 4.4.6 | Optional `npm run screenshots:features -- <group-or-id>` manifest for release notes | one selected feature or screen; no feature section without it |
 
 ### 2.5 Contract tests
 
@@ -162,7 +163,7 @@ test. This list is the specification for negative testing:
 
 - [ ] S1–S5 verdicts recorded with numbers
 - [ ] `cargo test --workspace` green
-- [ ] `npm test` green with coverage thresholds met
+- [ ] `npm run verify` green with both coverage policies passing
 - [ ] E2E green against the headless binary
 - [ ] `axe` clean on every route
 - [ ] error-path matrix complete

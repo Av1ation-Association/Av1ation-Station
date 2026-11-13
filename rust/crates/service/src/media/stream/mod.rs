@@ -588,7 +588,13 @@ mod tests {
         parse_range, range_intent, tail_part, trim_preview_cache_with,
     };
     use axum::http::{HeaderMap, HeaderValue, header};
-    use std::{io::Write as _, path::Path, path::PathBuf};
+    use std::{
+        fs::File,
+        io::Write as _,
+        path::Path,
+        path::PathBuf,
+        time::{Duration, UNIX_EPOCH},
+    };
 
     /// A top-level box header followed by `body` zero bytes.
     fn boxed(kind: &[u8; 4], body: usize) -> Vec<u8> {
@@ -606,17 +612,19 @@ mod tests {
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("cache dir");
         let mut written = Vec::new();
-        for (name, bytes) in [
-            ("old.mp4", 600_u64),
-            ("newer.mp4", 600),
-            ("current.mp4", 600),
-        ] {
+        for (index, name) in ["old.mp4", "newer.mp4", "current.mp4"]
+            .into_iter()
+            .enumerate()
+        {
             let path = directory.join(name);
-            std::fs::write(&path, vec![0_u8; usize::try_from(bytes).expect("size")])
-                .expect("cache file");
+            let mut file = File::create(&path).expect("cache file");
+            file.write_all(&[0_u8; 600]).expect("cache file");
+            // The sweep orders by modification time. Set it explicitly so three writes in
+            // one tick cannot make the test depend on the filesystem clock.
+            let modified = UNIX_EPOCH
+                + Duration::from_secs(1_700_000_000 + u64::try_from(index).expect("index"));
+            file.set_modified(modified).expect("cache mtime");
             written.push(path);
-            // The sweep orders by modification time, and three writes can share a tick.
-            std::thread::sleep(std::time::Duration::from_millis(10));
         }
         // A build in progress must survive: another viewer may still be reading it.
         let part = directory.join("building.part");

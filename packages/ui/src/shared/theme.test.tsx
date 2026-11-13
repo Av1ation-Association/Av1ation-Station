@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport, useSettings, useUpdateSettings } from "@av1ation/api";
+import { MockTransport, useSettings, useUpdateSettings } from "@av1ation/api";
 
+import { renderWithApi } from "../test/render";
 import { ThemeSync, useResolvedTheme } from "./theme";
 
 const LIGHT_QUERY = "(prefers-color-scheme: light)";
@@ -89,11 +90,12 @@ afterEach(() => {
 });
 
 it("follows the OS while the preference is system, then the saved choice", async () => {
-    render(
-        <ApiProvider transport={new MockTransport()}>
+    renderWithApi(
+        <>
             <ThemeSync />
             <ThemeProbe />
-        </ApiProvider>,
+        </>,
+        { transport: new MockTransport() },
     );
 
     // The demo's saved preference is `system`; the stub says the OS is dark.

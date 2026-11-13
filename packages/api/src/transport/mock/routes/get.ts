@@ -46,9 +46,19 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
         });
     }
 
+    // A gallery fixture may seed an exact read that the demo's small handlers would
+    // otherwise answer with an empty document: a rich effective config, a ready thumbnail
+    // manifest, or a completed pipeline state. Exact fixture routes win over the demo's
+    // fallback shapes but never over the host-only diagnostics above.
+    if (state.routes.has(path)) {
+        const route = state.routes.get(path);
+        return schema.parse(typeof route === "function" ? (route as () => unknown)() : route);
+    }
+
     const templateDefaults = /^\/api\/settings\/templates\/([^/]+)\/defaults$/u.exec(path);
     if (templateDefaults !== null) {
-        return schema.parse({ values: {} });
+        const id = decodeURIComponent(templateDefaults[1] ?? "");
+        return schema.parse(state.templateDefaultsFor(id));
     }
     const templateGeneral = /^\/api\/settings\/templates\/([^/]+)\/general$/u.exec(path);
     if (templateGeneral !== null) {
@@ -75,16 +85,23 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
 
     const runs = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/runs$/u.exec(path);
     if (runs !== null) {
-        return schema.parse(DEMO_RUNS.filter((run) => !state.deletedRuns.has(run.run_id)));
+        const videoId = decodeURIComponent(runs[2] ?? "");
+        return schema.parse(
+            state.runs.get(videoId) ??
+                DEMO_RUNS.filter((run) => !state.deletedRuns.has(run.run_id)),
+        );
     }
 
     const log = /^\/api\/runs\/([^/]+)\/logs(?:\?.*)?$/u.exec(path);
     if (log !== null) {
         const runId = decodeURIComponent(log[1] ?? "");
         const query = new URL(path, "http://demo").searchParams;
+        const fixture = state.logs.get(runId);
         const records = state.deletedRuns.has(runId)
             ? null
-            : demoRecords(runId, "demo-project", "demo-video");
+            : fixture === undefined
+              ? demoRecords(runId, "demo-project", "demo-video")
+              : [...fixture];
         if (records === null) {
             throw new ApiError(404, null, "No log exists for that run.");
         }
@@ -140,12 +157,24 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
 
     const config = /^\/api\/projects\/([^/]+)\/config$/u.exec(path);
     if (config !== null) {
-        return schema.parse({ values: {} });
+        const projectId = decodeURIComponent(config[1] ?? "");
+        return schema.parse(state.projectConfigFor(projectId));
     }
 
     const queue = /^\/api\/projects\/([^/]+)\/videos$/u.exec(path);
     if (queue !== null) {
         return schema.parse(state.videosFor(decodeURIComponent(queue[1] ?? "")));
+    }
+
+    const video = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)$/u.exec(path);
+    if (video !== null) {
+        const projectId = decodeURIComponent(video[1] ?? "");
+        const videoId = decodeURIComponent(video[2] ?? "");
+        const found = state.videosFor(projectId).find((entry) => entry.id === videoId);
+        if (found === undefined) {
+            throw new ApiError(404, null, `No video matches ${videoId}.`);
+        }
+        return schema.parse({ ...found, output_exists: false, retained_bytes: 0 });
     }
 
     const audioTracks = /^\/api\/projects\/[^/]+\/videos\/[^/]+\/audio-tracks(?:\?.*)?$/u.exec(
@@ -172,7 +201,9 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
 
     const scenes = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/scenes$/u.exec(path);
     if (scenes !== null) {
-        return schema.parse(demoScenes(decodeURIComponent(scenes[2] ?? "")));
+        const projectId = decodeURIComponent(scenes[1] ?? "");
+        const videoId = decodeURIComponent(scenes[2] ?? "");
+        return schema.parse(state.scenes.get(`${projectId}/${videoId}`) ?? demoScenes(videoId));
     }
 
     const sceneEncoder = /^\/api\/projects\/[^/]+\/videos\/[^/]+\/scenes\/\d+\/encoder$/u.exec(
@@ -196,9 +227,45 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
         });
     }
 
-    const history = /^\/api\/projects\/[^/]+\/videos\/[^/]+\/history$/u.exec(path);
+    const history = /^\/api\/projects\/[^/]+\/videos\/([^/]+)\/history$/u.exec(path);
     if (history !== null) {
-        return schema.parse({ entries: [] });
+        return schema.parse({
+            entries: state.history.get(decodeURIComponent(history[1] ?? "")) ?? [],
+        });
+    }
+
+    const general = /^\/api\/projects\/[^/]+\/videos\/([^/]+)\/general$/u.exec(path);
+    if (general !== null) {
+        const videoId = decodeURIComponent(general[1] ?? "");
+        const video = state.videos.get("demo-project")?.find((entry) => entry.id === videoId) ?? {
+            input_path: "C:\\Users\\demo\\media\\clip.mkv",
+            output_path: "C:\\Users\\demo\\media\\clip.av1.mkv",
+        };
+        return schema.parse({
+            input: {
+                Video: {
+                    path: video.input_path,
+                    filters: [],
+                    import_method: { FFMS2: { cache_path: null, index: null } },
+                },
+            },
+            output: { path: video.output_path, tags: {}, video_tags: {} },
+            source_path: video.input_path,
+        });
+    }
+
+    const videoConfig = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/config$/u.exec(path);
+    if (videoConfig !== null) {
+        const projectId = decodeURIComponent(videoConfig[1] ?? "");
+        const videoId = decodeURIComponent(videoConfig[2] ?? "");
+        return schema.parse(state.videoConfigFor(projectId, videoId));
+    }
+
+    const videoOverrides = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/overrides$/u.exec(path);
+    if (videoOverrides !== null) {
+        const projectId = decodeURIComponent(videoOverrides[1] ?? "");
+        const videoId = decodeURIComponent(videoOverrides[2] ?? "");
+        return schema.parse({ fields: state.overridesFor(projectId, videoId) });
     }
 
     const videoState = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/state$/u.exec(path);

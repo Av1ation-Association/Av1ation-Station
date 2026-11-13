@@ -1,0 +1,10 @@
+{
+  "id": "fixture-id",
+  "name": "fixture",
+  "input_path": "fixture-path",
+  "output_path": "fixture-path",
+  "order": 0,
+  "created_at": "fixture",
+  "output_exists": false,
+  "retained_bytes": 0
+}

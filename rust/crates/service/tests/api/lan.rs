@@ -67,6 +67,33 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(off["enabled"], false);
 
+    // Both routes belong to the paired-browser surface. Before LAN access is enabled they
+    // answer with a conflict rather than minting a credential nobody can use.
+    let (status, media) = send(
+        app.clone(),
+        Request::post("/api/media/ticket")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{media}");
+    let (status, rotate) = send(
+        app.clone(),
+        Request::post("/api/lan/rotate")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{rotate}");
+    let (status, events) = send(
+        app.clone(),
+        Request::post("/api/events/ticket")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{events}");
+
     let (status, enabled) = send(
         app.clone(),
         Request::post("/api/lan/enable")
@@ -96,6 +123,21 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
         .to_owned();
     assert_eq!(shortcode.len(), 9, "the displayed code is ABCD-EFGH");
     assert_eq!(&shortcode[4..5], "-");
+
+    let (status, media_ticket) = send(
+        app.clone(),
+        Request::post("/api/media/ticket")
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{media_ticket}");
+    assert!(
+        media_ticket["ticket"]
+            .as_str()
+            .is_some_and(|ticket| !ticket.is_empty())
+    );
 
     // The code is normalized, so a keyboard user may omit the hyphen or type lowercase.
     let request = serde_json::json!({ "shortcode": shortcode.to_lowercase().replace('-', "") });
@@ -127,6 +169,42 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
     assert_eq!(authorized, 200);
     assert!(response.contains("x-frame-options: DENY"));
 
+    // A browser that closes an event stream is an ordinary disconnect, not a reason to
+    // stop the LAN listener. Mint the one-use ticket, open the stream, then drop the socket
+    // without reading a frame; the next request must still be served.
+    let (ticket_status, ticket_response) =
+        raw_request(port, "POST", "/api/events/ticket", None, Some(&token)).await;
+    assert_eq!(ticket_status, 200, "{ticket_response}");
+    let ticket_body: Value = serde_json::from_str(
+        ticket_response
+            .split_once("\r\n\r\n")
+            .map(|(_, body)| body)
+            .expect("ticket response body"),
+    )
+    .expect("ticket response JSON");
+    let ticket = ticket_body["ticket"].as_str().expect("event ticket");
+    let mut stream = TcpStream::connect(("127.0.0.1", port))
+        .await
+        .expect("LAN event listener");
+    stream
+        .write_all(
+            format!(
+                "GET /api/events?ticket={ticket} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+            )
+            .as_bytes(),
+        )
+        .await
+        .expect("open event stream");
+    let mut first = [0_u8; 256];
+    let _ = timeout(Duration::from_millis(500), stream.read(&mut first)).await;
+    drop(stream);
+
+    let (still_serving, _) = raw_get(port, "/api/health", Some(&token)).await;
+    assert_eq!(
+        still_serving, 200,
+        "a dropped event stream must not stop LAN access"
+    );
+
     let (control, _) = raw_get(port, "/api/lan", Some(&token)).await;
     assert_eq!(control, 403);
 
@@ -145,6 +223,17 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
     assert_eq!(revoked_pair, 401);
     let (unauthorized, _) = raw_get(port, "/api/health", Some(&token)).await;
     assert_eq!(unauthorized, 401);
+
+    let (status, rotated) = send(
+        app.clone(),
+        Request::post("/api/lan/rotate")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{rotated}");
+    assert_eq!(rotated["enabled"], true);
+    assert_ne!(rotated["token"], token.as_str());
 
     // After a handful of bad codes from one peer, even a value that no longer names a
     // session is throttled, and the response tells the browser when to retry.
@@ -179,4 +268,30 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(disabled["enabled"], false);
+}
+
+/// Pairing validates its JSON body before touching the LAN state, and revoking an unknown
+/// session reports the miss instead of returning an empty session list.
+#[tokio::test]
+async fn lan_pairing_and_revoke_report_bad_input_and_unknown_sessions() {
+    let app = router(health_state());
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/pair")
+            .header("content-type", "application/json")
+            .body(Body::from("{"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    let (status, body) = send(
+        app,
+        Request::post("/api/lan/sessions/not-a-session/revoke")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }

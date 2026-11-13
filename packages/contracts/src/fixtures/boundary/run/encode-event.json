@@ -1,0 +1,9 @@
+{
+  "project_id": "fixture-id",
+  "video_id": "fixture-id",
+  "run_id": "fixture-run",
+  "seq": 0,
+  "at": "2026-10-31T08:31:03Z",
+  "kind": "started",
+  "message": "fixture"
+}

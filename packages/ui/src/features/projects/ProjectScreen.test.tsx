@@ -1,26 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import { ProjectSchema, VideoDetailSchema } from "@av1ation/contracts";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
 
+import { renderRoute } from "../../test/render";
 import { ProjectScreen } from "./ProjectScreen";
 
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
 afterEach(() => {
-    cleanup();
     vi.restoreAllMocks();
-    document.body.innerHTML = "";
 });
 
 const NAMES = ["One", "Two", "Three", "Four"] as const;
@@ -39,38 +28,14 @@ async function seedQueue(transport: MockTransport): Promise<string> {
 }
 
 function renderProject(transport: MockTransport, projectId: string) {
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const projectRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => <ProjectScreen />,
+    renderRoute(<ProjectScreen />, {
+        route: "/projects/$projectId",
+        initialEntry: `/projects/${projectId}`,
+        // The screen links to the sections and the queue's videos; the stubs keep those
+        // paths resolvable without mounting pages this test does not read.
+        stubs: ["/projects/$projectId/config/$section", "/projects/$projectId/videos/$videoId"],
+        transport,
     });
-    // The screen links to the sections and the queue's videos; the stubs keep those paths
-    // resolvable without mounting pages this test does not read.
-    const configRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/config/$section",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const videoRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([projectRoute, configRoute, videoRoute]),
-        history: createMemoryHistory({
-            initialEntries: [`/projects/${projectId}`],
-        }),
-    });
-    render(
-        <ApiProvider transport={transport}>
-            <RouterProvider router={router} />
-        </ApiProvider>,
-    );
 }
 
 /**

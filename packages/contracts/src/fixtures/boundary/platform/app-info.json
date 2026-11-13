@@ -1,0 +1,12 @@
+{
+  "name": "fixture",
+  "version": "0.1.0",
+  "engine_version": "0.1.0",
+  "engine_revision": "fixture",
+  "api_version": 0,
+  "preflight": {
+    "checks": [],
+    "available_count": 0,
+    "total_count": 0
+  }
+}

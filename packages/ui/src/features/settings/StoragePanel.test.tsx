@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
 import { TopBarTargetContext } from "../../shared/TopBarActions";
+import { renderWithApi } from "../../test/render";
 import { StoragePanel } from "./settings-panels";
 
 afterEach(() => {
@@ -28,12 +29,11 @@ it("saves only the storage fields that changed", async () => {
     const transport = new RecordingStorageTransport();
     const target = document.createElement("div");
     document.body.append(target);
-    render(
-        <ApiProvider transport={transport}>
-            <TopBarTargetContext.Provider value={target}>
-                <StoragePanel />
-            </TopBarTargetContext.Provider>
-        </ApiProvider>,
+    renderWithApi(
+        <TopBarTargetContext.Provider value={target}>
+            <StoragePanel />
+        </TopBarTargetContext.Provider>,
+        { transport },
     );
 
     await screen.findByRole("heading", { name: "Application data" });

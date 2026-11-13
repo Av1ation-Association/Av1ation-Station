@@ -1,71 +1,29 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
-import {
-    RouterProvider,
-    createMemoryHistory,
-    createRootRoute,
-    createRoute,
-    createRouter,
-} from "@tanstack/react-router";
+import { MockTransport } from "@av1ation/api";
 
+import { renderRoute } from "../../test/render";
 import { LogsScreen } from "./LogsScreen";
 
-/** Direct-route tests mount no shell; the router still requires static data. */
-const TEST_ROUTE_STATIC_DATA = { trail: "home", params: [], back: () => null } as const;
-
 afterEach(() => {
-    cleanup();
     vi.restoreAllMocks();
-    document.body.innerHTML = "";
 });
 
 /** Mount the viewer at a logs URL, with the sibling video tabs resolvable. */
 function renderLogs(search: string, transport: MockTransport = new MockTransport()) {
-    // The router restores scroll on navigation; jsdom has no implementation.
-    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    const rootRoute = createRootRoute({ staticData: TEST_ROUTE_STATIC_DATA });
-    const logsRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/logs",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        validateSearch: (raw: Record<string, unknown>): { run?: string | undefined } => ({
-            run: typeof raw.run === "string" ? raw.run : undefined,
-        }),
-        component: () => <LogsScreen />,
+    renderRoute(<LogsScreen />, {
+        route: "/projects/$projectId/videos/$videoId/logs",
+        initialEntry: `/projects/demo/videos/demo-video/logs${search}`,
+        stubs: [
+            "/projects/$projectId/videos/$videoId",
+            "/projects/$projectId/videos/$videoId/scenes",
+            "/projects/$projectId/videos/$videoId/history",
+        ],
+        transport,
     });
-    const videoRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const scenesRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/scenes",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const historyRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: "/projects/$projectId/videos/$videoId/history",
-        staticData: TEST_ROUTE_STATIC_DATA,
-        component: () => null,
-    });
-    const router = createRouter({
-        routeTree: rootRoute.addChildren([logsRoute, videoRoute, scenesRoute, historyRoute]),
-        history: createMemoryHistory({
-            initialEntries: [`/projects/demo/videos/demo-video/logs${search}`],
-        }),
-    });
-    render(
-        <ApiProvider transport={transport}>
-            <RouterProvider router={router} />
-        </ApiProvider>,
-    );
 }
 
 const RUNS = "/api/projects/demo/videos/demo-video/runs";

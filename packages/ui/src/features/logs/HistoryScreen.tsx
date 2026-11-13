@@ -108,7 +108,7 @@ function RunCard({
                                 to="/projects/$projectId/videos/$videoId/logs"
                                 params={{ projectId, videoId }}
                                 search={{ run: run.runId }}
-                                aria-label={`Open the log for run ${run.runId}`}
+                                aria-label={`Open log for run ${run.runId}`}
                                 className="inline-flex items-center gap-1 rounded text-[10px] text-brand-text transition-colors duration-150 hover:text-brand hover:underline focus-visible:text-brand focus-visible:underline"
                             >
                                 <ScrollText aria-hidden="true" className="h-3 w-3" />

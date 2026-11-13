@@ -286,6 +286,9 @@ export const ROUTE_META = {
 /** A path registered in `ROUTE_META`; the only path a route may declare. */
 export type RoutePath = keyof typeof ROUTE_META;
 
+/** Every registered path, in registry order; route-wide harnesses derive their cases from it. */
+export const ROUTE_PATHS = Object.keys(ROUTE_META) as readonly RoutePath[];
+
 /**
  * The router fields for a registered route.
  *
@@ -298,15 +301,6 @@ export function routeFor<TPath extends RoutePath>(path: TPath) {
     return meta.search === undefined
         ? { path, staticData: meta }
         : { path, staticData: meta, validateSearch: meta.search };
-}
-
-declare module "@tanstack/react-router" {
-    interface StaticDataRouteOption {
-        trail: TrailKind;
-        params: readonly TrailParam[];
-        back: BackResolver;
-        search?: SearchParser;
-    }
 }
 
 /** Settings tabs and the template/encoder children that keep Settings in the shell. */

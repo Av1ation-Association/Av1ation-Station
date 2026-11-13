@@ -1,12 +1,58 @@
 // Tauri writes platform bundles under the Cargo target, while local packaging keeps only
 // installers and archives in `dist/release`. Collecting after a successful bundle keeps that
 // documented location true for both the desktop and system-toolchain wrappers.
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+//
+// Bundled and system builds share one Tauri output tree, so each variant owns a subdirectory
+// and is filtered by its product name and version. A Windows portable is the release binary
+// plus the resources Tauri resolves from the executable's directory; a macOS portable is a
+// zip of the `.app`; a Linux AppImage is already the portable form.
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+    cpSync,
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    statSync,
+    writeFileSync,
+} from "node:fs";
+import { basename, join, relative, resolve, sep } from "node:path";
 
-import { cargoTarget, releaseDir } from "./build-paths.mjs";
+import {
+    cargoTarget,
+    desktopBuild,
+    projectRoot,
+    releaseDir,
+    releasePlatform,
+    stagedTools,
+} from "./build-paths.mjs";
 
 const artifactPattern = /\.(?:msi|exe|dmg|pkg|deb|rpm|appimage|msix|zip|tar\.gz|sig)$/i;
+const checksumName = "SHA256SUMS.txt";
+const githubChecksumName = "SHA256SUMS-github.txt";
+const flatAssetDirectory = "assets";
+const metadataNames = new Set([
+    checksumName,
+    githubChecksumName,
+    "RELEASE-NOTES.md",
+    "release-manifest.json",
+]);
+
+function packageVersion() {
+    return JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version;
+}
+
+function targetArch() {
+    if (process.arch === "x64") {
+        return "x64";
+    }
+    if (process.arch === "arm64") {
+        return "aarch64";
+    }
+    return process.arch;
+}
 
 function sizeOf(path) {
     const info = statSync(path);
@@ -24,17 +70,47 @@ function mib(bytes) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
 
-function findArtifacts(directory, found = []) {
+function normalizedProduct(value) {
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-|-$/gu, "");
+}
+
+function matchesProduct(name, productName, version, directory) {
+    if (directory) {
+        return name === `${productName}.app`;
+    }
+    // Tauri keeps product names on Windows and AppImage, but Debian and RPM package names
+    // are lower-cased and hyphenated. Accept both spellings and either version separator.
+    const lower = name.toLowerCase();
+    const direct = productName.toLowerCase();
+    const slug = normalizedProduct(productName);
+    const versionLower = version.toLowerCase();
+    return (
+        lower.startsWith(`${direct}_${versionLower}`) ||
+        lower.startsWith(`${slug}_${versionLower}`) ||
+        lower.startsWith(`${slug}-${versionLower}`)
+    );
+}
+
+function findArtifacts(directory, productName, version, found = []) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
         const path = join(directory, entry.name);
         if (entry.isDirectory()) {
-            if (/\.app$/i.test(entry.name)) {
-                found.push({ name: entry.name, path });
+            if (entry.name.endsWith(".app")) {
+                if (matchesProduct(entry.name, productName, version, true)) {
+                    found.push({ name: entry.name, path, directory: true });
+                }
             } else {
-                findArtifacts(path, found);
+                findArtifacts(path, productName, version, found);
             }
-        } else if (entry.isFile() && artifactPattern.test(entry.name)) {
-            found.push({ name: entry.name, path });
+        } else if (
+            entry.isFile() &&
+            artifactPattern.test(entry.name) &&
+            matchesProduct(entry.name, productName, version, false)
+        ) {
+            found.push({ name: entry.name, path, directory: false });
         }
     }
     return found;
@@ -61,18 +137,169 @@ function bundleRoots() {
     return roots;
 }
 
+function run(command, args, options = {}) {
+    const result = spawnSync(command, args, { stdio: "inherit", ...options });
+    if (result.error) {
+        throw result.error;
+    }
+    if (result.status !== 0) {
+        throw new Error(`${command} exited with status ${result.status ?? "unknown"}`);
+    }
+}
+
+function zipDirectory(source, destination) {
+    if (process.platform === "win32") {
+        const sevenZip = spawnSync(
+            "7z",
+            ["a", "-tzip", "-mx=5", "-y", destination, basename(source)],
+            {
+                cwd: resolve(source, ".."),
+                stdio: "inherit",
+            },
+        );
+        if (sevenZip.error === undefined && sevenZip.status === 0) {
+            return;
+        }
+        rmSync(destination, { force: true });
+        const powershell = spawnSync(
+            "powershell.exe",
+            [
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                `Compress-Archive -LiteralPath '${source}' -DestinationPath '${destination}' -CompressionLevel Optimal`,
+            ],
+            { stdio: "inherit" },
+        );
+        if (powershell.error) {
+            throw powershell.error;
+        }
+        if (powershell.status !== 0) {
+            throw new Error(`neither 7z nor Compress-Archive could create ${destination}`);
+        }
+        return;
+    }
+    run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", source, destination]);
+}
+
+function portableReadme(productName, version, variant) {
+    const toolchain =
+        variant === "bundled"
+            ? "The bundled toolchain lives in the tools folder beside the executable."
+            : "This build uses the tools installed on this PC; it does not include a tools folder.";
+    return [
+        `${productName} ${version} - portable`,
+        "",
+        "Unzip this folder anywhere and run av1ation-desktop.exe.",
+        "The web folder must stay beside the executable.",
+        toolchain,
+        "WebView2 Runtime is required; Windows 10 and 11 normally include it.",
+        "",
+    ].join("\n");
+}
+
+function createWindowsPortable({ destination, productName, version, variant }) {
+    const executable = join(cargoTarget, "release", "av1ation-desktop.exe");
+    if (!existsSync(executable)) {
+        throw new Error(`the release executable is missing: ${executable}`);
+    }
+    if (!existsSync(desktopBuild)) {
+        throw new Error(`the desktop frontend is missing: ${desktopBuild}`);
+    }
+    if (variant === "bundled" && !existsSync(stagedTools)) {
+        throw new Error(`the staged toolchain is missing: ${stagedTools}`);
+    }
+
+    const stagingRoot = join(releaseDir, releasePlatform(), "portable", variant);
+    const appRoot = join(stagingRoot, productName);
+    rmSync(stagingRoot, { recursive: true, force: true });
+    mkdirSync(appRoot, { recursive: true });
+
+    cpSync(executable, join(appRoot, "av1ation-desktop.exe"));
+    for (const entry of readdirSync(join(cargoTarget, "release"), { withFileTypes: true })) {
+        if (entry.isFile() && entry.name.toLowerCase().endsWith(".dll")) {
+            cpSync(join(cargoTarget, "release", entry.name), join(appRoot, entry.name));
+        }
+    }
+    cpSync(desktopBuild, join(appRoot, "web"), { recursive: true });
+    if (variant === "bundled") {
+        cpSync(stagedTools, join(appRoot, "tools"), { recursive: true });
+    }
+    writeFileSync(join(appRoot, "PORTABLE.txt"), portableReadme(productName, version, variant));
+
+    const zipName = `${productName}_${version}_${targetArch()}_portable.zip`;
+    zipDirectory(appRoot, join(destination, zipName));
+    rmSync(stagingRoot, { recursive: true, force: true });
+    const portableRoot = join(releaseDir, releasePlatform(), "portable");
+    if (existsSync(portableRoot) && readdirSync(portableRoot).length === 0) {
+        rmSync(portableRoot, { recursive: true, force: true });
+    }
+    return zipName;
+}
+
+function createMacPortable({ artifact, destination, productName, version }) {
+    const zipName = `${productName}_${version}_${targetArch()}.app.zip`;
+    zipDirectory(artifact.path, join(destination, zipName));
+    return zipName;
+}
+
+function walkFiles(directory) {
+    const files = [];
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...walkFiles(path));
+        } else if (entry.isFile()) {
+            files.push(path);
+        }
+    }
+    return files;
+}
+
+function checksum(path) {
+    return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+/** Write a sorted SHA-256 list for release artifacts, excluding local-only release inputs. */
+export function writeChecksums(directory, { recursive = false } = {}) {
+    const files = (
+        recursive
+            ? walkFiles(directory)
+            : readdirSync(directory, { withFileTypes: true })
+                  .filter((entry) => entry.isFile())
+                  .map((entry) => join(directory, entry.name))
+    )
+        .filter((path) => {
+            const name = relative(directory, path).split(sep).join("/");
+            return !metadataNames.has(basename(path)) && !name.startsWith(`${flatAssetDirectory}/`);
+        })
+        .sort((left, right) => relative(directory, left).localeCompare(relative(directory, right)));
+    const lines = files.map((path) => {
+        const name = relative(directory, path).split(sep).join("/");
+        return `${checksum(path)}  ${name}`;
+    });
+    writeFileSync(join(directory, checksumName), `${lines.join("\n")}\n`);
+    return files;
+}
+
 /**
- * Copy Tauri's installers and archives into `dist/release`, replacing the previous set.
+ * Copy one variant's installers and archives into `dist/release/<variant>`.
  * Returns the destination and file names so a caller can report exactly what was packaged.
  */
-export function collectReleaseArtifacts() {
+export function collectReleaseArtifacts({
+    variant = "bundled",
+    productName = "Av1ation Station",
+} = {}) {
+    const version = packageVersion();
     const roots = bundleRoots();
     if (roots.length === 0) {
         throw new Error(`Tauri produced no bundle directory under ${cargoTarget}`);
     }
-    const artifacts = roots.flatMap((root) => findArtifacts(root));
+    const artifacts = roots.flatMap((root) => findArtifacts(root, productName, version));
     if (artifacts.length === 0) {
-        throw new Error(`Tauri produced no installer or archive in ${roots.join(", ")}`);
+        throw new Error(
+            `Tauri produced no installer or archive for ${productName} in ${roots.join(", ")}`,
+        );
     }
 
     const unique = new Map();
@@ -86,17 +313,44 @@ export function collectReleaseArtifacts() {
         unique.set(artifact.name, artifact);
     }
 
-    rmSync(releaseDir, { recursive: true, force: true });
-    mkdirSync(releaseDir, { recursive: true });
+    const platform = releasePlatform();
+    const destination = join(releaseDir, platform, variant);
+    rmSync(destination, { recursive: true, force: true });
+    mkdirSync(destination, { recursive: true });
 
     let total = 0;
     for (const artifact of unique.values()) {
-        const destination = join(releaseDir, artifact.name);
-        cpSync(artifact.path, destination, { recursive: true });
+        if (artifact.directory) {
+            if (process.platform === "darwin") {
+                const zipName = createMacPortable({ artifact, destination, productName, version });
+                const size = sizeOf(join(destination, zipName));
+                total += size;
+                console.log(`release: ${zipName} (${mib(size)})`);
+            } else {
+                cpSync(artifact.path, join(destination, artifact.name), { recursive: true });
+                const size = sizeOf(artifact.path);
+                total += size;
+                console.log(`release: ${artifact.name} (${mib(size)})`);
+            }
+            continue;
+        }
+        const target = join(destination, artifact.name);
+        cpSync(artifact.path, target, { recursive: true });
         const size = sizeOf(artifact.path);
         total += size;
         console.log(`release: ${artifact.name} (${mib(size)})`);
     }
-    console.log(`Collected ${unique.size} release artifact(s) in ${releaseDir} (${mib(total)}).`);
-    return { artifacts: [...unique.keys()], directory: releaseDir };
+
+    if (process.platform === "win32") {
+        const zipName = createWindowsPortable({ destination, productName, version, variant });
+        const size = sizeOf(join(destination, zipName));
+        total += size;
+        console.log(`release: ${zipName} (${mib(size)})`);
+    }
+
+    writeChecksums(destination);
+    console.log(
+        `Collected ${platform} ${variant} release artifacts in ${destination} (${mib(total)}).`,
+    );
+    return { artifacts: [...unique.keys()], directory: destination };
 }

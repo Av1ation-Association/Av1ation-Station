@@ -75,6 +75,75 @@ async fn preflight_can_be_refreshed_explicitly() {
     assert_eq!(health["preflight"], body);
 }
 
+/// The editor bootstraps from these three engine-owned documents, and Settings reads the
+/// storage overview. None of them depends on a project, so one router proves the routes are
+/// wired to the real engine and app data rather than only declared in the manifest.
+#[tokio::test]
+async fn engine_catalogues_and_the_storage_overview_are_served() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+
+    for path in [
+        "/api/config/schema",
+        "/api/config/filters",
+        "/api/config/script-guide",
+        "/api/storage",
+    ] {
+        let (status, body) =
+            send(app.clone(), Request::get(path).body(Body::empty()).unwrap()).await;
+        assert_eq!(status, StatusCode::OK, "{path}: {body}");
+        assert!(body.is_object(), "{path} answers with an object");
+    }
+
+    let (status, filters) = send(
+        app.clone(),
+        Request::get("/api/config/filters")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(filters.get("ffms2").is_some());
+    assert!(filters.get("vapour_synth").is_some());
+
+    let (status, guide) = send(
+        app.clone(),
+        Request::get("/api/config/script-guide")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        guide["module_file"]
+            .as_str()
+            .is_some_and(|name| !name.is_empty())
+    );
+    assert!(
+        guide["template"]
+            .as_str()
+            .is_some_and(|script| !script.is_empty())
+    );
+
+    let (status, check) = send(
+        app,
+        Request::post("/api/config/scripts/validate")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "script": "this is not Python" }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{check}");
+    assert!(
+        matches!(check["status"].as_str(), Some("invalid" | "unavailable")),
+        "a script that cannot be evaluated is reported, not swallowed: {check}"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 #[tokio::test]
 async fn a_malformed_custom_probe_still_returns_the_error_envelope() {
     let app = router(health_state());
@@ -260,6 +329,26 @@ async fn the_service_handle_stops_accepting_connections() {
         refused.is_err() || refused.is_ok_and(|result| result.is_err()),
         "the port still accepts connections after shutdown"
     );
+}
+
+#[tokio::test]
+async fn a_port_collision_is_reported_as_a_bind_error_without_retrying() {
+    let occupied = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .expect("occupy a loopback port");
+    let port = occupied.local_addr().expect("occupied address").port();
+
+    let error = serve_with_runner_and_probes(port, None, Arc::new(FakeRunner), test_probes())
+        .await
+        .err()
+        .expect("a second listener on the same port must fail");
+    assert_eq!(
+        error.kind(),
+        std::io::ErrorKind::AddrInUse,
+        "the caller gets the bind error instead of a retry or a silent move: {error}"
+    );
+
+    drop(occupied);
 }
 
 #[tokio::test]

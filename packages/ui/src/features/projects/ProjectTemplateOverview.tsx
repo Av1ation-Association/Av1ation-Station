@@ -95,7 +95,7 @@ export function ProjectTemplateOverview() {
     if (settings.data !== undefined && template === undefined) {
         return (
             <main id="main" className="page py-6">
-                <p className="m-0 text-sm font-medium text-ink">No such template</p>
+                <h1 className="m-0 text-lg font-semibold text-ink">No such template</h1>
                 <p className="mt-1 mb-0 text-[12px] text-ink-secondary">
                     It may have been deleted. Return to the template list.
                 </p>

@@ -13,6 +13,7 @@ root module map is repeated in [`src/lib.rs`](../rust/crates/engine/src/lib.rs).
 ```
 rust/crates/engine/src/
 ├── lib.rs                         run contract, root types, fake runner
+├── platform.rs                    shared child-process console policy
 ├── run/
 │   ├── runner/
 │   │   ├── mod.rs                 worker thread, EncodeRunner, tests
@@ -51,6 +52,9 @@ rust/crates/engine/src/
     └── plugins.rs                 static plugin namespace diagnostics
 ```
 
+`platform.rs` is a public root module for the child-process console policy shared by the
+service and the desktop host; it is not one of the four integration domains.
+
 The groups are public modules. Their child files are private implementation seams, except
 where the parent deliberately re-exports a public item. `run::sequence_log` and
 `script::imports` are crate-private because the service and the desktop shell never call
@@ -88,6 +92,7 @@ alias at the old spelling. Two names for one module means two maps to keep corre
 | How engine progress becomes an `EncodeEvent` | `run/runner/progress.rs` |
 | A sequence's per-scene or summary log line | `run/sequence_log/sequences.rs` |
 | A checkpoint edit such as split, merge, or reset | `run/reset.rs` |
+| Windows child-process console policy | `platform.rs` |
 | A new encoder catalogue entry or wire id | `capability/catalogue.rs` |
 | A new optional executable, library, or metric probe | `capability/preflight/` |
 | An input/output document or script materialisation for a run | `media/video.rs` |

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { AppearancePanel } from "./AppearancePanel";
 
 afterEach(() => {
@@ -25,11 +26,7 @@ class RecordingSettingsTransport extends MockTransport {
 
 it("saves only the theme choice", async () => {
     const transport = new RecordingSettingsTransport();
-    render(
-        <ApiProvider transport={transport}>
-            <AppearancePanel />
-        </ApiProvider>,
-    );
+    renderWithApi(<AppearancePanel />, { transport });
 
     await screen.findByRole("heading", { name: "Theme" });
     fireEvent.click(screen.getByRole("radio", { name: /Light/ }));
@@ -54,11 +51,7 @@ class FailingSettingsTransport extends MockTransport {
 }
 
 it("keeps a failed appearance save visible", async () => {
-    render(
-        <ApiProvider transport={new FailingSettingsTransport()}>
-            <AppearancePanel />
-        </ApiProvider>,
-    );
+    renderWithApi(<AppearancePanel />, { transport: new FailingSettingsTransport() });
 
     await screen.findByRole("heading", { name: "Theme" });
     fireEvent.click(screen.getByRole("checkbox", { name: /Reduce motion/ }));

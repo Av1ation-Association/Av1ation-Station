@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { useState } from "react";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
 import type { DocumentScope } from "../../shared/model/project-sections";
+import { renderWithApi } from "../../test/render";
 import { SceneDetectionEditor } from "./SceneDetectionEditor";
 
 afterEach(cleanup);
@@ -18,11 +19,13 @@ function Harness({
     scope?: DocumentScope;
 }) {
     const [value, setValue] = useState(initial);
-    return (
-        <ApiProvider transport={new MockTransport()}>
-            <SceneDetectionEditor value={value} onChange={setValue} locked={false} scope={scope} />
-        </ApiProvider>
-    );
+    return <SceneDetectionEditor value={value} onChange={setValue} locked={false} scope={scope} />;
+}
+
+function renderEditor(initial: Record<string, unknown>, scope: DocumentScope = "project") {
+    renderWithApi(<Harness initial={initial} scope={scope} />, {
+        transport: new MockTransport(),
+    });
 }
 
 function avSceneChange(): Record<string, unknown> {
@@ -45,7 +48,7 @@ function checked(role: "radio", name: RegExp | string): boolean {
 }
 
 it("keeps scores inside the method card and shows the preset only for AVSceneChange", () => {
-    render(<Harness initial={avSceneChange()} />);
+    renderEditor(avSceneChange());
 
     expect(checked("radio", "AVSceneChange")).toBe(true);
     expect(screen.getByRole("radiogroup", { name: "Detection preset" })).toBeTruthy();
@@ -71,7 +74,7 @@ it("keeps scores inside the method card and shows the preset only for AVSceneCha
 });
 
 it("names the video's input on a video, not the project's", () => {
-    render(<Harness initial={avSceneChange()} scope="video" />);
+    renderEditor(avSceneChange(), "video");
 
     expect(
         screen.getByText("The video input by default. An override applies to detection only."),
@@ -82,7 +85,7 @@ it("names the video's input on a video, not the project's", () => {
 });
 
 it("names the template's input in Settings → Project Defaults", () => {
-    render(<Harness initial={avSceneChange()} scope="template" />);
+    renderEditor(avSceneChange(), "template");
 
     expect(
         screen.getByText("The template input by default. An override applies to detection only."),
@@ -91,7 +94,7 @@ it("names the template's input in Settings → Project Defaults", () => {
 });
 
 it("edits a custom detection input with General's own editor", () => {
-    render(<Harness initial={avSceneChange()} />);
+    renderEditor(avSceneChange());
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
 

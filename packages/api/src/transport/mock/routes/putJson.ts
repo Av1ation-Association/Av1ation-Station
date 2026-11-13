@@ -48,7 +48,12 @@ export async function putJson<T>(
     }
     const templateDefaults = /^\/api\/settings\/templates\/([^/]+)\/defaults$/u.exec(path);
     if (templateDefaults !== null) {
-        return schema.parse({ values: {} });
+        const id = decodeURIComponent(templateDefaults[1] ?? "");
+        if (state.template(id) === undefined) {
+            throw new ApiError(404, null, "No project template matches that id.");
+        }
+        state.templateDefaults.set(id, body as Record<string, unknown>);
+        return schema.parse(state.templateDefaultsFor(id));
     }
     const templateUpdate = /^\/api\/settings\/templates\/([^/]+)$/u.exec(path);
     if (templateUpdate !== null) {
@@ -82,6 +87,15 @@ export async function putJson<T>(
         });
         return schema.parse(next);
     }
+    const projectConfig = /^\/api\/projects\/([^/]+)\/config$/u.exec(path);
+    if (projectConfig !== null) {
+        const projectId = decodeURIComponent(projectConfig[1] ?? "");
+        if (state.projects().find((entry) => entry.id === projectId) === undefined) {
+            throw new ApiError(404, null, "No such project.");
+        }
+        state.projectConfigs.set(projectId, body as Record<string, unknown>);
+        return schema.parse(state.projectConfigFor(projectId));
+    }
     const restoreDefaults = /^\/api\/projects\/([^/]+)\/defaults$/u.exec(path);
     if (restoreDefaults !== null) {
         const projectId = decodeURIComponent(restoreDefaults[1] ?? "");
@@ -100,6 +114,19 @@ export async function putJson<T>(
             accessed_at: project.accessed_at,
             general: defaults.general,
         });
+    }
+    const videoOverrides = /^\/api\/projects\/([^/]+)\/videos\/([^/]+)\/overrides$/u.exec(path);
+    if (videoOverrides !== null) {
+        const projectId = decodeURIComponent(videoOverrides[1] ?? "");
+        const videoId = decodeURIComponent(videoOverrides[2] ?? "");
+        const fields = (body as { fields?: unknown }).fields;
+        state.videoOverrideFields.set(
+            `${projectId}/${videoId}`,
+            typeof fields === "object" && fields !== null
+                ? (fields as Record<string, unknown>)
+                : {},
+        );
+        return schema.parse(state.videoConfigFor(projectId, videoId));
     }
     const videoStorage = /^\/api\/projects\/[^/]+\/videos\/([^/]+)\/storage$/u.exec(path);
     if (videoStorage !== null) {

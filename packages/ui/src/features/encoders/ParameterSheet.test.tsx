@@ -1,19 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ParameterDescriptor } from "@av1ation/contracts";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ParameterSheet } from "./ParameterSheet";
-
-beforeAll(() => {
-    // jsdom has no top layer; the sheet's native dialog API is the only gap.
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(cleanup);
 

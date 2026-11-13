@@ -60,7 +60,7 @@ export async function post<T>(
     const validateVideo = /^\/api\/projects\/[^/]+\/videos\/([^/]+)\/validate$/u.exec(path);
     if (validateVideo !== null) {
         // The demo's scripts are native inputs, so there is no plugin namespace to
-        // compare and the preflight is clean.
+        // compare and the preflight is clean unless a test supplies a blocker.
         return schema.parse({
             video_id: decodeURIComponent(validateVideo[1] ?? ""),
             can_encode: true,
@@ -71,6 +71,7 @@ export async function post<T>(
             checks: [],
             plugin_problems: [],
             blockers: [],
+            ...state.validation,
         });
     }
     if (path === "/api/config/scripts/validate") {

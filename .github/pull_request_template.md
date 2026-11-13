@@ -4,7 +4,7 @@
 
 ## Checks
 
-- [ ] `npm run check` passes (formatting, lint, typecheck, both test suites, contracts, version)
+- [ ] `npm run verify` passes (static checks, full Rust suite, both coverage policies, inventory)
 - [ ] `npm run test:e2e` passes if a user-facing flow changed
 - [ ] `npm run contracts` was run and generated files are included if a Rust model changed
 - [ ] `docs/progress.md` and any affected architecture/decision docs are updated

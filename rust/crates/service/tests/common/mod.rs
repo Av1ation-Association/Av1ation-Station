@@ -84,6 +84,71 @@ impl EncodeRunner for FailingRunner {
     }
 }
 
+/// Fails after a sequence starts, the way a panic or a mid-write disk-full does.
+///
+/// The runner leaves a partial output file behind: the supervisor's terminal event must not
+/// delete what the encoder already wrote, because that file is the evidence a retry needs.
+pub(crate) struct CrashingRunner {
+    pub(crate) message: &'static str,
+    pub(crate) sequence: &'static str,
+}
+
+impl EncodeRunner for CrashingRunner {
+    fn start(&self, request: EncodeRequest) -> Result<EncodeHandle, EngineError> {
+        if let Some(output) = request.output.get("path").and_then(Value::as_str)
+            && !output.is_empty()
+        {
+            if let Some(parent) = Path::new(output).parent() {
+                std::fs::create_dir_all(parent).expect("partial output directory");
+            }
+            std::fs::write(output, b"partial").expect("partial output");
+        }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        for (seq, (kind, message)) in [
+            (EncodeEventKind::Started, "ParallelEncoder started"),
+            (EncodeEventKind::Failed, self.message),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            sender
+                .send(EncodeEvent {
+                    run_id: request.run_id.clone(),
+                    seq: seq as u64,
+                    at: String::new(),
+                    kind,
+                    sequence: Some(self.sequence.to_owned()),
+                    progress: None,
+                    message: message.to_owned(),
+                    level: None,
+                    frames_processed: None,
+                    frames_total: None,
+                    phase: None,
+                    pass: None,
+                    max_passes: None,
+                    scenes_processed: None,
+                    scenes_total: None,
+                    scene_index: None,
+                    scene_progress: None,
+                    scene_frames_processed: None,
+                    scene_frames_total: None,
+                    scene_bytes: None,
+                    scene_encode_ms: None,
+                    scene_noise: None,
+                    scene_quality: None,
+                    scene: None,
+                })
+                .expect("the event receiver is open");
+        }
+        drop(sender);
+        Ok(EncodeHandle {
+            run_id: request.run_id,
+            cancel: Arc::new(AtomicBool::new(false)),
+            events: receiver,
+        })
+    }
+}
+
 /// Saves one scene table before starting, so the test can prove a cancel keeps the work
 /// already checkpointed.
 pub(crate) struct CheckpointingRunner;
@@ -352,6 +417,20 @@ pub(crate) async fn next_event_of_kind(body: &mut Body, kind: &str) -> String {
         if event.contains(&format!("\"kind\":\"{kind}\"")) {
             return event;
         }
+    }
+}
+
+/// Build one request for the table-driven route-surface tests. The body is JSON when present
+/// and empty otherwise, so a call site can describe a method/path/body row without repeating
+/// the header and body plumbing.
+pub(crate) fn route_request(method: &str, path: &str, body: Option<Value>) -> Request<Body> {
+    let builder = Request::builder().method(method).uri(path);
+    match body {
+        Some(body) => builder
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap(),
+        None => builder.body(Body::empty()).unwrap(),
     }
 }
 

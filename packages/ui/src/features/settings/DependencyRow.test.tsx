@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { DependencyRow } from "./DependencyRow";
 
 afterEach(() => {
@@ -30,36 +31,35 @@ class RecordingTransport extends MockTransport {
 it("saves the VapourSynth provider choice and asks for the restart it needs", async () => {
     const restart = vi.fn(async () => {});
     const transport = new RecordingTransport({}, { restartApp: restart });
-    render(
-        <ApiProvider transport={transport}>
-            <DependencyRow
-                check={{
-                    id: "vapoursynth",
-                    label: "VapourSynth",
-                    capability: "decode",
-                    available: true,
-                    detail: "Core R80 · API 4.3",
-                    selected_source: "system",
-                    configured_source: "bundled",
-                    providers: [
-                        {
-                            source: "bundled",
-                            available: true,
-                            detail: "Bundled runtime · C:/Program Files/AV1ation/tools/python",
-                            active: false,
-                            checked: true,
-                        },
-                        {
-                            source: "system",
-                            available: true,
-                            detail: "VapourSynth R82",
-                            active: true,
-                            checked: true,
-                        },
-                    ],
-                }}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <DependencyRow
+            check={{
+                id: "vapoursynth",
+                label: "VapourSynth",
+                capability: "decode",
+                available: true,
+                detail: "Core R80 · API 4.3",
+                selected_source: "system",
+                configured_source: "bundled",
+                providers: [
+                    {
+                        source: "bundled",
+                        available: true,
+                        detail: "Bundled runtime · C:/Program Files/AV1ation/tools/python",
+                        active: false,
+                        checked: true,
+                    },
+                    {
+                        source: "system",
+                        available: true,
+                        detail: "VapourSynth R82",
+                        active: true,
+                        checked: true,
+                    },
+                ],
+            }}
+        />,
+        { transport },
     );
 
     // A healthy row still opens: it has no remediation, but it does have a provider choice.
@@ -82,36 +82,35 @@ it("saves the VapourSynth provider choice and asks for the restart it needs", as
 
 it("names the metric row so the service can validate its own bundled library", async () => {
     const transport = new RecordingTransport();
-    render(
-        <ApiProvider transport={transport}>
-            <DependencyRow
-                check={{
-                    id: "metric:vmaf",
-                    label: "VMAF",
-                    capability: "metric",
-                    available: true,
-                    detail: "libvmaf 3.0",
-                    selected_source: "system",
-                    configured_source: "bundled",
-                    providers: [
-                        {
-                            source: "bundled",
-                            available: true,
-                            detail: "Bundled library · C:/AV1ation/tools/lib/libvmaf.dll",
-                            active: false,
-                            checked: true,
-                        },
-                        {
-                            source: "system",
-                            available: true,
-                            detail: "libvmaf 3.0",
-                            active: true,
-                            checked: true,
-                        },
-                    ],
-                }}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <DependencyRow
+            check={{
+                id: "metric:vmaf",
+                label: "VMAF",
+                capability: "metric",
+                available: true,
+                detail: "libvmaf 3.0",
+                selected_source: "system",
+                configured_source: "bundled",
+                providers: [
+                    {
+                        source: "bundled",
+                        available: true,
+                        detail: "Bundled library · C:/AV1ation/tools/lib/libvmaf.dll",
+                        active: false,
+                        checked: true,
+                    },
+                    {
+                        source: "system",
+                        available: true,
+                        detail: "libvmaf 3.0",
+                        active: true,
+                        checked: true,
+                    },
+                ],
+            }}
+        />,
+        { transport },
     );
 
     screen.getByText("VMAF").closest("summary")?.click();
@@ -129,28 +128,27 @@ it("names the metric row so the service can validate its own bundled library", a
 });
 
 it("does not offer a Bundled runtime this target does not carry", async () => {
-    render(
-        <ApiProvider transport={new MockTransport()}>
-            <DependencyRow
-                check={{
-                    id: "vapoursynth",
-                    label: "VapourSynth",
-                    capability: "decode",
-                    available: true,
-                    detail: "Core R82 · API 4.3",
-                    selected_source: "system",
-                    providers: [
-                        {
-                            source: "system",
-                            available: true,
-                            detail: "VapourSynth R82",
-                            active: true,
-                            checked: true,
-                        },
-                    ],
-                }}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <DependencyRow
+            check={{
+                id: "vapoursynth",
+                label: "VapourSynth",
+                capability: "decode",
+                available: true,
+                detail: "Core R82 · API 4.3",
+                selected_source: "system",
+                providers: [
+                    {
+                        source: "system",
+                        available: true,
+                        detail: "VapourSynth R82",
+                        active: true,
+                        checked: true,
+                    },
+                ],
+            }}
+        />,
+        { transport: new MockTransport() },
     );
 
     screen.getByText("VapourSynth").closest("summary")?.click();
@@ -166,19 +164,18 @@ it("does not offer a Bundled runtime this target does not carry", async () => {
 
 it("probes and accepts the located executable without a second button", async () => {
     const picked = "C:/Tools/MKVToolNix/mkvmerge.exe";
-    render(
-        <ApiProvider transport={new MockTransport({}, { pickExecutable: async () => picked })}>
-            <DependencyRow
-                check={{
-                    id: "mkvmerge",
-                    label: "MKVToolNix",
-                    capability: "muxing",
-                    available: false,
-                    detail: "mkvmerge not found on PATH",
-                    remediation: "Install MKVToolNix and put `mkvmerge` on PATH.",
-                }}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <DependencyRow
+            check={{
+                id: "mkvmerge",
+                label: "MKVToolNix",
+                capability: "muxing",
+                available: false,
+                detail: "mkvmerge not found on PATH",
+                remediation: "Install MKVToolNix and put `mkvmerge` on PATH.",
+            }}
+        />,
+        { transport: new MockTransport({}, { pickExecutable: async () => picked }) },
     );
 
     screen.getByRole("button", { name: /Locate/ }).click();

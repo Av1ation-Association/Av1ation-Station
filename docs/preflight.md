@@ -7,9 +7,10 @@ same result instead of spawning the toolchain again. The probe itself lives in
 `rust/crates/engine`, so the service and the desktop host never maintain separate tables of
 executable names. Each result is also logged once when it is cached.
 
-A release ships a pinned toolchain and the service resolves every binary through one module,
-`rust/crates/service/src/capability/toolchain.rs`, shared by preflight, launch and the PATH shim
-([packaging.md](packaging.md)). The desktop passes `<resource>/tools`; a development host
+The release contract in [packaging.md](packaging.md) pins one toolchain per target; the
+service resolves every binary through one module,
+`rust/crates/service/src/capability/toolchain.rs`, shared by preflight, launch and the PATH
+shim. The desktop passes `<resource>/tools`; a development host
 passes the same tree through `AV1ATION_TOOLS_DIR` (the headless binary also accepts
 `--tools-dir`). `AppSettings.tool_sources` chooses `bundled` or `system` per capability, an
 absent key means _bundled when present, otherwise system_, and an accepted `custom_tools`
@@ -237,8 +238,8 @@ work" reports in this class of application.
 
 ## Custom executables
 
-A user may point the app at an encoder or FFmpeg binary that is not on `PATH`. The same
-interrogation answers both questions, because both are "what can this program do?":
+A user may point the app at an encoder, FFmpeg, or mkvmerge binary that is not on `PATH`. The
+same interrogation answers both questions, because both are "what can this program do?":
 `preflight::probe_tool` runs the family's version command with a five-second timeout and
 returns the path, the version line, and a status the report can carry.
 
@@ -253,11 +254,13 @@ returns the path, the version line, and a status the report can carry.
 | `x265`    | `--version`     | `x265`                            |
 | `vvenc`   | `--help`        | `vvenc`                           |
 | `ffmpeg`  | `-version`      | `ffmpeg version`                  |
+| `mkvmerge` | `--version`   | `mkvmerge`                         |
 
-The family list is the engine's own `EncoderBase` list, so it never trails the encoders the
-engine can drive; a test fails when an encoder has no family. The `kind` is the engine's
-encoder name (`aom`, `svt-av1`, `rav1e`, `vpx`, `avm`, `x264`, `x265`, `vvenc`) or `ffmpeg`,
-whose family satisfies the muxing row instead of an `encoder:` row.
+The family list is the engine's own `EncoderBase` list plus `mkvmerge`, so it never trails
+the encoders the engine can drive; a test fails when an encoder has no family. The `kind` is
+the engine's encoder name (`aom`, `svt-av1`, `rav1e`, `vpx`, `avm`, `x264`, `x265`, `vvenc`),
+`ffmpeg`, or `mkvmerge`, whose families satisfy their muxing rows instead of an `encoder:`
+row.
 
 A program is accepted only when its output contains the family's stamp. An executable
 that runs but is silent, times out, or prints another family's stamp is reported as
@@ -273,7 +276,7 @@ that distinction one libaom lineage would validate the other.
 removing it restores the row underneath. The server replaces any earlier custom check for
 the same kind. An accepted custom encoder takes the place of its `encoder:<id>` row and
 its capability, so an absent `PATH` binary stops disabling encoding. An accepted custom
-FFmpeg takes the place of the `ffmpeg` muxing row.
+FFmpeg or mkvmerge takes the place of its muxing row.
 
 Sending the same `kind` again with a new path is how an existing executable is edited: the
 probe runs first, and only an accepted result replaces the saved path, so a correction never

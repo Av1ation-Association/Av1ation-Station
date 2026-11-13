@@ -195,6 +195,28 @@ pub async fn serve_with_runner_and_probes(
     serve_state(listener, address, state).await
 }
 
+/// Bind the debug fake-engine host with a fixed dependency inventory and real storage.
+///
+/// The browser journey must not depend on the machine's installed encoders or muxers. This
+/// keeps the same listener, project stores, routes, and fake runner while replacing only
+/// the probes, so the UI's validation and Start path remain exercised.
+pub async fn serve_with_runner_probes_and_data_dir(
+    port: u16,
+    web_root: Option<PathBuf>,
+    data_dir: PathBuf,
+    tools_dir: Option<PathBuf>,
+    runner: Arc<dyn EncodeRunner>,
+    probes: Vec<Probe>,
+) -> std::io::Result<(SocketAddr, ServiceHandle)> {
+    let listener = TcpListener::bind(("127.0.0.1", port)).await?;
+    let address = listener.local_addr()?;
+    let state = AppState::with_runner_probes_and_data_dir(web_root, runner, probes, data_dir)
+        .with_tools_dir(tools_dir);
+    state.hydrate_storage().await;
+    state.hydrate_encoder_forks().await;
+    serve_state(listener, address, state).await
+}
+
 async fn serve_state(
     listener: TcpListener,
     address: SocketAddr,

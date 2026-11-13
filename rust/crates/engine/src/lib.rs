@@ -17,7 +17,7 @@ use std::{
         mpsc::{self, Receiver},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use andean_condor::models::encoder::{Encoder, EncoderBase};
@@ -307,6 +307,126 @@ impl EncodeRunner for FakeRunner {
     }
 }
 
+/// A runner that emits a small synthetic run and reaches a terminal event on its own.
+///
+/// [`FakeRunner`] holds until cancellation so the singleton guard stays observable; this
+/// runner is the debug-only `--fake-engine-complete` host used by the browser journey. It
+/// is deliberately not a release path: a fake run must never pretend to encode for a user.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CompletingRunner;
+
+/// How long the completing runner exposes its progress before it finishes.
+///
+/// The journey needs a window in which the live state can be read, but the engine must not
+/// become a timing-dependent test harness. The window is short and every event is also in
+/// the supervisor's replay buffer, so the assertion does not depend on catching a frame.
+const COMPLETION_HOLD: Duration = Duration::from_millis(400);
+
+impl EncodeRunner for CompletingRunner {
+    fn start(&self, request: EncodeRequest) -> Result<EncodeHandle, EngineError> {
+        let (sender, receiver) = mpsc::channel();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let worker_cancel = Arc::clone(&cancel);
+        let run_id = request.run_id;
+        let worker_run_id = run_id.clone();
+        let sequence = request.sequences.first().cloned();
+        // The debug-only path line gives the log/export journey a realistic value to
+        // anonymise without pretending to encode. It is a detail event, so it stays in the
+        // run log and never moves the live stage or the timeline.
+        let source_path = request.video_path.clone();
+
+        thread::Builder::new()
+            .name(format!("fake-complete-{run_id}"))
+            .spawn(move || {
+                let mut seq = 0;
+                send(
+                    &sender,
+                    &worker_run_id,
+                    &mut seq,
+                    EncodeEventKind::Started,
+                    sequence.as_deref(),
+                    Some(0.0),
+                    "Fake encode started",
+                );
+                send(
+                    &sender,
+                    &worker_run_id,
+                    &mut seq,
+                    EncodeEventKind::Progress,
+                    sequence.as_deref(),
+                    Some(42.0),
+                    "Fake encode progress",
+                );
+                let source_detail = format!("Source file: {source_path}");
+                send_with_level(
+                    &sender,
+                    &worker_run_id,
+                    &mut seq,
+                    EncodeEventKind::Detail,
+                    sequence.as_deref(),
+                    None,
+                    EventText {
+                        message: &source_detail,
+                        level: Some("debug"),
+                    },
+                );
+
+                let started = Instant::now();
+                while !worker_cancel.load(Ordering::SeqCst) && started.elapsed() < COMPLETION_HOLD {
+                    thread::park_timeout(Duration::from_millis(10));
+                }
+
+                if worker_cancel.load(Ordering::SeqCst) {
+                    send(
+                        &sender,
+                        &worker_run_id,
+                        &mut seq,
+                        EncodeEventKind::Cancelled,
+                        sequence.as_deref(),
+                        None,
+                        "Fake encode cancelled",
+                    );
+                    send(
+                        &sender,
+                        &worker_run_id,
+                        &mut seq,
+                        EncodeEventKind::Finished,
+                        None,
+                        None,
+                        "Fake encode stopped",
+                    );
+                    return;
+                }
+
+                send(
+                    &sender,
+                    &worker_run_id,
+                    &mut seq,
+                    EncodeEventKind::Completed,
+                    sequence.as_deref(),
+                    Some(100.0),
+                    "Fake encode completed",
+                );
+                send(
+                    &sender,
+                    &worker_run_id,
+                    &mut seq,
+                    EncodeEventKind::Finished,
+                    None,
+                    None,
+                    "Fake encode finished",
+                );
+            })
+            .map_err(|error| EngineError::Worker(error.to_string()))?;
+
+        Ok(EncodeHandle {
+            run_id,
+            cancel,
+            events: receiver,
+        })
+    }
+}
+
 fn send(
     sender: &mpsc::Sender<EncodeEvent>,
     run_id: &str,
@@ -316,6 +436,38 @@ fn send(
     progress: Option<f64>,
     message: &str,
 ) {
+    send_with_level(
+        sender,
+        run_id,
+        seq,
+        kind,
+        sequence,
+        progress,
+        EventText {
+            message,
+            level: None,
+        },
+    );
+}
+
+/// The free-text half of an event; the event kind, sequence and progress are separate.
+///
+/// Bundling the optional log level with its message keeps the private sender at seven
+/// arguments, below Clippy's limit, without changing the event shape.
+struct EventText<'a> {
+    message: &'a str,
+    level: Option<&'a str>,
+}
+
+fn send_with_level(
+    sender: &mpsc::Sender<EncodeEvent>,
+    run_id: &str,
+    seq: &mut u64,
+    kind: EncodeEventKind,
+    sequence: Option<&str>,
+    progress: Option<f64>,
+    text: EventText<'_>,
+) {
     let event = EncodeEvent {
         run_id: run_id.to_owned(),
         seq: *seq,
@@ -323,8 +475,8 @@ fn send(
         kind,
         sequence: sequence.map(str::to_owned),
         progress,
-        message: message.to_owned(),
-        level: None,
+        message: text.message.to_owned(),
+        level: text.level.map(str::to_owned),
         frames_processed: None,
         frames_total: None,
         phase: None,
@@ -403,5 +555,90 @@ mod tests {
             .recv_timeout(Duration::from_secs(1))
             .expect("the finish marker arrives");
         assert_eq!(finished.kind, EncodeEventKind::Finished);
+    }
+
+    /// The completing runner is the debug-only host for a journey that must reach a
+    /// terminal state; unlike `FakeRunner`, it does not wait for a cancel.
+    #[test]
+    fn a_completing_run_reports_progress_and_finishes() {
+        let handle = CompletingRunner
+            .start(request(&["SceneDetector"]))
+            .expect("the completing worker starts");
+
+        let mut events = Vec::new();
+        for _ in 0..5 {
+            let event = handle
+                .events
+                .recv_timeout(Duration::from_secs(2))
+                .expect("the synthetic run reaches a terminal event");
+            events.push(event);
+        }
+        assert_eq!(
+            events.iter().map(|event| event.kind).collect::<Vec<_>>(),
+            vec![
+                EncodeEventKind::Started,
+                EncodeEventKind::Progress,
+                EncodeEventKind::Detail,
+                EncodeEventKind::Completed,
+                EncodeEventKind::Finished,
+            ]
+        );
+        let detail = &events[2];
+        assert_eq!(detail.level.as_deref(), Some("debug"));
+        assert!(
+            detail.message.contains("Source file: clip.mp4"),
+            "{}",
+            detail.message
+        );
+    }
+
+    /// Cancellation still wins during the short completion window, so the journey runner
+    /// cannot strand the singleton when the user presses Stop.
+    #[test]
+    fn a_completing_run_still_honours_cancellation() {
+        let handle = CompletingRunner
+            .start(request(&["SceneDetector"]))
+            .expect("the completing worker starts");
+        for expected in [
+            EncodeEventKind::Started,
+            EncodeEventKind::Progress,
+            EncodeEventKind::Detail,
+        ] {
+            let event = handle
+                .events
+                .recv_timeout(Duration::from_secs(1))
+                .expect("the pre-cancel events arrive");
+            assert_eq!(event.kind, expected);
+        }
+        handle.cancel.store(true, Ordering::SeqCst);
+        let cancelled = handle
+            .events
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the cancellation arrives");
+        assert_eq!(cancelled.kind, EncodeEventKind::Cancelled);
+        let finished = handle
+            .events
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the finish marker arrives");
+        assert_eq!(finished.kind, EncodeEventKind::Finished);
+    }
+
+    fn request(sequences: &[&str]) -> EncodeRequest {
+        EncodeRequest {
+            run_id: "run-1".to_owned(),
+            project_id: "project-1".to_owned(),
+            video_id: "video-1".to_owned(),
+            input: serde_json::Value::Null,
+            video_path: "clip.mp4".to_owned(),
+            output: serde_json::Value::Null,
+            encoder: serde_json::Value::Null,
+            sequence_config: serde_json::Value::Null,
+            condor: None,
+            sequences: sequences
+                .iter()
+                .map(|sequence| (*sequence).to_owned())
+                .collect(),
+            checkpoint: Arc::new(|_| Ok(())),
+        }
     }
 }

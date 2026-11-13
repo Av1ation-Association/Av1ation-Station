@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { useState } from "react";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
 import type { DocumentScope } from "../../shared/model/project-sections";
+import { renderWithApi } from "../../test/render";
 import { InputOverrideEditor } from "./InputOverrideEditor";
 
 afterEach(cleanup);
@@ -13,7 +14,7 @@ afterEach(cleanup);
 function Harness({ initial, scope = "project" }: { initial: unknown; scope?: DocumentScope }) {
     const [value, setValue] = useState<unknown>(initial);
     return (
-        <ApiProvider transport={new MockTransport()}>
+        <>
             <InputOverrideEditor
                 scope={scope}
                 value={value}
@@ -22,8 +23,14 @@ function Harness({ initial, scope = "project" }: { initial: unknown; scope?: Doc
                 idPrefix="noise-detector-input"
             />
             <pre data-testid="value">{JSON.stringify(value)}</pre>
-        </ApiProvider>
+        </>
     );
+}
+
+function renderEditor(initial: unknown, scope: DocumentScope = "project") {
+    renderWithApi(<Harness initial={initial} scope={scope} />, {
+        transport: new MockTransport(),
+    });
 }
 
 function stored(): unknown {
@@ -31,7 +38,7 @@ function stored(): unknown {
 }
 
 it("inherits General until an override is chosen, in the same editor General uses", () => {
-    render(<Harness initial={null} />);
+    renderEditor(null);
 
     expect(
         screen.getByRole("radio", { name: /^Project input/u }).getAttribute("aria-checked"),
@@ -49,7 +56,7 @@ it("inherits General until an override is chosen, in the same editor General use
 });
 
 it("hides the source and index in a project document, because they name one file", () => {
-    render(<Harness initial={null} />);
+    renderEditor(null);
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
 
@@ -61,7 +68,7 @@ it("hides the source and index in a project document, because they name one file
 });
 
 it("names the template, not a project, in Settings → Project Defaults", () => {
-    render(<Harness initial={null} scope="template" />);
+    renderEditor(null, "template");
 
     expect(
         screen.getByRole("radio", { name: /^Template input/u }).getAttribute("aria-checked"),
@@ -79,7 +86,7 @@ it("names the template, not a project, in Settings → Project Defaults", () => 
 });
 
 it("shows the source and index in a video document, which owns that file", () => {
-    render(<Harness initial={null} scope="video" />);
+    renderEditor(null, "video");
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
 
@@ -88,7 +95,7 @@ it("shows the source and index in a video document, which owns that file", () =>
 });
 
 it("keeps the filter list on a script input, which is where Encoding usually lands", () => {
-    render(<Harness initial={null} />);
+    renderEditor(null);
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
     fireEvent.click(screen.getByRole("radio", { name: /^VapourSynth script/u }));
@@ -101,7 +108,7 @@ it("keeps the filter list on a script input, which is where Encoding usually lan
 });
 
 it("names the document that stores a video override's script", () => {
-    render(<Harness initial={null} scope="video" />);
+    renderEditor(null, "video");
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
     fireEvent.click(screen.getByRole("radio", { name: /^VapourSynth script/u }));
@@ -111,7 +118,7 @@ it("names the document that stores a video override's script", () => {
 });
 
 it("switches a sequence to a script and clears the override again", async () => {
-    render(<Harness initial={null} />);
+    renderEditor(null);
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
     fireEvent.click(screen.getByRole("radio", { name: /^VapourSynth script/u }));
@@ -136,7 +143,7 @@ it("switches a sequence to a script and clears the override again", async () => 
 });
 
 it("keeps an unnamed variable row until it is named, then flags a repeated key", () => {
-    render(<Harness initial={null} />);
+    renderEditor(null);
 
     fireEvent.click(screen.getByRole("radio", { name: /^Custom input/u }));
     fireEvent.click(screen.getByRole("radio", { name: /^VapourSynth script/u }));

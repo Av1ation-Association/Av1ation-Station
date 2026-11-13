@@ -1,0 +1,20 @@
+{
+  "encoder": {
+    "title": "Encoder configuration",
+    "type": "object",
+    "properties": {
+      "preset": {
+        "type": "string"
+      }
+    }
+  },
+  "sequences": {
+    "title": "Sequence configuration",
+    "type": "object",
+    "properties": {
+      "script": {
+        "type": "string"
+      }
+    }
+  }
+}

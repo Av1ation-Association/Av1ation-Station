@@ -1,22 +1,14 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { SourceDetailsSheet, type SourceDetailsView } from "./ConcatSourceDetails";
 import { VideoConcatSources } from "./ConcatWorkbench";
-
-beforeAll(() => {
-    HTMLDialogElement.prototype.showModal = function showModal() {
-        this.open = true;
-    };
-    HTMLDialogElement.prototype.close = function close() {
-        this.open = false;
-    };
-});
 
 afterEach(cleanup);
 
@@ -67,15 +59,14 @@ function renderSheet(
     view: SourceDetailsView,
     transport: SourceDetailsTransport = new SourceDetailsTransport(),
 ): SourceDetailsTransport {
-    render(
-        <ApiProvider transport={transport} queryClient={client()}>
-            <SourceDetailsSheet
-                projectId="project-1"
-                videoId="video-1"
-                view={view}
-                onClose={() => undefined}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <SourceDetailsSheet
+            projectId="project-1"
+            videoId="video-1"
+            view={view}
+            onClose={() => undefined}
+        />,
+        { transport, queryClient: client() },
     );
     return transport;
 }
@@ -83,17 +74,16 @@ function renderSheet(
 function renderSources(
     transport: SourceDetailsTransport = new SourceDetailsTransport(),
 ): SourceDetailsTransport {
-    render(
-        <ApiProvider transport={transport} queryClient={client()}>
-            <VideoConcatSources
-                projectId="project-1"
-                videoId="video-1"
-                method="mkvmerge"
-                config={{ chapters: null, metadata: null, extra_inputs: [] }}
-                locked={false}
-                onChange={() => undefined}
-            />
-        </ApiProvider>,
+    renderWithApi(
+        <VideoConcatSources
+            projectId="project-1"
+            videoId="video-1"
+            method="mkvmerge"
+            config={{ chapters: null, metadata: null, extra_inputs: [] }}
+            locked={false}
+            onChange={() => undefined}
+        />,
+        { transport, queryClient: client() },
     );
     return transport;
 }

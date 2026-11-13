@@ -1,10 +1,27 @@
 use super::*;
 use crate::api::json::ApiJson;
 
+/// Resolve the project before a queue read or write. The queue store treats a missing
+/// project directory as an empty queue, which would otherwise turn a stale id into a
+/// successful no-op instead of the not-found the rest of the project surface returns.
+async fn require_project(state: &AppState, project_id: &str) -> Result<(), Response> {
+    let Some(projects) = state.projects() else {
+        return Err(no_storage());
+    };
+    match projects.get(project_id).await {
+        Ok(Some(_)) => Ok(()),
+        Ok(None) => Err(project_not_found(project_id)),
+        Err(error) => Err(project_error(error)),
+    }
+}
+
 pub(crate) async fn list_videos(
     State(state): State<AppState>,
     AxumPath(project_id): AxumPath<String>,
 ) -> Response {
+    if let Err(response) = require_project(&state, &project_id).await {
+        return response;
+    }
     let Some(videos) = state.videos() else {
         return no_storage();
     };
@@ -21,6 +38,9 @@ pub(crate) async fn reorder_videos(
     AxumPath(project_id): AxumPath<String>,
     ApiJson(body): ApiJson<VideoOrderRequest>,
 ) -> Response {
+    if let Err(response) = require_project(&state, &project_id).await {
+        return response;
+    }
     let Some(videos) = state.videos() else {
         return no_storage();
     };
@@ -57,6 +77,9 @@ pub(crate) async fn remove_videos(
     AxumPath(project_id): AxumPath<String>,
     ApiJson(body): ApiJson<VideoRemoveRequest>,
 ) -> Response {
+    if let Err(response) = require_project(&state, &project_id).await {
+        return response;
+    }
     let Some(videos) = state.videos() else {
         return no_storage();
     };

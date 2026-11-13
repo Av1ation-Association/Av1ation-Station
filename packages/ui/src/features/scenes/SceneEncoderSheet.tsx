@@ -34,6 +34,7 @@ function variantOf(document: unknown): string | null {
 export function SceneEncoderSheet({
     open,
     onClose,
+    onSaved,
     projectId,
     videoId,
     scenes,
@@ -41,6 +42,8 @@ export function SceneEncoderSheet({
 }: {
     open: boolean;
     onClose: () => void;
+    /** Runs after a selection write, so the Scenes screen can offer its one undo entry. */
+    onSaved: () => void;
     projectId: string;
     videoId: string;
     scenes: readonly SceneView[];
@@ -111,6 +114,7 @@ export function SceneEncoderSheet({
         }
         saveScenes.mutate(write.body, {
             onSuccess: () => {
+                onSaved();
                 toast.success(
                     scenes.length === 1
                         ? "The scene encoder was updated."

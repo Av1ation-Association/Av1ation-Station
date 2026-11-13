@@ -58,10 +58,15 @@ impl std::fmt::Display for StoreError {
 impl StoreError {
     pub(crate) fn message(&self) -> String {
         match self {
-            Self::Io(message)
-            | Self::Invalid(message)
-            | Self::InvalidConfig(message)
-            | Self::Corrupt(message) => message.clone(),
+            Self::Io(message) | Self::Invalid(message) | Self::InvalidConfig(message) => {
+                message.clone()
+            }
+            // The parser's path and field detail belong in a log, not in a response that a
+            // user may paste in public. The hint names the recovery action.
+            Self::Corrupt(detail) => {
+                tracing::warn!(%detail, "a stored document is not readable");
+                "The stored document is not readable.".to_owned()
+            }
             Self::NewerSchema(version) => format!(
                 "This project was written by a newer version of Av1ation Station (schema {version})."
             ),

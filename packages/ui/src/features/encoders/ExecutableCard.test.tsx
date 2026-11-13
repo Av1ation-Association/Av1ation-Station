@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 import { EncoderDescriptorSchema, type EncoderDescriptor } from "@av1ation/contracts";
 
+import { renderWithApi } from "../../test/render";
 import { ExecutableCard } from "./ExecutableCard";
 
 afterEach(() => {
@@ -27,11 +28,7 @@ describe("ExecutableCard", () => {
         const transport = new MockTransport({}, { pickExecutable: async () => picked });
         const encoder = await x265(transport);
         const post = vi.spyOn(transport, "post");
-        render(
-            <ApiProvider transport={transport}>
-                <ExecutableCard encoder={encoder} onRemove={() => {}} />
-            </ApiProvider>,
-        );
+        renderWithApi(<ExecutableCard encoder={encoder} onRemove={() => {}} />, { transport });
 
         const field = screen.getByRole("textbox", {
             name: "x265 executable",
@@ -56,11 +53,7 @@ describe("ExecutableCard", () => {
         const transport = new MockTransport();
         vi.spyOn(transport, "post").mockRejectedValue(new Error("The service refused this build."));
         const encoder = await x265(transport);
-        render(
-            <ApiProvider transport={transport}>
-                <ExecutableCard encoder={encoder} onRemove={() => {}} />
-            </ApiProvider>,
-        );
+        renderWithApi(<ExecutableCard encoder={encoder} onRemove={() => {}} />, { transport });
 
         const field = screen.getByRole("textbox", {
             name: "x265 executable",

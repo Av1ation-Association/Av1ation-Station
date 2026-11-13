@@ -50,8 +50,11 @@ npm run doctor
 npm run dev
 ```
 
-`npm run doctor` names anything missing. See [CONTRIBUTING.md](CONTRIBUTING.md) and
-[docs/preflight.md](docs/preflight.md) for the full setup and provider rules.
+`npm run doctor` names anything missing. Before a focused test run, use
+`npm run doctor -- --profile web` for Vitest, `--profile e2e` for Chromium and the E2E build
+tools, or `--profile real-encode` for the real-encode toolchain. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and [docs/preflight.md](docs/preflight.md) for the full
+setup and provider rules.
 
 ### Planned for 1.0
 
@@ -62,6 +65,22 @@ first; macOS and Linux follow. See the
 [docs/progress.md](docs/progress.md).
 
 LAN access is available from **Settings → Network** and is off by default.
+
+## Command map
+
+Run these from the repository root after `npm run doctor`:
+
+| Command | Use it for |
+| --- | --- |
+| `npm run check` | Fast local gate: static checks plus the plain web and Rust test suites. |
+| `npm run verify` | Full local gate: static checks, both coverage gates, and the test inventory. |
+| `npm run test:e2e` | Build and run the Playwright browser journeys against the headless service. |
+| `npm run test:real-encode` | Run the nightly-equivalent real-encode suite with the real toolchain. |
+
+`npm run test:e2e` needs Chromium once (`npx playwright install chromium`);
+`npm run test:real-encode` needs the real-encode toolchain described in
+[CONTRIBUTING.md](CONTRIBUTING.md#checks-and-tests). Every npm script is listed in
+[docs/commands.md](docs/commands.md).
 
 ## Contributing
 

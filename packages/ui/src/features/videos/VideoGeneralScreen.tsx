@@ -228,7 +228,13 @@ export function VideoGeneralScreen() {
         });
     };
 
-    if (video.isPending || general.isPending || draft === null) {
+    // An error settles with no draft; it must reach the error branch rather than looking
+    // like a skeleton that never finishes.
+    if (
+        !video.isError &&
+        !general.isError &&
+        (video.isPending || general.isPending || draft === null)
+    ) {
         return (
             <main id="main" aria-busy="true" className="flex min-h-[60vh] flex-col">
                 <div className="h-11 border-b border-line" />
@@ -264,6 +270,12 @@ export function VideoGeneralScreen() {
                 </div>
             </main>
         );
+    }
+
+    // The two branches above return for every way the draft can be absent; this guard
+    // narrows the value for the editor below.
+    if (draft === null) {
+        return null;
     }
 
     const retained = storage.data?.retained_bytes ?? 0;

@@ -235,12 +235,15 @@ pub(crate) fn derive(video_id: &str, chain: &[ChainEntry], evidence: &Evidence<'
         let is_active = evidence.active.is_some_and(|(active, _)| active == *id);
         let status = if is_active {
             SequenceRunStatus::Active
+        } else if evidence.failed == Some(*id) {
+            // The latest run's failure names the boundary that stopped it. Derived files can
+            // still look complete — a concatenator may have written a partial output — so
+            // history has to win over the file-shaped evidence for that row.
+            SequenceRunStatus::Failed
         } else if complete(id) {
             SequenceRunStatus::Complete
         } else if *id == "SceneDetector" && detection_incomplete {
             SequenceRunStatus::Incomplete
-        } else if evidence.failed == Some(*id) {
-            SequenceRunStatus::Failed
         } else {
             SequenceRunStatus::NeverRun
         };

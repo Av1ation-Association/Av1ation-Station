@@ -371,7 +371,10 @@ body {
     }
 
     [data-tip]::after {
-        content: attr(data-tip);
+        /* The bubble is a visual duplicate of the control's accessible name. Empty
+         * alternative text keeps it out of the accessibility tree while the pointer and
+         * focus styles still show it. */
+        content: attr(data-tip) / "";
         position: absolute;
         z-index: 70;
         top: calc(100% + 6px);

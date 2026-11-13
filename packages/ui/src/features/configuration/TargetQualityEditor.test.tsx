@@ -3,8 +3,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { useState } from "react";
 
-import { ApiProvider, MockTransport } from "@av1ation/api";
+import { MockTransport } from "@av1ation/api";
 
+import { renderWithApi } from "../../test/render";
 import { TargetQualityEditor } from "./TargetQualityEditor";
 import {
     MetricField,
@@ -24,16 +25,14 @@ function Harness({ initial }: { initial: Record<string, unknown> }) {
         return null;
     }
     return (
-        <ApiProvider transport={new MockTransport()}>
-            <TargetQualityEditor
-                parts={{ target: NO_SCHEMA, bitrate: NO_SCHEMA }}
-                draft={draft}
-                setDraft={setDraft}
-                locked={false}
-                scope="project"
-                encoderDocument={null}
-            />
-        </ApiProvider>
+        <TargetQualityEditor
+            parts={{ target: NO_SCHEMA, bitrate: NO_SCHEMA }}
+            draft={draft}
+            setDraft={setDraft}
+            locked={false}
+            scope="project"
+            encoderDocument={null}
+        />
     );
 }
 
@@ -161,7 +160,7 @@ it("opens the metric options from the nullable sequence part", () => {
 });
 
 it("seeds a complete target document and keeps bitrate optimization independent", () => {
-    render(<Harness initial={targetOff()} />);
+    renderWithApi(<Harness initial={targetOff()} />, { transport: new MockTransport() });
 
     // Bitrate optimization reads the encoded scene's rate, so it can be configured (and run)
     // without a Target quality probe; it only follows it in pipeline order.

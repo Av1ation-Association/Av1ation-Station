@@ -30,17 +30,15 @@ function LiveRunChip({ run }: { run: NonNullable<ReturnType<typeof useActiveRun>
         <Link
             to="/projects/$projectId/videos/$videoId"
             params={{ projectId: run.projectId, videoId: run.videoId }}
-            aria-label={`Encoding ${videoName} in ${projectName}: ${stage}, ${progressText}. Open the video for controls.`}
-            data-tip={`${details}. Open the video for controls.`}
-            data-tip-align="end"
+            aria-label={`Encoding ${videoName} ${progressText} in ${projectName}: ${stage}. ${details}. Open the video for controls.`}
             className="relative flex h-8 min-w-0 max-w-[9rem] shrink items-center gap-1.5 rounded-full border border-brand/25 bg-brand-soft/45 px-2 text-[10.5px] text-ink-secondary transition-colors duration-150 hover:border-brand/45 hover:bg-brand-soft/70 hover:text-ink sm:max-w-[14rem] lg:max-w-[18rem]"
         >
             <span aria-hidden="true" className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inset-0 animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
                 <span className="relative h-2 w-2 rounded-full bg-brand" />
             </span>
-            <span className="hidden shrink-0 font-medium text-brand-text lg:inline">Encoding</span>
-            <span className="min-w-0 truncate font-medium text-ink">{videoName}</span>
+            <span className="hidden shrink-0 font-medium text-brand-text lg:inline">Encoding</span>{" "}
+            <span className="min-w-0 truncate font-medium text-ink">{videoName}</span>{" "}
             <span className="shrink-0 font-mono text-[9.5px] text-ink-secondary tabular-nums">
                 {progressText}
             </span>
