@@ -34,7 +34,7 @@ export default async function build({ target, workDir, outputDir, component }) {
             const filename = path.split(/[\\/]/u).pop() ?? "";
             return platform(target) === "win32"
                 ? /^ffms2.*\.dll$/iu.test(filename)
-                : /^libffms2\.so(?:\.[0-9]+)*$/u.test(filename);
+                : /^libffms2(?:\.[0-9]+)*\.(?:so(?:\.[0-9]+)*|dylib)$/u.test(filename);
         },
         name,
     );

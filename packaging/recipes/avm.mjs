@@ -10,16 +10,22 @@ export default async function build({ target, workDir, outputDir, component }) {
         destination: source,
     });
     const build = join(workDir, "build");
+    const configureArgs = [
+        "-DENABLE_TESTS=OFF",
+        "-DENABLE_EXAMPLES=ON",
+        "-DENABLE_TOOLS=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+    ];
+    if (target === "aarch64-apple-darwin") {
+        // AVM's generic ARM CPU probe has no macOS arm64 path; the baseline build is
+        // already native, so runtime dispatch is not needed here.
+        configureArgs.push("-DENABLE_RUNTIME_CPU_DETECT=OFF");
+    }
     cmakeBuild({
         source,
         buildDir: build,
         prefix: join(workDir, "prefix"),
-        configureArgs: [
-            "-DENABLE_TESTS=OFF",
-            "-DENABLE_EXAMPLES=ON",
-            "-DENABLE_TOOLS=ON",
-            "-DBUILD_SHARED_LIBS=OFF",
-        ],
+        configureArgs,
         target: "aomenc",
     });
     const name = executable(target, "aomenc");

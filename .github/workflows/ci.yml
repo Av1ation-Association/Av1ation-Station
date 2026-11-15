@@ -153,6 +153,8 @@ jobs:
                   }
                   Write-Host "link.exe resolves under Visual Studio: $link"
             - run: npm ci
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
             - name: Audit Rust dependencies
               run: cargo audit --file rust/Cargo.lock
             - name: Run Rust static profile
@@ -190,6 +192,8 @@ jobs:
               with:
                   workspaces: rust -> ../dist/cargo
             - run: npm ci
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
             - run: npx playwright install chromium
             - name: Run browser E2E profile
               run: npm run test:e2e
@@ -226,6 +230,8 @@ jobs:
             - name: Prepare compile-only resource directory
               shell: bash
               run: mkdir -p dist/tools
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
             - name: Compile Tauri shell
               run: npm run tauri -- build --no-bundle
 

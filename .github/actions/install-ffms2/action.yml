@@ -1,0 +1,24 @@
+name: Install FFMS2 development files
+description: Install the pinned FFMS2 headers, import library, and runtime DLL for Windows builds.
+
+runs:
+    using: composite
+    steps:
+        - name: Download and verify FFMS2
+          shell: bash
+          env:
+              FFMS2_VERSION: "5.0"
+              FFMS2_ARCHIVE_SHA256: e867a3df7262865107df40f230f5b8e1455905eba9b8852e6f35b1227537caeb
+          run: |
+              set -euo pipefail
+              archive="$RUNNER_TEMP/ffms2.7z"
+              curl --fail --location --silent --show-error \
+                --output "$archive" \
+                "https://github.com/FFMS/ffms2/releases/download/${FFMS2_VERSION}/ffms2-${FFMS2_VERSION}-msvc.7z"
+              echo "${FFMS2_ARCHIVE_SHA256}  ${archive}" | sha256sum --check --strict
+              root="$RUNNER_TEMP/ffms2/ffms2-${FFMS2_VERSION}-msvc"
+              mkdir -p "$RUNNER_TEMP/ffms2"
+              7z x "$archive" "-o$RUNNER_TEMP/ffms2" -y >/dev/null
+              echo "FFMS_INCLUDE_DIR=$root/include" >> "$GITHUB_ENV"
+              echo "FFMS_LIB_DIR=$root/x64" >> "$GITHUB_ENV"
+              echo "$root/x64" >> "$GITHUB_PATH"

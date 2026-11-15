@@ -16,11 +16,14 @@ export default async function build({ target, workDir, outputDir, component }) {
     }
     run("make", makeArgs, { cwd: source });
     const name = basename(component.artifacts[target].install);
+    // Vship's Makefile uses its Unix branch on macOS too and therefore names the shared
+    // object `libvship.so`; stage it under the dylib name the toolchain manifest expects.
+    const sourceName = platform(target) === "darwin" ? "libvship.so" : name;
     const binary = requireFile(
         source,
         (path) => {
             const filename = basename(path);
-            return filename === name || filename === name.replace(/^lib/u, "");
+            return filename === sourceName || filename === sourceName.replace(/^lib/u, "");
         },
         name,
     );

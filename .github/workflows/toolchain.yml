@@ -105,8 +105,14 @@ jobs:
             - name: Install macOS build tools
               if: runner.os == 'macOS'
               run: |
-                  brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg
+                  brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
+                    libogg libvorbis flac
                   brew install vulkan-headers glslang shaderc molten-vk || true
+
+            - name: Point mac Vship at Homebrew's Vulkan SDK
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS'
+              shell: bash
+              run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
 
             - uses: msys2/setup-msys2@v2
               if: runner.os == 'Windows'
@@ -155,6 +161,7 @@ jobs:
                   key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
 
             - name: Build or reuse ${{ matrix.id }}
+              shell: bash
               env:
                   TARGET: ${{ matrix.target }}
                   COMPONENT: ${{ matrix.id }}

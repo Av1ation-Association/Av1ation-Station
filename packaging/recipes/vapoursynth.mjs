@@ -166,6 +166,7 @@ export default async function build({ target, workDir, outputDir, component, log
         "--prefer-binary",
         "setuptools",
         "wheel",
+        "hatchling",
         "meson-python",
         "scikit-build-core",
         "setuptools-rust",

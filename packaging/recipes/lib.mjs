@@ -5,6 +5,7 @@
 // `workDir`; only files under `outputDir/tools` survive the component cache.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { availableParallelism } from "node:os";
 import {
     chmodSync,
     cpSync,
@@ -236,11 +237,10 @@ export function make(source, jobs = null) {
 }
 
 export function makeConfigured(source, jobs = null) {
-    const args = ["-j"];
-    if (jobs !== null) {
-        args.push(String(jobs));
-    }
-    run("make", args, { cwd: source });
+    // A bare `-j` is unlimited, which exhausts the macOS runner's process limit during
+    // FFmpeg's many small compiles. Keep the default bounded unless a recipe is explicit.
+    const parallel = jobs ?? Math.max(1, Math.min(8, availableParallelism()));
+    run("make", ["-j", String(parallel)], { cwd: source });
 }
 
 export function mesonBuild({ source, buildDir, prefix, args = [], target = null }) {
