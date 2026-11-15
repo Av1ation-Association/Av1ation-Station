@@ -184,6 +184,14 @@ jobs:
                       mingw-w64-ucrt-x86_64-qt6-base
                       make
 
+            # Ruby is only needed by MKVToolNix's rake build. Install it before the
+            # action's UCRT64 path is restored, because setup-ruby prepends its own
+            # MSYS2 tree to PATH.
+            - uses: ruby/setup-ruby@v1
+              if: matrix.id == 'mkvmerge' && runner.os == 'Windows'
+              with:
+                  ruby-version: "3.3"
+
             # The runner image also has a C:\msys64 UCRT64 tree. It must not shadow the
             # action's installation, or pkg-config sees the image's libraries instead of
             # the ones installed above.
@@ -193,14 +201,16 @@ jobs:
               env:
                   MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
               run: |
-                  echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+                  # GITHUB_PATH prepends in reverse order, so write the MSYS tree
+                  # first to keep the native UCRT64 toolchain ahead of /usr/bin.
                   echo "${MSYS2_LOCATION}\\usr\\bin" >> "$GITHUB_PATH"
+                  echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
 
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows'
 
-            # setup-ruby's DevKit puts an MSYS link.exe on PATH. Cargo resolves the linker
-            # by name, so pin the Visual Studio one instead of letting that GNU link.exe
+            # MSYS2's /usr/bin contains a GNU link.exe. Cargo resolves the linker by
+            # name, so pin the Visual Studio one instead of letting that GNU link.exe
             # receive MSVC arguments.
             - name: Pin the MSVC linker for Cargo
               if: runner.os == 'Windows'
@@ -229,11 +239,6 @@ jobs:
                     throw 'The Vulkan SDK installation directory was not found'
                   }
                   "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
-
-            - uses: ruby/setup-ruby@v1
-              if: runner.os == 'Windows'
-              with:
-                  ruby-version: "3.3"
 
             - uses: mlugg/setup-zig@v2
               if: matrix.id == 'metric:fmetrics'
