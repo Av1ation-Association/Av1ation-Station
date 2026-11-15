@@ -105,13 +105,13 @@ properly with tests, not promoted.
 | 4.3.7 | Journey: LAN mode on → token → second browser context authenticates → sees the same state | |
 | 4.3.8 | Journey: scene multi-select → bulk config → single undo entry | gated on increment 3 |
 | 4.3.9 | Every-route `axe` scan in browser journeys | E2E journeys axe-scan their populated and locked states |
-| 4.3.10 | One nightly real-encode gate on generated clips, env-gated | `.github/workflows/nightly.yml`; not in PR CI |
+| 4.3.10 | One weekly real-encode gate on generated clips, env-gated | `.github/workflows/weekly.yml`; not in PR CI |
 
 ### 2.4 Screenshots
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 4.4.1 | `npm run screenshots` — 35 surfaces, both themes, key interactive states | local on demand and CI when renderer paths change |
+| 4.4.1 | `npm run screenshots` — 35 surfaces, both themes, key interactive states | local on demand and manual CI dispatch |
 | 4.4.2 | Output AVIF images, `catalog.json`, and a contact sheet to gitignored `dist/screenshots/` | |
 | 4.4.3 | Upload the CI pass as a build artifact for human review | never a required check |
 | 4.4.4 | Document the manual review workflow in `CONTRIBUTING.md` | |

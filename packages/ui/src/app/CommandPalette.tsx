@@ -27,11 +27,14 @@ export function CommandPalette({
     open,
     onOpenChange,
     onShowShortcuts,
+    inline = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     /** Opens the reference dialog; the shell sequences it after this palette closes. */
     onShowShortcuts: () => void;
+    /** Render the palette in the documentation card rather than as a page modal. */
+    inline?: boolean;
 }) {
     const navigate = useNavigate();
     const matches = useMatches();
@@ -52,23 +55,20 @@ export function CommandPalette({
 
     const choose = (action: () => void) => {
         onOpenChange(false);
+        if (inline) {
+            return;
+        }
         action();
     };
 
-    return (
-        <Command.Dialog
-            open={open}
-            onOpenChange={onOpenChange}
-            label="Command palette"
-            overlayClassName="fixed inset-0 z-50 bg-black/60"
-            contentClassName="fixed top-[16vh] left-1/2 z-50 w-[min(560px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-line-strong bg-surface font-sans text-ink shadow-elevation-3"
-        >
+    const body = (
+        <>
             <Command.Input
-                autoFocus
+                autoFocus={!inline}
                 placeholder="Go to a screen or configuration section…"
                 className="h-11 w-full border-b border-line bg-transparent px-4 font-sans text-[13px] text-ink outline-none placeholder:text-ink-muted"
             />
-            <Command.List className="max-h-[340px] overflow-y-auto p-2">
+            <Command.List className={inline ? "p-2" : "max-h-[340px] overflow-y-auto p-2"}>
                 <Command.Empty className="px-3 py-8 text-center text-[12px] text-ink-muted">
                     Nothing matches that name.
                 </Command.Empty>
@@ -298,6 +298,29 @@ export function CommandPalette({
                 <kbd className="rounded border border-line px-1">Esc</kbd>
                 close
             </div>
+        </>
+    );
+
+    if (inline) {
+        return (
+            <Command
+                label="Command palette"
+                className="w-full overflow-hidden rounded-xl border border-line-strong bg-surface font-sans text-ink shadow-elevation-2"
+            >
+                {body}
+            </Command>
+        );
+    }
+
+    return (
+        <Command.Dialog
+            open={open}
+            onOpenChange={onOpenChange}
+            label="Command palette"
+            overlayClassName="fixed inset-0 z-50 bg-black/60"
+            contentClassName="fixed top-[16vh] left-1/2 z-50 w-[min(560px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-line-strong bg-surface font-sans text-ink shadow-elevation-3"
+        >
+            {body}
         </Command.Dialog>
     );
 }

@@ -1,0 +1,54 @@
+## Before you start
+
+Configure the pipeline first, choose an encoder whose build supports the metric you intend to use, and keep retained chunks on if you also want a quality check. Target quality adds probe encodes to the run time.
+## Enable target quality
+
+<Steps>
+<Step title="Open the section" result="The Target quality card offers its metric and range fields.">
+Use the project section if every video should share the target, or the video section to override one video.
+</Step>
+<Step title="Enable the sequence" result="The card reports Target quality as enabled and no longer reads Engine default.">
+Enabling writes the engine's default document plus the starting values the screen supplies. An enabled section with an empty metric encodes nothing, so choose a metric before saving.
+</Step>
+</Steps>
+
+## Choose metric and range
+
+Pick a metric the preflight reports as available. Set the target range to the scores you actually want: for a higher-is-better metric such as CVVDP, the lower bound is the minimum acceptable score and the upper bound is the point of diminishing returns. An inverted range is refused.
+
+## Set probes and bounds
+
+More probes improve the fit at the cost of more sample encodes. The quantizer bounds keep the search finite; a scene that would need a value outside them is clamped and marked, not silently extrapolated.
+
+<Callout tone="warning" title="Probe cost">
+Probing runs before every encode of the video. A high probe count on a long queue can dominate a run. Start with the defaults, measure one video, then adjust.
+</Callout>
+
+## Add speed points
+
+Speed scaling maps playback speed to a quantizer offset. A fast-motion scene can tolerate a higher quantizer; a static scene often benefits from a lower one. Add points only when you have a reason to move away from a flat target.
+
+## Set the bitrate threshold
+
+Bitrate optimization adjusts a scene's chosen quantizer toward a size target. It is a second objective and can pull the score away from the target range. Leave it off for a pure quality target.
+
+## Run and inspect
+
+Start the video. Target quality writes probe history and a chosen quantizer per scene. Open the measured-data card to see the probes, the fit, and the chosen value. A scene with no probe history is named as unmeasured.
+
+## Check your result
+
+The Target quality card reports a quantizer for every measured scene, and the measured-data card shows the probe points. If quality check is enabled, its card reports scores against the source; compare the aggregate with the target range rather than reading one scene.
+
+## If it goes wrong
+
+- **No probes**: the metric has no usable backend or the range excludes every tested quantizer. Check Settings → Dependencies.
+- **Range refused**: the lower bound is above the upper bound, or a value is outside the metric's domain.
+- **Scores below target**: widen the quantizer bounds or lower the target floor; a filter can also change the metric's response.
+- **A filter warning**: it is advisory, not a failed run.
+
+<RelatedLinks>
+<a href="/docs/concepts/quality">Quality targets and checks</a>
+<a href="/docs/reference/target-quality">Target quality reference</a>
+<a href="/docs/reference/quality-check">Quality check reference</a>
+</RelatedLinks>

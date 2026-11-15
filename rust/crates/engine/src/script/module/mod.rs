@@ -251,7 +251,8 @@ mod tests {
         // namespace's top level and a variant names it in full: a nested class body cannot
         // resolve an enclosing class's names.
         assert!(
-            has("options: dict[str, types.encoder.CLIParameter]"),
+            has("options: dict[str, types.encoder.CLIParameter]")
+                || has("options: dict[str, types.data.CLIParameter]"),
             "{stub}"
         );
         assert!(has("class CLIParameter(Object):"), "{stub}");

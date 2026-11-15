@@ -25,14 +25,18 @@ export function OpenRow({
     children,
 }: {
     as?: "article" | "div" | "li";
-    onOpen: () => void;
+    /** Omit to make the row static, as the public demo does for its configuration cards. */
+    onOpen?: (() => void) | null;
     className?: string;
     children: ReactNode;
 }) {
     return (
         <Element
-            className={`cursor-pointer ${className}`}
+            className={`${onOpen === undefined || onOpen === null ? "" : "cursor-pointer"} ${className}`}
             onClick={(event) => {
+                if (onOpen === undefined || onOpen === null) {
+                    return;
+                }
                 if (event.defaultPrevented) {
                     return;
                 }

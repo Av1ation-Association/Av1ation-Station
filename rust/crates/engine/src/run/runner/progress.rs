@@ -1,7 +1,6 @@
 //! Engine progress translation, resume tallies, and event construction.
 
 use super::*;
-use andean_condor::models::sequence::quality_check::QualityCheckConfig;
 
 /// The part of a sequence's work that an earlier attempt already finished.
 ///
@@ -27,11 +26,11 @@ impl Resume {
         id: &str,
         scenes: &[Scene<DefaultSequenceData>],
         config: &RunnerConfig,
-    ) -> Option<Self> {
+    ) -> Result<Option<Self>, String> {
         match id {
-            "ParallelEncoder" => Some(Self::Encoder(SceneTally::of(scenes))),
+            "ParallelEncoder" => Ok(Some(Self::Encoder(SceneTally::of(scenes)))),
             "QualityCheck" => Self::scored(scenes, config),
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -39,16 +38,21 @@ impl Resume {
     pub(super) fn scored(
         scenes: &[Scene<DefaultSequenceData>],
         config: &RunnerConfig,
-    ) -> Option<Self> {
-        let check = config.quality_check.as_ref()?;
+    ) -> Result<Option<Self>, String> {
+        let Some(check) = config.quality_check.as_ref() else {
+            return Ok(None);
+        };
         let mut done = 0.0;
         let mut total = 0.0;
         let mut done_scenes = 0;
+        let mut sample_counts = Vec::with_capacity(scenes.len());
         for scene in scenes {
             let sampled_count = check
                 .strategy
                 .frame_indices(scene.start_frame, scene.end_frame)
-                .len();
+                .map(|indices| indices.len())
+                .map_err(|error| format!("Quality Check probe strategy is not valid: {error}"))?;
+            sample_counts.push(sampled_count);
             let sampled = sampled_count as f64;
             total += sampled;
             // A scene is scored as a whole: a partial set is measured again, so only a
@@ -62,11 +66,14 @@ impl Resume {
                 done_scenes += 1;
             }
         }
-        (total > 0.0).then(|| Self::Scored {
+        if total <= 0.0 {
+            return Ok(None);
+        }
+        Ok(Some(Self::Scored {
             done,
             total,
-            quality: QualityTally::new(scenes, check, done_scenes),
-        })
+            quality: QualityTally::new(scenes, &sample_counts, done_scenes),
+        }))
     }
 
     /// Record one frame score and publish the scene's mean once every sampled frame is in.
@@ -184,15 +191,13 @@ struct QualityScene {
 
 impl QualityTally {
     /// Build the expected sampled-frame count from the same strategy the engine uses.
-    fn new(scenes: &[Scene<DefaultSequenceData>], check: &QualityCheckConfig, done: u32) -> Self {
+    fn new(scenes: &[Scene<DefaultSequenceData>], sample_counts: &[usize], done: u32) -> Self {
+        debug_assert_eq!(scenes.len(), sample_counts.len());
         let mut total = 0;
         let scenes = scenes
             .iter()
-            .map(|scene| {
-                let expected = check
-                    .strategy
-                    .frame_indices(scene.start_frame, scene.end_frame)
-                    .len();
+            .zip(sample_counts)
+            .map(|(scene, &expected)| {
                 if expected > 0 {
                     total += 1;
                 }

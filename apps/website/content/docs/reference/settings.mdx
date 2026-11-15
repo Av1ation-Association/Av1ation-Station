@@ -1,0 +1,63 @@
+## Appearance
+
+| Setting | Effect |
+| --- | --- |
+| Theme | Dark, light, or follow the host |
+| Density | Comfortable or compact spacing |
+| Motion | Follow reduced-motion or reduce animation |
+
+Appearance is stored per host and applies to every project. It does not change the theme of the public website; that follows the site's own switch.
+
+<LiveSample kind="appearance" />
+
+## Dependencies
+
+The Diagnostics card counts available, missing, and rejected providers by capability. Each row names the expected executable and lists every provider the preflight found. A user-provided path is accepted per capability and re-probed on startup. A VapourSynth provider change can require a restart.
+
+## Encoders
+
+The catalogue lists encoder families and their default executables. Saved builds add named executions of a known family. The provider panel chooses an executable for a family; the parameter table describes the selected family. A build is probed for its version and parameter survey before it can be saved.
+
+## Project Templates
+
+The template list shows every template, its default marker, and its section count. A template holds a configuration and a General document. Exactly one may be the default for new projects. Editing a template does not change projects that already applied it.
+
+## Storage
+
+| Card | Reports |
+| --- | --- |
+| App data | The resolved application-data folder and free space |
+| Scratch | The scratch root and free space |
+| Retained work | Scene chunks and sidecars across projects |
+| Logs | Run log space where the service reports it |
+
+Scratch can be changed; existing retained work stays where it is. Reveal opens the resolved folder. Removal frees retained work and is permanent.
+
+## Network
+
+LAN access is off until enabled. The listener binds a second address and requires a pairing token for every request. The card shows the advertised address, active sessions, and the pairing code or link for a new session. Revoke invalidates one token; turning LAN off closes all.
+
+<Callout tone="warning" title="Loopback is separate">
+The desktop webview uses loopback without a token. Enabling LAN does not weaken loopback and disabling LAN does not break it.
+</Callout>
+
+## About
+
+About reports the version, the build's platform, the data directory, and the open-source licences. The version is read from the service at runtime. A diagnostics bundle can be exported here for support.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Loading | A settings query is in flight |
+| Saved | The value is persisted |
+| Unsaved | A draft differs from the saved value |
+| Unavailable | The capability or host does not support the control |
+| Restart required | A provider change needs an application restart |
+| Read-only | The setting is fixed by the build or the host |
+
+<RelatedLinks>
+<a href="/docs/get-started/workspace">Tour the workspace</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+<a href="/docs/reference/templates">Project templates</a>
+</RelatedLinks>

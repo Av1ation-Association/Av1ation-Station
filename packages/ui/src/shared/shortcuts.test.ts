@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
+import { createElement } from "react";
+
 import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
+import { HostShortcutsProvider } from "./demo-mode";
 import {
     isEditableTarget,
     isModalOpen,
@@ -89,6 +92,19 @@ it("runs once per press and claims the event", () => {
 
     press("s", { ctrlKey: true, repeat: true });
     expect(handler).toHaveBeenCalledTimes(1);
+});
+
+it("stays silent inside a bounded documentation frame", () => {
+    const handler = vi.fn();
+    renderHook(() => useShortcut("palette", handler), {
+        wrapper: ({ children }) =>
+            createElement(HostShortcutsProvider, { enabled: false, children }),
+    });
+
+    const event = press("k", { ctrlKey: true });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
 });
 
 it("leaves the event to the focused control when its condition refuses", () => {

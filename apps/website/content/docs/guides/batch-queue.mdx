@@ -1,0 +1,54 @@
+## Before you start
+
+At least one video must be queued and every queued video must have a valid configuration. No other project may hold the process-wide run lock. A batch runs one video at a time.
+## Add the queue
+
+Open the project queue and select **Add videos**. The sheet derives an output for each row before the queue accepts it. Add several files at once and confirm the source and output per row; a collision is refused.
+
+<Steps>
+<Step title="Check each row" result="Every row has a unique output path and the intended input.">
+A row with a missing source or an unwritable output is blocked before the batch starts. The row's state names the problem.
+</Step>
+<Step title="Set the order" result="The queue order matches the order you want to run.">
+Drag a row by its handle. Reordering while a run is active is refused for the locked project.
+</Step>
+</Steps>
+
+## Reorder
+
+The queue is the run order. A filtered queue still drags by stable video id, so a filtered position does not become an index the service reorders by accident.
+
+## Select and run
+
+Select rows with the checkbox; shift-click extends the selection. The bulk bar appears with a count and actions. **Run selected** starts the first eligible row and continues down the queue; it is refused with a conflict if another run holds the lock.
+
+<LiveSample kind="queue-selection" />
+
+<Callout tone="warning" title="One lock">
+A batch does not run videos in parallel. Each video takes the same lock the single-video Start uses. A control refusal is not a failed video.
+</Callout>
+
+## Monitor
+
+Open the active video or watch the queue row. The row reports its current sequence and progress; the video's pipeline card reports the same state in more detail. Navigation is never blocked by a run.
+
+## Stop
+
+Stop is cooperative. It asks the engine to stop at a safe point and records a cancelled outcome; it may finish the current encoder call before returning. It does not mark the work as failed.
+
+## Read results
+
+Each selected video reaches a terminal state or is refused before starting. A failure records its message and does not abandon later rows. History has the per-run detail; Logs has the event stream.
+
+## If it goes wrong
+
+- **Run selected disabled**: no eligible selection or the project is locked.
+- **Conflict**: another run holds the lock; wait or stop it.
+- **A row did not start**: read its validation blocker; a failed earlier row does not excuse an invalid later one.
+- **A failed row**: use [Recover from a failed run](/docs/guides/recover-run); the queue can continue.
+
+<RelatedLinks>
+<a href="/docs/reference/project">Project workspace and queue</a>
+<a href="/docs/guides/recover-run">Recover from a failed or interrupted run</a>
+<a href="/docs/reference/history-logs">History and logs reference</a>
+</RelatedLinks>

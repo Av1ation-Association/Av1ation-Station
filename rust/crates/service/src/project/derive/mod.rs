@@ -155,6 +155,10 @@ pub(crate) fn derive(video_id: &str, chain: &[ChainEntry], evidence: &Evidence<'
         .and_then(|(end, total)| {
             (total > 0).then(|| (end as f64 / total as f64 * 100.0).clamp(0.0, 100.0))
         });
+    let encoded = (0..scene_count)
+        .filter(|index| VideoStore::chunk_present(evidence.chunks, *index))
+        .count();
+    let all_chunks = scene_count > 0 && encoded == scene_count;
 
     let complete = |id: &str| -> bool {
         match id {
@@ -182,11 +186,7 @@ pub(crate) fn derive(video_id: &str, chain: &[ChainEntry], evidence: &Evidence<'
                             })
                     })
             }
-            "ParallelEncoder" => {
-                scene_count > 0
-                    && (0..scene_count)
-                        .all(|index| VideoStore::chunk_present(evidence.chunks, index))
-            }
+            "ParallelEncoder" => all_chunks,
             "SceneConcatenator" => evidence.output_exists,
             "QualityCheck" => {
                 !scenes.is_empty()
@@ -207,20 +207,18 @@ pub(crate) fn derive(video_id: &str, chain: &[ChainEntry], evidence: &Evidence<'
     let runnable = |id: &str| -> bool {
         match id {
             "SceneDetector" => true,
-            "NoiseDetector" | "NoiseScaler" | "SpeedScaler" | "TargetQuality"
-            | "ParallelEncoder" => scene_count > 0,
+            "NoiseDetector" | "NoiseScaler" | "SpeedScaler" | "TargetQuality" => scene_count > 0,
+            "ParallelEncoder" => scene_count > 0,
             "BitrateOptimizer" => scene_count > 0 && has_target_quality_pass(scenes),
-            "SceneConcatenator" => {
-                (0..scene_count).any(|index| VideoStore::chunk_present(evidence.chunks, index))
-            }
+            // The engine now requires every requested scene to be present; offering a
+            // partial concatenation would only fail after the user pressed Run. The detail
+            // line still reports how many chunks are missing.
+            "SceneConcatenator" => all_chunks,
             "QualityCheck" => evidence.output_exists,
             _ => false,
         }
     };
 
-    let encoded = (0..scene_count)
-        .filter(|index| VideoStore::chunk_present(evidence.chunks, *index))
-        .count();
     let scaled = scenes
         .iter()
         .filter(|scene| {

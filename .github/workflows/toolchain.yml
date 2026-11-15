@@ -1,0 +1,327 @@
+name: Bundled toolchain
+
+on:
+    workflow_dispatch:
+        inputs:
+            package:
+                description: Build installers from the assembled toolchain
+                type: boolean
+                default: true
+            release_tag:
+                description: Release tag for package builds; required when package is true
+                type: string
+    workflow_call:
+    # No tag trigger until a reviewed packaging/toolchain.lock.json is committed. Packaging
+    # from a lock generated in the same run would bypass the release gate.
+    push:
+        branches: [main]
+        paths:
+            - "packaging/**"
+            - "scripts/toolchain-build.mjs"
+            - "scripts/toolchain-lock.mjs"
+            - "scripts/toolchain-manifest.mjs"
+            - "scripts/toolchain-verify.mjs"
+            - ".github/workflows/toolchain.yml"
+
+permissions:
+    contents: read
+
+concurrency:
+    group: toolchain-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    validate:
+        name: Validate reviewed manifest
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+            - name: Validate manifest and recipe syntax
+              run: |
+                  node scripts/toolchain-verify.mjs --manifest-only
+                  for file in scripts/toolchain-build.mjs packaging/recipes/*.mjs; do
+                    node --check "$file"
+                  done
+            - name: Require an explicit release tag for packaging
+              if: github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true'
+              shell: bash
+              env:
+                  RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+              run: |
+                  if [ -z "$RELEASE_TAG" ]; then
+                    echo "The release_tag input is required when package is true." >&2
+                    echo "Use v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD." >&2
+                    exit 1
+                  fi
+
+    plan:
+        name: Plan component matrix
+        needs: validate
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        outputs:
+            matrix: ${{ steps.matrix.outputs.matrix }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+            - id: matrix
+              name: Emit the component-target matrix
+              run: echo "matrix=$(node scripts/toolchain-build.mjs --all-targets --print-matrix)" >> "$GITHUB_OUTPUT"
+
+    component:
+        name: ${{ matrix.id }} / ${{ matrix.target }}
+        needs: plan
+        strategy:
+            fail-fast: false
+            max-parallel: 8
+            matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 360
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - name: Install Linux build tools
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    build-essential cmake ninja-build meson nasm yasm pkg-config \
+                    autoconf automake libtool ruby rake unzip \
+                    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+                    libboost-dev libebml-dev libmatroska-dev libpugixml-dev libfmt-dev \
+                    libnlohmann-json3-dev qt6-base-dev libvulkan-dev libshaderc-dev \
+                    glslang-tools spirv-tools
+
+            - name: Install macOS build tools
+              if: runner.os == 'macOS'
+              run: |
+                  brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg
+                  brew install vulkan-headers glslang shaderc molten-vk || true
+
+            - uses: msys2/setup-msys2@v2
+              if: runner.os == 'Windows'
+              with:
+                  msystem: MINGW64
+                  update: true
+                  install: >-
+                      mingw-w64-x86_64-toolchain
+                      mingw-w64-x86_64-cmake
+                      mingw-w64-x86_64-ninja
+                      mingw-w64-x86_64-nasm
+                      mingw-w64-x86_64-pkgconf
+                      mingw-w64-x86_64-autotools
+                      mingw-w64-x86_64-ffmpeg
+                      make
+
+            - name: Put MSYS2 and MinGW on PATH
+              if: runner.os == 'Windows'
+              shell: bash
+              run: |
+                  echo 'C:\msys64\usr\bin' >> "$GITHUB_PATH"
+                  echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
+
+            - uses: ilammy/msvc-dev-cmd@v1
+              if: runner.os == 'Windows'
+
+            - name: Install Vulkan SDK for Vship
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
+              run: choco install vulkan-sdk -y --no-progress
+
+            - uses: ruby/setup-ruby@v1
+              if: runner.os == 'Windows'
+              with:
+                  ruby-version: "3.3"
+
+            - uses: mlugg/setup-zig@v2
+              if: matrix.id == 'metric:fmetrics'
+              with:
+                  version: "0.16.0"
+
+            - name: Restore component cache
+              id: cache
+              uses: actions/cache@v4
+              with:
+                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
+                  key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
+
+            - name: Build or reuse ${{ matrix.id }}
+              env:
+                  TARGET: ${{ matrix.target }}
+                  COMPONENT: ${{ matrix.id }}
+              run: node scripts/toolchain-build.mjs --target "$TARGET" --component "$COMPONENT"
+
+            - name: Upload component cache
+              uses: actions/upload-artifact@v4
+              with:
+                  name: component-${{ matrix.target }}-${{ matrix.cache_dir }}
+                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
+                  if-no-files-found: error
+                  retention-days: 7
+
+    assemble:
+        name: Assemble ${{ matrix.target }}
+        needs: component
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - target: x86_64-pc-windows-msvc
+                      runner: windows-2025
+                    - target: aarch64-apple-darwin
+                      runner: macos-15
+                    - target: x86_64-apple-darwin
+                      runner: macos-15-intel
+                    - target: x86_64-unknown-linux-gnu
+                      runner: ubuntu-24.04
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: component-${{ matrix.target }}-*
+                  path: dist/downloaded-components
+
+            - name: Restore component directories
+              shell: bash
+              env:
+                  TARGET: ${{ matrix.target }}
+              run: |
+                  mkdir -p "dist/toolchain-cache/${TARGET}"
+                  for directory in "dist/downloaded-components/component-${TARGET}-"*; do
+                    name="${directory##*/}"
+                    component="${name#component-${TARGET}-}"
+                    rm -rf "dist/toolchain-cache/${TARGET}/${component}"
+                    cp -R "$directory" "dist/toolchain-cache/${TARGET}/${component}"
+                  done
+
+            - name: Assemble target tree
+              env:
+                  TARGET: ${{ matrix.target }}
+              run: node scripts/toolchain-build.mjs --target "$TARGET" --assemble-only
+
+            - name: Upload target tree
+              uses: actions/upload-artifact@v4
+              with:
+                  name: toolchain-${{ matrix.target }}
+                  path: dist/cargo/toolchain/${{ matrix.target }}
+                  if-no-files-found: error
+                  retention-days: 7
+
+    lock:
+        name: Generate lock from built trees
+        needs: assemble
+        runs-on: ubuntu-24.04
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: toolchain-*
+                  path: dist/downloaded-targets
+
+            - name: Arrange target trees
+              shell: bash
+              run: |
+                  mkdir -p dist/toolchain-targets
+                  for directory in dist/downloaded-targets/toolchain-*; do
+                    name="${directory##*/}"
+                    target="${name#toolchain-}"
+                    mv "$directory" "dist/toolchain-targets/${target}"
+                  done
+                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets
+
+            - name: Upload generated lock
+              uses: actions/upload-artifact@v4
+              with:
+                  name: toolchain-lock
+                  path: packaging/toolchain.lock.json
+                  if-no-files-found: error
+
+    package:
+        name: Package ${{ matrix.target }}
+        needs: assemble
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true'
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - target: x86_64-pc-windows-msvc
+                      runner: windows-2025
+                      bundles: nsis,msi
+                    - target: aarch64-apple-darwin
+                      runner: macos-15
+                      bundles: dmg,app
+                    - target: x86_64-apple-darwin
+                      runner: macos-15-intel
+                      bundles: dmg,app
+                    - target: x86_64-unknown-linux-gnu
+                      runner: ubuntu-24.04
+                      bundles: deb,appimage
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97.0"
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Install Linux Tauri dependencies
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: toolchain-${{ matrix.target }}
+                  path: dist/toolchain-target
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: toolchain-lock
+                  path: packaging
+
+            - name: Verify the generated lock before packaging
+              run: node scripts/toolchain-verify.mjs
+
+            - name: Stage bundled tools
+              run: node scripts/stage-tools.mjs --from dist/toolchain-target --out dist/tools
+
+            - run: npm ci
+            - name: Build both release variants
+              shell: bash
+              env:
+                  AV1ATION_BUNDLES: ${{ matrix.bundles }}
+                  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref_name }}
+              run: npm run release:build -- --tag "$RELEASE_TAG"
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: release-${{ matrix.target }}
+                  path: dist/release
+                  if-no-files-found: error
+                  retention-days: 14

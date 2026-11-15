@@ -84,7 +84,14 @@ function DependencyGroup({ label, checks }: { label: string; checks: PreflightCh
     );
 }
 
-export function DependencyInventory({ report }: { report: PreflightReport }) {
+export function DependencyInventory({
+    report,
+    compact = false,
+}: {
+    report: PreflightReport;
+    /** The docs example shows the capability rows without the host-only model and Python fields. */
+    compact?: boolean;
+}) {
     const known = new Set<string>(GROUPS.map((group) => group.id));
     // The scene model is its own row above every capability group; listing it again under
     // "Other" would ask the user to reason about the same file twice.
@@ -99,8 +106,8 @@ export function DependencyInventory({ report }: { report: PreflightReport }) {
                 under the short sections. Columns pack them, and each section opts out of
                 being split across two columns. */}
             <div className="columns-1 gap-5 md:columns-2 3xl:columns-3">
-                <SceneModelGroup />
-                <PythonInterpreterGroup />
+                {compact ? null : <SceneModelGroup />}
+                {compact ? null : <PythonInterpreterGroup />}
                 {report.checks.length === 0 ? null : (
                     <>
                         {dependencySections(report.checks).map((section) => (

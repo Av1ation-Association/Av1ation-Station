@@ -109,7 +109,7 @@ export function AppearancePanel() {
     };
 
     return (
-        <section className="mt-8" aria-labelledby="appearance-theme">
+        <section className="@container mt-8" aria-labelledby="appearance-theme">
             {isPending ? (
                 <div className="mt-6 space-y-2" aria-busy="true">
                     {[0, 1, 2].map((row) => (
@@ -140,7 +140,7 @@ export function AppearancePanel() {
                 </div>
             ) : null}
 
-            <div className="mt-6 grid items-start gap-6 md:grid-cols-2 3xl:grid-cols-3">
+            <div className="mt-6 grid items-start gap-6 @5xl:grid-cols-2 @7xl:grid-cols-3">
                 {data ? (
                     <div>
                         <h2 id="appearance-theme" className="m-0 text-sm font-semibold text-ink">

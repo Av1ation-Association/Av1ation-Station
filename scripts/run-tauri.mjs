@@ -8,11 +8,11 @@
 // The staged tree lives in `dist/dev-tools/` because `cargo clean` owns `dist/cargo/`.
 // Keeping the cache beside the target, rather than inside it, means a clean costs no tools.
 import { spawnSync } from "node:child_process";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { cargoTarget } from "./build-paths.mjs";
+import { cargoTarget, stagedTools } from "./build-paths.mjs";
 import { collectReleaseArtifacts } from "./collect-release.mjs";
 import { cacheRoot, prepareDevTools } from "./dev-tools.mjs";
 import { sanitizedPath } from "./sanitize-path.mjs";
@@ -72,11 +72,42 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
     args.push("--config", generatedReleaseConfig);
 }
 
+// linuxdeploy resolves the dependencies of every ELF in the AppDir before it packages it.
+// Some vendored Python wheels ship sibling libraries without an rpath, so those dependencies
+// are only visible when their directories are on the loader path. Adding the same directories
+// here also mirrors how the bundled interpreter finds them at runtime.
+function linuxToolsLibraryPath() {
+    const pythonRoot = join(stagedTools, "python");
+    const directories = new Set([join(stagedTools, "lib")]);
+    if (existsSync(pythonRoot)) {
+        for (const entry of readdirSync(pythonRoot, { recursive: true })) {
+            if (typeof entry === "string" && entry.includes(".so")) {
+                directories.add(dirname(join(pythonRoot, entry)));
+            }
+        }
+    }
+    return [...directories].filter((directory) => existsSync(directory)).join(":");
+}
+
+const buildEnv = {
+    ...process.env,
+    PATH: sanitizedPath(),
+    CARGO_TARGET_DIR: cargoTarget,
+};
+if (process.platform === "linux" && args[0] === "build") {
+    const toolsLibraryPath = linuxToolsLibraryPath();
+    if (toolsLibraryPath !== "") {
+        buildEnv.LD_LIBRARY_PATH = [process.env.LD_LIBRARY_PATH, toolsLibraryPath]
+            .filter(Boolean)
+            .join(":");
+    }
+}
+
 let result;
 try {
     result = spawnSync(process.execPath, [cli, ...args], {
         stdio: "inherit",
-        env: { ...process.env, PATH: sanitizedPath(), CARGO_TARGET_DIR: cargoTarget },
+        env: buildEnv,
     });
 } finally {
     if (releaseConfig !== null) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import {
     useDeleteVideoChunks,
@@ -28,6 +28,7 @@ import { InputEditor } from "../configuration/InputEditor";
 import { SequenceFailureRail } from "../configuration/SequenceFailureRail";
 import { inputFromValue, inputValueOf, type InputValue } from "../../shared/model/input-model";
 import { ScriptPluginNotice } from "../../shared/ScriptPluginNotice";
+import { DeleteRetainedDialog } from "./DeleteRetainedDialog";
 import { VideoRunActions } from "./VideoRunActions";
 import { VideoTabs } from "./VideoTabs";
 import { DraftActions } from "../../shared/TopBarActions";
@@ -121,22 +122,8 @@ export function VideoGeneralScreen() {
     const [outputError, setOutputError] = useState<string | null>(null);
     const [clipOpen, setClipOpen] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const deleteDialog = useRef<HTMLDialogElement>(null);
 
     const locked = state.data?.active === true;
-
-    useEffect(() => {
-        const dialog = deleteDialog.current;
-        if (dialog === null) {
-            return;
-        }
-        if (confirmDelete && !dialog.open) {
-            dialog.showModal();
-        }
-        if (!confirmDelete && dialog.open) {
-            dialog.close();
-        }
-    }, [confirmDelete]);
 
     const complete = (value: GeneralDraft): string | null => {
         if (value.input.kind !== "vapour_synth_script" && value.input.path.trim() === "") {
@@ -694,60 +681,21 @@ export function VideoGeneralScreen() {
                     retainedBytes={retained}
                 />
 
-                <dialog
-                    ref={deleteDialog}
-                    aria-labelledby="delete-chunks-title"
+                <DeleteRetainedDialog
+                    open={confirmDelete}
+                    retainedBytes={retained}
+                    pending={removeChunks.isPending}
+                    error={removeChunks.error}
                     onClose={() => setConfirmDelete(false)}
-                    onClick={(event) => {
-                        if (event.target === event.currentTarget && !removeChunks.isPending) {
-                            setConfirmDelete(false);
-                        }
-                    }}
-                    className="m-auto w-[min(440px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/70"
-                >
-                    <div className="border-b border-line px-5 py-4">
-                        <h2 id="delete-chunks-title" className="m-0 text-base font-semibold">
-                            Delete retained work?
-                        </h2>
-                    </div>
-                    <div className="px-5 py-4">
-                        <p className="m-0 text-[13px] leading-relaxed text-ink-secondary">
-                            This deletes {formatBytes(retained)} of encoded chunks and sidecars. The
-                            scene list, the checkpoint, and the finished output stay; a later
-                            Quality Check or a re-encode of edited scenes has to run again.
-                        </p>
-                        {removeChunks.isError ? (
-                            <p role="alert" className="mt-3 mb-0 text-[12px] text-danger">
-                                {removeChunks.error instanceof Error
-                                    ? removeChunks.error.message
-                                    : "The chunks could not be deleted."}
-                            </p>
-                        ) : null}
-                    </div>
-                    <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-                        <Button
-                            variant="secondary"
-                            onClick={() => setConfirmDelete(false)}
-                            disabled={removeChunks.isPending}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="danger"
-                            disabled={removeChunks.isPending}
-                            onClick={() =>
-                                removeChunks.mutate(undefined, {
-                                    onSuccess: () => {
-                                        setConfirmDelete(false);
-                                        toast.success("Retained work deleted");
-                                    },
-                                })
-                            }
-                        >
-                            {removeChunks.isPending ? "Deleting…" : "Delete chunks"}
-                        </Button>
-                    </div>
-                </dialog>
+                    onConfirm={() =>
+                        removeChunks.mutate(undefined, {
+                            onSuccess: () => {
+                                setConfirmDelete(false);
+                                toast.success("Retained work deleted");
+                            },
+                        })
+                    }
+                />
             </div>
 
             <DraftActions

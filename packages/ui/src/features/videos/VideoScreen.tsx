@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
     useCancelVideoEncode,
@@ -19,6 +19,9 @@ import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { useDemoMode } from "../../shared/demo-mode";
+import { DialogFrame } from "../../shared/DialogFrame";
+import { ScreenMain } from "../../shared/ScreenMain";
 import { inputSummary } from "../../shared/model/input-model";
 import { SectionBadge, SectionCard } from "../../shared/SectionCard";
 import { SequenceSectionCardLive } from "../configuration/SequenceSectionCard";
@@ -72,6 +75,7 @@ export function VideoScreen() {
     const general = useVideoGeneral(projectId, videoId);
     const overrides = useVideoOverrides(projectId, videoId);
     const storage = useVideoStorage(projectId, videoId);
+    const demo = useDemoMode();
     const reset = useResetVideoOverrides(projectId, videoId);
     const resetData = useResetSequenceData(projectId);
     const startSequence = useStartVideoSequence(projectId);
@@ -81,21 +85,6 @@ export function VideoScreen() {
     const [confirmReset, setConfirmReset] = useState(false);
     const [resetTarget, setResetTarget] = useState<TimelineStep | null>(null);
     const [refusal, setRefusal] = useState<{ sequence: string; message: string } | null>(null);
-    const resetDialog = useRef<HTMLDialogElement>(null);
-    const dataDialog = useRef<HTMLDialogElement>(null);
-
-    useEffect(() => {
-        const dialog = resetDialog.current;
-        if (dialog === null) {
-            return;
-        }
-        if (confirmReset && !dialog.open) {
-            dialog.showModal();
-        }
-        if (!confirmReset && dialog.open) {
-            dialog.close();
-        }
-    }, [confirmReset]);
 
     const locked = state.data?.active === true;
     const document = useMemo(
@@ -108,19 +97,6 @@ export function VideoScreen() {
     const overrideCount = Object.keys(fields).length;
     const timeline = useMemo(() => videoTimeline(state.data), [state.data]);
     const steps = useMemo(() => timeline.phases.flatMap((phase) => phase.steps), [timeline]);
-
-    useEffect(() => {
-        const dialog = dataDialog.current;
-        if (dialog === null) {
-            return;
-        }
-        if (resetTarget !== null && !dialog.open) {
-            dialog.showModal();
-        }
-        if (resetTarget === null && dialog.open) {
-            dialog.close();
-        }
-    }, [resetTarget]);
 
     const runSequence = (sequence: string) => {
         setRefusal(null);
@@ -184,7 +160,7 @@ export function VideoScreen() {
 
     if (video.isPending) {
         return (
-            <main id="main" aria-busy="true" className="flex min-h-[60vh] flex-col">
+            <ScreenMain aria-busy="true" className="flex min-h-[60vh] flex-col">
                 <div className="h-11 border-b border-line" />
                 <div className="page py-6">
                     <div className="h-2.5 w-36 animate-pulse rounded-sm bg-raised" />
@@ -197,13 +173,13 @@ export function VideoScreen() {
                         ))}
                     </div>
                 </div>
-            </main>
+            </ScreenMain>
         );
     }
 
     if (video.isError) {
         return (
-            <main id="main" className="mx-auto w-full max-w-[720px] px-6 py-16">
+            <ScreenMain className="mx-auto w-full max-w-[720px] px-6 py-16">
                 <div className="rounded-lg border border-danger/30 bg-surface p-6" role="alert">
                     <h1 className="m-0 text-xl font-semibold text-ink">
                         This video could not be opened
@@ -217,7 +193,7 @@ export function VideoScreen() {
                         Retry
                     </Button>
                 </div>
-            </main>
+            </ScreenMain>
         );
     }
 
@@ -248,7 +224,7 @@ export function VideoScreen() {
     );
 
     return (
-        <main id="main" className="flex min-h-[calc(100dvh-56px)] flex-col">
+        <ScreenMain className="flex min-h-[calc(100dvh-56px)] flex-col">
             <VideoTabs
                 projectId={projectId}
                 videoId={videoId}
@@ -298,11 +274,11 @@ export function VideoScreen() {
                 <div className="mb-3 flex flex-wrap items-center gap-3">
                     <h1 className="m-0 text-[15px] font-semibold text-ink">Pipeline</h1>
                     <p className="m-0 max-w-[80ch] text-[11px] text-ink-muted">
-                        Each card owns its sequence settings, an individual start and stop, and the
-                        data that sequence produced. Click anywhere else on a card to edit its
-                        configuration; there is no draft to lose by switching.
+                        {demo
+                            ? "Watch the sample encode move through each sequence. The cards report the current step, progress, and the data that sequence produced; the tabs open Scenes, History, and Logs."
+                            : "Each card owns its sequence settings, an individual start and stop, and the data that sequence produced. Click anywhere else on a card to edit its configuration; there is no draft to lose by switching."}
                     </p>
-                    {overrideCount > 0 ? (
+                    {demo ? null : overrideCount > 0 ? (
                         <Button
                             variant="ghost"
                             className="ml-auto h-7 px-2 text-[11px]"
@@ -320,13 +296,17 @@ export function VideoScreen() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    <Link
-                        to="/projects/$projectId/videos/$videoId/config/general"
-                        params={{ projectId, videoId }}
-                        className="group block min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    >
-                        {generalCard}
-                    </Link>
+                    {demo ? (
+                        <div className="block min-w-0 rounded-lg">{generalCard}</div>
+                    ) : (
+                        <Link
+                            to="/projects/$projectId/videos/$videoId/config/general"
+                            params={{ projectId, videoId }}
+                            className="group block min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        >
+                            {generalCard}
+                        </Link>
+                    )}
 
                     {VIDEO_OVERRIDE_SECTIONS.map((entry) => {
                         const count = sectionOverrideCount(fields, DEFINITIONS[entry.id]);
@@ -384,15 +364,11 @@ export function VideoScreen() {
                 </p>
             </div>
 
-            <dialog
-                ref={resetDialog}
-                aria-labelledby="reset-overrides-title"
-                onClose={() => setConfirmReset(false)}
-                onClick={(event) => {
-                    if (event.target === event.currentTarget && !reset.isPending) {
-                        setConfirmReset(false);
-                    }
-                }}
+            <DialogFrame
+                open={confirmReset}
+                onDismiss={() => setConfirmReset(false)}
+                dismissible={!reset.isPending}
+                labelledBy="reset-overrides-title"
                 className="m-auto w-[min(440px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/70"
             >
                 <div className="border-b border-line px-5 py-4">
@@ -427,17 +403,13 @@ export function VideoScreen() {
                         {reset.isPending ? "Removing…" : "Reset overrides"}
                     </Button>
                 </div>
-            </dialog>
+            </DialogFrame>
 
-            <dialog
-                ref={dataDialog}
-                aria-labelledby="reset-sequence-title"
-                onClose={() => setResetTarget(null)}
-                onClick={(event) => {
-                    if (event.target === event.currentTarget && !resetData.isPending) {
-                        setResetTarget(null);
-                    }
-                }}
+            <DialogFrame
+                open={resetTarget !== null}
+                onDismiss={() => setResetTarget(null)}
+                dismissible={!resetData.isPending}
+                labelledBy="reset-sequence-title"
                 className="m-auto w-[min(520px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/70"
             >
                 <div className="border-b border-line px-5 py-4">
@@ -479,7 +451,7 @@ export function VideoScreen() {
                         {resetData.isPending ? "Deleting…" : "Delete data"}
                     </Button>
                 </div>
-            </dialog>
-        </main>
+            </DialogFrame>
+        </ScreenMain>
     );
 }

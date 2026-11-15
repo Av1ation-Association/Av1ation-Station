@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-Phase 0 plus six delivery phases, executed in order, each with a definition of done. The
+Phase 0 plus five delivery phases, executed in order, each with a definition of done. The
 order exists to remove risk early and to avoid building UI against an API that will change.
 
 ```mermaid
@@ -15,8 +15,7 @@ flowchart LR
     P4a --> P3["Phase 3<br/>UI"]
     P2 --> P3
     P3 --> P4["Phase 4<br/>Testing"]
-    P4 --> P5["Phase 5<br/>CI"]
-    P5 --> P6["Phase 6<br/>Deployment"]
+    P4 --> P5["Phase 5<br/>CI and delivery"]
 ```
 
 Phase 4 is split deliberately: **spikes run early** (right after scaffolding), because
@@ -31,19 +30,18 @@ after the UI exists.
 | Spikes before UI | Preview and drag-select are the two features that could force an architectural change. Building them last means building them twice. |
 | Testing after UI (mostly) | E2E needs screens. Unit tests are written continuously; Phase 4 is where the *pyramid* is completed and enforced. |
 | CI after testing | There is no point automating checks that do not exist. |
-| Deployment last | Signing, notarisation, and updater infrastructure are only needed when artifacts are worth shipping. |
+| Release work last | Signing, notarisation, and updater infrastructure are only needed when artifacts are worth shipping. |
 
 ## 3. Phase summary
 
 | Phase | Plan | Goal | Exit criterion |
 | --- | --- | --- | --- |
-| 0 | this doc set | decide and document everything | documents reviewed; no open question that blocks Phase 1; the application board set (`00`–`10`) approved. The public website design is deferred to Phase 6 , so it is not a Phase 0 gate |
+| 0 | this doc set | decide and document everything | documents reviewed; no open question that blocks Phase 1; the application board set (`00`–`10`) approved. The public website is exempt from that set, so it is not a Phase 0 gate |
 | 1 | [01-scaffolding.md](01-scaffolding.md) | the application builds and launches | `npm run dev` shows a real screen backed by a real endpoint |
 | 2 | [02-backend.md](02-backend.md) | the engine runs behind a stable API | one real encode completes end-to-end through HTTP |
 | 3 | [03-ui.md](03-ui.md) | every v0.1 screen is real | all v0.1 journeys work in the desktop app and a LAN browser |
 | 4 | [04-testing.md](04-testing.md) | coverage is complete and spikes are resolved | the pyramid is green and S1–S5 have recorded verdicts |
-| 5 | [05-ci.md](05-ci.md) | every check is automated | a pull request cannot merge with a red or missing check |
-| 6 | [06-deployment.md](06-deployment.md) | artifacts and the public site ship | a signed release installs, updates, and uninstalls cleanly; the public site is published |
+| 5 | [05-ci.md](05-ci.md) | every check is automated and a tagged release ships | a pull request cannot merge with a red or missing check; a signed release installs, updates, and uninstalls cleanly; the public site is published |
 
 ## 4. Cross-phase rules
 

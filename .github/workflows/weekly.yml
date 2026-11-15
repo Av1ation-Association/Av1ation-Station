@@ -1,0 +1,380 @@
+name: Weekly checks
+
+# The real engine paths are environment-gated and too slow for pull requests. A weekly run
+# replays every ignored Rust test on a generated clip, records the coverage trend, and files
+# one dependency-audit issue. It is scheduled/manual only: it never runs on a pull request and
+# none of its jobs is a required merge status. A scheduled run is skipped when nothing outside
+# documentation changed since the last scheduled run that succeeded, so an idle week costs one
+# small job; a manual dispatch always runs. The real-encode and coverage-trend jobs are Windows-only: that is the host the service
+# and the bundled toolchain target first; the dependency audit runs on Ubuntu.
+on:
+    schedule:
+        # Mondays at 03:17 UTC.
+        - cron: "17 3 * * 1"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    actions: read
+
+concurrency:
+    group: weekly
+    cancel-in-progress: false
+
+jobs:
+    changes:
+        name: Changed since last run
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            run: ${{ steps.check.outputs.run }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Compare with the previous successful scheduled run
+              id: check
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+                      echo "run=true" >> "$GITHUB_OUTPUT"
+                      echo "Manual dispatch always runs."
+                      exit 0
+                  fi
+                  # A gate that cannot read its own history must never skip the suite: a
+                  # failed lookup is treated as "there may be changes" and the jobs run.
+                  if ! previous=$(gh api \
+                      "repos/$GITHUB_REPOSITORY/actions/workflows/weekly.yml/runs?event=schedule&status=success&per_page=1" \
+                      --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null); then
+                      echo "run=true" >> "$GITHUB_OUTPUT"
+                      echo "Could not read the previous successful run; running."
+                      exit 0
+                  fi
+                  if [ -z "$previous" ]; then
+                      echo "run=true" >> "$GITHUB_OUTPUT"
+                      echo "No earlier successful run; running."
+                      exit 0
+                  fi
+                  if git diff --quiet "$previous" HEAD -- . ':(exclude)docs/**' ':(exclude)*.md'; then
+                      echo "run=false" >> "$GITHUB_OUTPUT"
+                      echo "No change outside documentation since $previous; skipping."
+                  else
+                      echo "run=true" >> "$GITHUB_OUTPUT"
+                      echo "Changes since $previous; running."
+                  fi
+
+    real-encode:
+        name: Real-encode tests
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
+        runs-on: windows-latest
+        timeout-minutes: 45
+        env:
+            AV1ATION_REAL_ENCODE_TESTS: "12"
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+
+            - name: Install FFmpeg and MKVToolNix
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  choco install ffmpeg mkvtoolnix --yes --no-progress
+                  if ($LASTEXITCODE -ne 0) { throw "Chocolatey could not install FFmpeg and MKVToolNix" }
+                  $chocoBin = Join-Path $env:ProgramData "chocolatey\bin"
+                  $chocoBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  $env:Path = "$chocoBin;$env:Path"
+                  $ffmpeg = (Get-Command ffmpeg).Source
+                  "AV1ATION_FFMPEG=$ffmpeg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+            - name: Install pinned x264 and SVT-AV1
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  $tools = Join-Path $PWD "dist/real-encode/tools"
+                  New-Item -ItemType Directory -Force -Path $tools | Out-Null
+                  $assets = @(
+                      @{
+                          Name = "x264"
+                          Uri = "https://github.com/frankie1024/x264-windows-builds/releases/download/stable-20250608-b35605ace3dd/x264-stable-20250608-b35605ace3dd-x64.zip"
+                          Sha256 = "3f60ff87f577307c1d452ff4a221b833d0978627b8ada96819b8d1f2d970cbbb"
+                          Executable = "x264.exe"
+                      },
+                      @{
+                          Name = "svt-av1"
+                          Uri = "https://github.com/frankie1024/svt-av1-windows-builds/releases/download/v4.3.0/svt-av1-4.3.0-x64.zip"
+                          Sha256 = "caf4df0ac5393436e4e63455d1be09b935bb8bfe7acd013653cd34fa228c05bb"
+                          Executable = "SvtAv1EncApp.exe"
+                      }
+                  )
+                  foreach ($asset in $assets) {
+                      $archive = Join-Path $tools "$($asset.Name).zip"
+                      Invoke-WebRequest -Uri $asset.Uri -OutFile $archive
+                      $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+                      if ($actual -ne $asset.Sha256) {
+                          throw "$($asset.Name) checksum mismatch: $actual"
+                      }
+                      $destination = Join-Path $tools $asset.Name
+                      Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+                      $executable = Get-ChildItem -LiteralPath $destination -Filter $asset.Executable -Recurse |
+                          Select-Object -First 1
+                      if ($null -eq $executable) { throw "$($asset.Name) did not contain $($asset.Executable)" }
+                      $executable.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                      $env:Path = "$($executable.Directory.FullName);$env:Path"
+                  }
+
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+
+            - name: Install VapourSynth and BestSource
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  python -m pip install --disable-pip-version-check --no-input "vapoursynth==80" "vapoursynth-bestsource==22"
+                  if ($LASTEXITCODE -ne 0) { throw "pip could not install VapourSynth and BestSource" }
+
+                  $vsscript = @(vapoursynth get-vsscript | Where-Object { $_.Trim() -ne "" })[-1].Trim()
+                  if (-not (Test-Path -LiteralPath $vsscript)) { throw "vapoursynth get-vsscript did not return a file: $vsscript" }
+                  $vapoursynthDirectory = Split-Path -Parent $vsscript
+                  "VSSCRIPT_PATH=$vsscript" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  $vapoursynthDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  $env:VSSCRIPT_PATH = $vsscript
+                  $env:Path = "$vapoursynthDirectory;$env:Path"
+
+                  $probe = python -c "import vapoursynth as vs; core = vs.core; assert hasattr(core, 'bs'), 'BestSource namespace missing'; print('VapourSynth core and BestSource are available')" 2>&1
+                  if ($LASTEXITCODE -ne 0) { throw ($probe -join "`n") }
+                  $probe
+
+            - name: Verify the real-encode toolchain
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = "Stop"
+                  foreach ($name in @("ffmpeg", "mkvmerge", "x264", "SvtAv1EncApp", "vapoursynth")) {
+                      if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name is not on PATH" }
+                  }
+                  $encoders = (& ffmpeg -hide_banner -encoders 2>&1) -join "`n"
+                  if ($encoders -notmatch "libx264") { throw "the FFmpeg build has no libx264 encoder" }
+
+                  New-Item -ItemType Directory -Force -Path "dist/real-encode" | Out-Null
+                  $log = "dist/real-encode/toolchain.txt"
+                  @(
+                      "ffmpeg: $(& ffmpeg -version 2>&1 | Select-Object -First 1)"
+                      "mkvmerge: $(& mkvmerge --version 2>&1 | Select-Object -First 1)"
+                      "x264: $(& x264 --version 2>&1 | Select-Object -First 2 | Out-String)"
+                      "SvtAv1EncApp: $(& SvtAv1EncApp --version 2>&1 | Select-Object -First 2 | Out-String)"
+                      "vsscript: $env:VSSCRIPT_PATH"
+                      "Python: $(python --version 2>&1)"
+                  ) | Set-Content -LiteralPath $log -Encoding utf8
+                  Get-Content -LiteralPath $log
+
+            - name: Run the 12 ignored real-encode tests
+              run: npm run test:real-encode
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: weekly-real-encode
+                  path: dist/real-encode/
+                  if-no-files-found: warn
+
+    coverage-trend:
+        name: Coverage trend
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
+        runs-on: windows-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - uses: taiki-e/install-action@v2
+              with:
+                  tool: cargo-llvm-cov
+            - run: rustup component add llvm-tools-preview
+            # Coverage instruments and relinks test binaries. Keep MSVC ahead of Git's
+            # link.exe; an ambient PATH can otherwise fail with 0xc0000142.
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
+            - name: Assert Visual Studio linker
+              shell: pwsh
+              run: |
+                  $link = (Get-Command link.exe -CommandType Application -ErrorAction Stop |
+                    Select-Object -First 1).Source
+                  $visualStudioRoots = @(
+                    $env:VCToolsInstallDir,
+                    $env:VCINSTALLDIR,
+                    $env:VSINSTALLDIR
+                  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                  $underVisualStudio = $link -match '\\Microsoft Visual Studio\\'
+                  if (-not $underVisualStudio) {
+                    $underVisualStudio = $visualStudioRoots | Where-Object {
+                      $link.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                  }
+                  if (-not $underVisualStudio) {
+                    throw "link.exe does not resolve under Visual Studio: $link"
+                  }
+                  Write-Host "link.exe resolves under Visual Studio: $link"
+            - run: npm ci
+
+            - name: Measure frontend coverage
+              run: npm run test:web:coverage
+
+            - name: Measure Rust coverage
+              run: npm run test:rust:coverage
+
+            - name: Write the coverage trend report
+              run: npm run coverage:report
+
+            - name: Publish the coverage trend summary
+              if: always()
+              shell: pwsh
+              run: |
+                  if (Test-Path -LiteralPath "dist/coverage/coverage-trend.md") {
+                      Get-Content -LiteralPath "dist/coverage/coverage-trend.md" |
+                          Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+                  }
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: weekly-coverage
+                  path: dist/coverage/
+                  if-no-files-found: warn
+
+    dependency-audit:
+        name: Dependency audit
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: read
+            issues: write
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: taiki-e/install-action@v2
+              with:
+                  tool: cargo-audit
+            - run: npm ci
+            - name: Run both dependency audits
+              run: npm run audit:dependencies
+            - name: Publish the dependency audit summary
+              if: always()
+              shell: bash
+              run: |
+                  if [ -f dist/audits/report.md ]; then
+                    cat dist/audits/report.md >> "$GITHUB_STEP_SUMMARY"
+                  fi
+            - name: Create or update the dependency audit issue
+              if: always()
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require("node:fs");
+                      const summaryPath = "dist/audits/summary.json";
+                      if (!fs.existsSync(summaryPath)) {
+                        core.setFailed("The dependency audit did not write dist/audits/summary.json.");
+                        return;
+                      }
+                      const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+                      if (Array.isArray(summary.errors) && summary.errors.length > 0) {
+                        core.warning("The dependency audit did not complete; the issue was left unchanged.");
+                        return;
+                      }
+                      if (!Array.isArray(summary.findings) || typeof summary.issue_title !== "string" || typeof summary.issue_body !== "string") {
+                        core.setFailed("The dependency audit summary is incomplete.");
+                        return;
+                      }
+                      const { owner, repo } = context.repo;
+                      const issues = await github.paginate(github.rest.issues.listForRepo, {
+                        owner,
+                        repo,
+                        state: "all",
+                        per_page: 100,
+                      });
+                      const issue = issues.find((item) => !item.pull_request && item.title === summary.issue_title);
+                      if (summary.findings.length === 0) {
+                        if (issue !== undefined && issue.state === "open") {
+                          await github.rest.issues.createComment({
+                            owner,
+                            repo,
+                            issue_number: issue.number,
+                            body: summary.clean_message,
+                          });
+                          await github.rest.issues.update({
+                            owner,
+                            repo,
+                            issue_number: issue.number,
+                            state: "closed",
+                          });
+                          core.info(`Closed #${issue.number}: the weekly dependency audit is clean.`);
+                        } else {
+                          core.info("The weekly dependency audit is clean; no open issue to close.");
+                        }
+                        return;
+                      }
+                      core.warning(`${summary.findings.length} actionable dependency finding(s).`);
+                      if (issue === undefined) {
+                        const created = await github.rest.issues.create({
+                          owner,
+                          repo,
+                          title: summary.issue_title,
+                          body: summary.issue_body,
+                        });
+                        core.info(`Opened #${created.data.number}.`);
+                      } else {
+                        const changes = {};
+                        if (issue.state !== "open") {
+                          changes.state = "open";
+                        }
+                        if (issue.body !== summary.issue_body) {
+                          changes.body = summary.issue_body;
+                        }
+                        if (Object.keys(changes).length === 0) {
+                          core.info(`#${issue.number} is already current.`);
+                        } else {
+                          await github.rest.issues.update({
+                            owner,
+                            repo,
+                            issue_number: issue.number,
+                            ...changes,
+                          });
+                          core.info(`Updated #${issue.number}.`);
+                        }
+                      }
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: weekly-dependency-audit
+                  path: dist/audits/
+                  if-no-files-found: warn

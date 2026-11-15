@@ -5,10 +5,9 @@
 // and python/bin/python3. This script stages what the platform actually has and names what
 // is missing, so the Windows release gate and the secondary targets share one command.
 //
-// VapourSynth's relocation gate still decides whether a Python tree belongs in a given
-// bundle. When one is staged it is copied; when it is not, the executable and metric subset
-// is staged alone and the caller is told that the build will select System VapourSynth.
-// Pass --partial to allow a non-Windows tree to omit providers that stay on System.
+// Every release target now stages the full provider set, including the CPython/VapourSynth
+// tree and the native metrics. A source tree may be either a staged `tools/` directory or a
+// target directory produced by `toolchain:build`, which contains `tools/`.
 
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
@@ -22,9 +21,12 @@ const value = (flag, fallback) => {
     return index === -1 ? fallback : args[index + 1];
 };
 
-const source = resolve(value("--from", join(root, "dist", "dev-tools")));
+const requestedSource = resolve(value("--from", join(root, "dist", "dev-tools")));
 const out = resolve(value("--out", join(root, "dist", "tools")));
-const partial = args.includes("--partial");
+
+const source = existsSync(join(requestedSource, "tools"))
+    ? join(requestedSource, "tools")
+    : requestedSource;
 
 if (!existsSync(source) || !statSync(source).isDirectory()) {
     console.error(`The staged toolchain is missing: ${source}`);
@@ -52,8 +54,6 @@ const EXCLUDED_PACKAGES = new Set([
     "tensorrt_rtx_libs",
     "cuda",
     "PySide6",
-    "scipy",
-    "scipy.libs",
     "onnx",
     "onnxruntime",
     "pip",
@@ -214,55 +214,55 @@ const required = [
     join("bin", executable("mkvmerge")),
     join("model", "transnetv2.onnx"),
 ];
-const expected =
+const python =
+    process.platform === "win32" ? join("python", "python.exe") : join("python", "bin", "python3");
+const vsscript =
     process.platform === "win32"
-        ? []
-        : [
-              join("bin", executable("x264")),
-              join("bin", executable("x265")),
-              join("bin", executable("aomenc")),
-              join("bin", executable("SvtAv1EncApp")),
-              join("bin", executable("rav1e")),
-              join("bin", executable("vpxenc")),
-              ...metrics.map((name) => join("lib", name)),
-          ];
-if (process.platform === "win32") {
-    // Windows is the only target whose VapourSynth relocation gate has passed.
-    required.push(
-        join("bin", executable("x264")),
-        join("bin", executable("x265")),
-        join("bin", executable("aomenc")),
-        join("bin", executable("SvtAv1EncApp")),
-        join("bin", executable("rav1e")),
-        join("bin", executable("avmenc")),
-        ...metrics.map((name) => join("lib", name)),
-        join("python", "python.exe"),
-        join("python", "Lib", "site-packages", "vapoursynth", "vsscript.dll"),
-    );
-}
+        ? join("python", "Lib", "site-packages", "vapoursynth", "vsscript.dll")
+        : join(
+              "python",
+              "lib",
+              "python3.14",
+              "site-packages",
+              "vapoursynth",
+              process.platform === "darwin" ? "libvsscript.dylib" : "libvsscript.so",
+          );
+const ffms2 =
+    process.platform === "win32"
+        ? join("lib", "ffms2.dll")
+        : join("lib", process.platform === "darwin" ? "libffms2.dylib" : "libffms2.so");
+const sourcePlugin =
+    process.platform === "win32"
+        ? join("python", "Lib", "site-packages", "vapoursynth", "plugins", "ffms2.dll")
+        : join(
+              "python",
+              "lib",
+              "python3.14",
+              "site-packages",
+              "vapoursynth",
+              "plugins",
+              process.platform === "darwin" ? "libffms2.dylib" : "libffms2.so",
+          );
+
+required.push(
+    join("bin", executable("x264")),
+    join("bin", executable("x265")),
+    join("bin", executable("aomenc")),
+    join("bin", executable("SvtAv1EncApp")),
+    join("bin", executable("rav1e")),
+    join("bin", executable("vpxenc")),
+    join("bin", executable("avmenc")),
+    ...metrics.map((name) => join("lib", name)),
+    ffms2,
+    vsscript,
+    sourcePlugin,
+    python,
+);
 
 const missing = required.filter((relativePath) => !existsSync(join(out, relativePath)));
 if (missing.length > 0) {
     console.error(`The staged toolchain is incomplete: ${missing.join(", ")}`);
     process.exit(1);
-}
-
-const missingExpected = expected.filter((relativePath) => !existsSync(join(out, relativePath)));
-if (missingExpected.length > 0) {
-    const message = `The staged toolchain is missing optional providers: ${missingExpected.join(", ")}`;
-    if (!partial) {
-        console.error(message);
-        console.error("Rerun with --partial to stage a tree that selects System for them.");
-        process.exit(1);
-    }
-    console.warn(message);
-}
-
-if (process.platform !== "win32" && !existsSync(join(out, "python", "bin", "python3"))) {
-    console.log(
-        "No Python tree staged; this build will select System VapourSynth " +
-            "(the relocation gate in docs/packaging.md §7 decides when it may bundle one).",
-    );
 }
 
 function sizeOf(directory) {

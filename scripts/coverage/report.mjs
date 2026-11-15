@@ -1,8 +1,8 @@
-// Render the nightly coverage trend from normalized evidence, not from console output.
+// Render the weekly coverage trend from normalized evidence, not from console output.
 //
 // The report is a durable artifact for the workflow summary and the uploaded coverage
 // directory. It contains the same package, critical-file, and module measurements that the
-// policy evaluates, so a failed nightly still leaves a readable explanation behind.
+// policy evaluates, so a failed weekly run still leaves a readable explanation behind.
 function percent(value) {
     return `${value.toFixed(2)}%`;
 }
@@ -97,7 +97,7 @@ function failureSection(evaluation) {
     return lines;
 }
 
-/** Build the complete nightly Markdown report from one evidence/evaluation pair. */
+/** Build the complete weekly Markdown report from one evidence/evaluation pair. */
 export function renderPackageReport(
     evidence,
     evaluation,

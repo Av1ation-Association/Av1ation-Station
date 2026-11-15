@@ -1,0 +1,47 @@
+Configuration has three scopes: the project, one video, and a template. They share an editor, but they do not share ownership. Understanding that split prevents most accidental edits.
+
+## Project defaults
+
+A project's seven section documents and its General document apply to every queued video that has not overridden that section. A project section save changes all of those videos immediately. The project screen states the scope above the grid: a new video copies these values.
+
+## Video overrides
+
+A video section is an independent document. If it is present, it replaces the project's whole section for that video; if it is absent, the video reads the project. There is no per-field merge and no inheritance chain inside a section. The override header shows the project values beside the video's own values so the difference is visible before saving.
+
+<Callout tone="note" title="Whole-section replacement">
+Changing one field in a video's Encoding section writes the whole section for that video. Later changes to the project's Encoding section do not reach it. Reset the section to return to inheritance.
+</Callout>
+
+## Whole-section replacement
+
+Whole-section replacement keeps a document valid on its own. A partial patch would have to reason about fields that did not exist when the override was written, and an engine upgrade could silently change the result. The editor can still show inherited values; it writes only the section's own document.
+
+## Drafts and undo
+
+The form keeps a draft until Save. Undo and redo apply to that draft, not to server state. Navigating away with an unsaved draft opens a guard; a command that would discard it is refused rather than applied silently. Saving a section that matches the project again removes the override.
+
+<LiveSample kind="draft-actions" />
+
+## The run lock
+
+While a run is active, the project configuration and the encoding video's General, overrides, storage, scenes, and sequence reset are read-only. The service enforces the lock; the UI reflects it. Sibling videos, other projects, and templates remain editable. Starting another run, including a batch, is refused with a conflict rather than queued behind the first.
+
+<LiveSample kind="run-lock" />
+
+## Templates are snapshots
+
+A project template stores a configuration and a General document. Applying a template copies them into the project and does not alter video overrides. Editing a template later does not change projects that already applied it, and deleting a template does not touch them either. Mark one template as default to seed new projects.
+
+## Validation
+
+Every section is validated in two places: the editor refuses an invalid draft, and the service validates the saved document. A refusal names the field or the rule. A validation blocker that belongs to a video prevents Start; it does not invalidate the rest of the project.
+
+<Callout tone="warning" title="Draft versus saved">
+An invalid field left in a draft blocks Save, not a run. A saved blocker blocks the run, even if the value was valid when another video ran.
+</Callout>
+
+<RelatedLinks>
+<a href="/docs/reference/project">Project workspace and queue</a>
+<a href="/docs/guides/templates">Save and reuse a project template</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+</RelatedLinks>

@@ -11,6 +11,7 @@ import {
     MetricField,
     metricOptionCount,
     switchMetric,
+    strategyEntry,
     withStatistic,
     withStrategy,
 } from "./QualityFields";
@@ -86,6 +87,9 @@ it("keeps the shared resolution override when the metric changes", () => {
 it("writes probe variants in the engine's tagged shape", () => {
     expect(withStrategy(undefined, { key: "Whole" })).toBe("Whole");
     expect(withStrategy("Whole", { key: "Skip", skip: 12 })).toEqual({ Skip: { skip: 12 } });
+    // The engine rejects a zero stride; a legacy document is shown and written as one.
+    expect(strategyEntry({ Skip: { skip: 0 } }).skip).toBe(1);
+    expect(withStrategy("Whole", { key: "Skip", skip: 0 })).toEqual({ Skip: { skip: 1 } });
     expect(
         withStrategy("Whole", { key: "Subset", position: "End", lengthKind: "Frames", length: 9 }),
     ).toEqual({

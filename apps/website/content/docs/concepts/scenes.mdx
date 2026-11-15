@@ -1,0 +1,62 @@
+A scene is one owned frame range with its own encode. The scene table is the unit the encoder parallelises and the unit the concatenator joins. Editing a boundary is a structural change to the whole output, not a cosmetic label.
+
+## What a scene is
+
+Each scene has a start frame, an end frame, a frame count, and its own encoder document. Scenes are ordered and must be contiguous for a run: a gap is a warning, while an overlap or a reversed range is an error that disables Start. The range is half-open in practice: the end frame is the first frame after the scene.
+
+## Detection
+
+Scene detection writes the table. A detector can be AVSceneChange or TransNetV2, with minimum and maximum lengths. Detection is repeatable but not identical across detector settings: a longer minimum merges short shots, and a lower threshold splits more aggressively.
+
+<Callout tone="warning" title="Detection replaces the table">
+Running detection again replaces the scene rows and their measurements. Retained chunks for the old boundaries are not silently reused. Check the new table before starting an encode.
+</Callout>
+
+## The scene table
+
+The Scenes screen owns the rail, proportional timeline, player, and details panel. Selecting a row, a block, or a range changes the same selection. The details panel shows the range, the encoder state, the engine measurements, and the chunks attached to the selection.
+
+<LiveSample kind="scene-table" />
+
+<Steps>
+<Step title="Select a scene" result="The details panel names its range and its encoder provenance.">
+The rail is virtualized, so a long table does not create one DOM node per scene. The timeline stays proportional to frame count.
+</Step>
+<Step title="Read the engine data" result="You know whether the scene has a chunk, a score, or neither.">
+A missing chunk is shown as missing, not as a zero-byte encode. Score data appears only after the relevant sequence measured the scene.
+
+<LiveSample kind="scene-details" />
+</Step>
+</Steps>
+
+## Preview sources
+
+The player can show **Original**, **Decoded**, or **Encoded**. Original reads the queued source. Decoded reads the decoded graph. Encoded reads the scene's retained chunk and is available only when the playhead is inside a scene that has one. The source control names the selected source and explains an unavailable one.
+
+## Scene edits
+
+- **Split** at a frame inside a scene.
+- **Merge** adjacent selected scenes.
+- **Delete** selected scenes, which removes their ownership and chunks.
+- **Set boundaries** in the details panel.
+- **Undo** the last structural edit, once.
+
+An invalid boundary names the scene and the number of overlapping frames. Deleting a chunk is not restored by undo; it is a storage action.
+
+## Per-scene encoder
+
+A scene can carry its own encoder document, either copied from the video's encoder or written to exactly the selected scenes. This is how a difficult scene can use a different CRF, preset, or grain setting without changing the rest of the video.
+
+<Callout tone="note" title="Fingerprints">
+The player and the encoder identify a scene's document by a fingerprint. A changed document reopens the encoded source instead of pretending the old chunk matches the new settings.
+</Callout>
+
+## Retained chunks
+
+Chunks are kept after a successful run unless Storage deletes them. They make a later quality check and a selected-scene re-encode possible. Removing retained work is permanent and frees the reported space immediately.
+
+<RelatedLinks>
+<a href="/docs/guides/edit-scenes">Inspect and edit scenes</a>
+<a href="/docs/guides/compare-previews">Compare Original, Decoded, and Encoded</a>
+<a href="/docs/reference/scenes">Scenes and player reference</a>
+</RelatedLinks>

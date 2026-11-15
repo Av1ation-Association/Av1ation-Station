@@ -1,0 +1,50 @@
+## Metric
+
+The quality-check metric scores the encoded result against the source. It must have a usable backend. The metric is independent of the target-quality metric: an encode can be targeted with CVVDP and checked with SSIMULACRA2, or the same metric can be used for both.
+
+<Callout tone="note" title="Measures, does not change">
+A quality check runs after encoding. It never feeds a quantizer back into the encode; changing the result requires changing Target quality and running again.
+</Callout>
+
+## Strategy
+
+| Strategy | Reads | Use when |
+| --- | --- | --- |
+| Per scene | Retained scene chunks | You want scene-level attribution |
+| Full output | The concatenated file | You want the delivered file's score |
+| Both | Chunks and final output | You need to separate encoding from muxing |
+
+A strategy that needs retained chunks is unavailable when storage deletes them on success.
+
+## Statistic
+
+The aggregate statistic summarizes measured scenes: mean, median, minimum, or a percentile where supported. It applies only to measured scenes. A gap lowers the denominator; it is not a zero.
+
+## Input override
+
+A video's Quality check section overrides the project's whole document. The override panel shows the project metric and strategy beside the video's own values. Reset returns to inheritance.
+
+## Retained chunks
+
+Scene chunks are the input for per-scene scoring and for a later re-encode. Keeping them is the default. Removing them leaves the final output scorable only by the full-output strategy, if that strategy is available.
+
+## Warning
+
+An FFmpeg-filter warning appears when the quality path relies on a filter the build does not provide. It is advisory and does not block the run, but the measured result may be incomplete. Fix the provider rather than ignoring a warning that repeats.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Disabled | The stage is skipped |
+| Enabled | A saved metric and strategy are present |
+| No chunks | Per-scene scoring has no retained chunks |
+| Unmeasured | The output or a scene could not be scored |
+| Measured | Scores and an aggregate are available |
+| Locked | A run prevents editing the encoding video |
+
+<RelatedLinks>
+<a href="/docs/concepts/quality">Quality targets and checks</a>
+<a href="/docs/guides/target-quality">Hit a quality target</a>
+<a href="/docs/reference/target-quality">Target quality</a>
+</RelatedLinks>

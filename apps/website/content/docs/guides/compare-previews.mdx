@@ -1,0 +1,50 @@
+## Before you start
+
+The video needs a queued source. **Decoded** additionally needs a resolvable decode graph, and **Encoded** needs a detected scene with a retained chunk at the playhead.
+
+## Open the source control
+
+Open the Scenes tab and find the source button in the player controls. It names the current source, for example **Preview source: Original**. Selecting it opens the three choices and, when Encoded is active, the source it should decode from.
+
+## Compare Original and Decoded
+
+<Steps>
+<Step title="Pause on a frame" result="The playhead sits on a frame you want to compare.">
+Use the timeline or the frame field. The same frame is the comparison point for every source.
+</Step>
+<Step title="Choose Original" result="The player shows the queued source file.">
+Original reads the media the run decodes. It is the reference for what the filters and encoder start from.
+</Step>
+<Step title="Choose Decoded" result="The player shows the decoded graph at the same scene-relative frame.">
+Decoded reads the filter graph, so a crop, resize, or denoise is visible. If the graph cannot resolve, the choice explains the prerequisite instead of showing a black frame.
+</Step>
+</Steps>
+
+## Compare Encoded
+
+Choose Encoded while the playhead is inside a scene with a retained chunk. The player switches to that chunk and aligns its stream start to the scene. If the playhead has no scene, the choice is disabled and names the reason.
+
+## Switch without losing position
+
+Changing source keeps the scene-relative frame, not the absolute timecode of the previous stream. That is what makes a comparison meaningful: an encoded chunk starts at its scene's first frame, so the player maps the playhead into the chunk instead of seeking to the source timestamp.
+
+<Callout tone="tip" title="Frame, not wall clock">
+Read the frame field when comparing. A timecode from a variable-frame-rate source can round differently across the three streams.
+</Callout>
+
+## Understand unavailable sources
+
+- **Decoded disabled**: the input has no resolvable decode graph, or a required provider is missing.
+- **Encoded disabled**: there is no scene at the playhead, or the scene has no retained chunk.
+- **Encoded from unavailable**: the chunk was retained but its source no longer resolves.
+- **Paired browser**: the media token or host path may not be available; the LAN browser explains the limitation rather than falling back silently.
+
+## Check your result
+
+The source control reports the selected source, and the frame field stays on the same frame across switches. Returning to Original should show the source frame you started from.
+
+<RelatedLinks>
+<a href="/docs/concepts/scenes">Scenes and preview</a>
+<a href="/docs/reference/scenes">Scenes and player reference</a>
+<a href="/docs/guides/edit-scenes">Inspect and edit scenes</a>
+</RelatedLinks>

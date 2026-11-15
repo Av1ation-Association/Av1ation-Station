@@ -1,0 +1,53 @@
+## Global commands
+
+| Action | Windows and Linux | macOS |
+| --- | --- | --- |
+| Command palette | Ctrl K | Command K |
+| Search the manual | Ctrl K on a docs page | Command K |
+| Save the current section | Ctrl S | Command S |
+| Close a dialog or drawer | Escape | Escape |
+| Go back | Alt Left | Command Left |
+| Go forward | Alt Right | Command Right |
+
+Shortcuts apply to the focused surface. A dialog traps Escape and restores focus to the control that opened it.
+
+## Player keys
+
+| Action | Key |
+| --- | --- |
+| Play or pause | Space |
+| Previous frame | Left arrow |
+| Next frame | Right arrow |
+| Back one second | Shift Left arrow |
+| Forward one second | Shift Right arrow |
+| Jump to scene start | Home |
+| Jump to scene end | End |
+
+Player keys are ignored while a text field has focus. The Scenes player disables host shortcuts while it handles a key, so a browser binding does not fire twice.
+
+## Platform conventions
+
+The application prints the host's modifier name. Windows and Linux show **Ctrl**, **Alt**, and **Shift**; macOS shows **Command**, **Option**, and **Shift**. A chord that uses a modifier the host does not have is not offered. The command palette and the docs search both use the same primary modifier.
+
+<Callout tone="note" title="Browser host">
+In a paired LAN browser, some browser-reserved chords cannot be captured. The application does not claim a shortcut it cannot receive; the command palette remains available from the menu.
+</Callout>
+
+## Command palette
+
+The palette searches commands by label and keyword. It reaches projects, settings tabs, and actions with a command. A disabled command states why it is disabled instead of disappearing. A command that would discard an unsaved draft is refused rather than applied.
+
+<Steps>
+<Step title="Open the palette" result="A search field and a ranked command list appear.">
+Type a label fragment; the first result is the closest match. Arrow keys move the selection, Enter runs it, Escape closes it.
+</Step>
+<Step title="Run a navigation command" result="The target opens without losing the current draft guard.">
+Navigation commands push a history entry, so Back returns to the previous surface.
+</Step>
+</Steps>
+
+<RelatedLinks>
+<a href="/docs/get-started/workspace">Tour the workspace</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+<a href="/docs/reference/scenes">Scenes and player</a>
+</RelatedLinks>

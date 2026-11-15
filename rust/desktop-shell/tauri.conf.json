@@ -18,6 +18,9 @@
     "bundle": {
         "active": true,
         "targets": "all",
+        "macOS": {
+            "minimumSystemVersion": "15.0"
+        },
         "resources": {
             "../../dist/apps/desktop/": "web/"
         },

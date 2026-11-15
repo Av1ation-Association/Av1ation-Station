@@ -1,0 +1,47 @@
+## Project list
+
+Home is the project index. Each row shows the project name, video count, retained disk size, and last-accessed time. Rows are ordered by last access, newest first. Selecting a row opens the project workspace; the row menu holds rename and delete.
+
+<Figure capture="home" alt="The project list with several projects." caption="Home orders projects by last access and reports each project's queue and retained size." scope="Home" />
+
+## Search
+
+The search field filters the list by project name as you type. Matching is case-insensitive and substring-based. Search does not reach into project contents, video paths, or logs; it is a filter of the visible list. Clearing the field restores the full order.
+
+<LiveSample kind="project-search" />
+
+## Create and rename
+
+**New project** opens an inline form with one name field. Submit creates the project and opens it. An empty name is refused; duplicate names are allowed but make the list harder to read. Rename uses the same field in the row menu and updates the list in place.
+
+<Callout tone="note" title="No path field">
+A project has no folder. Its configuration and queue live in the application database; the source and output paths belong to each video.
+</Callout>
+
+## Delete
+
+Delete removes the project, its queue, its configuration, and its history cards. It does not delete source files, encoded outputs, or retained scene chunks on disk. A project holding the active run cannot be deleted.
+
+## Disk size
+
+The reported size is retained work for the project: scene chunks and their sidecars. It excludes source files, final outputs, logs, and scratch. A project with no retained work reports zero rather than hiding the row.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Loading | The project list is being read |
+| Ready | One or more projects are available |
+| Empty | No project has been created |
+| Error | The list could not be read; the message and retry are visible |
+| Filtered empty | The search matched no project name |
+
+<Callout tone="tip" title="Empty is not an error">
+An empty list shows the create action. An error shows its message and a retry; it never pretends the database is empty.
+</Callout>
+
+<RelatedLinks>
+<a href="/docs/get-started/first-encode">Your first project and encode</a>
+<a href="/docs/reference/project">Project workspace and queue</a>
+<a href="/docs/guides/batch-queue">Run and monitor a batch queue</a>
+</RelatedLinks>

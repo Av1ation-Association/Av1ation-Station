@@ -23,7 +23,8 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | [backend.md](backend.md) | Rust crates, engine integration, concurrency, persistence, errors |
 | [contracts.md](contracts.md) | JSON Schema → TypeScript/Zod pipeline, encoder parameters, filter descriptors |
 | [preflight.md](preflight.md) | required tools, bundled and system providers, custom executables, metric backends, optional language server |
-| [packaging.md](packaging.md) | bundled toolchain contents, layout, provider selection, lock, and release transparency; the Phase 6 packaging contract |
+| [packaging.md](packaging.md) | bundled toolchain contents, layout, provider selection, lock, and release transparency; the Phase 5 packaging contract |
+| [releases.md](releases.md) | weekly, RC, and stable channels; tags and versions; platform matrix; unsigned distribution; updater and audit policy |
 | [security.md](security.md) | LAN exposure, auth, threat model, log anonymisation, bundled supply chain |
 
 ### Implementation maps
@@ -37,6 +38,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | [frontend-penpot.md](frontend-penpot.md) | Penpot file structure, token contract, handoff ritual, design-complete definition |
 | [filter-catalogue.md](filter-catalogue.md) | every engine input filter, its fields, controls, and app-owned constraints |
 | [preview.md](preview.md) | scene editor, VapourSynth reload, fragmented-MP4 preview |
+| [website-docs.md](website-docs.md) | public manual inventory: page set, task recipes, focused samples, screenshot cases, authoring and build checks |
 
 ### Reference
 
@@ -59,8 +61,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | [plan/03-ui.md](plan/03-ui.md) | shell, screens, configuration renderer and guards |
 | [plan/04-testing.md](plan/04-testing.md) | test pyramid, fixtures and spike procedures |
 | [plan/04-testing-coverage-proposal.md](plan/04-testing-coverage-proposal.md) | Phase 4 coverage inventory, testing-practice audit, and prioritized improvement proposal |
-| [plan/05-ci.md](plan/05-ci.md) | pipeline jobs, caching and branch protection |
-| [plan/06-deployment.md](plan/06-deployment.md) | release matrix, signing, packaging and updates |
+| [plan/05-ci.md](plan/05-ci.md) | pipeline jobs, caching, branch protection, the release matrix, signing and updates |
 | [progress.md](progress.md) | the only current delivery-status surface, with every open phase task |
 | [decisions.md](decisions.md) | open post-baseline decisions |
 | [changelog.md](changelog.md) | post-baseline dated implementation history; empty until the first entry |
@@ -97,6 +98,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | what must be tested and which experiments must pass | [testing.md](testing.md) |
 | why a choice was made, or which assumptions are still open | the owning architecture document + [decisions.md](decisions.md) for open post-baseline decisions + the register below |
 | what ships in the installer, or which provider a tool comes from | [packaging.md](packaging.md) |
+| which release channel, tag, version, or platform artifact a build belongs to | [releases.md](releases.md) |
 | what is happening now and what comes next | [progress.md](progress.md) |
 | how the phases are sequenced | [plan/00-overview.md](plan/00-overview.md) |
 
@@ -110,7 +112,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | change a screen | [frontend.md](frontend.md) → [screens/README.md](screens/README.md) → the surface page → [frontend-penpot.md](frontend-penpot.md) |
 | change a boundary type | [contracts.md](contracts.md) → [data-model.md](data-model.md) → [backend.md](backend.md) |
 | add or change an API route | [AGENTS.md](../AGENTS.md#215-routes-are-declared-once-and-derived) → [service.md](service.md) → [backend.md](backend.md#52-routes) |
-| prepare a release | [packaging.md](packaging.md) → [security.md](security.md) → [plan/06-deployment.md](plan/06-deployment.md) → [progress.md](progress.md) |
+| prepare a release | [releases.md](releases.md) → [packaging.md](packaging.md) → [security.md](security.md) → [plan/05-ci.md](plan/05-ci.md#15-release-workflow) → [progress.md](progress.md) |
 
 ## Conventions
 
@@ -150,7 +152,7 @@ confirmed on 2026-10-30; the phase column records where the assumption is first 
 | --- | --- | --- |
 | A1 | **v0.1 scope** — home, settings, about, project configuration defaults, video queue, video configuration with inheritance, video timeline, logs, and one real end-to-end encode. Monaco editing, scene editing, preview, charts, and LAN access shipped in increments 2–3. | 2 |
 | A2 | **Persistence** — one JSON document per project under the app-data directory, plus a small rebuildable index for the home screen. No SQLite or other embedded database; the execution timeline is append-only JSONL. | 2 |
-| A3 | **Test stack** — Vitest for unit/component, `cargo test` with fake sequences, and a Playwright smoke plus fake-engine completion, held-open cancel/navigation, locked-scope/`409`, and LAN pairing journeys against the real headless service are in the tree. The pull-request CI workflow and the frontend/Rust coverage policy are checked in. The screenshot gallery and error-path matrix are wired; branch protection is planned. | 4 |
+| A3 | **Test stack** — Vitest for unit/component, `cargo test` with fake sequences, and a Playwright smoke plus fake-engine completion, held-open cancel/navigation, locked-scope/`409`, and LAN pairing journeys against the real headless service are in the tree. The pull-request CI workflow and the frontend/Rust coverage policy are checked in. The screenshot gallery and error-path matrix are wired; branch protection requires the three aggregate gates. | 4 |
 | A4 | **`mpv` is not used.** Preview renders through `<video>` with a fragmented-MP4 stream in both the desktop app and the browser, preserving the single-source-of-truth rule. S2 confirmed play/seek in Chromium and the WebView2 engine family on 2026-11-02; WebKit remains a release check. | 4a (spike S2); Phase 3 increment 3 |
 | A5 | **Node 26 LTS** — `.nvmrc` pins 26 and `package.json` requires Node `>=26` with npm `>=11`; local development is verified with 26.13.0 and npm 11.20.0. CI reads the same `.nvmrc`. | 1 |
 | A6 | **No multi-window.** The desktop app is a single window; secondary views are routes. This keeps the encode guard and the LAN session model simple. | 3 |

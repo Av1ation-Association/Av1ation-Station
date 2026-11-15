@@ -3,16 +3,35 @@
 //
 // The wrappers own the Tauri invocation and variant-specific resource mapping. This script
 // only sequences them and makes the release directory fresh so an old bundle cannot leak
-// into the new pre-release.
+// into the new pre-release. The tag is required: a missing tag is never treated as stable.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import { projectRoot, releaseDir, releasePlatform, stagedTools } from "./build-paths.mjs";
 import { writeChecksums } from "./collect-release.mjs";
-import { writeReleaseManifest } from "./release-manifest.mjs";
+import { parseReleaseTag, parseTagArgument, writeReleaseManifest } from "./release-manifest.mjs";
 
 const args = process.argv.slice(2);
+let tag;
+try {
+    tag = parseTagArgument(args);
+} catch (error) {
+    console.error(error.message);
+    process.exit(1);
+}
+if (tag === undefined) {
+    console.error("Release tag is required.");
+    console.error("Pass --tag v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD.");
+    process.exit(1);
+}
+try {
+    parseReleaseTag(tag);
+} catch (error) {
+    console.error(error.message);
+    process.exit(1);
+}
+
 const skipBundled = args.includes("--skip-bundled");
 const skipSystem = args.includes("--skip-system");
 
@@ -62,7 +81,7 @@ if (!existsSync(releaseDir)) {
     process.exit(1);
 }
 writeChecksums(releaseDir, { recursive: true });
-writeReleaseManifest();
+writeReleaseManifest({ tag });
 console.log("");
 console.log(`Host artifacts: ${hostReleaseDir}`);
 console.log(`All release artifacts: ${releaseDir}`);

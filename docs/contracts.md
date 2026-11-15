@@ -499,10 +499,10 @@ and its VapourSynth input do not accept the same filters.
   the decoded value. Offering Crop, Trim, or a scaler choice here would be a lie: FFMS2
   always resizes with bicubic.
 - **VapourSynth input** accepts an ordered `Vec<VapourSynthFilter>`. Verified against the
-  engine at the pinned revision, the enum has exactly nine variants: `Crop`, `Resize`,
-  `Trim`, `Rescale`, `WNNM`, `Bilateral`, `Degrain`, `ZoomDegrain`, and `FGS`. There is no
-  `Splice` variant and no generic filter escape hatch in the typed model. The filter
-  catalogue is [`filter-catalogue.md`](filter-catalogue.md); it is the authoritative field
+  engine at the pinned revision, the enum has exactly ten variants: `Crop`, `Resize`,
+  `OutputFormat`, `Trim`, `Rescale`, `WNNM`, `Bilateral`, `Degrain`, `ZoomDegrain`, and
+  `FGS`. There is no `Splice` variant and no generic filter escape hatch in the typed
+  model. The filter catalogue is [`filter-catalogue.md`](filter-catalogue.md); it is the authoritative field
   list for both the form and the runner.
 
 Both are described by the same descriptor shape the encoder editor uses:

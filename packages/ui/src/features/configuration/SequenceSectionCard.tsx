@@ -8,6 +8,7 @@ import { Lock, Play, RotateCcw, Square } from "lucide-react";
 import { liveSummary } from "../../shared/model/sequence-live";
 import type { TimelineStep } from "../../shared/model/video-timeline";
 import { Button } from "../../shared/Button";
+import { useDemoMode } from "../../shared/demo-mode";
 import { OpenRow } from "../../shared/OpenRow";
 import { SequenceActionButton } from "./SequenceActionButton";
 import { SequenceFailureRail } from "./SequenceFailureRail";
@@ -124,6 +125,7 @@ export function SequenceSectionCard({
     runFailure?: VideoFailure | null;
 }) {
     const navigate = useNavigate();
+    const demo = useDemoMode();
     const active = steps.find((step) => step.status === "active");
     // The card shows the same live sentence as the sequence page, so the bar and the card
     // cannot disagree about the pass or the ETA.
@@ -146,16 +148,19 @@ export function SequenceSectionCard({
             as="article"
             // No `overflow-hidden`: a card control's tooltip is a pseudo-element on that
             // control, so the card's own clipping would cut every bubble at its wall.
-            className={`relative flex h-full min-h-[132px] min-w-0 cursor-pointer flex-col rounded-lg border ${
+            className={`relative flex h-full min-h-[132px] min-w-0 flex-col rounded-lg border ${demo ? "" : "cursor-pointer"} ${
                 hasFailure
                     ? "border-danger/40 hover:border-danger/60"
                     : "border-line hover:border-line-strong"
             } bg-surface transition-colors duration-150 hover:bg-raised focus-within:border-brand`}
-            onOpen={() =>
-                void navigate({
-                    to: "/projects/$projectId/videos/$videoId/config/$section",
-                    params: { projectId, videoId, section },
-                })
+            onOpen={
+                demo
+                    ? null
+                    : () =>
+                          void navigate({
+                              to: "/projects/$projectId/videos/$videoId/config/$section",
+                              params: { projectId, videoId, section },
+                          })
             }
         >
             {hasFailure ? (
@@ -167,17 +172,21 @@ export function SequenceSectionCard({
             <div className="relative flex min-h-0 flex-1 flex-col">
                 <div className="flex min-w-0 items-start justify-between gap-2 px-4 pt-3.5">
                     <h2 className="m-0 text-[15px] font-semibold text-ink">
-                        <Link
-                            to="/projects/$projectId/videos/$videoId/config/$section"
-                            params={{ projectId, videoId, section }}
-                            aria-label={`Open ${title} configuration`}
-                            className="rounded-sm hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                        >
-                            {title}
-                        </Link>
+                        {demo ? (
+                            title
+                        ) : (
+                            <Link
+                                to="/projects/$projectId/videos/$videoId/config/$section"
+                                params={{ projectId, videoId, section }}
+                                aria-label={`Open ${title} configuration`}
+                                className="rounded-sm hover:text-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                            >
+                                {title}
+                            </Link>
+                        )}
                     </h2>
                     <div className="flex shrink-0 items-center gap-1.5">
-                        {resetConfigurationDisabled ? null : (
+                        {demo || resetConfigurationDisabled ? null : (
                             <Button
                                 variant="ghost"
                                 className="h-6 px-1.5 text-[9.5px]"
@@ -259,7 +268,7 @@ export function SequenceSectionCard({
                                                     }`}
                                             </span>
                                             <div className="ml-auto flex shrink-0 items-center gap-0.5">
-                                                {isActive ? (
+                                                {demo ? null : isActive ? (
                                                     <SequenceActionButton
                                                         icon={
                                                             <Square
@@ -302,7 +311,7 @@ export function SequenceSectionCard({
                                                         onClick={() => onRun(step.id)}
                                                     />
                                                 )}
-                                                {resetReady ? (
+                                                {demo || !resetReady ? null : (
                                                     <SequenceActionButton
                                                         icon={
                                                             <RotateCcw
@@ -317,7 +326,7 @@ export function SequenceSectionCard({
                                                         tone="warning"
                                                         onClick={() => onResetData(step)}
                                                     />
-                                                ) : null}
+                                                )}
                                             </div>
                                         </div>
                                         {refusal?.sequence === step.id ? (
@@ -342,9 +351,7 @@ export function SequenceSectionCard({
                 aria-valuemin={active === undefined ? undefined : 0}
                 aria-valuemax={active === undefined ? undefined : 100}
                 aria-valuenow={
-                    active === undefined || active.progress === null
-                        ? undefined
-                        : Math.round(active.progress)
+                    active === undefined || progress === null ? undefined : Math.round(progress)
                 }
                 className="h-1 w-full shrink-0 overflow-hidden rounded-b-[7px] bg-line-subtle"
             >

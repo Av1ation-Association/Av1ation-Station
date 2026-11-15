@@ -14,7 +14,19 @@ export const FEATURE_GROUPS = [
 
 export type FeatureGroup = (typeof FEATURE_GROUPS)[number];
 
-export type GalleryMode = "populated" | "empty" | "empty-queue" | "empty-scenes" | "failing";
+export type GalleryMode =
+    | "populated"
+    | "empty"
+    | "empty-queue"
+    | "empty-scenes"
+    | "failing"
+    | "running"
+    | "failed"
+    | "blocked"
+    | "missing-dependency"
+    | "lan-off"
+    | "invalid-scenes"
+    | "concat-inventory";
 
 /** One catalog entry, captured once per theme from the same page and data state. */
 export interface GalleryCase {
@@ -24,6 +36,8 @@ export interface GalleryCase {
     readonly alt: string;
     readonly path: string;
     readonly mode?: GalleryMode;
+    /** A capture-only host route that has no place in the demo's public navigation. */
+    readonly capture?: "pairing";
     readonly ready: string;
     readonly group: FeatureGroup;
     /** A viewport shot for fixed panes and overlays; a document shot for scrolling pages. */
@@ -78,6 +92,68 @@ const addVideos = async (page: Page): Promise<void> => {
 const logExport = async (page: Page): Promise<void> => {
     await page.getByRole("button", { name: "Export" }).first().click();
     await page.getByRole("dialog", { name: "Export this run" }).waitFor();
+};
+
+const newProject = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: "New project" }).click();
+    await page.getByLabel("Project name").waitFor();
+};
+
+const applyTemplate = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: /Apply Template/u }).click();
+    await page.getByPlaceholder("Search templates").waitFor();
+};
+
+const selectTwo = async (page: Page): Promise<void> => {
+    await page.getByRole("checkbox", { name: "Select Aurora — Coastline" }).click();
+    await page
+        .getByRole("checkbox", { name: "Select Aurora — Nightfall" })
+        .click({ modifiers: ["Shift"] });
+    await page.getByText("2 selected").waitFor();
+};
+
+const addFilter = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: "Add filter" }).first().click();
+    await page.getByRole("dialog", { name: "Add filter" }).waitFor();
+};
+
+const previewSources = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: /Preview source:/u }).click();
+    await page.getByRole("menu", { name: "Preview source" }).waitFor();
+};
+
+const sceneActions = async (page: Page): Promise<void> => {
+    await page
+        .getByRole("group", { name: /^Scene timeline:/u })
+        .click({ button: "right", position: { x: 120, y: 24 } });
+    await page.getByRole("menu", { name: "Scene actions" }).waitFor();
+};
+
+const selectTwoScenes = async (page: Page): Promise<void> => {
+    await page.getByRole("option").first().click();
+    await page.getByRole("option").nth(1).click({ modifiers: ["Shift"] });
+    await page.getByRole("heading", { name: "2 scenes" }).waitFor();
+};
+
+const sceneBoundaryIssues = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: "1 scene boundary issue" }).click();
+    await page.getByText("Scene 2 overlaps scene 1").first().waitFor();
+};
+
+const keyboardShortcuts = async (page: Page): Promise<void> => {
+    await commandPalette(page);
+    await page.getByRole("option", { name: "Keyboard Shortcuts" }).click();
+    await page.getByRole("dialog", { name: "Keyboard Shortcuts" }).waitFor();
+};
+
+const addBuild = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: "Add build" }).click();
+    await page.getByText("Add a build").waitFor();
+};
+
+const trackOptions = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: "Options for English 5.1" }).click();
+    await page.getByText("English 5.1 options").waitFor();
 };
 
 /**
@@ -487,5 +563,301 @@ export const GALLERY_CASES: readonly GalleryCase[] = [
         group: "Runs and logs",
         frame: "viewport",
         prepare: logExport,
+    },
+    {
+        id: "home-create",
+        title: "New project",
+        caption:
+            "Creating a project from Home needs only a name; the queue, template, and destination follow in the workspace.",
+        alt: "Home screen with the new-project form open and the project name field focused.",
+        path: "/",
+        ready: "New project",
+        group: "App and settings",
+        frame: "viewport",
+        prepare: newProject,
+    },
+    {
+        id: "project-template-picker",
+        title: "Apply a template",
+        caption:
+            "A project can copy a saved configuration without touching the template it came from.",
+        alt: "Apply-template popover open over the project workspace with the searchable template list.",
+        path: PROJECT,
+        ready: "Apply Template",
+        group: "Templates",
+        frame: "viewport",
+        prepare: applyTemplate,
+    },
+    {
+        id: "project-batch-selection",
+        title: "Queue batch selection",
+        caption:
+            "Shift-click extends the queue selection, and the batch bar runs, retries, or removes every selected video.",
+        alt: "Project queue with two videos selected and the batch bar showing run and removal actions.",
+        path: PROJECT,
+        ready: "Aurora — Coastline",
+        group: "Pipeline",
+        frame: "viewport",
+        prepare: selectTwo,
+    },
+    {
+        id: "project-noise-generation",
+        title: "Project noise generation",
+        caption:
+            "Grain is measured and scaled at the project level, and either sequence can run without the other.",
+        alt: "Project noise-generation configuration with the detector, scaler, and inheritance source.",
+        path: `${PROJECT}/config/noise-generation`,
+        ready: "Measures the source's grain",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "project-encoding",
+        title: "Project encoding",
+        caption:
+            "The encoder document every queued video inherits: the variant, its parameters, and the worker count.",
+        alt: "Project encoding configuration with the SVT-AV1 variant and the shared parameter table.",
+        path: `${PROJECT}/config/encoding`,
+        ready: "Chooses the encoder and the command-line parameters every scene is encoded with",
+        group: "Encoder tuning",
+        frame: "document",
+    },
+    {
+        id: "project-target-quality",
+        title: "Project target quality",
+        caption:
+            "The probe metric and target range a video inherits, with the quantizer bounds and interpolation points below.",
+        alt: "Project target-quality configuration showing the CVVDP target range and quantizer bounds.",
+        path: `${PROJECT}/config/target-quality`,
+        ready: "Probes scenes for a quality target",
+        group: "Quality",
+        frame: "document",
+    },
+    {
+        id: "project-concatenation",
+        title: "Project concatenation",
+        caption:
+            "The muxer and its track policy are project-wide defaults a video can override section by section.",
+        alt: "Project concatenation configuration with the mkvmerge muxer and track map.",
+        path: `${PROJECT}/config/concatenation`,
+        ready: "Joins the encoded chunks",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "project-quality-check",
+        title: "Project quality check",
+        caption:
+            "A project-level metric and statistic score the concatenated result without changing the encode.",
+        alt: "Project quality-check configuration with the metric, statistic, and inherited values.",
+        path: `${PROJECT}/config/quality-check`,
+        ready: "Scores the concatenated video against the input",
+        group: "Quality",
+        frame: "document",
+    },
+    {
+        id: "video-noise-generation",
+        title: "Video noise generation",
+        caption:
+            "A video can override grain measurement and scaling while the rest of the project's values stay inherited.",
+        alt: "Video noise-generation section showing inherited project values and the override count.",
+        path: `${VIDEO}/config/noise-generation`,
+        ready: "Measures the source's grain",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "video-concatenation",
+        title: "Video concatenation",
+        caption:
+            "The track map lists every source stream by the muxer's own key, so inclusion and options never cross namespaces.",
+        alt: "Video concatenation section with the mkvmerge track map listing an English audio track and subtitles.",
+        path: `${VIDEO}/config/concatenation`,
+        mode: "concat-inventory",
+        ready: "English 5.1",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "video-running",
+        title: "Video running",
+        caption:
+            "A live run keeps its current sequence and progress visible while later sequences stay marked as never run.",
+        alt: "Video pipeline during a run, with scene detection complete and parallel encoding in progress.",
+        path: VIDEO,
+        mode: "running",
+        ready: "Encoding 7 of 14 scenes",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "video-failed",
+        title: "Video failed",
+        caption:
+            "A failure is run history, recorded with the engine's message and the run id that its log belongs to.",
+        alt: "Video pipeline after a failed encode, with the encoder's message and the failed sequence.",
+        path: VIDEO,
+        mode: "failed",
+        ready: "The encoder exited with code 1 while encoding scene 7.",
+        group: "Runs and logs",
+        frame: "document",
+    },
+    {
+        id: "video-blocked",
+        title: "Video blocked",
+        caption:
+            "Preflight blockers name the condition that stops a start instead of letting the run fail later.",
+        alt: "Video pipeline with an output-directory blocker shown beside the disabled start action.",
+        path: VIDEO,
+        mode: "blocked",
+        ready: "The output directory is not writable.",
+        group: "Pipeline",
+        frame: "document",
+    },
+    {
+        id: "filter-composer",
+        title: "Filter composer",
+        caption:
+            "Filters are composed against a generated schema, with the source and output size visible while the form is built.",
+        alt: "Add-filter sheet open over General, showing the FFMS2 input and filter form.",
+        path: `${PROJECT}/config/general`,
+        ready: "Add filter",
+        group: "Scripting",
+        frame: "viewport",
+        prepare: addFilter,
+    },
+    {
+        id: "scene-sources",
+        title: "Preview sources",
+        caption:
+            "Original, decoded, and encoded can each drive the preview; the browser demo marks the two proxy sources unavailable.",
+        alt: "Preview-source menu open over Scenes with the three source choices and Encoded-from section.",
+        path: `${VIDEO}/scenes`,
+        ready: "Virtualized · 14 total",
+        group: "Scenes",
+        frame: "viewport",
+        prepare: previewSources,
+    },
+    {
+        id: "scene-context-menu",
+        title: "Scene actions",
+        caption:
+            "Right-clicking the timeline acts on the frame under the pointer, with the gap or scene named first.",
+        alt: "Context menu open over the scene timeline with split, merge, and delete actions.",
+        path: `${VIDEO}/scenes`,
+        ready: "Virtualized · 14 total",
+        group: "Scenes",
+        frame: "viewport",
+        prepare: sceneActions,
+    },
+    {
+        id: "scenes-multiselect",
+        title: "Multiple scenes",
+        caption:
+            "A multi-scene selection keeps the same detail groups, showing ranges and shared engine data instead of inventing one row.",
+        alt: "Scenes screen with two scenes selected and the details panel showing 2 scenes.",
+        path: `${VIDEO}/scenes`,
+        ready: "Virtualized · 14 total",
+        group: "Scenes",
+        frame: "viewport",
+        prepare: selectTwoScenes,
+    },
+    {
+        id: "scenes-invalid",
+        title: "Invalid boundaries",
+        caption:
+            "Overlapping scenes are named with both boundaries and disable starting before an encode touches them.",
+        alt: "Scenes screen with an invalid-boundary badge and the overlap message listed.",
+        path: `${VIDEO}/scenes`,
+        mode: "invalid-scenes",
+        ready: "Virtualized · 14 total",
+        group: "Scenes",
+        frame: "viewport",
+        prepare: sceneBoundaryIssues,
+    },
+    {
+        id: "history-failed",
+        title: "Failed run history",
+        caption:
+            "A failed attempt keeps its reason and correlation id in the history table, separate from the pipeline's current phase.",
+        alt: "Run history with the failed parallel-encoding attempt and its error message.",
+        path: `${VIDEO}/history`,
+        mode: "failed",
+        ready: "gallery-failed-run",
+        group: "Runs and logs",
+        frame: "document",
+    },
+    {
+        id: "pairing-screen",
+        title: "Pair a browser",
+        caption:
+            "A browser without a LAN token sees the pairing form before any shell mounts; the code is exchanged for a session token.",
+        alt: "Standalone pairing screen with the eight-character code field and the pair action.",
+        path: "/pair",
+        capture: "pairing",
+        ready: "Pair this browser",
+        group: "App and settings",
+        frame: "viewport",
+    },
+    {
+        id: "settings-dependencies-missing",
+        title: "Missing dependency",
+        caption:
+            "An unavailable dependency names what is missing and what to install, instead of failing during a run.",
+        alt: "Dependencies settings with FFmpeg unavailable and its install remediation shown.",
+        path: "/settings",
+        mode: "missing-dependency",
+        ready: "Every executable the pipeline can use",
+        group: "App and settings",
+        frame: "document",
+    },
+    {
+        id: "settings-network-disabled",
+        title: "LAN access off",
+        caption:
+            "LAN access is opt-in: when off, no pairing code exists and loopback keeps working without a token.",
+        alt: "Network settings with LAN access disabled and the pairing section explaining how to turn it on.",
+        path: "/settings#network",
+        mode: "lan-off",
+        ready: "Turn on LAN access to create a pairing code.",
+        group: "App and settings",
+        frame: "document",
+    },
+    {
+        id: "shortcuts-dialog",
+        title: "Keyboard shortcuts",
+        caption:
+            "Every chord the application handles, grouped by surface and reachable from the command palette.",
+        alt: "Keyboard-shortcuts dialog open over Home with grouped key bindings.",
+        path: "/",
+        ready: "Aurora Documentary",
+        group: "App and settings",
+        frame: "viewport",
+        prepare: keyboardShortcuts,
+    },
+    {
+        id: "encoder-build-form",
+        title: "Add an encoder build",
+        caption:
+            "A saved build is another executable for a known encoder family, validated before the catalogue accepts it.",
+        alt: "Add-a-build sheet open over Encoders with the label, base family, and executable path fields.",
+        path: "/settings#encoders",
+        ready: "Catalogue",
+        group: "Encoder tuning",
+        frame: "viewport",
+        prepare: addBuild,
+    },
+    {
+        id: "concat-track-sheet",
+        title: "Track options",
+        caption:
+            "One source stream's language, name, and flags are edited beside the map, keyed by the muxer's own identifier.",
+        alt: "Track-options sheet open over concatenation with the English 5.1 audio track's fields.",
+        path: `${VIDEO}/config/concatenation`,
+        mode: "concat-inventory",
+        ready: "English 5.1",
+        group: "Pipeline",
+        frame: "viewport",
+        prepare: trackOptions,
     },
 ];

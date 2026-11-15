@@ -1,9 +1,9 @@
-// Run the environment-gated real-encode tests the same way locally and in nightly CI.
+// Run the environment-gated real-encode tests the same way locally and in weekly CI.
 //
 // The tests generate their own clips through `av1ation-test-support`; nothing here reads a
 // committed media file. VSScript keeps one Python runtime per process, so the suite is run
 // with one test thread. A test that returns early because VapourSynth is absent prints
-// `skipped:` and would otherwise let an incomplete nightly pass, so that is a failure here.
+// `skipped:` and would otherwise let an incomplete run pass, so that is a failure here.
 import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -13,7 +13,7 @@ import { sanitizedPath } from "./sanitize-path.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rustRoot = resolve(root, "rust");
-const logDirectory = resolve(root, "dist/nightly");
+const logDirectory = resolve(root, "dist/real-encode");
 const logPath = resolve(logDirectory, "real-encode.log");
 const expected = Number(process.env.AV1ATION_REAL_ENCODE_TESTS ?? 12);
 const args = [

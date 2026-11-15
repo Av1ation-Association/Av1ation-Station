@@ -307,14 +307,15 @@ fn drop_missing_grain_tables(encoder: &mut Encoder) {
 fn scene_arguments(
     encoder: &Encoder,
     passes: (u8, u8),
-    sentinel: &PathBuf,
+    sentinel: &Path,
     sentinel_text: &str,
     info: &andean_condor::core::input::clip_info::ClipInfo,
-) -> Vec<String> {
+) -> Result<Vec<String>, String> {
     let mut arguments = Vec::new();
     let svt = matches!(encoder.base(), EncoderBase::SVTAV1);
     let mut pending = encoder
         .parameters_with_output(passes, sentinel, info)
+        .map_err(|error| error.to_string())?
         .into_iter();
     while let Some(argument) = pending.next() {
         if argument == sentinel_text {
@@ -336,7 +337,7 @@ fn scene_arguments(
         arguments.push("--webm".to_owned());
         arguments.push("0".to_owned());
     }
-    arguments
+    Ok(arguments)
 }
 
 /// Forward an IVF stream while making it usable from a pipe.

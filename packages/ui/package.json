@@ -4,7 +4,14 @@
     "type": "module",
     "exports": {
         ".": "./src/index.ts",
-        "./styles.css": "./src/styles.css"
+        "./docs-widgets": "./src/docs/DocsWidgets.tsx",
+        "./logo-mark": "./src/app/LogoMark.tsx",
+        "./parameter-control": "./src/features/encoders/parameter-control.tsx",
+        "./parameter-value-grid": "./src/features/encoders/ParameterValueGrid.tsx",
+        "./sequence-analytics": "./src/features/analytics/sequence-analytics.ts",
+        "./sequence-analytics-card": "./src/features/analytics/SequenceAnalyticsCard.tsx",
+        "./styles.css": "./src/styles.css",
+        "./video-demo": "./src/app/VideoDemo.tsx"
     },
     "dependencies": {
         "@av1ation/api": "*",

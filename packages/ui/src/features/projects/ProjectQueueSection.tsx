@@ -29,7 +29,7 @@ export function ProjectQueueSection({
             aria-labelledby="queue-heading"
             className="min-w-0 scroll-mt-20 rounded-lg border border-line bg-surface"
         >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-5 pb-4 sm:px-6">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2 px-4 pt-5 pb-4 sm:px-6">
                 <h2 id="queue-heading" className="m-0 text-base font-semibold text-ink">
                     Queue
                 </h2>
@@ -44,7 +44,7 @@ export function ProjectQueueSection({
                         <span className="font-sans"> · drag to reorder</span>
                     )}
                 </p>
-                <div className="relative ml-auto flex flex-wrap items-center gap-2">
+                <div className="relative ml-auto flex flex-wrap items-center gap-2 self-center">
                     <SearchField
                         value={queue.queueQuery}
                         onChange={queue.setQueueQuery}

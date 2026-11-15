@@ -295,6 +295,17 @@ pub(crate) fn validate_paths(input: &str, output: &str) -> Option<Response> {
             Some("Choose an existing output directory.".to_owned()),
         ));
     }
+    // Refuse a destination that aliases the source before a run can write through it. The
+    // engine has the same check, but it runs only at concatenation, after every chunk has
+    // already been encoded.
+    if let Err(message) = av1ation_engine::media::video::check_output_path(output, input) {
+        return Some(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            message,
+            Some("Choose a different output file; it cannot alias the source.".to_owned()),
+        ));
+    }
     None
 }
 

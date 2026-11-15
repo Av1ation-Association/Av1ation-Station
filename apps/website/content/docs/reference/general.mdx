@@ -1,0 +1,55 @@
+## Input kinds
+
+| Kind | Decoder | Requires VapourSynth |
+| --- | --- | --- |
+| Video | FFMS2 (native) | No |
+| VapourSynth | A script that returns a clip | Yes |
+| VapourSynth script | A script document edited in the app | Yes |
+
+The input kind determines which filter target is offered. Changing it does not convert an existing script or rewrite a source path.
+
+## Import method
+
+Import method controls how a native video is indexed. The automatic method chooses the source's index behaviour; an explicit method forces it. A project cannot state a source path or an FFMS2 index, because that path would point every video at the same file. A video's own General section supplies both.
+
+## Index
+
+The index field names the FFMS2 index for a native video. Empty means derive it beside the source or in scratch, according to the build. An explicit index is useful when the source sits on a read-only volume. The run preflight reports an unwritable index location before encoding.
+
+## Script sources
+
+| Scope | Holds a source path | Shared by |
+| --- | --- | --- |
+| Project | No | Every video without a script override |
+| Video | Yes, its own source | That video only |
+| Template | No | New projects that apply the template |
+
+A project or template script cannot name a source path. The runner injects the queued video's path per run.
+
+## Output
+
+The output mode chooses the file concatenation writes. The derived mode places it beside the source with the container's extension; an explicit path is exact. Two queued videos must not resolve to the same output, and the queue refuses a collision.
+
+<Callout tone="tip" title="Exact output">
+The card shows the resolved file, not a pattern. Copy it from there if you need to find the result; a glob can match an older file with a similar name.
+</Callout>
+
+## Filter list
+
+The list is ordered top to bottom. FFMS2 filters run before the decoded frames enter the graph; VapourSynth filters run inside it. A row summarizes the filter and its target. Reordering is a drag; removal is a row action. The list is part of the General document and is saved or reset with it.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Engine default | No General document at this scope |
+| Set | The scope holds a saved General document |
+| Inherited | A video reads the project document |
+| Blocked | A filter document is invalid or a required plugin is unavailable |
+| Locked | The encoding video cannot change General during a run |
+
+<RelatedLinks>
+<a href="/docs/guides/input-filters">Add and order input filters</a>
+<a href="/docs/reference/filters">Input filters reference</a>
+<a href="/docs/concepts/scripting">VapourSynth scripting</a>
+</RelatedLinks>

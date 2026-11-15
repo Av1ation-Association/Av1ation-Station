@@ -46,6 +46,8 @@ export function ParameterValueGrid({
     onChange,
     onReset,
     onRemove,
+    showGroupLabel = true,
+    layout = "split",
     isChanged = (entry) => !isDefaultOption(entry.descriptor, entry.parameter),
 }: {
     groups: Array<[string, ParameterValueEntry[]]>;
@@ -53,6 +55,10 @@ export function ParameterValueGrid({
     onChange: (entry: ParameterValueEntry, next: string | number | boolean) => void;
     onReset?: (entry: ParameterValueEntry) => void;
     onRemove?: (entry: ParameterValueEntry) => void;
+    /** A caller that already names the group can omit the repeated heading. */
+    showGroupLabel?: boolean;
+    /** `single` gives one group the full width instead of splitting it into two columns. */
+    layout?: "split" | "single";
     /** Whether a row differs from what the encoder would use on its own. */
     isChanged?: (entry: ParameterValueEntry) => boolean;
 }) {
@@ -60,16 +66,18 @@ export function ParameterValueGrid({
         // The groups share the width, but not a grid row: a tall group beside a short one
         // used to leave the short one's row empty below it. Columns pack each group under
         // the previous one in its own column, so a group is never stretched by its neighbour.
-        <div className="columns-1 gap-x-6 lg:columns-2">
+        <div className={layout === "single" ? "columns-1" : "columns-1 gap-x-6 lg:columns-2"}>
             {groups.map(([group, entries]) => (
                 <div key={group} className="mb-5 min-w-0 break-inside-avoid">
-                    <p className="m-0 font-mono text-[9px] tracking-[0.14em] text-ink-muted uppercase">
-                        {group}
-                    </p>
+                    {showGroupLabel ? (
+                        <p className="m-0 font-mono text-[9px] tracking-[0.14em] text-ink-muted uppercase">
+                            {group}
+                        </p>
+                    ) : null}
                     {/* A group with one parameter would otherwise leave its second column
                         empty; a solo control takes the width it is in. */}
                     <div
-                        className={`mt-1.5 grid gap-2 ${entries.length === 1 ? "" : "sm:grid-cols-2"}`}
+                        className={`${showGroupLabel ? "mt-1.5 " : ""}grid gap-2 ${entries.length === 1 ? "" : "sm:grid-cols-2"}`}
                     >
                         {entries.map((entry) => {
                             const { name, parameter, descriptor, canonical } = entry;

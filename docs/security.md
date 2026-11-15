@@ -182,13 +182,15 @@ risk of running scripts with the user's privileges.
 
 ## 5. Updates
 
-- Tauri's updater with a **signed** manifest; the public key is compiled in.
+- Tauri's updater with a **minisign-signed** manifest; the public key is compiled in.
 - Updates are user-initiated or user-approved; no silent install.
-- The manifest is served over HTTPS from a release host. Signing, not TLS, is the trust
-  anchor.
+- The manifest is served over HTTPS from a release host. The updater signature, not TLS, is
+  the update trust anchor.
 - Version downgrade is refused.
-- Phase 6 plan owns the mechanics; the architectural rule here is that unsigned updates are
-  never enabled, not even for a beta channel.
+- Only the stable channel offers updates. Weekly and release-candidate builds never write an
+  updater manifest. The initial installer may be code-unsigned under
+  [releases.md](releases.md#unsigned-distribution); the updater signature is separate and
+  does not make that installer trusted by Windows or macOS.
 
 ## 6. Log anonymisation
 
@@ -235,16 +237,22 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 ## 7. Dependency and supply chain
 
 - Cargo and npm lockfiles are committed; CI installs from lockfiles only.
-- `cargo-deny` for advisories, licenses, and banned crates. It belongs in CI rather than a
-  pre-commit hook; the current workflow does not run it yet.
-- `npm audit` is advisory, not blocking (it produces noise on dev-only transitive deps). A
-  weekly scheduled job is planned to open an issue on high-severity findings; no scheduled
-  workflow exists yet.
+- `cargo-deny` for licenses, banned crates, and sources. The Phase 5 pull-request workflow
+  does not run it; Phase 5 release security commits a reviewed `deny.toml` and gates
+  publication on it. `cargo audit` covers vulnerability advisories in the meantime.
+- Repository secret scanning uses a reviewed scanner configuration and allowlist, and runs
+  in the Phase 5 release-security job before publication. It is not a pull-request gate
+  before that allowlist exists.
+- Pull-request CI runs `npm audit --audit-level=high` and `cargo audit`; both are blocking
+  for the vulnerabilities they report there. The weekly dependency audit is advisory: it
+  opens or updates one issue for npm high/critical findings and Cargo vulnerabilities, and
+  closes it when the audit is clean. Lower-severity npm findings and Cargo warnings stay in
+  the audit artifact rather than failing a check.
 - `monaco-editor@0.57.0` pins `dompurify@3.4.15`, which is in a critical advisory range. The
   root override and direct dev pin hold `3.4.17` until Monaco updates its own dependency.
 - The engine is consumed from a pinned git revision, never a branch.
 - Vendored sources, if we reach that fallback, are committed with a recorded hash.
-- The Phase 6 bundle will be pinned by `packaging/toolchain.lock.json`: every artefact URL
+- The Phase 5 bundle will be pinned by `packaging/toolchain.lock.json`: every artefact URL
   will carry a version and a SHA-256, no entry may name `latest`, a branch with no pinned
   commit, or an unhashed asset, and Python will install with `--no-index
   --require-hashes`. A fork-built component will also record its upstream base and patch
@@ -254,9 +262,10 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 - That release will download nothing at install or run time, and no binary is committed to
   Git. It will publish the lock, generated third-party notices, an SPDX SBOM and a source
   offer, so a reviewer can rebuild or audit exactly what the installer contains.
-- In that release, every bundled executable and DLL must be signed before the installer is
-  assembled; an artefact that cannot be signed is not shipped.
-- Phase 6 will embed a generated summary of the lock in the service and serve it at
+- When certificates are available, every bundled executable and DLL is signed before the
+  installer is assembled. Without them, [releases.md](releases.md) governs the explicit
+  unsigned/ad-hoc labels; an artifact is never described as signed when it is not.
+- Phase 5 will embed a generated summary of the lock in the service and serve it at
   `GET /api/toolchain`. It will contain versions, licences, source links and hashes only —
   never a secret or a user path.
 
@@ -282,10 +291,11 @@ Required before any tagged release:
 - [ ] CSP present and no `unsafe-eval`
 - [ ] `Origin` check on state-changing requests
 - [ ] Anonymiser fixture test green
-- [ ] `cargo-deny` clean
+- [ ] `cargo-deny` clean under the reviewed license/ban/source policy
 - [ ] Updater signing key present and manifest signed
-- [ ] No secrets in the repository (checked by a scanner in CI)
+- [ ] No secrets in the repository, confirmed by the release-security scanner and its reviewed allowlist
 - [ ] `npm run toolchain:verify` green, and the release lock matches the installer
-- [ ] Bundled executables and DLLs signed; notices, SBOM and source offer attached
+- [ ] Code-signed where certificates exist, otherwise explicitly labeled unsigned or
+      ad-hoc per [releases.md](releases.md); notices, SBOM and source offer attached
 - [ ] Clean-VM install performs an encode with no Python, VapourSynth or FFmpeg installed
 - [ ] Mixed provider selection (system VapourSynth, bundled encoders) encodes

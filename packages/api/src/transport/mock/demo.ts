@@ -85,8 +85,15 @@ export function deriveMockOutput(general: GeneralDefaults, inputPath: string): s
  * selecting it in a project writes a variant the real service rejects.
  */
 export const ENCODER_VARIANTS: Record<string, string> = {
-    x265: "X265",
+    aom: "AOM",
     "svt-av1": "SVTAV1",
+    rav1e: "RAV1E",
+    vpx: "VPX",
+    avm: "AVM",
+    x264: "X264",
+    x265: "X265",
+    vvenc: "VVenC",
+    ffmpeg: "FFmpeg",
 };
 
 /**

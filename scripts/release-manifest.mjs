@@ -1,8 +1,11 @@
-// Produce the two files a manual GitHub pre-release needs: a Markdown body and a manifest
+// Produce the two files a manual GitHub release needs: a Markdown body and a manifest
 // that names every upload asset with its platform, variant, kind, size and SHA-256.
 //
 // Everything is derived from `dist/release/SHA256SUMS.txt` and the files it names. A missing
-// or changed artifact is an error, not a stale release note.
+// or changed artifact is an error, not a stale release note. The tag selects the weekly,
+// RC, or stable shape; signing and updater claims are explicit flags:
+// `--code-signed`, `--notarized`, and `--updater`. A tag checkout is detached, so it has no
+// branch to record and must pass `--branch <name>`.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -33,6 +36,14 @@ const featureScreenshotMetadata = join(
 const flatAssetDirectory = "assets";
 const platformOrder = ["windows", "macos", "linux"];
 const variantOrder = ["bundled", "system"];
+const semverPattern = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)`;
+const weeklyTagPattern = new RegExp(`^v(?<base>${semverPattern})-weekly\\.(?<date>\\d{8})$`, "u");
+const releaseCandidateTagPattern = new RegExp(
+    `^v(?<base>${semverPattern})-rc\\.(?<candidate>[1-9]\\d*)$`,
+    "u",
+);
+const stableTagPattern = new RegExp(`^v(?<base>${semverPattern})$`, "u");
+const branchPattern = /^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+$/u;
 
 function git(args) {
     try {
@@ -379,8 +390,18 @@ function notesFor({
     tag,
     sourceCommit,
     branch,
+    release,
 }) {
     const platformSummary = joinLabels(platforms.map((platform) => platform.label));
+    const releaseLabel =
+        release.channel === "stable"
+            ? "stable release"
+            : release.channel === "rc"
+              ? "release candidate"
+              : "weekly pre-release";
+    const statusSentence = release.prerelease
+        ? `This is a ${release.codeSigned ? "code-signed" : "unsigned"} test candidate. It is not the final public release, and it has not completed the full clean-VM release matrix.`
+        : "This is the stable release artifact.";
     const rows = platforms.flatMap((platform) =>
         [...platform.variants.entries()].map(([variant, list]) => {
             const installers = list
@@ -416,7 +437,7 @@ function notesFor({
             ? "- **Windows bundled** includes the pinned VapourSynth/Python runtime, encoders, FFmpeg, MKVToolNix, the scene model, and native metrics."
             : null,
         hasLinuxBundled
-            ? "- **Linux bundled** adds the available encoders, FFmpeg, MKVToolNix, the scene model, and their staged runtime libraries. VapourSynth/Python and the native metrics (libvmaf, fmetrics, vship) remain System providers in this pre-release."
+            ? "- **Linux bundled** includes the full pinned toolchain: VapourSynth/Python, the encoders, FFmpeg, MKVToolNix, the scene model, and the native metrics (libvmaf, fmetrics, vship)."
             : null,
         hasSystem
             ? "- **System toolchain** carries the application and web assets only, with no `tools/` tree. It uses the Python, VapourSynth, FFmpeg, MKVToolNix, and encoders already installed on the machine, so select providers in Settings → Dependencies."
@@ -429,7 +450,7 @@ function notesFor({
     if (hasWindows) {
         installSections.push(`### Windows
 
-Run the \`.msi\` or \`-setup.exe\` for the variant you want. The installers are unsigned, so Windows SmartScreen may show a warning; verify the SHA-256 below before choosing **More info → Run anyway**.
+Run the \`.msi\` or \`-setup.exe\` for the variant you want. ${release.codeSigned ? "The installers are Authenticode-signed." : "The installers are unsigned, so Windows SmartScreen may show a warning; verify the SHA-256 below before choosing **More info → Run anyway**."}
 
 To use a portable ZIP, unzip it and run \`av1ation-desktop.exe\`. Keep \`web/\` beside the executable. The bundled portable also needs its \`tools/\` directory beside the executable. The system portable has no \`tools/\` directory and expects system providers.
 
@@ -438,16 +459,16 @@ Windows 10 or 11 x64 and the WebView2 Runtime are required. WebView2 is normally
     if (hasMacos) {
         installSections.push(`### macOS
 
-Open the \`.dmg\` and drag the application to Applications, or unzip the \`.app.zip\` portable. The application is unsigned and not notarised; use the documented Gatekeeper override after verifying the SHA-256.`);
+Open the \`.dmg\` and drag the application to Applications, or unzip the \`.app.zip\` portable. ${release.notarized ? "The application is code-signed and notarised; the stapled ticket is ready for Gatekeeper." : release.codeSigned ? "The application is code-signed but not notarised; use the documented Gatekeeper override after verifying the SHA-256." : "The application is unsigned and not notarised; use the documented Gatekeeper override after verifying the SHA-256."}`);
     }
     if (hasLinux) {
         installSections.push(`### Linux
 
-Install the \`.deb\` with \`sudo apt install ./<file>.deb\`. It declares WebKitGTK 4.1 as a runtime dependency.
+Install the \`.deb\` with \`sudo apt install ./<file>.deb\`. It declares WebKitGTK 4.1; the system variant also declares the system FFMS2 library.
 
 The AppImage is the portable form. Make it executable with \`chmod +x <file>.AppImage\` and run it. If FUSE 2 is unavailable, run it with \`--appimage-extract-and-run\`.
 
-${hasLinuxBundled ? "The bundled Linux variant carries the available encoders, FFmpeg, MKVToolNix, the scene model, and their staged runtime libraries; VapourSynth/Python and the native metrics (libvmaf, fmetrics, vship) remain System providers.\n\n" : ""}${hasLinuxSystem ? "The system Linux variant uses the distribution's Python, VapourSynth, FFmpeg, MKVToolNix, and encoders.\n\n" : ""}The build was produced on Debian 13 and requires glibc 2.39 or newer; Debian 12 and Ubuntu 22.04 are not supported by this pre-release. The \`.deb\` is the native installer and the AppImage is the portable fallback.`);
+${hasLinuxBundled ? "The bundled Linux variant carries the full pinned toolchain, including VapourSynth/Python, the encoders, FFmpeg, MKVToolNix, the scene model, and the native metrics, together with their staged runtime libraries.\n\n" : ""}${hasLinuxSystem ? "The system Linux variant uses the distribution's Python, VapourSynth, FFmpeg, MKVToolNix, and encoders.\n\n" : ""}The build was produced on a supported Linux build host (Ubuntu 24.04 or Debian 13) and requires glibc 2.39 or newer; Debian 12 and Ubuntu 22.04 are not supported by this release. The \`.deb\` is the native installer and the AppImage is the portable fallback.`);
     }
     const missingPlatforms = [
         ["windows", "Windows"],
@@ -456,21 +477,31 @@ ${hasLinuxBundled ? "The bundled Linux variant carries the available encoders, F
     ]
         .filter(([os]) => !platforms.some((platform) => platform.os === os))
         .map(([, label]) => label);
+    const signingLimitation = release.codeSigned
+        ? hasMacos
+            ? release.notarized
+                ? "- Windows artifacts are **code-signed**, and the macOS app is **notarised**."
+                : "- Windows artifacts are **code-signed**; the macOS app is **not notarised**."
+            : "- Windows artifacts are **code-signed**."
+        : "- The installers and portable executables are **unsigned**. There is no Authenticode signature.";
     const limitations = [
-        "- This is a **pre-release**, not a stable release. Project files and settings may change.",
+        release.prerelease
+            ? "- This is a **pre-release**, not a stable release. Project files and settings may change."
+            : null,
         `- **${platformSummary} artifacts only.**${
             missingPlatforms.length === 0
                 ? ""
                 : ` ${joinLabels(missingPlatforms)} artifacts are not included.`
         }`,
-        hasLinux && hasLinuxBundled
-            ? "- The Linux bundled variant is **partial**: VapourSynth/Python and the native metrics (libvmaf, fmetrics, vship) are not bundled. Select System for those capabilities."
-            : hasLinux
-              ? "- The Linux artifacts use the **system toolchain only**. A bundled Linux toolchain is not included in this drop."
-              : null,
-        "- The installers and portable executables are **unsigned**. There is no Authenticode signature, updater, or auto-update path.",
-        "- The generated third-party notices, SPDX SBOM, and source-offer bundle are not attached yet. Do not treat this as the final public distribution.",
-        "- The full manual release test plan has not been completed. The Linux artifacts were built in a Debian 13 container and require glibc 2.39 or newer; install and run them on a clean target before relying on them for production work.",
+        hasLinux && !hasLinuxBundled
+            ? "- The Linux artifacts use the **system toolchain only**. A bundled Linux toolchain is not included in this drop."
+            : null,
+        signingLimitation,
+        release.updater.enabled
+            ? "- This stable release publishes a signed updater manifest (`latest.json`)."
+            : "- No updater manifest is published with this release.",
+        "- The generated third-party notices, SPDX SBOM, and source-offer bundle must be attached before publication; see `docs/releases.md`.",
+        "- The full manual release test plan and clean-VM checks remain part of the publication gate; see `docs/releases.md`.",
     ].filter(Boolean);
     const checksums = artifacts
         .map((artifact) => `${artifact.sha256}  ${artifact.name}`)
@@ -485,9 +516,9 @@ ${hasLinuxBundled ? "The bundled Linux variant carries the available encoders, F
                   )
                   .join("\n\n")}\n\n`;
 
-    return `# Av1ation Station ${version} — ${platformSummary} pre-release
+    return `# Av1ation Station ${version} — ${platformSummary} ${releaseLabel}
 
-> **Pre-release.** This is an unsigned test candidate. It is not the final public release, and it has not completed the full clean-VM release matrix. Only ${platformSummary} artifacts are included.
+> **${release.prerelease ? "Pre-release" : "Stable release"}.** ${statusSentence} Only ${platformSummary} artifacts are included.
 
 Av1ation Station is a desktop workspace for scene-aware, quality-targeted video encoding with Av1an. Queue videos, configure the encoder, edit scenes, inspect charts and logs, and follow every run from one window.
 
@@ -525,16 +556,187 @@ Av1ation Station is distributed under the GPL-3.0. The bundled tools retain thei
 `;
 }
 
-function writeReleaseManifest() {
-    const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
-    const version = pkg.version;
-    const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]) ?? "condor";
-    const sourceCommit = git(["rev-parse", "HEAD"]) ?? "unknown";
-    const explicitTag = process.argv.indexOf("--tag");
-    const tag = explicitTag === -1 ? `v${version}` : process.argv[explicitTag + 1];
-    if (typeof tag !== "string" || tag.trim() === "") {
+function isCalendarDate(value) {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(4, 6));
+    const day = Number(value.slice(6, 8));
+    if (![year, month, day].every(Number.isInteger)) {
+        return false;
+    }
+    if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31) {
+        return false;
+    }
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+    );
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+/** Read the --tag option; return undefined when it is absent. */
+function parseTagArgument(argv) {
+    const index = argv.indexOf("--tag");
+    if (index === -1) {
+        return undefined;
+    }
+    const value = argv[index + 1];
+    if (typeof value !== "string" || value.trim() === "" || value.startsWith("--")) {
         throw new Error("--tag must be followed by a tag name");
     }
+    return value.trim();
+}
+
+/** Read the --branch option; return undefined when it is absent. */
+function parseBranchArgument(argv) {
+    const index = argv.indexOf("--branch");
+    if (index === -1) {
+        return undefined;
+    }
+    const value = argv[index + 1];
+    if (typeof value !== "string" || value.trim() === "" || value.startsWith("--")) {
+        throw new Error("--branch must be followed by a branch name");
+    }
+    return value.trim();
+}
+
+/**
+ * Resolve the branch a release records and targets. A detached checkout has no branch to
+ * read, and a guessed name would point the manifest and `target_commitish` at a branch the
+ * repository does not have, so an unresolved branch is an error rather than a default.
+ */
+function resolveReleaseBranch(explicit, runGit = git) {
+    const value = (explicit ?? runGit(["symbolic-ref", "--short", "HEAD"]) ?? "").trim();
+    if (value === "" || value === "HEAD" || !branchPattern.test(value)) {
+        throw new Error(
+            "the release branch could not be resolved; pass --branch <name> when the checkout is detached",
+        );
+    }
+    return value;
+}
+
+/** Parse one of the three documented release tag shapes. */
+function parseReleaseTag(tag) {
+    if (typeof tag !== "string" || tag.trim() === "") {
+        throw new Error("release tag is required");
+    }
+    const value = tag.trim();
+    const weekly = weeklyTagPattern.exec(value);
+    if (weekly !== null) {
+        const base = weekly.groups?.base;
+        const date = weekly.groups?.date;
+        if (base === undefined || date === undefined || !isCalendarDate(date)) {
+            throw new Error(`weekly release tag has an invalid date: ${value}`);
+        }
+        return { channel: "weekly", tag: value, base, date };
+    }
+    const candidate = releaseCandidateTagPattern.exec(value);
+    if (candidate !== null) {
+        const base = candidate.groups?.base;
+        const number = candidate.groups?.candidate;
+        if (base === undefined || number === undefined) {
+            throw new Error(`release candidate tag is malformed: ${value}`);
+        }
+        return { channel: "rc", tag: value, base, candidate: number };
+    }
+    const stable = stableTagPattern.exec(value);
+    if (stable !== null) {
+        const base = stable.groups?.base;
+        if (base === undefined) {
+            throw new Error(`stable release tag is malformed: ${value}`);
+        }
+        return { channel: "stable", tag: value, base };
+    }
+    throw new Error(
+        `unsupported release tag "${value}"; expected v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD`,
+    );
+}
+
+/**
+ * Derive the channel and truthful publication claims. The tag selects weekly, RC, or
+ * stable; signing is an explicit input because a tag cannot prove a certificate was used.
+ * Weekly releases are always unsigned and never publish an updater; only stable releases
+ * may opt into one.
+ */
+function releaseShape({
+    tag,
+    version,
+    codeSigned = false,
+    notarized = false,
+    updater = false,
+} = {}) {
+    const shape = parseReleaseTag(tag);
+    const normalizedVersion = typeof version === "string" ? version.trim() : "";
+    if (normalizedVersion === "") {
+        throw new Error("package version is required");
+    }
+
+    const expectedVersion =
+        shape.channel === "weekly"
+            ? new RegExp(`^${escapeRegExp(shape.base)}-weekly\\.${shape.date}\\.[0-9a-f]{7}$`, "u")
+            : shape.channel === "rc"
+              ? `${shape.base}-rc.${shape.candidate}`
+              : shape.base;
+    const versionMatches =
+        expectedVersion instanceof RegExp
+            ? expectedVersion.test(normalizedVersion)
+            : normalizedVersion === expectedVersion;
+    if (!versionMatches) {
+        throw new Error(
+            `package version "${normalizedVersion}" does not match ${shape.channel} tag "${shape.tag}"`,
+        );
+    }
+
+    const signed = Boolean(codeSigned);
+    const notarised = Boolean(notarized);
+    const requestedUpdater = Boolean(updater);
+    if (shape.channel === "weekly" && (signed || notarised)) {
+        throw new Error("weekly releases are unsigned and not notarised");
+    }
+    if (notarised && !signed) {
+        throw new Error("a notarized release must also be code-signed");
+    }
+    if (shape.channel !== "stable" && requestedUpdater) {
+        throw new Error("only stable releases may publish an updater");
+    }
+
+    return {
+        ...shape,
+        version: normalizedVersion,
+        prerelease: shape.channel !== "stable",
+        codeSigned: signed,
+        notarized: notarised,
+        updater: {
+            enabled: requestedUpdater,
+            manifest: requestedUpdater ? "latest.json" : null,
+        },
+    };
+}
+
+function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {}) {
+    const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
+    const version = pkg.version;
+    const rawTag = requestedTag ?? parseTagArgument(process.argv.slice(2));
+    const tag = typeof rawTag === "string" ? rawTag.trim() : "";
+    if (tag === "") {
+        throw new Error(
+            "release tag is required; pass --tag v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD",
+        );
+    }
+    const rawBranch = requestedBranch ?? parseBranchArgument(process.argv.slice(2));
+    const branch = resolveReleaseBranch(rawBranch);
+    const sourceCommit = git(["rev-parse", "HEAD"]) ?? "unknown";
+    const release = releaseShape({
+        tag,
+        version,
+        codeSigned: process.argv.includes("--code-signed"),
+        notarized: process.argv.includes("--notarized"),
+        updater: process.argv.includes("--updater"),
+    });
 
     const artifacts = readArtifacts();
     if (artifacts.length === 0) {
@@ -568,6 +770,7 @@ function writeReleaseManifest() {
         tag,
         sourceCommit,
         branch,
+        release,
     });
     const manifest = {
         schema_version: 1,
@@ -575,9 +778,13 @@ function writeReleaseManifest() {
         repository: repository(),
         release: {
             tag,
-            name: `Av1ation Station ${version} (${platformSummary} pre-release)`,
+            name: `Av1ation Station ${version} (${platformSummary}${release.prerelease ? " pre-release" : ""})`,
             version,
-            prerelease: true,
+            channel: release.channel,
+            prerelease: release.prerelease,
+            code_signed: release.codeSigned,
+            notarized: release.notarized,
+            updater: release.updater,
             draft: false,
             target_commitish: branch,
             source_commit: sourceCommit,
@@ -607,10 +814,19 @@ function writeReleaseManifest() {
     writeFileSync(join(releaseDir, manifestName), `${JSON.stringify(manifest, null, 2)}\n`);
     console.log(`Release notes: ${join(releaseDir, notesName)}`);
     console.log(`Release manifest: ${join(releaseDir, manifestName)}`);
-    console.log(`Tag: ${tag}; platforms: ${platformSummary}; assets: ${assets.length}`);
+    console.log(
+        `Tag: ${tag}; channel: ${release.channel}; platforms: ${platformSummary}; assets: ${assets.length}`,
+    );
 }
 
-export { writeReleaseManifest };
+export {
+    parseBranchArgument,
+    parseReleaseTag,
+    parseTagArgument,
+    releaseShape,
+    resolveReleaseBranch,
+    writeReleaseManifest,
+};
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     try {

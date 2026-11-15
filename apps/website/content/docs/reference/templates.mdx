@@ -1,0 +1,46 @@
+## List and default
+
+The template list shows each template's name, section count, and default marker. Exactly one template may be the default; new projects copy it when no template is chosen. The default is a pointer, not a copy: changing it does not change existing projects.
+
+## Overview
+
+A template's overview repeats the seven sections and the General document as cards. Each card reports whether it holds a saved document and opens the same generated editor used by a project. A template has no queue, no source path, and no retained work.
+
+## Section editor
+
+Save writes the section into the template only. Validation is the same as at project scope, including cross-field rules. A section that is invalid cannot be applied to a project; the error names the field.
+
+## Script
+
+The template script is part of the General document and is copied into a new project. It must not name a source path, because every queued video supplies its own at run time. The script editor is the same editor as at project and video scope.
+
+## Apply to a project
+
+| Action | Effect |
+| --- | --- |
+| Apply | Copy the template's sections and General into the project |
+| Preview | Name the template and the sections to be replaced |
+| Cancel | Leave the project unchanged |
+
+Applying leaves every video override untouched. A video without an override now reads the new project values.
+
+## Reset and delete
+
+Reset returns a section or the whole template to the engine defaults; a reset template can be edited again. Delete removes the template and its default marker. Neither action changes a project that already applied the template.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Empty | No template exists |
+| Ready | A template can be applied |
+| Default | This template seeds new projects |
+| Invalid | One section fails validation; applying is refused |
+| Dirty | The editor has an unsaved draft |
+| Applied | The project header names this template as its source |
+
+<RelatedLinks>
+<a href="/docs/guides/templates">Save and reuse a project template</a>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+<a href="/docs/reference/project">Project workspace and queue</a>
+</RelatedLinks>

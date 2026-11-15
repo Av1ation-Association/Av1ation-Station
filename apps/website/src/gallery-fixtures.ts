@@ -1,11 +1,19 @@
 import { MockTransport } from "@av1ation/api";
-import type {
-    GeneralDefaults,
-    LogRecord,
-    ParameterDescriptor,
-    ProjectSummary,
-    TimelineRecord,
-    VideoSummary,
+import {
+    EncodeEventSchema,
+    type EncodeEvent,
+    type GeneralDefaults,
+    type LogRecord,
+    type ParameterDescriptor,
+    type ProjectSummary,
+    type RunSummary,
+    type SceneView,
+    type ConcatInventory,
+    type SequenceRunStatus,
+    type TimelineRecord,
+    type VideoState,
+    type VideoValidation,
+    type VideoSummary,
 } from "@av1ation/contracts";
 
 import configSchema from "./gallery/config-schema.json";
@@ -30,6 +38,9 @@ export const GALLERY_PROJECT: ProjectSummary = realRun.project;
 
 /** The first queue row; its ids are what the History and Logs routes address. */
 export const GALLERY_VIDEO: VideoSummary = realRun.video;
+
+/** The captured scene table the homepage's Measured data card reads. */
+export const GALLERY_SCENES: readonly SceneView[] = realRun.scenes.scenes as readonly SceneView[];
 
 const SIBLING_VIDEOS: VideoSummary[] = realRun.siblings;
 
@@ -388,7 +399,7 @@ function applyOverridePath(
     return result;
 }
 
-const VIDEO_EFFECTIVE = Object.entries(OVERRIDES).reduce(
+export const GALLERY_VIDEO_EFFECTIVE = Object.entries(OVERRIDES).reduce(
     (document, [path, value]) => applyOverridePath(document, path, value),
     CONFIG_DOCUMENT,
 );
@@ -452,6 +463,188 @@ const EMPTY_VIDEO_STATE = {
     next: ["SceneDetector"],
     output_exists: false,
     retained_bytes: 0,
+};
+
+// A run stopped between sequences: detection is finished, the encoder is still working,
+// and nothing after it has ever run. The state is static so both themes capture the same
+// frame of the run.
+const RUNNING_RUN_ID = "gallery-running-run";
+const RUNNING_STATE: VideoState = {
+    ...VIDEO_STATE,
+    scene_count: GALLERY_SCENES.length,
+    sequences: SEQUENCES.map((sequence): VideoState["sequences"][number] => {
+        if (sequence.id === "SceneDetector") {
+            return {
+                ...sequence,
+                status: "complete",
+                progress: 100,
+                detail: "14 scenes detected",
+                runnable: false,
+            };
+        }
+        if (sequence.id === "ParallelEncoder") {
+            return {
+                ...sequence,
+                status: "active",
+                progress: 46,
+                detail: "Encoding 7 of 14 scenes",
+                runnable: false,
+            };
+        }
+        return {
+            ...sequence,
+            status: "never_run",
+            progress: null,
+            detail: null,
+            runnable: false,
+        };
+    }),
+    next: ["ParallelEncoder"],
+    active: true,
+    run_id: RUNNING_RUN_ID,
+    failure: null,
+    output_exists: false,
+    retained_bytes: 214_000_000,
+};
+
+// A failed run records its reason in the timeline and in the pipeline state; the failure
+// is history, never a phase the pipeline can be in.
+const FAILED_RUN_ID = "gallery-failed-run";
+const FAILED_MESSAGE = "The encoder exited with code 1 while encoding scene 7.";
+const FAILED_STATE: VideoState = {
+    ...VIDEO_STATE,
+    scene_count: GALLERY_SCENES.length,
+    sequences: SEQUENCES.map((sequence): VideoState["sequences"][number] => {
+        if (sequence.id === "SceneDetector") {
+            return {
+                ...sequence,
+                status: "complete",
+                progress: 100,
+                detail: "14 scenes detected",
+                runnable: false,
+            };
+        }
+        if (sequence.id === "ParallelEncoder") {
+            return {
+                ...sequence,
+                status: "failed",
+                progress: 41,
+                detail: "Encoder exited with code 1",
+                runnable: true,
+            };
+        }
+        return {
+            ...sequence,
+            status: "never_run",
+            progress: null,
+            detail: null,
+            runnable: false,
+        };
+    }),
+    next: ["ParallelEncoder"],
+    active: false,
+    run_id: null,
+    failure: {
+        run_id: FAILED_RUN_ID,
+        at: "2026-11-12T05:16:42Z",
+        sequence: "ParallelEncoder",
+        message: FAILED_MESSAGE,
+    },
+    output_exists: false,
+    retained_bytes: 96_000_000,
+};
+
+const FAILED_HISTORY: TimelineRecord = {
+    run_id: FAILED_RUN_ID,
+    sequence: "ParallelEncoder",
+    started_at: "2026-11-12T05:14:00Z",
+    ended_at: "2026-11-12T05:16:42Z",
+    outcome: "failed",
+    frames_processed: 960,
+    frames_total: 2160,
+    fps: 42.5,
+    message: FAILED_MESSAGE,
+};
+
+const FAILED_SUMMARY: RunSummary = {
+    run_id: FAILED_RUN_ID,
+    started_at: "2026-11-12T05:14:00Z",
+    ended_at: "2026-11-12T05:16:42Z",
+    outcome: "failed",
+    message: FAILED_MESSAGE,
+};
+
+// The service reports the reason instead of pretending the run can start.
+const BLOCKED_VALIDATION: Partial<VideoValidation> = {
+    can_encode: false,
+    output_writable: false,
+    blockers: ["The output directory is not writable."],
+};
+
+// Two scenes overlap, which is exactly what the validation badge and the boundary list
+// exist to name before a run starts.
+const INVALID_SCENES = {
+    ...realRun.scenes,
+    scene_fingerprint: "gallery-invalid",
+    scenes: GALLERY_SCENES.map((scene, index) =>
+        index === 1
+            ? {
+                  ...scene,
+                  start_frame: scene.start_frame - 12,
+                  frame_count: scene.frame_count + 12,
+              }
+            : scene,
+    ),
+};
+
+const CONCAT_INVENTORY: ConcatInventory = {
+    method: "mkvmerge",
+    tracks: [
+        {
+            key: 5,
+            kind: "audio",
+            label: "English 5.1",
+            codec: "AAC",
+            language: "eng",
+            name: null,
+            channels: 6,
+            default: true,
+            forced: false,
+        },
+        {
+            key: 9,
+            kind: "subtitle",
+            label: "English subtitles",
+            codec: "SRT",
+            language: "eng",
+            name: null,
+            channels: null,
+            default: false,
+            forced: false,
+        },
+    ],
+    attachments: [
+        {
+            key: 2,
+            label: "cover.jpg",
+            mime_type: "image/jpeg",
+            description: null,
+            size_bytes: 4_096,
+            selectable: false,
+        },
+    ],
+    data_stream_count: 0,
+    chapter_count: 12,
+    detail: "",
+};
+
+const LAN_OFF = {
+    enabled: false,
+    bind: "0.0.0.0",
+    port: null,
+    url: null,
+    token: null,
+    sessions: [],
 };
 
 const SETTINGS = {
@@ -548,21 +741,496 @@ const LAN = {
 };
 
 export type GalleryMode =
-    "populated" | "empty" | "empty-queue" | "empty-scenes" | "failing" | "loading";
+    | "populated"
+    | "empty"
+    | "empty-queue"
+    | "empty-scenes"
+    | "failing"
+    | "loading"
+    | "running"
+    | "failed"
+    | "blocked"
+    | "missing-dependency"
+    | "lan-off"
+    | "invalid-scenes"
+    | "concat-inventory";
 
-/** The gallery media is generated into the website's public directory before the build. */
-export function galleryMediaUrl(path: string): string {
-    const thumbnail = /\/videos\/[^/]+\/thumbnails\/(\d+)/u.exec(path);
-    if (thumbnail !== null) {
-        return `/gallery/thumbs/${thumbnail[1]}.jpg`;
+const DEMO_STATE_PATH = "/api/projects/demo-project/videos/demo-video/state";
+const DEMO_SCENES_PATH = "/api/projects/demo-project/videos/demo-video/scenes";
+const DEMO_RUN_ID = "gallery-live-run";
+
+const LIVE_SEQUENCES: ReadonlyArray<{ id: string; name: string }> = [
+    { id: "SceneDetector", name: "Scene Detector" },
+    { id: "NoiseDetector", name: "Noise Detector" },
+    { id: "TargetQuality", name: "Target Quality" },
+    { id: "ParallelEncoder", name: "Parallel Encoder" },
+    { id: "SceneConcatenator", name: "Scene Concatenator" },
+    { id: "QualityCheck", name: "Quality Check" },
+];
+
+const LIVE_STAGES: ReadonlyArray<{
+    id: string;
+    phase: string;
+    detail: string;
+    done: string;
+    ticks: number;
+    frames?: number;
+    scenes?: number;
+    pass?: number;
+}> = [
+    {
+        id: "SceneDetector",
+        phase: "Analyze",
+        detail: "Scanning for scene boundaries",
+        done: "14 scenes detected",
+        ticks: 5,
+        frames: 2_160,
+    },
+    {
+        id: "NoiseDetector",
+        phase: "Measure",
+        detail: "Measuring source grain",
+        done: "14 scenes measured",
+        ticks: 4,
+        scenes: 14,
+    },
+    {
+        id: "TargetQuality",
+        phase: "Encode",
+        detail: "Choosing a quantizer per scene",
+        done: "14 targets set",
+        ticks: 4,
+        scenes: 14,
+        pass: 1,
+    },
+    {
+        id: "ParallelEncoder",
+        phase: "Encode",
+        detail: "Encoding sequences concurrently",
+        done: "14/14 scenes encoded",
+        ticks: 5,
+        frames: 2_160,
+        scenes: 14,
+        pass: 1,
+    },
+    {
+        id: "SceneConcatenator",
+        phase: "Mux",
+        detail: "Joining encoded scenes",
+        done: "Output written",
+        ticks: 4,
+        frames: 2_160,
+    },
+    {
+        id: "QualityCheck",
+        phase: "Quality",
+        detail: "Scoring the output against the source",
+        done: "14 scenes scored",
+        ticks: 4,
+        scenes: 14,
+    },
+];
+
+interface SimStep {
+    readonly delay: number;
+    readonly event: Omit<EncodeEvent, "at" | "run_id" | "seq">;
+    readonly detail: string | null;
+    readonly sceneCount?: number;
+    readonly outputExists?: boolean;
+    readonly retainedBytes?: number;
+}
+
+function initialLiveState(): VideoState {
+    return {
+        video_id: GALLERY_VIDEO.id,
+        scene_count: 0,
+        sequences: LIVE_SEQUENCES.map((sequence, index) => ({
+            ...sequence,
+            status: "never_run",
+            detail: null,
+            progress: null,
+            runnable: index === 0,
+        })),
+        next: ["SceneDetector"],
+        active: false,
+        run_id: null,
+        failure: null,
+        output_exists: false,
+        retained_bytes: 0,
+        script_data: [],
+    };
+}
+
+function liveScript(): SimStep[] {
+    const steps: SimStep[] = [];
+    const projectId = GALLERY_PROJECT.id;
+    const videoId = GALLERY_VIDEO.id;
+    for (const stage of LIVE_STAGES) {
+        steps.push({
+            delay: 420,
+            event: {
+                project_id: projectId,
+                video_id: videoId,
+                sequence: stage.id,
+                kind: "started",
+                progress: 0,
+                message: `${LIVE_SEQUENCES.find((entry) => entry.id === stage.id)?.name ?? stage.id} started`,
+            },
+            detail: stage.detail,
+        });
+        for (let tick = 1; tick <= stage.ticks; tick += 1) {
+            const fraction = tick / (stage.ticks + 1);
+            const progress = Math.round(fraction * 100);
+            steps.push({
+                delay: 620,
+                event: {
+                    project_id: projectId,
+                    video_id: videoId,
+                    sequence: stage.id,
+                    kind: "progress",
+                    progress,
+                    phase: stage.phase,
+                    pass: stage.pass ?? null,
+                    frames_processed:
+                        stage.frames === undefined ? null : Math.round(stage.frames * fraction),
+                    frames_total: stage.frames ?? null,
+                    scenes_processed:
+                        stage.scenes === undefined ? null : Math.round(stage.scenes * fraction),
+                    scenes_total: stage.scenes ?? null,
+                    message: `${stage.id} is ${String(progress)}% complete`,
+                },
+                detail: stage.detail,
+            });
+        }
+        steps.push({
+            delay: 480,
+            event: {
+                project_id: projectId,
+                video_id: videoId,
+                sequence: stage.id,
+                kind: "completed",
+                progress: 100,
+                phase: stage.phase,
+                pass: stage.pass ?? null,
+                frames_processed: stage.frames ?? null,
+                frames_total: stage.frames ?? null,
+                scenes_processed: stage.scenes ?? null,
+                scenes_total: stage.scenes ?? null,
+                scene_count: stage.id === "SceneDetector" ? GALLERY_SCENES.length : null,
+                message: `${stage.id} finished: ${stage.done}`,
+            },
+            detail: stage.done,
+            ...(stage.id === "SceneDetector" ? { sceneCount: GALLERY_SCENES.length } : {}),
+            ...(stage.id === "ParallelEncoder"
+                ? { retainedBytes: realRun.state.retained_bytes }
+                : {}),
+        });
     }
-    if (path.includes("/frame?")) {
-        return "/gallery/frame.jpg";
+    steps.push({
+        delay: 700,
+        event: {
+            project_id: projectId,
+            video_id: videoId,
+            sequence: null,
+            kind: "finished",
+            message: "Encode finished; every sequence completed.",
+        },
+        detail: "Every sequence has completed and the output is written.",
+        outputExists: true,
+    });
+    return steps;
+}
+
+/**
+ * The website's demo transport runs one encode on a timer.
+ *
+ * The real screens read the same state and event contracts the desktop service uses, so the
+ * cards move through each sequence, the live strip fills with rates, and Scenes, History and
+ * Logs follow the same run without a backend. The captured run remains the older History
+ * fixture; the simulated run appends its own attempts and log as each sequence finishes.
+ */
+export class GalleryDemoTransport extends MockTransport {
+    private liveState: VideoState = initialLiveState();
+    private liveScenes: readonly SceneView[] = [];
+    private liveHistory: TimelineRecord[] = [];
+    private liveLogs: LogRecord[] = [];
+    private stageStartedAt: string | null = null;
+    private runStartedAt = "";
+    private readonly eventListeners = new Set<(event: EncodeEvent) => void>();
+    private steps: SimStep[] = [];
+    private timer: ReturnType<typeof setTimeout> | null = null;
+    private timerDueAt: number | null = null;
+    private timerDelay = 0;
+    private paused = false;
+    private seq = 0;
+
+    /** Point the demo routes at the live run instead of the frozen captured state. */
+    prepareSimulation(): void {
+        this.liveState = initialLiveState();
+        this.liveScenes = [];
+        this.routes.set(DEMO_STATE_PATH, () => this.liveState);
+        this.routes.set(DEMO_SCENES_PATH, () => ({
+            ...realRun.scenes,
+            video_id: GALLERY_VIDEO.id,
+            scene_fingerprint: "gallery-live",
+            scenes: this.liveScenes,
+        }));
+        this.routes.set("/api/projects/demo-project/videos/demo-video/history", () => ({
+            entries: [...HISTORY, ...this.liveHistory],
+        }));
     }
-    if (/\/media(?:\?|$)/u.test(path)) {
-        return "/gallery/demo.webm";
+
+    /**
+     * Freeze the script between steps without resetting the run. The current progress, scenes,
+     * history and logs stay exactly where the last emitted event left them.
+     */
+    pauseSimulation(): void {
+        if (this.paused) {
+            return;
+        }
+        this.paused = true;
+        if (this.timer !== null) {
+            this.timerDelay = Math.max(0, (this.timerDueAt ?? Date.now()) - Date.now());
+            this.clearTimer();
+            this.timerDueAt = null;
+        }
     }
-    return "";
+
+    /** Continue from the step the paused timer was about to emit. */
+    resumeSimulation(): void {
+        if (!this.paused) {
+            return;
+        }
+        this.paused = false;
+        if (this.eventListeners.size > 0) {
+            this.armTimer();
+        }
+    }
+
+    override subscribe<T>(
+        path: string,
+        schema: { parse: (value: unknown) => T },
+        onEvent: (event: T) => void,
+    ): () => void {
+        if (path !== "/api/events") {
+            return () => {};
+        }
+        const listener = (event: EncodeEvent) => onEvent(schema.parse(event));
+        this.eventListeners.add(listener);
+        if (this.eventListeners.size === 1) {
+            this.beginRun();
+        }
+        return () => {
+            this.eventListeners.delete(listener);
+            if (this.eventListeners.size === 0) {
+                this.stopRun();
+            }
+        };
+    }
+
+    private beginRun(): void {
+        this.stopRun();
+        this.liveState = initialLiveState();
+        this.liveScenes = [];
+        this.liveHistory = [];
+        this.stageStartedAt = null;
+        this.runStartedAt = new Date().toISOString();
+        this.liveLogs = [
+            {
+                at: this.runStartedAt,
+                level: "info",
+                message: "Run started: release-demo.mkv · 1280×720 · 24.000 fps",
+                project_id: GALLERY_PROJECT.id,
+                run_id: DEMO_RUN_ID,
+                scope: "run",
+                seq: 0,
+                sequence: null,
+                video_id: GALLERY_VIDEO.id,
+            },
+        ];
+        this.logs.set(DEMO_RUN_ID, this.liveLogs);
+        this.runs.set(GALLERY_VIDEO.id, [
+            {
+                run_id: DEMO_RUN_ID,
+                started_at: this.runStartedAt,
+                ended_at: null,
+                outcome: "running",
+                message: null,
+            } satisfies RunSummary,
+            ...RUNS,
+        ]);
+        this.steps = liveScript();
+        this.seq = 0;
+        if (this.paused) {
+            this.timerDelay = 0;
+            return;
+        }
+        this.advance();
+    }
+
+    private stopRun(): void {
+        this.clearTimer();
+        this.timerDueAt = null;
+        this.timerDelay = 0;
+    }
+
+    private clearTimer(): void {
+        if (this.timer !== null) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+    }
+
+    /** Schedule the next step, or hold its delay until the transport is resumed. */
+    private schedule(delay: number): void {
+        this.clearTimer();
+        this.timerDelay = Math.max(0, delay);
+        this.timerDueAt = null;
+        this.armTimer();
+    }
+
+    private armTimer(): void {
+        if (this.paused || this.timer !== null || this.eventListeners.size === 0) {
+            return;
+        }
+        const delay = this.timerDelay;
+        this.timerDelay = 0;
+        this.timerDueAt = Date.now() + delay;
+        this.timer = setTimeout(() => {
+            this.timer = null;
+            this.timerDueAt = null;
+            this.advance();
+        }, delay);
+    }
+
+    private advance(): void {
+        if (this.paused) {
+            return;
+        }
+        const step = this.steps.shift();
+        if (step === undefined) {
+            this.schedule(4_000);
+            return;
+        }
+        this.seq += 1;
+        const event = EncodeEventSchema.parse({
+            ...step.event,
+            at: new Date().toISOString(),
+            run_id: DEMO_RUN_ID,
+            seq: this.seq,
+        });
+        this.applyStep(event, step);
+        for (const listener of this.eventListeners) {
+            listener(event);
+        }
+        this.schedule(step.delay);
+    }
+
+    private applyStep(event: EncodeEvent, step: SimStep): void {
+        const sequenceId = event.sequence ?? null;
+        this.liveLogs.push({
+            at: event.at,
+            level: "info",
+            message: event.message,
+            project_id: event.project_id,
+            run_id: event.run_id,
+            scope: "run",
+            seq: this.liveLogs.length,
+            sequence: sequenceId,
+            video_id: event.video_id,
+        });
+        if (event.kind === "started") {
+            this.stageStartedAt = event.at;
+        }
+        if (event.kind === "completed" && sequenceId !== null) {
+            const startedAt = this.stageStartedAt ?? event.at;
+            const seconds = Math.max(0.001, (Date.parse(event.at) - Date.parse(startedAt)) / 1_000);
+            const frames = event.frames_processed ?? null;
+            this.liveHistory.push({
+                run_id: event.run_id,
+                sequence: sequenceId,
+                started_at: startedAt,
+                ended_at: event.at,
+                outcome: "completed",
+                frames_processed: frames,
+                frames_total: event.frames_total ?? null,
+                fps: frames === null ? null : Math.round((frames / seconds) * 100) / 100,
+                message: null,
+            });
+        }
+        if (event.kind === "finished") {
+            this.liveHistory.push({
+                run_id: event.run_id,
+                sequence: null,
+                started_at: this.runStartedAt,
+                ended_at: event.at,
+                outcome: "completed",
+                frames_processed: null,
+                frames_total: null,
+                fps: null,
+                message: "Encode finished",
+            });
+            this.runs.set(GALLERY_VIDEO.id, [
+                {
+                    run_id: DEMO_RUN_ID,
+                    started_at: this.runStartedAt,
+                    ended_at: event.at,
+                    outcome: "completed",
+                    message: "Encode finished",
+                } satisfies RunSummary,
+                ...RUNS,
+            ]);
+        }
+        const statusFor = (id: string): SequenceRunStatus => {
+            if (id === sequenceId) {
+                return event.kind === "completed" ? "complete" : "active";
+            }
+            const previous = this.liveState.sequences.find((sequence) => sequence.id === id);
+            return previous?.status ?? "never_run";
+        };
+        let sequences = this.liveState.sequences.map((sequence) => ({
+            ...sequence,
+            status: statusFor(sequence.id),
+            progress:
+                sequence.id === sequenceId
+                    ? event.kind === "completed"
+                        ? 100
+                        : (event.progress ?? sequence.progress ?? 0)
+                    : sequence.status === "active"
+                      ? 100
+                      : sequence.progress,
+            detail: sequence.id === sequenceId ? step.detail : sequence.detail,
+            runnable: true,
+        }));
+
+        if (event.kind === "finished") {
+            sequences = sequences.map((sequence) => ({
+                ...sequence,
+                status: "complete",
+                progress: 100,
+                detail: sequence.id === "SceneConcatenator" ? "Output written" : sequence.detail,
+            }));
+        }
+
+        const next = sequences
+            .filter((sequence) => sequence.status !== "complete")
+            .slice(0, 1)
+            .map((sequence) => sequence.id);
+        this.liveState = {
+            ...this.liveState,
+            scene_count: step.sceneCount ?? this.liveState.scene_count,
+            sequences,
+            next,
+            active: event.kind !== "finished",
+            run_id: event.kind === "finished" ? null : DEMO_RUN_ID,
+            failure: null,
+            output_exists: step.outputExists ?? this.liveState.output_exists,
+            retained_bytes: step.retainedBytes ?? this.liveState.retained_bytes,
+        };
+        if (step.sceneCount !== undefined) {
+            this.liveScenes = GALLERY_SCENES;
+        }
+    }
 }
 
 function baseSettings(): Record<string, unknown> {
@@ -572,10 +1240,10 @@ function baseSettings(): Record<string, unknown> {
 /**
  * Seed the deterministic demo transport used by the screenshot gallery.
  *
- * The website's normal demo starts with an empty Home list. The gallery needs a populated
- * row for every route, so this fixture owns the one project, its three queue rows, and the
- * complete configuration shown by the catalog. It is selected only by the `gallery` query
- * parameter, so a visitor to the public demo still sees the ordinary empty demo.
+ * The public demo opens on this captured run, so the fixture owns the one project, its three
+ * queue rows, and the complete configuration shown by the catalog. The `gallery` query
+ * parameter still selects the empty, loading and failing states used by the screenshots and
+ * the browser tests.
  */
 export function seedGallery(transport: MockTransport, mode: GalleryMode): void {
     if (mode === "empty") {
@@ -595,24 +1263,6 @@ export function seedGallery(transport: MockTransport, mode: GalleryMode): void {
     transport.logs.set(RUN_ID, RUN_LOGS);
     transport.parameterOverrides.set("x265", X265_PARAMETERS);
     transport.parameterOverrides.set("svt-av1", SVT_PARAMETERS);
-    // The demo prefers to show a missing encoder, but the gallery is documentation: the
-    // scene-encoder sheet should show a usable SVT-AV1 rather than a missing-tool warning.
-    const encoderRoute = transport.routes.get("/api/encoders") as (() => unknown) | undefined;
-    if (typeof encoderRoute === "function") {
-        const encoders = encoderRoute() as readonly Record<string, unknown>[];
-        transport.routes.set(
-            "/api/encoders",
-            encoders.map((encoder) =>
-                encoder.id === "svt-av1"
-                    ? {
-                          ...encoder,
-                          available: true,
-                          version: "Bundled · SVT-AV1-Essential v4.0.1",
-                      }
-                    : encoder,
-            ),
-        );
-    }
 
     if (mode === "empty-queue") {
         return;
@@ -629,7 +1279,7 @@ export function seedGallery(transport: MockTransport, mode: GalleryMode): void {
     );
     transport.routes.set(
         "/api/projects/demo-project/videos/demo-video/config",
-        effective(VIDEO_EFFECTIVE, videoSource),
+        effective(GALLERY_VIDEO_EFFECTIVE, videoSource),
     );
     transport.routes.set("/api/projects/demo-project/videos/demo-video/overrides", {
         fields: OVERRIDES,
@@ -674,6 +1324,67 @@ export function seedGallery(transport: MockTransport, mode: GalleryMode): void {
             available: 0,
             detail: "Scene detection has not produced any keyframes yet.",
         });
+    }
+
+    if (mode === "running") {
+        // History and run summaries only record terminal attempts, so an active run has
+        // nothing to add there; its state is what the pipeline reads.
+        transport.routes.set(DEMO_STATE_PATH, RUNNING_STATE);
+    }
+
+    if (mode === "failed") {
+        transport.routes.set(DEMO_STATE_PATH, FAILED_STATE);
+        transport.routes.set("/api/projects/demo-project/videos/demo-video/history", {
+            entries: [FAILED_HISTORY, ...HISTORY],
+        });
+        transport.runs.set(GALLERY_VIDEO.id, [FAILED_SUMMARY, ...RUNS]);
+    }
+
+    if (mode === "blocked") {
+        transport.validation = BLOCKED_VALIDATION;
+    }
+
+    if (mode === "invalid-scenes") {
+        transport.routes.set(DEMO_SCENES_PATH, INVALID_SCENES);
+    }
+
+    if (mode === "lan-off") {
+        transport.routes.set("/api/lan", LAN_OFF);
+    }
+
+    if (mode === "missing-dependency") {
+        const checks = transport.health.preflight.checks.map((check) =>
+            check.id === "ffmpeg"
+                ? {
+                      ...check,
+                      available: false,
+                      detail: "Not found on PATH.",
+                      remediation: "Install FFmpeg and put it on PATH.",
+                  }
+                : check,
+        );
+        transport.health.preflight = {
+            checks,
+            available_count: checks.filter((check) => check.available).length,
+            total_count: checks.length,
+        };
+    }
+
+    if (mode === "concat-inventory") {
+        // The demo has no media file to probe, so this fixture answers the workbench's own
+        // inventory request with the stream list a real mkvmerge identify would return.
+        const post = transport.post.bind(transport);
+        type Post = MockTransport["post"];
+        transport.post = (async (
+            path: string,
+            body: unknown,
+            schema: Parameters<Post>[2],
+        ): Promise<unknown> => {
+            if (path.endsWith("/concat-inventory")) {
+                return schema.parse(CONCAT_INVENTORY);
+            }
+            return post(path, body, schema);
+        }) as Post;
     }
 
     if (mode === "failing") {

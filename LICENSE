@@ -37,7 +37,7 @@ license.
 
 This application depends on the following GPL-licensed components:
 
-- andean-condor (BoatsMcGee/Av1an) — GPL-3.0
+- andean-condor (rust-av/Av1an) — GPL-3.0
 - av-decoders — GPL-3.0
 - av-scenechange — GPL-3.0
 - av-metrics-vmaf, av-metrics-vship, av-metrics-fmetrics — GPL-3.0

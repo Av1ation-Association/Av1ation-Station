@@ -1,6 +1,5 @@
-import { useEffect, useRef } from "react";
-
 import { Button } from "../../shared/Button";
+import { DialogFrame } from "../../shared/DialogFrame";
 
 export function SceneEditDialogs({
     confirmReset,
@@ -30,46 +29,13 @@ export function SceneEditDialogs({
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
 }) {
-    const resetDialog = useRef<HTMLDialogElement>(null);
-    const deleteDialog = useRef<HTMLDialogElement>(null);
-
-    useEffect(() => {
-        const dialog = resetDialog.current;
-        if (dialog === null) {
-            return;
-        }
-        if (confirmReset && !dialog.open) {
-            dialog.showModal();
-        }
-        if (!confirmReset && dialog.open) {
-            dialog.close();
-        }
-    }, [confirmReset]);
-
-    useEffect(() => {
-        const dialog = deleteDialog.current;
-        if (dialog === null) {
-            return;
-        }
-        if (confirmDelete && !dialog.open) {
-            dialog.showModal();
-        }
-        if (!confirmDelete && dialog.open) {
-            dialog.close();
-        }
-    }, [confirmDelete]);
-
     return (
         <>
-            <dialog
-                ref={resetDialog}
-                aria-labelledby="reset-scene-chunks-title"
-                onClose={onCancelReset}
-                onClick={(event) => {
-                    if (event.target === event.currentTarget && !busy) {
-                        onCancelReset();
-                    }
-                }}
+            <DialogFrame
+                open={confirmReset}
+                onDismiss={onCancelReset}
+                dismissible={!busy}
+                labelledBy="reset-scene-chunks-title"
                 className="m-auto w-[min(480px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/70"
             >
                 <div className="border-b border-line px-5 py-4">
@@ -107,17 +73,13 @@ export function SceneEditDialogs({
                         {resetPending ? "Deleting…" : "Delete chunks"}
                     </Button>
                 </div>
-            </dialog>
+            </DialogFrame>
 
-            <dialog
-                ref={deleteDialog}
-                aria-labelledby="delete-scene-title"
-                onClose={onCancelDelete}
-                onClick={(event) => {
-                    if (event.target === event.currentTarget && !busy) {
-                        onCancelDelete();
-                    }
-                }}
+            <DialogFrame
+                open={confirmDelete}
+                onDismiss={onCancelDelete}
+                dismissible={!busy}
+                labelledBy="delete-scene-title"
                 className="m-auto w-[min(480px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/70"
             >
                 <div className="border-b border-line px-5 py-4">
@@ -151,7 +113,7 @@ export function SceneEditDialogs({
                         {deletePending ? "Deleting…" : "Delete scene"}
                     </Button>
                 </div>
-            </dialog>
+            </DialogFrame>
         </>
     );
 }

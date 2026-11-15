@@ -377,9 +377,9 @@ fn every_condor_fixture_produces_the_expected_state() {
                 SequenceRunStatus::NeverRun,
                 SequenceRunStatus::NeverRun,
             ],
-            // Concatenation is runnable as soon as any chunk exists; encoding the
-            // remaining scene and re-concatenating are both valid next actions.
-            next: &["ParallelEncoder", "SceneConcatenator"],
+            // The engine now refuses a concatenation with any scene missing, so only the
+            // remaining encode is offered; the concat row still reports its missing count.
+            next: &["ParallelEncoder"],
         },
         Case {
             file: "concatenated.json",

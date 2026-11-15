@@ -1,0 +1,49 @@
+## Section grid
+
+A project opens on seven section cards and its queue. The cards are General, Scene detection, Noise generation, Target quality, Encoding, Concatenation, and Quality check. Each card shows a one-line summary, its state, and whether it holds a saved document.
+
+Selecting a card opens the shared section editor at project scope. The project header names the template it currently derives from, if any, and the queue count.
+
+## Queue
+
+The queue lists videos in run order. Each row carries a checkbox, a drag handle, the video name, its source, its derived output, and its current state. The footer summarizes the selection and the run action.
+
+| Control | Effect |
+| --- | --- |
+| Checkbox | Select one row; shift-click extends the selection |
+| Drag handle | Reorder by stable video id, even while filtered |
+| Add videos | Open the add sheet and derive an output per row |
+| Run selected | Start the first eligible selected video |
+| Remove | Remove selected rows from the queue, not from disk |
+
+## Shared section contract
+
+A project section is a complete document. A video reads it only when the video has no section override. Saving a project section changes every inheriting video immediately; it never rewrites a video's own document.
+
+<Callout tone="note" title="One editor, two scopes">
+The project card and the video card mount the same editor. Only the save target and the inherited-value panel differ, so a field cannot exist at one scope and not the other.
+</Callout>
+
+## Template application
+
+The project header offers **Apply Template**. Applying copies the template's seven sections and General document into the project. It does not change a video override, a queued video, or retained chunks. The picker searches by template name and marks the default.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| No project | The requested project no longer exists |
+| Empty queue | No video is queued; add action is visible |
+| Selection | One or more rows are selected; bulk bar is visible |
+| Locked | A run is active; project configuration and the encoding video are read-only |
+| Blocked | One or more queued videos have a validation error |
+
+<Callout tone="warning" title="Navigation is never blocked">
+A run locks configuration, not the application. You can open another project, inspect logs, and edit sibling videos while the run continues.
+</Callout>
+
+<RelatedLinks>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+<a href="/docs/guides/batch-queue">Run and monitor a batch queue</a>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+</RelatedLinks>

@@ -10,7 +10,7 @@ import type { EncoderDescriptor, ParameterDescriptor } from "@av1ation/contracts
 
 import { InputOverrideEditor } from "./InputOverrideEditor";
 import { NumberField } from "../../shared/NumberField";
-import { MetricField, ProbeFields } from "./QualityFields";
+import { MetricField, ProbeFields, QuantizerRangeField } from "./QualityFields";
 import { ParameterControl } from "../encoders/parameter-control";
 import { SpeedScalingCard } from "./SpeedScalingCard";
 import {
@@ -72,11 +72,6 @@ function asRecord(value: unknown): Draft {
     return typeof value === "object" && value !== null && !Array.isArray(value)
         ? (value as Draft)
         : {};
-}
-
-function numberAt(value: unknown, index: number, fallback: number): number {
-    const entry = Array.isArray(value) ? value[index] : undefined;
-    return typeof entry === "number" ? entry : fallback;
 }
 
 /** A switch reads as the stage's on/off state without a second Enable button. */
@@ -280,7 +275,7 @@ const CURVE_INSET = { left: 52, right: 16, top: 18, bottom: 44 };
  * the engine compares against. Everything to the right of the selected threshold is shaded
  * because those are the scenes that will be re-encoded.
  */
-function SigmaCurve({
+export function BitrateThresholdCurve({
     value,
     onChange,
     disabled,
@@ -594,50 +589,13 @@ export function TargetQualityEditor({
                         />
 
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="min-w-0">
-                                <span className="block text-[10.5px] font-medium text-ink-secondary">
-                                    Quantizer range
-                                </span>
-                                <div className="mt-1 flex items-center gap-1.5">
-                                    <NumberField
-                                        label="Quantizer range minimum"
-                                        value={numberAt(target.quantizer_range, 0, bounds.min)}
-                                        min={bounds.min}
-                                        max={bounds.max}
-                                        step={1}
-                                        integer
-                                        disabled={locked}
-                                        onChange={(next) => {
-                                            const current = [
-                                                numberAt(target.quantizer_range, 0, bounds.min),
-                                                numberAt(target.quantizer_range, 1, bounds.max),
-                                            ];
-                                            current[0] = next;
-                                            patchTarget({ quantizer_range: current });
-                                        }}
-                                        className="w-[116px]"
-                                    />
-                                    <span className="text-[10.5px] text-ink-muted">to</span>
-                                    <NumberField
-                                        label="Quantizer range maximum"
-                                        value={numberAt(target.quantizer_range, 1, bounds.max)}
-                                        min={bounds.min}
-                                        max={bounds.max}
-                                        step={1}
-                                        integer
-                                        disabled={locked}
-                                        onChange={(next) => {
-                                            const current = [
-                                                numberAt(target.quantizer_range, 0, bounds.min),
-                                                numberAt(target.quantizer_range, 1, bounds.max),
-                                            ];
-                                            current[1] = next;
-                                            patchTarget({ quantizer_range: current });
-                                        }}
-                                        className="w-[116px]"
-                                    />
-                                </div>
-                            </div>
+                            <QuantizerRangeField
+                                value={target.quantizer_range}
+                                min={bounds.min}
+                                max={bounds.max}
+                                disabled={locked}
+                                onChange={(next) => patchTarget({ quantizer_range: next })}
+                            />
 
                             {[0, 1].map((index) => (
                                 <label key={index} className="block min-w-0">
@@ -830,7 +788,7 @@ export function TargetQualityEditor({
                                 with 2 as the engine&rsquo;s default.
                             </p>
                         </div>
-                        <SigmaCurve
+                        <BitrateThresholdCurve
                             value={threshold}
                             disabled={locked}
                             onChange={(next) =>

@@ -7,7 +7,7 @@ transport; application components do not live here.
 | --- | --- |
 | `desktop/` | Desktop webview entry. Native window, dialogs, and IPC live in `rust/desktop-shell/`. |
 | `web/` | LAN browser build. It injects the HTTP transport with the user-supplied origin. |
-| `website/` | Public demo. It injects `MockTransport`; the landing page and docs are deferred to Phase 6. |
+| `website/` | Public site with a docs stub, plus the demo at `/demo/`; the demo injects `MockTransport`. |
 
 A behavior needed by more than one host belongs in `packages/ui` or `packages/api`, not in
 an `apps/*` entry. The desktop host is split deliberately: `apps/desktop` owns the Vite

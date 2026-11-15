@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 
 import { useDeleteRun, useDeleteRunLog } from "@av1ation/api";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { DialogFrame } from "../../shared/DialogFrame";
 import { runWhen } from "../../shared/model/run-presentation";
 
 /**
@@ -38,7 +39,6 @@ export function DeleteRunDialog({
     kind?: "log" | "run";
     onClose: () => void;
 }) {
-    const dialog = useRef<HTMLDialogElement>(null);
     const titleId = useId();
     const descriptionId = useId();
     const deleteLog = useDeleteRunLog(projectId, videoId);
@@ -47,16 +47,6 @@ export function DeleteRunDialog({
     const noun = kind === "run" ? "run" : "log";
     const label = kind === "run" ? "Delete run" : "Delete log";
     const when = runWhen(startedAt);
-
-    useEffect(() => {
-        const element = dialog.current;
-        if (element === null) {
-            return;
-        }
-        if (!element.open) {
-            element.showModal();
-        }
-    }, []);
 
     const confirm = () => {
         mutation.mutate(runId, {
@@ -68,23 +58,12 @@ export function DeleteRunDialog({
     };
 
     return (
-        <dialog
-            ref={dialog}
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-            onCancel={(event) => {
-                event.preventDefault();
-                if (!mutation.isPending) {
-                    onClose();
-                }
-            }}
-            onClick={(event) => {
-                // The dialog itself is the backdrop; a click on a field or button bubbles
-                // from a child and must not dismiss the question.
-                if (event.target === event.currentTarget && !mutation.isPending) {
-                    onClose();
-                }
-            }}
+        <DialogFrame
+            open
+            onDismiss={onClose}
+            dismissible={!mutation.isPending}
+            labelledBy={titleId}
+            describedBy={descriptionId}
             className="m-auto w-[min(420px,calc(100vw-2rem))] rounded-xl border border-line-strong bg-surface p-0 text-ink shadow-elevation-3 backdrop:bg-black/60"
         >
             <div className="px-5 py-4">
@@ -118,6 +97,6 @@ export function DeleteRunDialog({
                     {mutation.isPending ? "Deleting…" : label}
                 </Button>
             </footer>
-        </dialog>
+        </DialogFrame>
     );
 }

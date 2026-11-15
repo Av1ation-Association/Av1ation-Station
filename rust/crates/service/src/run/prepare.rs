@@ -90,10 +90,20 @@ pub(crate) async fn prepare(
     // A sequence input states how to decode, not which file: the video owns the file. Filling
     // it here keeps a project-level detection or encoder input working per video.
     config::inherit_sequence_inputs(&mut document, &input_path);
+    normalize_probe_skip(&mut document);
     // The engine writes scene chunks straight into this directory, so it is the video's
     // temporary directory itself rather than a nested one.
     let scenes_directory = videos.chunk_directory(&video_id, record.temp_directory.as_deref());
     let output_path = record.output_path();
+    // A video saved before the engine added output consent has no `overwrite` field.
+    // Normalise it here so an existing queue entry can still replace its own destination.
+    let mut output_document = record.output.clone();
+    av1ation_engine::media::video::ensure_output_overwrite(&mut output_document).map_err(
+        |message| PrepareError::InvalidConfig {
+            message,
+            hint: "Reload the video's General documents and choose the output again.".to_owned(),
+        },
+    )?;
     let space = disk::check(
         &state.disk,
         &scenes_directory,
@@ -151,7 +161,6 @@ pub(crate) async fn prepare(
         &document,
         single_sequence,
     );
-
     let Some(mut encoder) = document.get("encoder").cloned() else {
         return Err(PrepareError::InvalidConfig {
             message: "The project has no encoder configuration.".to_owned(),
@@ -222,7 +231,7 @@ pub(crate) async fn prepare(
         video_id,
         input: record.input.clone(),
         video_path: input_path.clone(),
-        output: record.output.clone(),
+        output: output_document,
         encoder,
         sequence_config,
         // The runner reads the pairs off the blob before the engine loads it; the engine
@@ -362,6 +371,23 @@ fn chain_actions(document: &Value, single_sequence: bool) -> Vec<&'static str> {
     actions
 }
 
+/// Give a legacy `Skip` probe the smallest stride the current engine accepts.
+///
+/// Older builds allowed a zero stride; the engine now rejects it. This repairs the value at
+/// the run boundary, never in the saved document, so an existing queue entry can still run.
+fn normalize_probe_skip(document: &mut Value) {
+    for strategy in [
+        "/sequences/target_quality/probing/strategy/Skip/skip",
+        "/sequences/quality_check/strategy/Skip/skip",
+    ] {
+        if let Some(skip) = document.pointer_mut(strategy)
+            && skip.as_u64() == Some(0)
+        {
+            *skip = Value::from(1u64);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -452,6 +478,38 @@ mod tests {
         assert!(chain_actions(&configured, true).is_empty());
         // Neither action has work when its configuration is absent.
         assert!(chain_actions(&json!({ "sequences": {} }), false).is_empty());
+    }
+
+    #[test]
+    fn a_legacy_zero_skip_becomes_the_smallest_valid_stride() {
+        let mut document = json!({
+            "sequences": {
+                "target_quality": { "probing": { "strategy": { "Skip": { "skip": 0 } } } },
+                "quality_check": { "strategy": { "Skip": { "skip": 0 } } }
+            }
+        });
+        normalize_probe_skip(&mut document);
+
+        assert_eq!(
+            document.pointer("/sequences/target_quality/probing/strategy/Skip/skip"),
+            Some(&json!(1))
+        );
+        assert_eq!(
+            document.pointer("/sequences/quality_check/strategy/Skip/skip"),
+            Some(&json!(1))
+        );
+    }
+
+    #[test]
+    fn a_valid_skip_is_not_rewritten() {
+        let mut document = json!({
+            "sequences": { "quality_check": { "strategy": { "Skip": { "skip": 4 } } } }
+        });
+        normalize_probe_skip(&mut document);
+        assert_eq!(
+            document.pointer("/sequences/quality_check/strategy/Skip/skip"),
+            Some(&json!(4))
+        );
     }
 
     #[test]

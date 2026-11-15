@@ -1,0 +1,62 @@
+## Before you start
+
+Configure the pipeline first, choose an available encoder, and make sure the parameter catalogue is loaded. A saved build is optional; the built-in executor is enough to start.
+
+## Choose the encoder
+
+Open the project or video **Encoding** section. The encoder selector lists the families in the catalogue. Choosing a different family does not carry the previous executable, saved build, or parameters; those belong to the encoder.
+
+## Choose a saved build
+
+A saved build is another executable of a known family, with its own version and parameter support. Select it where the encoder is chosen. A build whose executable is missing is not offered for a new configuration.
+
+<Callout tone="tip" title="Fork versus family">
+A fork is not a new encoder family. It shares the family's parameter schema, so the table looks familiar while the executable and version differ.
+</Callout>
+
+## Find and edit parameters
+
+Use the search field to find a parameter by its label or flag. Each row shows the current value and whether it differs from the executable's default. A parameter you never set stays at the default rather than being serialized as an explicit value.
+
+<Steps>
+<Step title="Filter the table" result="Only matching parameters remain visible.">
+Search by the app label; the flag spelling is shown above the description.
+</Step>
+<Step title="Edit a value" result="The row shows the new value and the set count increases.">
+The editor validates the value against the parameter's kind, range, and relations. An invalid value stays inline and is not added to the document.
+</Step>
+<Step title="Read the generated command" result="The generated command contains the flags you expect.">
+Preview is read-only. It is the fastest way to catch a parameter that is set to a value the executable will ignore.
+</Step>
+</Steps>
+
+<LiveWidget id="W01" />
+
+## Add a parameter
+
+Choose **Add parameter** to add a descriptor the encoder did not list by default. The parameter must exist in the encoder's schema; arbitrary text is not accepted. A custom parameter is serialized with the document and shown like any other row.
+
+## Preview the command
+
+Preview is read-only. It is the fastest way to catch a parameter that is set to a value the executable will ignore, or a flag that belongs to another build. The preview updates with the draft, not only after Save.
+
+## Save
+
+Save writes the whole encoder document for this scope. A project save changes every video without an Encoding override. A video save creates an override for that video only. A disabled Save means the draft still has a validation error.
+
+## Check your result
+
+The header reports `n of m set` and the preview command shows the expected flags. The row's custom marker should match the scope you meant to change.
+
+## If it goes wrong
+
+- **A flag is missing**: the parameter may be unset, or the encoder build may not support it.
+- **The executable is unavailable**: fix the provider in Settings → Encoders or choose another build.
+- **A refused value**: read the inline message; the range and relations come from the schema.
+- **The previous executable survived a family change**: it should not; reset the section and select the encoder again.
+
+<RelatedLinks>
+<a href="/docs/reference/encoding">Encoding reference</a>
+<a href="/docs/reference/encoders">Encoders reference</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+</RelatedLinks>

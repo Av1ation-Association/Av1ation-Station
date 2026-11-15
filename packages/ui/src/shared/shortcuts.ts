@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { useHostShortcuts } from "./demo-mode";
+
 /**
  * One chord: the key, whether Shift is held, and whether it needs the primary modifier.
  *
@@ -303,6 +305,8 @@ export function useShortcut(
     options: ShortcutOptions = {},
 ): void {
     const { enabled = true, when } = options;
+    // A bounded docs frame owns no window chords; the page keeps its search and browser keys.
+    const hostShortcuts = useHostShortcuts();
     // Screens re-render on every progress tick, so the listener stays subscribed by
     // identity and reads the current callbacks instead of re-registering each frame.
     const latest = useRef({ handler, when });
@@ -311,7 +315,7 @@ export function useShortcut(
     });
 
     useEffect(() => {
-        if (!enabled) {
+        if (!enabled || !hostShortcuts) {
             return;
         }
         const onKey = (event: KeyboardEvent) => {
@@ -329,5 +333,5 @@ export function useShortcut(
         };
         window.addEventListener("keydown", onKey, true);
         return () => window.removeEventListener("keydown", onKey, true);
-    }, [enabled, id]);
+    }, [enabled, hostShortcuts, id]);
 }

@@ -3,8 +3,16 @@ import type { ComponentPropsWithoutRef } from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 import { cn } from "./cn";
+import { useEmbeddedDemoHost } from "./demo-mode";
 
-export const Popover = PopoverPrimitive.Root;
+type PopoverProps = ComponentPropsWithoutRef<typeof PopoverPrimitive.Root>;
+
+/** The one rich-content root; the embedded demo never lets it become a page-level modal. */
+export function Popover(props: PopoverProps) {
+    const embedded = useEmbeddedDemoHost() !== null;
+    return <PopoverPrimitive.Root {...props} modal={embedded ? false : props.modal} />;
+}
+
 export const PopoverTrigger = PopoverPrimitive.Trigger;
 
 /** The one rich-content surface; it is not a menu and carries no menu semantics. */
@@ -14,8 +22,13 @@ export function PopoverContent({
     sideOffset = 4,
     ...props
 }: ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>) {
+    const portalContainer = useEmbeddedDemoHost()?.portalContainer;
+    const portalProps =
+        portalContainer === null || portalContainer === undefined
+            ? {}
+            : { container: portalContainer };
     return (
-        <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Portal {...portalProps}>
             <PopoverPrimitive.Content
                 align={align}
                 sideOffset={sideOffset}

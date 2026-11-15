@@ -37,9 +37,7 @@ keeps an inspectable snapshot so token drift is reviewable in a diff.
 
 `boards/` is the authoritative list of what can be regenerated. Most boards currently in
 the file predate this directory and have no generator; the external `.penpot` snapshot is
-their backup. `11 Website` is generator-backed by three scripts, one per surface family,
-and is an unapproved draft deferred to Phase 6 . Do not treat it as a Phase 0 approval
-gate, and do not add new boards as ad-hoc calls.
+their backup. Do not add new boards as ad-hoc calls.
 
 | Script | Boards | Page |
 | --- | --- | --- |
@@ -57,9 +55,6 @@ gate, and do not add new boards as ad-hoc calls.
 | `boards/settings-project-defaults.js` | `Settings / Project Templates`, `Settings / Project Templates / Encoding` | `04 Settings` |
 | `boards/settings-tab-states.js` | `Settings / Tab states` | `04 Settings` |
 | `boards/motion-icon-expand.js` | `Motion / Icon action expand — 160ms` | `08 Motion` |
-| `boards/website-landing.js` | `Website / Landing`, `Website / Landing / Narrow` | `11 Website` |
-| `boards/website-docs.js` | `Website / Docs`, `Website / Docs / Narrow`, `Website / Docs / Article`, `Website / Docs / Article / Narrow` | `11 Website` |
-| `boards/website-demo.js` | `Website / Demo`, `Website / Demo / Narrow`, nested `Website / Demo / Browser`, `Website / Demo / App` | `11 Website` |
 
 `chrome-refresh.js` is the exception to one-script-per-board-set: it redraws only the 56 px
 bar on boards that already exist, so a change to the shared shell does not cost a redraw of
@@ -76,9 +71,7 @@ and share the heading, the whole-row project target and the pinned footer. All s
 boards are generator-backed from `project-states.js` and share the **Configuration and
 Defaults** panel and the queue, with the queue in a right column on the Wide board. The
 `configuration-encoding.js` generator is retired and has been removed; its board was
-replaced by the two scripts above. The website scripts draw eight root boards plus the
-nested browser/app boards; the browser frame is a board, not a rectangle, so the app Home
-keeps its real 56px chrome and geometry.
+replaced by the two scripts above.
 
 ## Board layout
 
@@ -117,7 +110,6 @@ generators place the board at its final coordinate, and the set scripts apply th
 | `07 Overlays` | Confirm delete, Command palette / Guard · unsaved draft, Guard · encode running / Menus and popovers, Banners / Notifications. |
 | `08 Motion` | State feedback — 100ms, Surface enter and exit — 160ms / Icon action expand — 160ms, Route transition — 240ms / Progress, selection, reduced motion. |
 | `10 Configuration` | General, Scene detection / Noise generation, Target quality / Encoding, Concatenation / Quality check. |
-| `11 Website` | Landing, Landing Narrow / Docs, Docs Narrow / Docs article, Docs article Narrow / Demo, Demo Narrow. |
 
 `09 Archive` holds no boards by design and takes no place in the review order.
 
@@ -127,12 +119,6 @@ duplicated every icon and was 7.6% of the document. `K.icon` removes it at the s
 regenerated icon group is single-path. The 2026-11-04 sweep removed 794 of them from the
 live file; a full audit then found zero hidden layers across 82 application boards. Do not
 add a hidden background to a generated icon.
-
-`11 Website` carries one page-sized rectangle named `Website / Canvas` behind all boards,
-filled with `color.bg.sunken`. It is a rectangle, not a board: it keeps the gutters and the
-area around the set dark during review, is excluded from the board inventory, and is
-inserted at layer index 0 so it can never cover a board. It is `2512 × 5532` at
-`(-120, -120)`, covering the 64px gutters around the `2272 × 5292` board field.
 
 Every Configuration section board is a full-width project section screen: there is no local
 section rail, no queue footer, and no in-board Cancel/Save pair. Section navigation lives on
@@ -182,9 +168,6 @@ The document rules:
   full copy of a dense backdrop.
 - Export **one board at a time** and only after a batch of patches. An export is a full
   render of the board and is the most expensive call; the page export is never needed.
-- The website set is three scripts (`website-landing.js`, `website-docs.js`,
-  `website-demo.js`); run one at a time. The docs script alone draws four root boards, so
-  export them individually rather than re-exporting the page.
 - Inspect geometry with `execute_code` (shape names, bounds, font sizes) before exporting.
   Most alignment defects are cheaper to find as numbers than as pixels.
 
@@ -194,12 +177,8 @@ Penpot named versions (`File → Save version`) are the cheap rollback. The `.pe
 is about 50 MB and is **not committed**. After a board set is approved, create a named
 version and export the file to the project's external design archive. Record the file ID,
 revision, named version, export date, location and SHA-256 in [`VERSIONS.md`](VERSIONS.md).
-The website boards were drawn at revision `569`; [`VERSIONS.md`](VERSIONS.md) records the
-current working revision.
-They are a draft deferred to Phase 6 , not a Phase 0 review candidate. Freeze the
-application set as `phase-0-app-boards`; the website round creates its own named version
-when its boards are approved. The repository holds the generators, `tokens.json`, and that
-manifest; the binary stays outside git.
+Freeze the application set as `phase-0-app-boards`; the repository keeps the generators,
+`tokens.json`, and that manifest, while the binary stays outside git.
 
 The file is the only artefact that carries boards **and** tokens at once. `tokens.json` is
 a reviewable snapshot, not an import format. Recreating a lost library means importing the

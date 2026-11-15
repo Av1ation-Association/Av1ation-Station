@@ -1,19 +1,54 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="color-scheme" content="dark" />
-        <title>Av1ation Station — Demo</title>
+        <meta name="color-scheme" content="dark light" />
+        <meta name="theme-color" content="#0d1118" />
+        <script>
+            (() => {
+                let stored = null;
+                try {
+                    stored = localStorage.getItem("av1ation-site-theme");
+                } catch {
+                    // Private browsing can deny storage; system remains the default.
+                }
+                const preference = stored === "light" || stored === "dark" ? stored : "system";
+                const theme =
+                    preference === "system"
+                        ? matchMedia?.("(prefers-color-scheme: light)")?.matches === true
+                            ? "light"
+                            : "dark"
+                        : preference;
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
+                document
+                    .querySelector('meta[name="theme-color"]')
+                    ?.setAttribute("content", theme === "light" ? "#f4f7fb" : "#0d1118");
+            })();
+        </script>
+        <meta
+            name="description"
+            content="Av1ation Station is a desktop workspace for scene-aware, quality-targeted video encoding with Av1an. Detect scenes, set quality per scene, encode in parallel, and measure the result."
+        />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <title>Av1ation Station — the command center for high quality encoding</title>
         <style>
-            html,
-            body {
+            html {
                 background: #0d1118;
+            }
+
+            html[data-theme="light"] {
+                background: #f4f7fb;
+            }
+
+            body {
+                margin: 0;
             }
         </style>
     </head>
     <body>
         <div id="root"></div>
-        <script type="module" src="/src/main.tsx"></script>
+        <script type="module" src="/src/site.tsx"></script>
     </body>
 </html>

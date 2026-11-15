@@ -81,7 +81,10 @@ Three properties drive everything downstream:
    override table to keep in sync.
 3. **`sequence_data` is the record of what actually happened.** `noise_detection.is_some()`
    means the noise detector produced data for that scene; an empty target-quality pass list
-   means it has not. This is the data the timeline is derived from.
+   means it has not. This is the data the timeline is derived from. Resumable results also
+   carry `provenance.revision` and the declared context that produced them. A result
+   without the current revision cannot be repaired by restarting a sequence: the engine
+   refuses to reuse it, so its saved data must be reset.
 4. **A hole in the table is read as part of the scene before it.** The saved table may leave
    a range uncovered (deleting a scene keeps its frames re-addable), but one clip is opened
    and spliced from these ranges: decoding a table literally would cut the hole out, shift
@@ -232,7 +235,11 @@ reason there is no `script_path`: both facts already have a home on the engine m
 `Output` document always exists once the video is added, but its `path` may be empty until
 it is chosen on that video's General screen; encoding preflight rejects an empty target
 rather than inventing `{VIDEO}.mkv`, which can collide with the source. The project scope
-never shows a filename field.
+never shows a filename field. The document also carries `overwrite` consent: this
+application sets it when it chooses the target, and a document written before the field
+existed is normalised to the same consent when a run is prepared. An explicit `false` from
+an imported document is preserved and makes the engine refuse to replace an existing
+distinct file.
 
 `FieldPath` is a dotted path into the engine configuration document
 (`"sequences.target_quality.maximum_probes"`, `"output"`). `JsonValue` is deliberate: the
@@ -382,7 +389,7 @@ It never changes completion, because a config edit alone has not invalidated the
 | Bitrate Optimizer | no completion field; it mutates target-quality data for the next run **and is treated as an action, not a state** | scenes exist; Target Quality has at least one pass; `bitrate_sigma_threshold` set |
 | Parallel Encoder | every scene has an encoded chunk file (its `parallel_encoder.bytes` is evidence, not the test) | scenes exist; encoders validate |
 | Serial Encoder | every scene has an encoded chunk file | scenes exist; encoders validate |
-| Scene Concatenator | output file exists and is non-empty | at least one encoded chunk exists |
+| Scene Concatenator | output file exists and is non-empty | every scene has an encoded chunk |
 | Quality Check | every scene has a quality check with a non-empty score set | output file exists |
 | Benchmarker | `parallel_encoder.workers` is set | scenes exist; `workers` unset |
 | Speed Scaler | no completion field; it rewrites each scene's encoder speed, which is visible in that scene's encoder and is **not** a separate state | scenes exist; `speed_quantizers` has at least two pairs |
@@ -391,6 +398,10 @@ Note that Parallel Encoder and Scene Concatenator are the two sequences whose co
 depends on the **filesystem**, not only on `sequence_data`. That is deliberate and is what
 makes crash recovery work. Speed Scaler and Bitrate Optimizer are actions, not phases: they
 never enter `next`, and a full run applies them in front of Parallel Encoder when enabled.
+
+Partial concatenation is never offered; the engine requires every requested scene, so a
+missing chunk makes the row report how many are missing rather than offering a shorter
+output.
 
 Two refinements the implementation must respect:
 

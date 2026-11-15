@@ -1,0 +1,57 @@
+## Before you start
+
+The video needs a completed encode or retained chunks, and the chosen muxer must be available. mkvmerge is the only method that can carry source tracks, chapters, and attachments; FFmpeg and IVF have smaller feature sets.
+## Choose the method
+
+<Steps>
+<Step title="Open Concatenation" result="The method cards show mkvmerge, FFmpeg, and IVF.">
+Use the video section to override the project method for this video. The project method is the default every video without an override inherits.
+</Step>
+<Step title="Select a muxer" result="The track map and feature panels update for that muxer.">
+mkvmerge is Matroska-native. FFmpeg is broad-format but copies a single encoded video track. IVF writes a raw AV1 elementary stream with no container tracks.
+</Step>
+</Steps>
+
+## Probe the inventory
+
+Select **Probe again** to ask the muxer for the source streams. The inventory lists attachments, data streams, chapter count, and selectable tracks with the muxer's own keys. A failed probe returns a readable detail instead of an empty map with no explanation.
+
+## Map tracks
+
+The track map groups rows by input and kind. The encoded video row is always included and locked; you cannot drop the picture the run just produced. Audio, subtitle, and attachment rows can be included or excluded individually when the muxer allows it.
+
+<Callout tone="warning" title="Namespaces">
+mkvmerge track IDs and FFmpeg stream indices are separate namespaces. Never copy an override from one method to the other; the workbench keys every row by the muxer that produced it.
+</Callout>
+
+## Edit a track
+
+Select the sliders on a row to open the track sheet. Set language, title, default, forced, commentary, hearing-impaired, and delay where the method supports them. Apply writes the row's override; an unmatched saved key stays visible so you can remove it.
+
+## Copy chapters and metadata
+
+Chapters come from the source where the muxer can read them. Metadata copy-all keeps the source tags; an explicit title and tag map replace them. FFmpeg has no tag-writing path, so its metadata setting is copy on or off.
+
+## Add attachments or extra inputs
+
+Attachments are files carried by the container, not streams. Extra inputs merge additional source files before the encoded scenes; each has its own path, track selection, and options. An extra input's paths are not copied to the output automatically.
+
+## Save
+
+Save writes the concatenation section for this scope. A missing muxer or an invalid extra path is refused at save or at run time with a named error, not silently ignored.
+
+## Check your result
+
+The encoded video row reads **Always** and the intended audio, subtitle, and attachment rows are included. The chapter count matches the source you expect. The output path is the exact file the muxer will write.
+
+## If it goes wrong
+
+- **Inventory failed**: the muxer is missing or the source cannot be read. Check Settings → Dependencies and retry.
+- **A row disappeared**: the selected muxer cannot represent that stream kind.
+- **An override looks wrong**: it was keyed for another muxer; remove it and re-add it under the current method.
+
+<RelatedLinks>
+<a href="/docs/reference/concatenation">Concatenation reference</a>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+<a href="/docs/guides/configure-pipeline">Configure the pipeline stages</a>
+</RelatedLinks>

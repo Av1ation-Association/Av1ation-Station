@@ -1,0 +1,59 @@
+## Before you start
+
+A failed or interrupted video is selected. Do not delete logs or retained chunks yet; they are the evidence and the reusable work. No other run should hold the lock if you intend to retry.
+
+## Read the failure
+
+Open History and read the terminal message on the newest attempt. A failure can occur before the first sequence, so do not assume the message belongs to encoding. Then open Logs and read the first error, not the last line. A cancelled run is not a failed one.
+
+<Callout tone="tip" title="The first error is the cause">
+Later lines are often consequences: a missing chunk after a detection failure, a concatenation error after an encoder error. Fix the first failure before retrying the rest.
+</Callout>
+
+## Find the failing sequence
+
+The video's pipeline card names the sequence that owns the failure. Match the message to that stage rather than restarting everything. The configuration card for that stage shows the saved values and any validation blocker.
+
+| Sequence | First check |
+| --- | --- |
+| Scene detection | Provider or model path, minimum and maximum lengths |
+| Noise generation | Detector and scaler fields, WNNM pair complete |
+| Target quality | Metric availability, range and quantizer bounds |
+| Parallel encoding | Encoder build, executable availability, worker count |
+| Concatenation | Muxer path, output folder permissions, extra inputs |
+| Quality check | Retained chunks and final output exist |
+
+## Open the log
+
+Use the History card's log action. The viewer opens that run's directory, not the newest log. Filter to errors and read the first one with its target and timestamp. Export only after the failure has been identified.
+
+## Fix the cause
+
+Open the owning section and correct the value or the provider. A save is refused while the encoding video is locked; stop the active run or wait for it. A missing dependency is fixed in Settings → Dependencies, not by editing the project.
+
+<Steps>
+<Step title="Correct the owning setting" result="The section saves without an error and its card no longer reports the failure.">
+A configuration save is refused while the encoding video is locked; stop or wait first.
+</Step>
+<Step title="Re-probe if the cause was a provider" result="The capability reports available and the saved provider survives a restart.">
+A rejected path is transient; an accepted path is re-probed on startup.
+</Step>
+</Steps>
+
+## Resume or rerun
+
+A retry runs a new attempt and keeps the old one in History. Completed sequences do not run again unless their inputs changed. Retained chunks let encoding resume on selected scenes; a reset chunk is a clean re-encode, not a repair.
+
+## Verify
+
+The output exists at the exact path, every required sequence reports complete, and History has a terminal record for the retry. If a quality check ran, its measured scenes are named individually. Opening the output is the final check; a completed state alone does not prove it plays.
+
+## If it goes wrong
+
+If the message is not actionable or the same failure returns after a correct fix, follow [Diagnostics and support](/docs/troubleshooting/support) and export the log. Include the exact failure message and the stage, not just the project name.
+
+<RelatedLinks>
+<a href="/docs/troubleshooting/support">Diagnostics and support</a>
+<a href="/docs/guides/logs-evidence">Review logs and export support evidence</a>
+<a href="/docs/reference/history-logs">History and logs reference</a>
+</RelatedLinks>

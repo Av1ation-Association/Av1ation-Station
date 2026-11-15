@@ -23,6 +23,8 @@ pub struct ResetFiles {
     pub target_quality: bool,
     /// `Parallel Encoder` under the scenes directory.
     pub parallel_encoder: bool,
+    /// `Scene Concatenator` under the scenes directory, including a failed mux's scratch file.
+    pub scene_concatenator: bool,
     /// The finished concatenated output.
     pub output: bool,
 }
@@ -107,6 +109,7 @@ pub fn reset_sequence(condor: &Value, sequence: &str) -> Result<ResetPlan, Strin
             }
         }
         "SceneConcatenator" => ResetFiles {
+            scene_concatenator: true,
             output: true,
             ..ResetFiles::default()
         },
@@ -581,6 +584,15 @@ mod tests {
         assert!(plan.files.scene_chunks);
         assert!(!plan.files.all_chunks);
         assert!(plan.files.parallel_encoder);
+    }
+
+    #[test]
+    fn concatenator_reset_removes_its_scratch_directory_and_output() {
+        let plan =
+            reset_sequence(&condor(vec![scene(0, 24, 30.0)]), "SceneConcatenator").expect("reset");
+        assert!(plan.files.scene_concatenator);
+        assert!(plan.files.output);
+        assert!(!plan.files.scene_chunks, "the retained chunks are kept");
     }
 
     #[test]

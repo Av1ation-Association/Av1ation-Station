@@ -1,0 +1,47 @@
+## Before you start
+
+A project must exist and you must know whether the input is FFMS2-native or VapourSynth. A VapourSynth filter needs a working VapourSynth provider; an FFMS2 filter does not.
+## Choose the input kind
+
+Open General. The input kind decides which filter target is offered. FFMS2 filters run before the decoded frames enter the graph; VapourSynth filters run inside the graph. The two lists are independent and ordered separately.
+
+## Add a filter
+
+<Steps>
+<Step title="Open the composer" result="The Add filter sheet shows the filter catalogue for the chosen target.">
+Select **Add filter** in the relevant list. The sheet names its target in the description.
+</Step>
+<Step title="Choose a filter" result="The generated fields for that filter appear.">
+Filters come from the engine's schema. The composer does not present a hand-written form that can drift from the engine.
+</Step>
+</Steps>
+
+## Fill the generated fields
+
+Each field has a control derived from its type: number, choice, switch, text, or a structured value. Required fields are marked. Cross-field rules are evaluated as you edit; a combination the filter rejects keeps the sheet open with the reason.
+
+<Callout tone="warning" title="Do not invent settings">
+If a field is not in the form, the engine's schema does not expose it. Saving arbitrary JSON is not a supported shortcut.
+</Callout>
+
+## Reorder and remove
+
+The list order is the execution order. Drag a row by its handle to reorder it; remove a row with its delete action. Removing a filter does not remove the source file or any already-encoded chunk.
+
+## Save
+
+Save writes the General document for the current scope. A project save changes every video without a General override; a video save changes only that video. An invalid filter document is refused on save, not silently dropped.
+
+## Check your result
+
+Each row should have a one-line summary and the intended position. Open a video that inherits the list and confirm the row order matches. If the filter produces a different frame size, check the output expectation on the same card.
+
+## If it goes wrong
+
+A missing plugin is named by the preflight or the script scan; install or select a provider in Settings. A filter that parses but fails during evaluation is a run failure, not a form validation error. Use the log to identify the filter and the frame.
+
+<RelatedLinks>
+<a href="/docs/reference/filters">Input filters reference</a>
+<a href="/docs/reference/general">General reference</a>
+<a href="/docs/reference/script-api">Script data API</a>
+</RelatedLinks>

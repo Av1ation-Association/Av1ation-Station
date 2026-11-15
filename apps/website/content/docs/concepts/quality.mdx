@@ -1,0 +1,51 @@
+Target quality and quality check answer different questions. Target quality chooses how hard to compress each scene before encoding. Quality check measures the finished file and tells you what the result actually scored.
+
+## Target quality and quality check
+
+**Target quality** runs before Parallel Encoding. It probes scenes at several quantizers, fits the metric's response, and writes a quantizer per scene. **Quality check** runs after Concatenation (or on retained chunks) and scores the result against the source. One changes the encode; the other reports on it.
+
+<Callout tone="note" title="Both can be on">
+A common workflow enables both: target quality sets the intent, quality check verifies the result. A quality check does not feed back into the encode automatically.
+</Callout>
+
+## Metrics and ranges
+
+A metric has a direction and a useful range. Higher-is-better metrics such as CVVDP use a target above the minimum acceptable score. The range is the band the fit aims for; it is not a hard clamp on every scene. Choose a metric that both the engine and the selected encoder path can use.
+
+## Probing
+
+Probing encodes a short sample of a scene at chosen quantizers, measures it, and records the pair. More probes improve the fit at the cost of time. The quantizer bounds limit the search so a pathological scene cannot push the encoder to a useless extreme.
+
+<Steps>
+<Step title="Choose the probe metric" result="Target quality uses a metric the build reports as available.">
+The metric list comes from the preflight inventory. A metric with no usable backend is not offered for a new configuration.
+
+<LiveSample kind="quality-metric" />
+</Step>
+<Step title="Set the range and bounds" result="The range admits a solution and the bounds keep the search finite.">
+An inverted or empty range is refused on save. Leave the default quantizer bounds unless you have a reason to narrow them.
+
+<LiveSample kind="quality-range" />
+</Step>
+<Step title="Inspect the measured data" result="Each scene reports its probes and chosen quantizer.">
+<LiveWidget id="W03" />
+</Step>
+</Steps>
+
+## Speed scaling and bitrate optimization
+
+Speed scaling adds quantizer offsets by playback speed so a fast-motion scene can spend less bitrate than a static one. Bitrate optimization can raise or lower the chosen quantizer to stay near a target size. Both are optional and both are visible in the measured data; neither is a hidden encoder switch.
+
+<LiveSample kind="speed-scaling" />
+
+<LiveSample kind="bitrate-threshold" />
+
+## When scores mislead
+
+A metric is a model, not a perceptual guarantee. A high score from one metric can coexist with visible banding in a different kind of content. Use the preview sources and the encoded chunks for a visual check, and treat a single aggregate score as a trend rather than a verdict.
+
+<RelatedLinks>
+<a href="/docs/guides/target-quality">Hit a quality target</a>
+<a href="/docs/reference/target-quality">Target quality reference</a>
+<a href="/docs/reference/quality-check">Quality check reference</a>
+</RelatedLinks>

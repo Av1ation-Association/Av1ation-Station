@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
     AppInfoSchema,
+    EncoderDescriptorSchema,
     LogPageSchema,
     PreflightCheckSchema,
     ProjectSchema,
@@ -54,12 +55,46 @@ describe("MockTransport", () => {
         expect(info.engine_version).toBe(ENGINE_VERSION);
         expect(info.engine_revision).toBe(ENGINE_REVISION);
         expect(info.api_version).toBe(API_VERSION);
-        expect(info.preflight.available_count).toBe(2);
-        expect(info.preflight.total_count).toBe(3);
-        expect(info.preflight.checks.map((check) => check.capability)).toEqual([
+        expect(info.preflight.available_count).toBe(11);
+        expect(info.preflight.total_count).toBe(11);
+        expect([...new Set(info.preflight.checks.map((check) => check.capability))]).toEqual([
             "decode",
             "muxing",
             "encode",
+        ]);
+    });
+
+    it("offers every engine encoder and its dependency row", async () => {
+        const transport = new MockTransport();
+        const encoders = await transport.get("/api/encoders", EncoderDescriptorSchema.array());
+        expect(encoders.map((encoder) => encoder.id)).toEqual([
+            "x265",
+            "svt-av1",
+            "aom",
+            "rav1e",
+            "vpx",
+            "avm",
+            "x264",
+            "vvenc",
+            "ffmpeg",
+        ]);
+        expect(encoders.every((encoder) => encoder.available)).toBe(true);
+
+        const info = await transport.get("/api/health", AppInfoSchema);
+        expect(
+            info.preflight.checks
+                .filter((check) => check.capability === "encode")
+                .map((check) => check.id),
+        ).toEqual([
+            "encoder:x265",
+            "encoder:svt-av1",
+            "encoder:aom",
+            "encoder:rav1e",
+            "encoder:vpx",
+            "encoder:avm",
+            "encoder:x264",
+            "encoder:vvenc",
+            "encoder:ffmpeg",
         ]);
     });
 
@@ -73,13 +108,15 @@ describe("MockTransport", () => {
         expect(check).toMatchObject({ id: "custom:x265", origin: "custom", available: true });
 
         const added = await transport.get("/api/health", AppInfoSchema);
-        expect(added.preflight.total_count).toBe(4);
+        expect(added.preflight.total_count).toBe(11);
         expect(added.preflight.checks[added.preflight.checks.length - 1]?.id).toBe("custom:x265");
+        expect(added.preflight.checks.some((check) => check.id === "encoder:x265")).toBe(false);
 
         await transport.delete("/api/preflight/custom/custom%3Ax265");
         const removed = await transport.get("/api/health", AppInfoSchema);
-        expect(removed.preflight.total_count).toBe(3);
+        expect(removed.preflight.total_count).toBe(11);
         expect(removed.preflight.checks.some((check) => check.id === "custom:x265")).toBe(false);
+        expect(removed.preflight.checks.some((check) => check.id === "encoder:x265")).toBe(true);
     });
 
     it("stores General defaults and derives an omitted output path", async () => {

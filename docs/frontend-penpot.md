@@ -51,12 +51,6 @@ Penpot pages have no per-file cap and no rate limit on the hosted service.
 | `08 Motion` | annotated keyframes for every transition in the budget |
 | `09 Archive` | the dated rollout snapshot policy; not a live board page |
 | `10 Configuration` | one board per configuration section: General, scene detection, noise generation, target quality, encoding, concatenation, quality check; each starts from a back link to the Project section grid, keeps the breadcrumb a static trail, and puts Save/Cancel in the top bar |
-| `11 Website` | landing page, documentation shell/index/article, demo shell; eight root boards drawn and export-reviewed as a draft; design round deferred to Phase 6, not a Phase 0 gate |
-
-`11 Website` also carries `Website / Canvas`, a page-sized rectangle at layer index 0 and
-filled with `color.bg.sunken`. It is not a board and is excluded from the inventory; it
-keeps the 64px gutters and the area around the set dark during review. It must stay behind
-every board or it covers the set.
 
 Superseded boards are **removed**, not parked on the active page. A page full of retired
 boards is what made the Penpot tab heavy enough for Chrome to discard it, and the file's
@@ -126,13 +120,17 @@ in a duplicate full-page board. `04 Settings` carries one tab board per tab, plu
 `Project Templates` and the encoder parameter editor; each tab board repeats the same seven-tab
 strip, so adding a tab is one change in every board, not a bespoke header.
 
-`11 Website` is a content surface, not an application screen, so the app state checklist
-(Populated / Empty / Loading / Error) does not apply to it. Landing, Docs and Demo each
-carry a desktop and a narrow board; the docs index and article are separate boards. The
-demo's browser frame contains the real app Home, so its loading and error behavior belong
-to the app's Home board set rather than to a second marketing mock. The website design
-round is deferred out of Phase 0 to Phase 6; until that round approves the boards,
-the drawn set is a draft and no page is implemented from it.
+### 3.1 Public website
+
+The public website is the one exception to board-first implementation. Marketing and
+documentation pages are not application screens and are not transcribed from Penpot. They
+are composed from the application's identity — its logo mark, semantic tokens, Inter and
+JetBrains Mono, and real shared components — and may mount real application screens with
+fixture data. They must not invent an application screen's layout; a mounted
+app screen ships as it exists.
+
+The site's review surface is the running page, its built output, and its accessibility and
+bundle behavior, not a board. App screens remain governed by §3 and §9.
 
 Foundations carries eight boards: `Colour`, `Finishes`, `Type`, `Spacing`, `Radius`,
 `Motion`, `Logo`, and `Brand lockup`. The `Logo` board is the only place the app mark's
@@ -142,19 +140,6 @@ trails fading from its rear points, `Av1ation` above and `Station` below — and
 page on its own row at its native size. `Finishes` is not optional — the brushed
 aluminium treatment is defined by tokens, and the board is the only place its gradient
 stops, specular placement, and grain density are specified.
-
-`11 Website` is a separate surface family: the public landing page, the documentation
-shell/index/article, and the demo shell that mounts the same SPA with `MockTransport`.
-Its design round is deferred out of Phase 0 and runs with the public-site work in Phase 6,
-after the application chrome is final, so the demo inherits that chrome rather than
-a second copy of it. The drawn set is `Landing` and `Landing / Narrow`, `Docs`,
-`Docs / Narrow`, `Docs / Article`, `Docs / Article / Narrow`, `Demo`, and `Demo / Narrow`;
-the demo uses a nested browser board and a nested app board around the real Home chrome.
-Documentation information architecture is fixed by those boards: a 280px docs sidebar, an
-index with start/config/reference groups, and article pages with a 760px reading column
-plus a table of contents. The static-site tool remains a release-time decision; it is not
-implied by the boards. The Phase 6 round must revalidate the draft against the final app
-chrome and record approval in `progress.md` before implementation.
 
 ## 4. Token contract
 
@@ -263,7 +248,8 @@ These are review gates, not documentation. `frontend.md` §9 sets the standards.
 
 A surface is design-complete when all of the following hold:
 
-- Board set from §3 exists on its own page.
+- Board set from §3 exists on its own page. The public website is exempt; §3.1 defines its
+  review.
 - Approval recorded in `progress.md` with a board URL, or the Penpot file ID, revision and
   page name when the file is not distributable.
 - Every colour, spacing, radius, and type value is a bound token; no detached values.

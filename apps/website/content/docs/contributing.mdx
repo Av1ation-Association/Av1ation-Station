@@ -1,0 +1,40 @@
+This page points to the repository documents that govern development. It is not a second copy of them; when a rule and this page disagree, the repository wins.
+
+## Repository docs
+
+| Document | Covers |
+| --- | --- |
+| `docs/architecture.md` | Layer boundaries and the shape of the system |
+| `docs/backend.md` | Service, engine, progress, errors, retained chunks |
+| `docs/data-model.md` | Contracts, derived state, the execution timeline |
+| `docs/frontend-penpot.md` | Screen design and the Penpot workflow |
+| `docs/testing.md` | Test layers and fixtures |
+| `docs/decisions.md` | Open decisions; accepted rules move to their owner |
+| `docs/progress.md` | Phase task state |
+
+## Development setup
+
+Install the Rust toolchain, Node.js, and the platform packages listed in `CONTRIBUTING.md`. Install JavaScript dependencies with the lockfile, then run the repository's development command. A Tauri desktop build needs the platform webview dependencies; the browser host needs a service and does not replace the desktop shell.
+
+<Callout tone="note" title="Read before changing">
+Read `docs/architecture.md` before your first change. The transport façade, generated contracts, and derived state are not style preferences; a change that bypasses them is rejected in review.
+</Callout>
+
+## Architecture and contracts
+
+Dependencies point downward: apps, then packages, then Rust service, engine, and the engine library. The frontend reaches data only through the typed façade in `packages/api`; no component calls `invoke()` or `fetch()` directly. Rust model types generate JSON Schema, and TypeScript types and validators are generated from it. Run the contracts generator after a model change and commit the generated artifacts.
+
+API routes are declared once in the service route manifest. The router registration, schema snapshot, generated paths, and the backend route table are derived. Do not hand-edit a generated file or add a production route outside the manifest.
+
+## Testing
+
+New business logic ships with a unit test; a new endpoint ships with a request/response test; a new user flow ships with an E2E test. Tests must not require a GPU, a VapourSynth install, or a real encode. Use the fake sequence and fixture media. Screenshots are generated on manual dispatch for human review and never gate a merge.
+
+## Contributing
+
+Use Conventional Commits, one logical change per commit, and keep the tree buildable. Update `docs/progress.md` when a phase task changes state. A change to an invariant needs a decision entry in the same pull request. Never commit build output, `dist/`, or screenshots; generated contracts, the schema snapshot, and lockfiles are committed.
+
+<RelatedLinks>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+</RelatedLinks>

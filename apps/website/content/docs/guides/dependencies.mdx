@@ -1,0 +1,58 @@
+## Before you start
+
+Know which capability is missing. Decoding, filtering, encoding, muxing, and metrics fail independently; a missing optional encoder does not disable the others.
+## Run preflight
+
+Open **Settings → Dependencies**. The Diagnostics card counts available, missing, and rejected providers by capability. **Re-probe** rescans the accepted paths and any bundled or system defaults. It never downloads or installs a tool.
+
+## Read a row
+
+Each row names the capability, the executable it expects, and the remediation for a missing one. Expanding it lists every provider the preflight found. `Unavailable` means no usable path; `Rejected` means a path was offered and refused.
+
+<Callout tone="tip" title="Capabilities are scoped">
+VapourSynth is needed only for VapourSynth inputs. FFmpeg only for the muxing paths that shell out to it. A metric needs one usable backend. Do not install a tool for a capability your workflow does not use.
+</Callout>
+
+## Choose bundled or system
+
+A bundled provider ships with the application; a system provider is found on the machine. The choice is per capability, not one global switch. Selecting system does not disable the bundled tool for other capabilities.
+
+## Locate a custom executable
+
+<Steps>
+<Step title="Pick the capability" result="The row shows the file field and the provider probe state.">
+The accepted path becomes the provider for exactly that capability.
+</Step>
+<Step title="Locate and probe" result="A valid executable is accepted and the row reports available.">
+A rejected attempt is transient and is not saved. The reason names the executable and the failed probe.
+</Step>
+<Step title="Save" result="The provider survives a restart and is re-probed on startup.">
+A user-provided path is a setting; it is not a temporary override for one run.
+</Step>
+</Steps>
+
+## Set the scene model or interpreter
+
+TransNetV2 needs a model path or an installed model. A VapourSynth provider may need an interpreter path as well as the library. Both are capability settings and both are validated by the same probe. A model that is missing is named; it is not silently replaced by AVSceneChange.
+
+## Add a custom encoder build
+
+Open **Settings → Encoders** and add a saved build for a fork or a non-default executable. Choose the encoder family, then probe the executable's version and parameter survey. The build becomes selectable for its family and is not offered when its executable disappears.
+
+<Callout tone="warning" title="Fork, not family">
+A fork shares its family's parameter schema, so the table looks familiar while the executable and version differ. Create a separate saved build per fork and version; do not reuse one build for two binaries.
+</Callout>
+
+## Restart when required
+
+Encoder, FFmpeg, mkvmerge, and metric providers apply on next use. A VapourSynth provider change can require a restart because one process hosts one runtime. If the row is available but every VapourSynth run fails, restart before changing more settings.
+
+## If it goes wrong
+
+See [Missing tools and providers](/docs/troubleshooting/dependencies). If the provider is present but the run still fails, the failure is downstream of availability; read the log instead of re-probing indefinitely.
+
+<RelatedLinks>
+<a href="/docs/troubleshooting/dependencies">Missing tools and providers</a>
+<a href="/docs/reference/settings">Settings reference</a>
+<a href="/docs/reference/encoders">Encoders reference</a>
+</RelatedLinks>

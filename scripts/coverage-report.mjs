@@ -1,8 +1,8 @@
-// Write the nightly coverage trend as Markdown for the workflow summary and artifact.
+// Write the weekly coverage trend as Markdown for the workflow summary and artifact.
 //
 // This adapter is deliberately small: evidence owns the measurements, policy owns the
 // rules, and this command only supplies paths, metadata, and an exit status. It writes the
-// report before failing so a red nightly still leaves the reason in dist/coverage/.
+// report before failing so a red weekly run still leaves the reason in dist/coverage/.
 // Web and Rust evidence live in separate subdirectories so either producer can run first.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";

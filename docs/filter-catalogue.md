@@ -26,12 +26,13 @@ appearing uneditable.
 | Target | Enum | Where it applies |
 | --- | --- | --- |
 | Native FFMS2 | `Ffms2Filter` | `Input::Video` only. One variant. |
-| VapourSynth | `VapourSynthFilter` | `Input::VapourSynth` and `Input::VapourSynthScript`. Nine variants. |
+| VapourSynth | `VapourSynthFilter` | `Input::VapourSynth` and `Input::VapourSynthScript`. Ten variants. |
 
-The native list is not a subset of the VapourSynth list. `Ffms2Filter::OutputFormat` can
-express a bit-depth, chroma, and resolution conversion; it cannot crop or trim, and it
-always uses bicubic when it resizes. Offering a scaler choice there would be a lie, so the
-native Add action skips the picker and opens that single form.
+Upstream now shares `OutputFormat` between the two enums: the native list is exactly that
+variant, while VapourSynth also has nine transform, temporal and denoise filters. The
+native conversion can express a bit-depth, chroma, and resolution change; it cannot crop
+or trim, and it always uses bicubic when it resizes. Offering a scaler choice there would
+be a lie, so the native Add action skips the picker and opens that single form.
 
 ## 2. How the form is built
 
@@ -85,6 +86,7 @@ per plane (Y, Cb, Cr), with a clear "apply to all planes" action.
 | --- | --- | --- | --- |
 | `Crop` | Geometry | `top`, `bottom`, `left`, `right`: optional `usize` | Four integer inputs around a frame preview. Positive values only. The sum on an axis must be less than the source dimension; this is checked when clip info exists. No negative crop in the engine. |
 | `Resize` | Geometry | `scaler`: optional choice; `width`, `height`: optional `usize`; `format`: optional `FFPixelFormat` choice | Scaler options are the engine's `Scaler` enum: `bicubic`, `bilinear`, `bob`, `lanczos`, `point`, `spline16`, `spline36`, `spline64`. Width/height pair with the aspect lock. `format` is a searchable choice, not a free string. |
+| `OutputFormat` | Geometry | `bit_depth`: optional `u8`; `chroma`: optional choice; `width`, `height`: optional `u32` | The VapourSynth form of the native conversion intent, resolved against this filter's input node. Unset fields keep the decoded value; the engine rejects a bit-depth/chroma pair with no fixed-pixel format. Width/height use the aspect lock. |
 | `Trim` | Temporal | `start`, `end`: optional `usize` | Frame numbers, not timecodes; the form shows both. `end` is exclusive. `start < end`, and both must be inside the source when known. At most one trim is normally useful; duplicates are allowed but the summary states the final range. |
 | `Rescale` | Geometry · advanced | `kernel`: `VSJETKernel` required; `width`, `height`: `usize` required; `doubler`: `Doubler` required | A nested enum editor, not a fixed dropdown. `VSJETKernel` has structural variants (for example `Bicubic { b, c, linear, border_handling }`); the form changes its subfields with the variant. Requires `vodesfunc`/`vskernels`/`vsscale`; surface the plugin check before offering it. |
 | `WNNM` | Denoise · advanced | `sigma`: optional `Vec<f64>`; `block_size`, `block_step`, `group_size`, `bm_range`, `radius`, `ps_num`, `ps_range`: optional `usize`; `residual`, `adaptive_aggregation`: optional `bool` | Per-plane sigma up to three values. Positive integer sizes. Defaults are the engine's WNNM pair when used by noise detection; a manually added filter starts empty. Requires `vszip`. |

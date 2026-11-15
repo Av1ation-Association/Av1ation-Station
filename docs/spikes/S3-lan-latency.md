@@ -32,5 +32,5 @@ with a 2 MB fragment at 2 Mbps, but this is a same-host measurement, not a phone
 pass.
 
 **Design consequence.** Preview stays enabled in LAN mode with no reduced resolution or
-prepared-range cut. A second-device check belongs to the Phase 6 release checklist; it does
+prepared-range cut. A second-device check belongs to the Phase 5 release checklist; it does
 not gate increment 3.

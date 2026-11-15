@@ -1,0 +1,56 @@
+## Before you start
+
+Use a trusted local network, a free TCP port, and a desktop session that owns the listener. A paired browser does not manage the LAN listener it uses; the desktop does.
+## Enable LAN
+
+<Steps>
+<Step title="Open Settings → Network" result="The LAN access switch and session list are visible.">
+LAN is off by default. Turning it on binds a second listener and requires a pairing token for every request on that listener.
+</Step>
+<Step title="Choose the interface" result="The advertised address is one the browser can reach.">
+The address is derived from the chosen interface. Loopback continues to work without a token, so the desktop window is unaffected by the switch.
+</Step>
+</Steps>
+
+## Read the address
+
+The LAN card shows the scheme, host, and port the browser should use. If the address is not reachable from the browser, fix the network or firewall before pairing; a code cannot repair a blocked route.
+
+## Pair with code, link, or QR
+
+<Steps>
+<Step title="Open the pairing session" result="A shortcode, a full link, and a QR code are shown for one browser.">
+Each session is one bearer token. The code expires with that session, and the desktop can revoke it without touching the others.
+</Step>
+<Step title="Pair the browser" result="The browser loads the application on the LAN listener.">
+Enter the eight-character code on the pairing form or open the link. The form exchanges the code for a token and then mounts the application shell.
+</Step>
+</Steps>
+
+<LiveSample kind="network" />
+
+## Use the browser
+
+A paired browser can browse projects, edit configuration, and read logs subject to the same run lock and permissions as the desktop. Media playback may be limited by the host's media token; the player explains the limitation instead of failing silently.
+
+<Callout tone="warning" title="Not a trusted-network mode">
+Every LAN request needs a token, including reads. There is no anonymous access and no global disable; revoke one session or turn the listener off.
+</Callout>
+
+## Revoke or disable
+
+Revoke a session to invalidate exactly that token. Turning LAN off closes every connected session and revokes every token in one step. The browser that was using the listener cannot re-enable it remotely.
+
+## Firewall
+
+Allow the chosen port on the private network only. A public-network rule or a port forward exposes the service beyond the LAN even though it still requires a token. Remove the rule when you turn LAN off.
+
+## If it goes wrong
+
+See [LAN access and pairing](/docs/troubleshooting/lan) for the listener, address, firewall, and token checks.
+
+<RelatedLinks>
+<a href="/docs/troubleshooting/lan">LAN access and pairing</a>
+<a href="/docs/reference/settings">Settings reference</a>
+<a href="/docs/get-started/workspace">Tour the workspace</a>
+</RelatedLinks>

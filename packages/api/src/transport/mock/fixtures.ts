@@ -1,4 +1,11 @@
-import type { AppInfo, AppSettings, ProjectSummary, VideoValidation } from "@av1ation/contracts";
+import type {
+    AppInfo,
+    AppSettings,
+    ParameterDescriptor,
+    PreflightCheck,
+    ProjectSummary,
+    VideoValidation,
+} from "@av1ation/contracts";
 import {
     API_VERSION,
     APP_VERSION,
@@ -38,6 +45,393 @@ export const FAMILIES: Record<string, MockFamily> = {
     ffmpeg: { label: "FFmpeg", capability: "muxing", target: "ffmpeg" },
     mkvmerge: { label: "MKVToolNix", capability: "muxing", target: "mkvmerge" },
 };
+
+/** One built-in encoder row the demo offers, with the document a fork starts from. */
+export interface MockEncoderFixture {
+    id: string;
+    label: string;
+    version: string;
+    default: Record<string, unknown>;
+    parameters: Record<string, ParameterDescriptor>;
+}
+
+function numberParameter(
+    label: string,
+    description: string,
+    minimum: number,
+    maximum: number,
+    fallback: number,
+    group: string | null,
+): ParameterDescriptor {
+    return {
+        delimiter: "Space",
+        label,
+        description,
+        doc_link: null,
+        kind: {
+            Number: {
+                integer: true,
+                min: minimum,
+                max: maximum,
+                step: 1,
+                unit: null,
+            },
+        },
+        default: fallback,
+        widget: "Auto",
+        advanced: false,
+        group,
+        relations: [],
+    };
+}
+
+function textParameter(
+    label: string,
+    description: string,
+    fallback: string,
+    group: string | null,
+): ParameterDescriptor {
+    return {
+        delimiter: "Space",
+        label,
+        description,
+        doc_link: null,
+        kind: { Text: { max_len: null, pattern: null, multiline: false, format: null } },
+        default: fallback,
+        widget: "Auto",
+        advanced: false,
+        group,
+        relations: [],
+    };
+}
+
+/**
+ * The demo's encoder catalogue.
+ *
+ * This mirrors the engine's nine `EncoderBase` variants instead of a hand-picked pair, so
+ * the Encoders tab and the dependency inventory both show every encode path the real
+ * service can offer. The defaults use the engine's pass-one document so a fork can be
+ * selected without a render-time schema rejection.
+ */
+export const MOCK_ENCODERS: MockEncoderFixture[] = [
+    {
+        id: "x265",
+        label: "x265",
+        version: "x265 4.1",
+        default: {
+            X265: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                63,
+                24,
+                null,
+            ),
+        },
+    },
+    {
+        id: "svt-av1",
+        label: "SVT-AV1",
+        version: "SVT-AV1-Essential v4.0.1",
+        default: {
+            SVTAV1: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                photon_noise: null,
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--preset": numberParameter(
+                "Encoder preset",
+                "Speed and compression trade-off.",
+                0,
+                13,
+                6,
+                "Speed",
+            ),
+            "--crf": numberParameter(
+                "CRF",
+                "Quality target; lower keeps more detail.",
+                0,
+                63,
+                32,
+                "Rate control",
+            ),
+        },
+    },
+    {
+        id: "aom",
+        label: "AOM",
+        version: "aomenc v3.13.1",
+        default: {
+            AOM: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                photon_noise: null,
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                63,
+                30,
+                "Rate control",
+            ),
+            "--cpu-used": numberParameter(
+                "CPU used",
+                "Higher values trade compression for speed.",
+                0,
+                8,
+                6,
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "rav1e",
+        label: "rav1e",
+        version: "rav1e 0.8.1",
+        default: {
+            RAV1E: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                photon_noise: null,
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--quantizer": numberParameter(
+                "Quantizer",
+                "Constant quantizer; lower keeps more detail.",
+                0,
+                255,
+                100,
+                "Rate control",
+            ),
+            "--speed": numberParameter(
+                "Speed",
+                "Higher values trade compression for speed.",
+                0,
+                10,
+                6,
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "vpx",
+        label: "VPX",
+        version: "vpxenc v1.15.2",
+        default: {
+            VPX: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                63,
+                32,
+                "Rate control",
+            ),
+            "--cpu-used": numberParameter(
+                "CPU used",
+                "Higher values trade compression for speed.",
+                0,
+                8,
+                0,
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "avm",
+        label: "AVM",
+        version: "avmenc 0.1.0",
+        default: {
+            AVM: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                photon_noise: null,
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                63,
+                30,
+                "Rate control",
+            ),
+            "--cpu-used": numberParameter(
+                "CPU used",
+                "Higher values trade compression for speed.",
+                0,
+                8,
+                6,
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "x264",
+        label: "x264",
+        version: "x264 0.164",
+        default: {
+            X264: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                51,
+                23,
+                "Rate control",
+            ),
+            "--preset": textParameter(
+                "Encoder preset",
+                "Speed and compression trade-off.",
+                "medium",
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "vvenc",
+        label: "VVenC",
+        version: "vvencapp 1.13.1",
+        default: {
+            VVenC: {
+                executable: null,
+                pass: { All: 1 },
+                options: {},
+                ffmpeg_filter: null,
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "--qp": numberParameter(
+                "Quantizer",
+                "Constant quantizer; lower keeps more detail.",
+                0,
+                63,
+                32,
+                "Rate control",
+            ),
+            "--preset": textParameter(
+                "Encoder preset",
+                "Speed and compression trade-off.",
+                "medium",
+                "Speed",
+            ),
+        },
+    },
+    {
+        id: "ffmpeg",
+        label: "FFmpeg",
+        version: "ffmpeg version 8.1",
+        default: {
+            FFmpeg: {
+                executable: null,
+                options: {},
+                append_color_data: true,
+            },
+        },
+        parameters: {
+            "-crf": numberParameter(
+                "Constant Rate Factor",
+                "Quality target; lower keeps more detail.",
+                0,
+                51,
+                23,
+                "Rate control",
+            ),
+            "-c:v": textParameter(
+                "Video codec",
+                "The encoder FFmpeg should drive.",
+                "libx264",
+                null,
+            ),
+        },
+    },
+];
+
+const MOCK_PREFLIGHT_CHECKS: PreflightCheck[] = [
+    {
+        id: "vapoursynth",
+        label: "VapourSynth",
+        capability: "decode",
+        available: true,
+        detail: "Core R80 · API 4.3",
+        selected_source: "bundled",
+        providers: [
+            {
+                source: "bundled",
+                available: true,
+                detail: "Bundled runtime · C:\\Program Files\\Av1ation Station\\tools\\python\\Lib\\site-packages\\vapoursynth\\vsscript.dll",
+                active: true,
+                checked: true,
+            },
+            {
+                source: "system",
+                available: false,
+                detail: "Restart with System selected to probe this machine's VapourSynth.",
+                active: false,
+                checked: false,
+            },
+        ],
+    },
+    {
+        id: "ffmpeg",
+        label: "FFmpeg",
+        capability: "muxing",
+        available: true,
+        detail: "ffmpeg version 8.1",
+    },
+    ...MOCK_ENCODERS.map((encoder): PreflightCheck => ({
+        id: `encoder:${encoder.id}`,
+        label: FAMILIES[encoder.id]?.label ?? encoder.label,
+        capability: "encode",
+        available: true,
+        detail: `Bundled · ${encoder.version}`,
+    })),
+];
 
 /**
  * The demo's filter forms. The real service serves schemars output from the pinned engine;
@@ -225,49 +619,9 @@ export const fixtures: MockFixtures = {
         engine_revision: ENGINE_REVISION,
         api_version: API_VERSION,
         preflight: {
-            checks: [
-                {
-                    id: "vapoursynth",
-                    label: "VapourSynth",
-                    capability: "decode",
-                    available: true,
-                    detail: "Core R80 · API 4.3",
-                    selected_source: "bundled",
-                    providers: [
-                        {
-                            source: "bundled",
-                            available: true,
-                            detail: "Bundled runtime · C:\\Program Files\\Av1ation Station\\tools\\python\\Lib\\site-packages\\vapoursynth\\vsscript.dll",
-                            active: true,
-                            checked: true,
-                        },
-                        {
-                            source: "system",
-                            available: false,
-                            detail: "Restart with System selected to probe this machine's VapourSynth.",
-                            active: false,
-                            checked: false,
-                        },
-                    ],
-                },
-                {
-                    id: "ffmpeg",
-                    label: "FFmpeg",
-                    capability: "muxing",
-                    available: true,
-                    detail: "ffmpeg version 8.1",
-                },
-                {
-                    id: "encoder:vvenc",
-                    label: "Fraunhofer Versatile Video Encoder",
-                    capability: "encode",
-                    available: false,
-                    detail: "vvencapp not found on PATH",
-                    remediation: "Install `vvencapp` and put it on PATH.",
-                },
-            ],
-            available_count: 2,
-            total_count: 3,
+            checks: MOCK_PREFLIGHT_CHECKS,
+            available_count: MOCK_PREFLIGHT_CHECKS.filter((check) => check.available).length,
+            total_count: MOCK_PREFLIGHT_CHECKS.length,
         },
     },
     projects: [],

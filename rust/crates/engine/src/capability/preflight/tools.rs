@@ -347,7 +347,7 @@ pub(super) const ENCODER_BASES: [EncoderBase; 9] = [
 pub(super) fn encoders() -> impl Iterator<Item = Probe> {
     ENCODER_BASES.into_iter().map(|base| {
         let encoder = Encoder::default_from_base(&base, true);
-        let executable = encoder.executable();
+        let executable = encoder.executable().display();
         let id = format!("encoder:{base}");
         let label = base.friendly_name();
         if encoder.validate().is_ok() {

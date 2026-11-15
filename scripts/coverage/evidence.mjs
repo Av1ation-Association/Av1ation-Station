@@ -1,7 +1,7 @@
 // One normalized view over the coverage tools, independent of their report formats.
 //
 // V8 summarizes frontend files as JSON, while cargo-llvm-cov emits lcov. The policy,
-// changed-line report, inventory check, and nightly report all need the same repository
+// changed-line report, inventory check, and weekly report all need the same repository
 // paths and package totals, so they share this parser instead of growing their own.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";

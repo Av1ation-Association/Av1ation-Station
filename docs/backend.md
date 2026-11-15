@@ -170,7 +170,7 @@ Cargo resolves those path siblings from the same git source, so one dependency i
 ```toml
 # rust/Cargo.toml (workspace root)
 [workspace.dependencies]
-andean-condor = { git = "https://github.com/BoatsMcGee/Av1an", rev = "e0c34a1727053055228ebefa3cdb4f088d7b7831" }
+andean-condor = { git = "https://github.com/rust-av/Av1an", rev = "7e37c21dffd13fbc7825d60586c69104e95e71a4" }
 ```
 
 `rust/crates/engine/build.rs` and the contract generator reject a path dependency or any other
@@ -228,7 +228,7 @@ therefore our responsibility, and it is the heart of the "run one sequence" feat
 | **Bitrate Optimizer**  | scenes non-empty; a Target Quality pass exists; `bitrate_sigma_threshold` set                                                                            | rewrites per-scene quantizers; no new data field, so it is an action rather than a state                                                                                                                                                                                    |
 | **Parallel Encoder**   | scenes non-empty; encoders validate; `scenes_directory`, `workers > 0`; `ffmpeg` if any scene has an `ffmpeg_filter`                                     | `sequence_data.parallel_encoder`; encoded scene files                                                                                                                                                                                                                       |
 | **Serial Encoder**     | scenes non-empty; encoders validate; `scenes_directory`                                                                                                  | encoded scene files; no data field                                                                                                                                                                                                                                          |
-| **Scene Concatenator** | encoded scene files exist; `mkvmerge` or `ffmpeg`                                                                                                        | the output file                                                                                                                                                                                                                                                             |
+| **Scene Concatenator** | every scene has an encoded chunk; `mkvmerge` or `ffmpeg`                                                                                                 | the output file                                                                                                                                                                                                                                                             |
 | **Quality Check**      | scenes non-empty; output file exists                                                                                                                     | `sequence_data.quality_check`                                                                                                                                                                                                                                               |
 | **Benchmarker**        | scenes non-empty; encoders validate; `workers` **not** already set                                                                                       | sets `parallel_encoder.workers`                                                                                                                                                                                                                                             |
 | **Speed Scaler**       | scenes non-empty; `speed_quantizers` with ≥2 pairs                                                                                                       | rewrites per-scene speed; no data field, so it is an action rather than a state                                                                                                                                                                                             |
@@ -281,15 +281,16 @@ The two actions are never reported as `Complete` and never enter `next`; a full 
 both in front of Parallel Encoder when they are enabled, and the UI starts either one alone
 from its Target Quality row.
 
-Two of these are _warnings_ in the engine rather than errors, and we promote them to
-blocking errors because running them anyway produces a confusing failure later:
+One of these is a _warning_ in the engine rather than an error, and we promote it to a
+blocking error because running it anyway produces a confusing failure later:
 
 - Quality Check with no output file (engine warns) → we block.
-- Scene Concatenator with missing scene files (engine validates) → we block.
 
-And one we deliberately keep permissive: **Scene Concatenator with only some scenes
-encoded.** The engine allows it, and it is genuinely useful to concatenate a partial
-result. We allow it but warn prominently, naming how many scenes are missing.
+Scene Concatenator is already strict: the engine errors when any requested chunk is
+missing, so partial concatenation is never offered. The row stays visible and names how
+many scenes are missing. Resetting the concatenator removes its `Scene Concatenator`
+scratch directory as well as the finished output, so a failed mux cannot leave a stale file
+behind.
 
 ### 3.2 Running one sequence vs. running all
 
@@ -330,7 +331,9 @@ Why each call matters:
   so a scene chart grows as scenes are detected and a target-quality plot gains points as
   scenes are scored. There is no second data path and no polling loop.
 - **Crash recovery resumes from the last checkpoint.** The next run reads the checkpoint
-  and the sequence's own `initialize()` decides what to redo.
+  and the sequence's own `initialize()` decides what to redo. It resumes only a result
+  whose provenance revision and context still match; otherwise it names the sequences to
+  reset instead of reusing the old data.
 
 Checkpoint data is **read-only in the UI**. It is the engine's record of what happened;
 permitting edits would reintroduce the drift that derived state exists to prevent. User
@@ -449,7 +452,14 @@ used to change it ([data-model.md](data-model.md#41-sequences-not-phases)).
 
 `retained_bytes` and each scene's chunk state come from listing the video's temp directory,
 so they are correct even with no `Condor` instantiated and no run active. That is what lets
-the concatenator warn "3 of 40 scenes are not encoded" before the user asks it to run.
+the concatenator report "3 of 40 scenes are not encoded" before the user asks it to run;
+it is not offered until every scene has a chunk, because the engine refuses a partial
+concatenation rather than publishing a shortened video.
+
+The engine stamps resumable results with a provenance revision and the context that
+produced them. A checkpoint from an older engine has no stamp and cannot be resumed: the
+sequence refuses it at admission with the applicable reset path. The service neither
+rewrites nor deletes the old result; the run error carries the engine's guidance.
 
 The derivation is a pure function over three evidence sources — live run progress, condor
 `sequence_data`, and the temp directory listing — with newest evidence winning. It is unit

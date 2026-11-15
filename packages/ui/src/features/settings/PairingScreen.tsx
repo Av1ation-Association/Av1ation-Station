@@ -28,9 +28,12 @@ function waitText(remaining: number): string {
 export function PairingScreen({
     pair,
     onPaired,
+    embedded = false,
 }: {
     pair: (shortcode: string) => Promise<LanPairing>;
     onPaired: (token: string) => void;
+    /** Render inside an article instead of taking the viewport; used by the manual sample. */
+    embedded?: boolean;
 }) {
     const [value, setValue] = useState("");
     const [busy, setBusy] = useState(false);
@@ -135,8 +138,8 @@ export function PairingScreen({
     const locked = busy || wait !== null;
     const buttonLabel = busy ? "Pairing…" : wait === null ? "Pair" : "Wait…";
 
-    return (
-        <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col justify-center px-6 py-12 text-ink">
+    const content = (
+        <>
             <h1 className="m-0 text-xl font-semibold tracking-tight">Pair this browser</h1>
             <p className="mt-2 mb-4 text-[13px] leading-relaxed text-ink-secondary">
                 Open the network link shown in Settings → Network on the desktop application, or
@@ -174,6 +177,16 @@ export function PairingScreen({
             >
                 {error}
             </p>
+        </>
+    );
+
+    if (embedded) {
+        return <div className="w-full max-w-[520px] text-ink">{content}</div>;
+    }
+
+    return (
+        <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col justify-center px-6 py-12 text-ink">
+            {content}
         </main>
     );
 }

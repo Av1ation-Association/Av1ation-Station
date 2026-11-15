@@ -1,0 +1,82 @@
+## Scope
+
+The runner writes one module, `condor_data.py`, into the scene directory before every sequence, and rewrites it before the next. It is not a package installed into the VapourSynth runtime. The generated `.pyi` stub is produced by the same generator as the module, so completion and runtime describe one surface.
+
+## Variables
+
+| Name | Type | Meaning |
+| --- | --- | --- |
+| `video_path` | string | The queued video's source path |
+| `scratch_dir` | string | The run's scratch directory |
+| `run_id` | string | The current run identifier |
+| `sequence` | string | The active sequence name |
+| `scenes` | list | The detected scene documents |
+
+`video_path` is empty only for a template or an empty queue. The module is rewritten per run; a script that caches values across runs is reading stale data.
+
+## Scene fields
+
+| Field | Type | Present after |
+| --- | --- | --- |
+| `index` | int | Detection |
+| `start_frame` | int | Detection |
+| `end_frame` | int | Detection |
+| `frame_count` | int | Detection |
+| `encoder` | dict | Detection |
+| `noise` | float or null | Noise generation |
+| `quantizer` | int or null | Target quality |
+| `chunk_path` | string or null | Parallel encoding |
+
+`end_frame` is the first frame after the scene. A field that the current sequence has not written is null or absent; the script should check before using it.
+
+## Sequence data
+
+| Sequence | Adds |
+| --- | --- |
+| Scene detection | Boundaries, scores, per-frame decisions |
+| Noise generation | Noise value and scale factor per scene |
+| Target quality | Probe points and chosen quantizer |
+| Parallel encoding | Chunk path and encoder fingerprint |
+| Concatenation | Final output path |
+| Quality check | Scene and aggregate scores |
+
+Reading `condor_data` does not trigger a stage. A script sees only what the runner has already written for this run.
+
+## Enums and types
+
+The module exposes plain Python values, not generated classes. Frames are integers; scores are floats; encoder documents are dictionaries mirroring the generated contract. No enum is re-exported, so compare strings rather than importing a symbol that does not exist.
+
+## Validation
+
+The editor parses the script and can return the interpreter's error. It does not execute the full encode, so a parse success is not proof that every filter and path resolves. The stub and module are regenerated together; a mismatch is a generator bug, not a user error.
+
+## Examples
+
+Iterate scenes and apply a per-scene behaviour to a frame range:
+
+```python
+import vapoursynth as vs
+from vapoursynth import core
+import condor_data
+
+clip = core.ffms2.Source(condor_data.video_path)
+
+for scene in condor_data.scenes:
+    start = scene["start_frame"]
+    end = scene["end_frame"]
+    if scene.get("quantizer") is not None:
+        # A real graph would apply a frame-range filter here.
+        pass
+
+clip.set_output()
+```
+
+<Callout tone="warning" title="One clip, whole video">
+Return one clip. Do not build one script or one output per scene; the engine owns scene boundaries and parallel encoding.
+</Callout>
+
+<RelatedLinks>
+<a href="/docs/concepts/scripting">VapourSynth scripting</a>
+<a href="/docs/guides/script-scene-data">Inject scene data into a VapourSynth script</a>
+<a href="/docs/reference/general">General</a>
+</RelatedLinks>

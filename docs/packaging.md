@@ -1,15 +1,15 @@
 # Packaging and the bundled toolchain
 
-**Scope:** the Phase 6 packaging contract. It specifies the bundle each installer carries,
+**Scope:** the Phase 5 packaging contract. It specifies the bundle each installer carries,
 the provider rules, and the release gate. Current delivery status lives in
-[progress.md](progress.md).
+[progress.md](progress.md). Release channels, unsigned distribution, and the updater policy
+are owned by [releases.md](releases.md).
 
-The Windows x64 staging command is `npm run stage:tools`; it requires the full provider set.
-On Linux the same command stages a **partial** tree with `--partial`: the encoders, FFmpeg,
-MKVToolNix and scene model that the distribution provides, with VapourSynth/Python and the
-native metrics left to System until the relocation and audit gates in §7 pass. The pinned
-lock, verifier, and installers are part of this contract. A normal development build uses the
-machine's toolchain unless a staged tree is supplied.
+Every target stages the full provider set. `npm run stage:tools` accepts either a staged
+`tools/` tree or a target directory produced by `npm run toolchain:build` and requires the
+encoders, FFmpeg, MKVToolNix, the scene model, VapourSynth/Python and the native metrics.
+The pinned lock, verifier, and installers are part of this contract. A normal development
+build uses the machine's toolchain unless a staged tree is supplied.
 
 Each release installs one toolchain per target under the application's resource directory.
 Nothing is downloaded, resolved, or installed at run time, and no binary is committed to Git:
@@ -29,14 +29,14 @@ toolchain configuration written at runtime is the macOS/Linux VSScript config un
 - [8. Size and installer shape](#8-size-and-installer-shape)
 - [9. Licence positions](#9-licence-positions)
 - [10. Rejected and out of scope](#10-rejected-and-out-of-scope)
-- [11. Phase 6 gates](#11-phase-6-gates)
+- [11. Phase 5 gates](#11-phase-5-gates)
 
 ## 1. What ships
 
 | Bundle id | Contents | Provides | Licence |
 | --- | --- | --- | --- |
-| `vapoursynth` | CPython 3.14.10 (exact patch pinned in the lock) from python-build-standalone (`install_only`) for the target; the official VapourSynth core and VSScript R82; the target's `cp312-abi3` VapourSynth wheel; the ffms2 VapourSynth source plugin, `vszip`, the `vship` plugin where the target publishes it, and `vsjetpack` 2.2.6 with `full`, `gpu`, `cl` and `vulkan` and every wheel those pull for that target | the interpreter VSScript initialises and the script editor can fall back to; `Input::VapourSynth`, `Input::VapourSynthScript`, noise detection; source plugins, filters, VS-side metrics, and the `vstools`/`vskernels`/… imports a script expects | LGPL-3.0, PSF-2.0, and each plugin's SPDX identifier in the manifest |
-| `ffms2` | the native FFMS2 library (`ffms2.dll`, `libffms2.dylib` or `libffms2.so`) the engine loads directly | native `Input::Video` | GPL-compatible; SPDX in the manifest |
+| `vapoursynth` | CPython 3.14.10 (exact patch pinned in the lock) from python-build-standalone (`install_only`) for the target; the official VapourSynth core and VSScript R82; the target's `cp312-abi3` VapourSynth wheel; the ffms2 VapourSynth source plugin from the vs-wheels index (distinct from native FFMS2), `vszip`, and `vsjetpack` 3.0.0 with `full`, `gpu`, `cl` and `vulkan` and every wheel those pull for that target | the interpreter VSScript initialises and the script editor can fall back to; `Input::VapourSynth`, `Input::VapourSynthScript`, noise detection; source plugins, filters, VS-side metrics, and the `vstools`/`vskernels`/… imports a script expects | LGPL-3.0, PSF-2.0, and each plugin's licence identifier in the manifest |
+| `ffms2` | the native FFMS2 library (`ffms2.dll`, `libffms2.dylib` or `libffms2.so`) the engine loads directly | native `Input::Video` | GPL-compatible; licence identifier in the manifest |
 | `encoder:aom` | the target's `aomenc` built from the pinned libaom source | `EncoderBase::Aom` | BSD-3-Clause |
 | `encoder:svt-av1` | the target's `SvtAv1EncApp` built from the pinned SVT-AV1 source | `EncoderBase::SvtAv1` | BSD-3-Clause-Clear |
 | `encoder:rav1e` | the target's `rav1e` | `EncoderBase::Rav1e` | BSD-2-Clause |
@@ -45,11 +45,11 @@ toolchain configuration written at runtime is the macOS/Linux VSScript config un
 | `encoder:x264` | the target's `x264` | `EncoderBase::X264` | GPL-2.0-or-later |
 | `encoder:x265` | the target's `x265` | `EncoderBase::X265` | GPL-2.0 |
 | `encoder:vvenc` | the target's `vvencapp` built from the pinned VVenC source | `EncoderBase::Vvenc` | BSD-3-Clause-Clear |
-| `ffmpeg` | an LGPL FFmpeg build for the target with `libvmaf`, libaom, libsvtav1 and libvpx enabled, and no `--enable-gpl`, `--enable-nonfree` | muxing, concatenation, the quality-check filter graph, `EncoderBase::FFmpeg` | LGPL-2.1-or-later |
+| `ffmpeg` | an LGPL FFmpeg build for the target from the pinned source, with autodetection disabled and no `--enable-gpl`, `--enable-nonfree`; muxing does not depend on the separately built encoder or metric libraries | muxing, concatenation, `EncoderBase::FFmpeg` | LGPL-2.1-or-later |
 | `mkvmerge` | MKVToolNix for the target | the muxing fallback | GPL-2.0 |
 | `scene-model` | `transnetv2.onnx`, exported in CI from the official MIT weights with a pinned exporter | TransNetV2 scene detection | MIT |
-| `metric:libvmaf` | the target's `libvmaf` and the model JSON files | `QualityMetric::VMAF` | BSD-2-Clause-Patent |
-| `metric:libvship` | the target's `libvship` where a pinned, audited build exists | SSIMULACRA2 / BUTTERAUGLI / CVVDP on a usable GPU | MIT |
+| `metric:libvmaf` | the target's `libvmaf` with its built-in VMAF models | `QualityMetric::VMAF` | BSD-2-Clause-Patent |
+| `metric:libvship` | the target's `libvship` built from the pinned source and exposed through the handler C API | SSIMULACRA2 / BUTTERAUGLI / CVVDP on a usable GPU | MIT |
 | `metric:fmetrics` | `fmetrics.dll` on Windows, `libfmetrics.dylib` or `libfmetrics.so` on macOS/Linux, built from the pinned `BoatsMcGee/fmetrics` shared-library commit; the Windows portability patch applies only on Windows | CPU backend for SSIMULACRA2 / BUTTERAUGLI / CVVDP | Apache-2.0 |
 | `msvc-runtime` | the app-local Visual C++ runtime DLLs the Windows binaries link | — | Microsoft redistributable terms |
 | `python-lsp` | the embedded Jedi bundle, unpacked into app data on first use; host-independent Python | script-editor IntelliSense | mixed; see `rust/crates/service/assets/README.md` |
@@ -64,28 +64,29 @@ A row is present only for a target that has an artefact. A component with no art
 target omits that target's entry; the verifier treats the omission as **not provided**, not
 as an error, and the Dependencies screen offers System only for that row.
 
-Every upstream artefact above is pinned by version **and** content hash. “A pinned, audited
-build exists” is deliberate for `metric:libvship`: its releases are not yet published from a
-stable, machine-readable channel with checksums. Until one is pinned, the row offers the
-system provider; the bundle does not pretend to contain it. A staged build must expose the
-handler C API (`Vship_InitHandler`, `Vship_ComputeHandler`, `Vship_Reset`); 5.1.1 is the
-oldest version that does. An older plugin can load and still be rejected as incompatible,
-which leaves the perceptual metrics on fmetrics.
+Every upstream artefact above is pinned by version **and** content hash. `metric:libvship` is
+built from its pinned source because its Codeberg releases are not a stable, machine-readable
+wheel channel. The build must expose the handler C API (`Vship_InitHandler`,
+`Vship_ComputeHandler`, `Vship_Reset`); 5.1.1 is the oldest version that does. A library that
+loads but reports an incompatible API is rejected, which leaves the perceptual metrics on
+fmetrics.
 
 The Python pin is 3.14 because that is the version VapourSynth targets, not because it is
 the newest. R82's module is `cp312-abi3` with `requires-python >=3.12` and no upper bound,
 and PyPI publishes it for Windows x64, Linux x86_64 (`manylinux_2_27`/`manylinux_2_28`) and
-macOS 13+ arm64 and x64. The Windows recipe takes the wheel from the portable ZIP; macOS and
-Linux install the target wheel from PyPI. Upstream's installation guide names 3.12 and later,
-including 3.14. `vsjetpack` 2.2.6 declares 3.12–3.14.
+macOS 13+ arm64 and x64. The recipe installs the target wheel into the pinned interpreter.
+Upstream's installation guide names 3.12 and later, including 3.14. `vsjetpack` 3.0.0
+requires Python 3.13 or newer and is installed with `--extra-index-url` pointing at the
+vs-wheels simple index as well as PyPI.
 
 `vsjetpack` is pure Python, but its extras are not: their native wheels do not cover every
-target equally. Windows x64 carries the complete `full`, `gpu`, `cl` and `vulkan` set. macOS
-and Linux bundle every plugin wheel published for that target, and the lock and About row
-name any omission rather than claiming a plugin that is not there. The clean-VM stage test
-(6.20) installs the target's extra set and imports its plugins on this pin before an
-installer is approved; a plugin wheel that does not publish a 3.14 build is the one input
-that can move the pin back, and it must be recorded in the lock. The extra also pulls
+target equally. Windows x64 and Linux x86_64 carry the complete `full`, `gpu`, `cl` and
+`vulkan` set. macOS arm64 carries it; macOS x64 has no `hysteresis`, `mlrt-ncnn` or
+`vs-placebo` wheel in 3.0.0, so the recipe builds those from the pinned sources. The lock and
+About row name any omission rather than claiming a plugin that is not there. The clean-VM
+stage test (5.24) imports the target's plugin set on this pin before an installer is
+approved; a plugin wheel that does not publish a 3.14 build is the one input that can move
+the pin back, and it must be recorded in the lock. The extra also pulls
 `vapoursynth-bm3dcpu`, whose DLL targets the retired VapourSynth API 3 and is refused by R82;
 the `vapoursynth-bm3d` wheel in the same extra supplies the `bm3d` namespace, so the
 capability is present and the inert DLL is only dead weight.
@@ -122,8 +123,8 @@ already require.
     vcruntime/               # Windows only: the app-local MSVC runtime DLLs
 ```
 
-A partial staging tree contains only `bin/`, `lib/` and `model/`; a row with no staged artefact
-is served by System, never by a placeholder file. Linux staging copies the ELF closure of
+Every staging tree contains the full provider set; a row with no staged artefact is served by
+System, never by a placeholder file. Linux staging copies the ELF closure of
 `bin/` into `lib/` and writes `$ORIGIN` rpaths on the binaries and those libraries, because
 Debian's `ffmpeg`, `mkvmerge` and `aomenc` do not run without their distribution libraries;
 `patchelf` is therefore required for a Linux staging run. `lib/` then carries runtime
@@ -239,8 +240,8 @@ The rules:
 - `vapoursynth` is one unit: core, VSScript, the bundled Python, the plugin directory and
   vsjetpack travel together. A mixed core/plugin or core/Python selection is not offered,
   because VSScript loads one CPython and plugins are built against one core API. It therefore
-  appears as one row in the Dependencies screen and one source choice, even though the lock
-  lists its wheels and binaries separately. The unit is the target's own; another target's
+  appears as one row in the Dependencies screen and one source choice, even though its staged
+  tree contains wheels and binaries separately. The unit is the target's own; another target's
   Python or plugins are never substituted.
 - Everything else is independent. System VapourSynth with bundled encoders, FFmpeg and
   mkvmerge is a supported combination, and so is the reverse. The dependencies screen must
@@ -298,10 +299,10 @@ Two checked-in files and a recipe directory produce the bundle:
 
 | Path | Role |
 | --- | --- |
-| `packaging/toolchain.json` | reviewed bill of materials: component id, upstream version, SPDX licence, source ref, build recipe, `provides`, install path. |
-| `packaging/toolchain.lock.json` | generated resolution for every target: artefact URL, SHA-256, size, extracted file list, Python wheel URLs and hashes, built-output hashes and the toolchain versions that produced them. Never edited by hand. |
+| `packaging/toolchain.json` | reviewed bill of materials: component id, upstream version, licence identifier, source ref, build recipe, `provides`, install path. |
+| `packaging/toolchain.lock.json` | generated resolution for every target: provenance URL, SHA-256, size, install path, and the file list for directory artifacts. Never edited by hand. |
 | `packaging/recipes/` | one script per source-built component, plus patches; it names the compiler/toolchain and the configure/CMake arguments. |
-| `packaging/schema/` | the JSON Schema the verify job enforces. |
+| `packaging/schema/` | the JSON Schema for the manifest and lock; the verifier implements the review checks directly. |
 
 `packaging/toolchain.json` names intent, not bytes:
 
@@ -359,39 +360,49 @@ Two checked-in files and a recipe directory produce the bundle:
 ```
 
 A target missing from a component's `artifacts` map is not provided there; it is not an
-error. The lock adds the bytes: the actual asset URL, its SHA-256 and size, the source
-archive hash, and, for components with an `apply`/`build` step, the hash of every output
-file. The build reads **only the lock**. It never lets a release's “latest” page or a branch
-decide what is built: a recipe may fetch a branch to reach a commit, but it rejects the
-checkout when the head is not the recorded commit. A GitHub release asset is mutable, so the
-hash in the lock is the pin even when the tag is immutable.
+error. The lock adds the bytes actually present in each target's built tree: the provenance
+URL, SHA-256, size, install path, and the file list for a directory artifact. The manifest
+pins the source revision or downloaded input; the lock pins the built output. The build reads
+**only the lock**. It never lets a release's “latest” page or a branch decide what is built.
+A GitHub release asset is mutable, so the hash in the lock is the pin even when the tag is
+immutable.
 
 ### 4.1 Updating
 
 1. Edit `toolchain.json` (version, source ref, recipe).
-2. Run `npm run toolchain:lock`. It resolves each target's sources, downloads the inputs,
-   verifies the source commit, records every hash, and writes the lock.
-3. Review the lock diff as part of the pull request. The diff is the audit trail: a version
+2. Build each target with `npm run toolchain:build -- --target <triple>` (or let
+   `toolchain.yml` do it). It writes `dist/cargo/toolchain/<target>/` and must contain every
+   path claimed by that target's `artifacts` map.
+3. Run `npm run toolchain:lock` (or `npm run toolchain:lock -- --from <directory>`). It hashes
+   the actual files, records the manifest's immutable source references, and writes the lock.
+   It refuses to write unless all four target directories and every claimed artifact exist,
+   each artifact is non-empty, and each target has no duplicate install path.
+4. Review the lock diff as part of the pull request. The diff is the audit trail: a version
    change is a few lines, not a committed binary.
-4. `npm run toolchain:verify` is the same check CI runs. It fails on schema drift, a mutable
-   ref (a git tag without a commit, a release asset without a hash), an unexpected file, a
-   licence outside the allowlist, a component whose `provides` does not match its install, or
-   a target whose install path or wheel tag names another platform.
+5. Run `npm run toolchain:verify`. It checks manifest shape, immutable source refs, unhashed
+   artifacts, lock revision/hash agreement, all four targets, component
+   version/licence/source agreement, install paths under `tools/`, and duplicate install
+   paths. It does not inspect wheel tags, SPDX licence IDs, build-tool versions, patch
+   ancestry, or provider semantics.
 
-The Python environment is assembled from an explicit wheel list in the lock **for each
-target**; pip's resolver does not run at build time. Wheel installs use `--no-index
---require-hashes` after the verified files are staged. `vsjetpack` declares a hard dependency
+The staged Python environment is a directory artifact in each target's lock; pip's resolver
+runs during the component build, pinned to `vapoursynth==82`, `vsjetpack==3.0.0` and
+`vapoursynth-ffms2==5.4.0`. The lock records the bytes that result, not every wheel that pip
+downloaded, so a future build must compare the lock's directory hash. The vs-wheels simple
+index supplies a `#sha256` fragment for the directly fetched ffms2 wheel. `vsjetpack`
+declares a hard dependency
 on `vapoursynth-akarin`, which is an LGPL-3.0 plugin collection in the `akarin` namespace,
 not a second core; the lock includes it where the target publishes it, and the official R82
-wheel remains the only `vapoursynth` module. The wheel set is reviewed once and then
-installed byte-for-byte; changing it is a lock change.
+wheel remains the only `vapoursynth` module. The wheel versions are reviewed once; changing
+one changes the component cache key and the generated directory hash in the lock.
 
 A pure-Python meta-package is not evidence that its native dependencies exist on a target.
-The lock records the exact wheel tag, filename and hash per target, and the verify gate
-rejects a wheel whose tag does not match the target triple (for example a `win_amd64` wheel
-in a macOS artifact). `vsjetpack` itself is `py3-none-any`; its extras are not, and a target
-whose required plugin wheel is absent is recorded as an incomplete plugin set rather than
-silently filled from another platform.
+The lock records the staged file list and hashes per target. `toolchain:verify` checks the
+install path against the manifest but cannot identify a wheel tag or prove which platform
+produced a file; that selection belongs to the staging recipes and release review.
+`vsjetpack` itself is `py3-none-any`; its extras are not, and a target whose required plugin
+wheel is absent is recorded as an incomplete plugin set rather than silently filled from
+another platform.
 
 No `.env` participates in this. `.env`, `AV1ATION_TOOLCHAIN_CACHE` and
 `AV1ATION_TOOLCHAIN_DIR` may point a local developer at a cache or a prepared tree; they
@@ -409,56 +420,68 @@ dependency calls POSIX-only `sysconf()`, so the bundle uses `BoatsMcGee/fmetrics
 release CI uses, not a locally invented one.
 
 The recipe pins Zig 0.16.0 (0.17 removed `b.build_root`, which the pinned `build.zig` uses),
-runs `zig build --fetch`, applies `patches/0001-windows-portability.patch` to
-`zig-pkg/fcvvdp-*` **on Windows only**, then runs `zig build --release=fast -Dshared=true`
-and stages `zig-out/bin/fmetrics.dll`, `libfmetrics.dylib` or `libfmetrics.so` for the
-target. On macOS/Linux the POSIX `sysconf()` path is already valid, so the portability patch
-is neither applied nor claimed in the lock. The recipe reuses the fork's own
-`av-metrics-fmetrics/scripts/install-fmetrics-windows.ps1` on Windows instead of a second
-build script. The branch `add-windows-shared-build` is fetched only to reach the pinned
-commit; the recipe rejects the checkout when its head differs. The library sits beside the
-other native metrics and the service points the fmetrics, VMAF and VSHIP loader hints at
-`tools/lib`.
+runs `zig build --fetch`, then `zig build --release=fast -Dshared=true -Dstrip=true`, and
+stages `zig-out/bin/fmetrics.dll`, `libfmetrics.dylib` or `libfmetrics.so` for the target.
+The fork's shared-library build is used on every target; a Windows build that cannot produce
+the shared library fails the component instead of falling back to the static archive. The
+library sits beside the other native metrics and the service points the fmetrics, VMAF and
+VSHIP loader hints at `tools/lib`.
 
-The verify gate requires the fork commit to descend from the recorded upstream base, the
-patch hash to match, and the Zig version to be in the lock. The source offer publishes the
-fork commit, the upstream base and the patch. If upstream merges both changes, the component
-moves back to the official repository as a version bump, not as a new exception.
+The source offer and staging recipe record the fork commit, upstream base, patch hash, and
+Zig version. `toolchain:verify` checks the manifest's source pin and lock agreement; it does
+not establish ancestry, patch content, or the Zig version. If upstream merges both changes,
+the component moves back to the official repository as a version bump, not as a new
+exception.
 
 ## 5. CI
 
-The Phase 6 contract adds a required `toolchain` job to `ci.yml` (Phase 5 work). It will run
-on every pull request that touches `packaging/**` or a recipe, and on the default branch.
-The heavier staging workflow will be `toolchain.yml`: it will run on the default branch, on
-release tags, and as a dependency of `release.yml`, never on every pull request. The current
-`ci.yml` runs web, Rust, and browser E2E only; none of the toolchain jobs below exists yet.
+`toolchain.yml` validates the manifest and recipes on every run, plans the
+component-by-target matrix, builds each component on its native runner, assembles one tree
+per target, and generates the lock from those built trees. It runs on manual dispatch, on
+packaging changes to `main`, and will be reused by the tagged release workflow once the
+lock exists.
+
+Every component has its own cache entry. The key is a SHA-256 of the target, the component's
+canonical manifest entry, the recipe bytes, the shared recipe helper and the builder bytes.
+The cache path is `dist/toolchain-cache/<target>/<component>`, so changing x264 cannot
+invalidate aomenc, and a cache hit is a directory copy rather than a compile. The builder
+writes the key into `component.json` only after verifying every artifact claimed by the
+manifest; a stale or partial directory is rebuilt instead of trusted.
 
 | Job | Runs | Gate |
 | --- | --- | --- |
-| `toolchain` (in `ci.yml`) | schema, immutable refs (no `latest`, no branch as the only pin, no git tag without a commit, no release asset without a hash), fork base and patch pins, recorded build-tool versions, SPDX allowlist, `provides`/install agreement per target, no `.pdb`/build trees in outputs, one `vapoursynth` provider per target, wheel tags matching the target | required on PRs that touch packaging; required on the default branch |
-| `toolchain-build` (matrix: `windows-latest`, `macos-14`, `macos-13`, `ubuntu-24.04`) | recipes, staged Python, target wheel install, Tauri resource tree, notices, SBOM, source offer, one artefact per target | required before a release tag; not on every PR |
-| `toolchain-smoke-<target>` | start the headless service with only `--tools-dir`, no toolchain on `PATH`, and no user VapourSynth config; assert every bundled row is available, the app-data TOML selects the bundled interpreter on macOS/Linux, and a fixture encode reaches a terminal event; verify the platform's native artefacts (PE signatures, Mach-O signatures, ELF linkage) | release candidate and nightly, one leg per target |
-| `toolchain-outdated` | compare pinned versions with upstream tags; open one issue with the diff | scheduled, never blocking, never auto-bumps |
+| `validate` | manifest shape, immutable source refs, recipe presence, recipe syntax | every push that touches packaging |
+| `plan` | emit the component/target matrix and each component cache key | every run |
+| `component` (matrix over every target and component) | build or restore one component; upload its cache directory | every toolchain run |
+| `assemble` (matrix: `windows-2025`, `macos-15`, `macos-15-intel`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
+| `lock` | run `toolchain:lock` over the four target artifacts and upload the generated lock | after assembly |
+| `package` | stage the target tree into `dist/tools`, build both Tauri variants, upload installers | manual dispatch with `package` only; no tag trigger until a reviewed lock is committed |
 
-The build job is a matrix, not one job that builds four trees on one runner. Each leg caches
-downloads and outputs by the SHA-256 of `toolchain.lock.json` **and its target triple**, so an
-unchanged target costs a cache restore, not a rebuild. A cache is the only place a release
-build takes a binary from; a cache miss runs that target's recipes again. The Windows leg runs
-on `windows-latest`; the macOS legs are native thin builds (`macos-14` arm64 and `macos-13`
-x64), never a universal binary; Linux builds on `ubuntu-24.04`, not `ubuntu-latest`, so the
-glibc floor does not drift with the runner image. The engine's prebuilt ONNX Runtime requires
-glibc 2.38; the Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
+The component job is a matrix, not one job that builds a whole target on one runner. Each
+leg restores only its own cache directory; the Windows leg runs on `windows-2025`; the macOS
+legs are native thin builds (`macos-15` arm64 and `macos-15-intel` x64), never a universal
+binary; Linux builds on `ubuntu-24.04`, not `ubuntu-latest`, so the glibc floor does not
+drift with the runner image. The engine's prebuilt ONNX Runtime requires glibc 2.38; the
+Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 
-Signing is part of the same job, not a later manual step. Every bundled PE and DLL is
-Authenticode-signed on Windows. On macOS, every nested Mach-O — `python3`, `libpython`,
-`libvsscript`, ffms2, the metric libraries, VapourSynth plugins and extension modules — is
-signed with the hardened runtime and a secure timestamp before the `.app` is signed and
-notarised; `codesign --deep` is not a substitute for signing inside-out. On Linux the
-recipes strip symbols and publish the ELF files with their SONAME/rpath intact; the `.deb`
-declares its WebKitGTK dependency and the AppImage is built on the baseline image. The
-installer and the updater are signed by the Phase 6 release tasks, which depend on this job.
-A tool that cannot be signed is not shipped. Without a Developer ID, macOS uses ad-hoc
-signing and documents the Gatekeeper override; that build is never described as notarised.
+`toolchain:verify` remains fail-closed: it does not accept a target tree in place of the
+lock. The workflow's generated lock is an artifact for review, not a publication step. A
+release workflow must not be enabled until that lock is committed and the smoke legs pass.
+
+Signing is **not wired into `toolchain.yml` yet**; the manual package job produces unsigned
+artifacts. When certificates exist, every bundled PE and DLL will be Authenticode-signed on
+Windows. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`, ffms2, the
+metric libraries, VapourSynth plugins and extension modules — will be signed with the
+hardened runtime and a secure timestamp before the `.app` is signed and notarised; `codesign
+--deep` is not a substitute for signing inside-out. On Linux the recipes strip symbols and
+publish the ELF files with their SONAME/rpath intact; the `.deb` declares its WebKitGTK
+dependency and the AppImage is built on the baseline image.
+
+The current project has no code-signing certificates. It therefore follows
+[releases.md](releases.md): Windows and Linux artifacts are unsigned, macOS artifacts are
+ad-hoc signed and not notarised, and every release says so. The updater signature is a
+separate minisign key and does not make the installer trusted by the operating system. A
+build is never described as signed or notarised when the corresponding signature is absent.
 
 Reproducibility is a claim about inputs and recorded outputs, not a promise of bit-identical
 binaries from every upstream build system. The lock pins every input per target; our recipes
@@ -488,12 +511,13 @@ publishes, beside that target's installer:
   also names the fork commit, the upstream base and, on Windows, the portability patch.
 - `SHA256SUMS` — for the installers, the target's toolchain archive and the notices.
 
-The service embeds a generated summary of the target's lock (id, version, licence, source
-URL, artefact hash). `GET /api/toolchain` returns it without touching the filesystem, and
-Settings → About renders it under **Bundled toolchain**, with the same rows and a link to
-each source. Settings → Dependencies shows the selected source and version per capability.
-The public documentation site can serve the same JSON per target; it never needs a live
-service. One target's notices and SBOM do not stand in for another's.
+The planned release bundle will embed a generated summary of the target's lock (id, version,
+licence, source URL, artefact hash). **Not implemented yet:** `GET /api/toolchain` does not
+exist, and Settings → About does not render a **Bundled toolchain** list. When built, the
+route will return the summary without touching the filesystem, About will show the same rows
+with a source link, and the public documentation site can serve the same JSON per target
+without a live service. Settings → Dependencies already shows the selected source and version
+per capability. One target's notices and SBOM do not stand in for another's.
 
 Nothing in that summary contains a secret, a signing key, or a user path. Installed paths are
 shown only in the local process's dependency rows.
@@ -503,29 +527,30 @@ shown only in the local process's dependency rows.
 | Target | Release target | VapourSynth bundle |
 | --- | --- | --- |
 | Windows x64 (`x86_64-pc-windows-msvc`) | full bundle, primary, Windows 10/11 | bundled |
-| macOS arm64 (`aarch64-apple-darwin`) | full bundle after 6.22, secondary | bundled after 6.22; System before |
-| macOS x64 (`x86_64-apple-darwin`) | full bundle after 6.22, secondary | bundled after 6.22; System before |
-| Linux x64 (`x86_64-unknown-linux-gnu`) | full bundle after 6.22, secondary | bundled after 6.22; System before |
+| macOS arm64 (`aarch64-apple-darwin`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
+| macOS x64 (`x86_64-apple-darwin`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
+| Linux x64 (`x86_64-unknown-linux-gnu`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
 | Windows arm64 (`aarch64-pc-windows-msvc`) | not supported | no wheel |
-| Linux arm64 (`aarch64-unknown-linux-gnu`) | out of Phase 6; possible later with a reduced plugin set | wheel exists, plugin coverage is uneven |
+| Linux arm64 (`aarch64-unknown-linux-gnu`) | out of Phase 5; possible later with a reduced plugin set | wheel exists, plugin coverage is uneven |
 
-Windows x64 is the first full bundle and the Phase 6 release gate. “Secondary” is a
-build order, not a support tier: Phase 6 exits only with an installer for every listed
+Windows x64 is the first full bundle and the Phase 5 release gate. “Secondary” is a
+build order, not a support tier: Phase 5 exits only with an installer for every listed
 release target. R82 publishes wheels for all four of them, so VapourSynth is no longer the
-reason the other targets wait; they wait on the relocation and signing gate in 6.22, not on
+reason the other targets wait; they wait on the relocation and signing gate in 5.26, not on
 an artefact.
 
-The macOS floor is **13.0**, because the VapourSynth and Python wheels are `macosx_13_0`.
-Tauri's default `minimumSystemVersion` is older; 6.18 raises it to 13.0. A Mac on 11 or 12
-keeps **System** VapourSynth and says so; it cannot load the bundled wheel. macOS installers
+The macOS floor is **15.0**, because the vsjetpack plugin wheels are `macosx_15_0`; the
+VapourSynth and Python wheels themselves still begin at `macosx_13_0`.
+Tauri's default `minimumSystemVersion` is older; 5.22 raises it to 15.0. A Mac before 15
+keeps **System** VapourSynth and says so; it cannot load the bundled plugin wheels. macOS installers
 are thin (arm64 and x64), not universal: the Python, VapourSynth and plugin wheels are
 architecture-specific, and a universal app would still need both trees.
 
 The Linux floor is Ubuntu 24.04 / Debian 13. The engine's prebuilt ONNX Runtime requires
 glibc 2.38, and the current Ubuntu 24.04 build emits GLIBC_2.39 symbols; the effective
 artifact floor is therefore 2.39. Debian 12 and Ubuntu 22.04 cannot link this build. Both
-supported distributions provide WebKitGTK 4.1. The `.deb` declares its WebKitGTK and GTK
-dependency; the AppImage is built on that baseline.
+supported distributions provide WebKitGTK 4.1. The `.deb` declares WebKitGTK and GTK; the
+system variant also declares FFMS2. The AppImage is built on that baseline.
 WebKitGTK is never copied into `<tools>`, and the app does not ask the user to install a
 Python or VapourSynth runtime to make the webview work. Building on a newer image silently
 raises the glibc floor, so the release job pins 24.04 rather than `ubuntu-latest`.
@@ -542,15 +567,15 @@ The other targets stage in this order:
    the row never offers a bundle that is not there.
 
 This is why the packaged Windows build does not wait on macOS notarisation of a Python tree.
-The Phase 6 exit criterion is an installer for every target, each carrying the largest
-toolchain it can prove: Windows complete, macOS and Linux complete once 6.22 passes and
+The Phase 5 exit criterion is an installer for every target, each carrying the largest
+toolchain it can prove: Windows complete, macOS and Linux complete once 5.26 passes and
 otherwise the executable/metrics subset with System VapourSynth.
 
 ## 8. Size and installer shape
 
 The bundle is installed by the normal installer for the target; there is no first-run
 download and no separate package manager. The `full,gpu,cl,vulkan` plugin set is large
-(OpenVINO, DirectML and Vulkan payloads dominate it), so task 6.21 measures each target's
+(OpenVINO, DirectML and Vulkan payloads dominate it), so task 5.25 measures each target's
 compressed installer and installed size before the release candidate is approved. Sizes are
 not shared between targets: a thin macOS build and a Linux AppImage have different contents
 from the Windows bundle.
@@ -564,10 +589,12 @@ not move a macOS or Linux component without its own measurement.
 
 Local packaging writes each variant under `dist/release/<platform>/<variant>/`: installers
 plus a portable artifact (a Windows ZIP, a zipped macOS `.app`, or the Linux AppImage), with
-a per-variant `SHA256SUMS.txt`. `npm run release:build` builds bundled and system variants on
-the host, clears only that host's platform directory so another platform's artifacts survive,
-and writes the aggregate checksum list at `dist/release/SHA256SUMS.txt`, together with
-`RELEASE-NOTES.md` and `release-manifest.json` for a manual GitHub pre-release. It also
+a per-variant `SHA256SUMS.txt`. `npm run release:build -- --tag <tag>` builds bundled and
+system variants on the host, clears only that host's platform directory so another
+platform's artifacts survive, and writes the aggregate checksum list at
+`dist/release/SHA256SUMS.txt`, together with `RELEASE-NOTES.md` and `release-manifest.json`
+for a manual GitHub release. The tag is required; a missing tag fails before any build and
+never becomes an implicit stable release. It also
 stages every uploadable file in the flat `dist/release/assets/` directory: each installer
 or portable gets `-bundled` or `-system` inserted before its extension, `release-manifest`
 rejects duplicate flat names, and `upload.asset_paths` lists only that one directory.
@@ -587,8 +614,9 @@ by component and by target:
   release ships their complete corresponding source (or a written offer) and the licence
   texts; the separate-program boundary is what keeps the GPL-2-only components distributable
   beside GPL-3 code.
-- **LGPL FFmpeg.** The build uses `--disable-gpl --disable-nonfree`, with libvmaf, libaom,
-  libsvtav1 and libvpx only. FFmpeg's licence text, the exact configure line and the source
+- **LGPL FFmpeg.** The build uses `--disable-gpl --disable-nonfree --disable-autodetect`;
+  VMAF is loaded directly from `libvmaf`, not through an FFmpeg filter.
+  FFmpeg's licence text, the exact configure line and the source
   revision are published per target; x264/x265 encoding is provided by the standalone
   executables, not by linking them into FFmpeg.
 - **Permissive components.** AV1/VP9/VVC encoders, libvmaf, libvship, TransNetV2 and Python
@@ -637,7 +665,7 @@ by component and by target:
 - **Shipping a build-time `vapoursynth.toml`.** Its keys and interpreter paths are absolute;
   a file generated in the staging tree breaks when the app is installed elsewhere. Generate
   it at first use from the resolved paths.
-- **Keeping macOS 10.13 as the minimum.** The bundled wheels are `macosx_13_0`; older Macs
+- **Keeping macOS 13 or 14 as the minimum.** The vsjetpack plugin wheels are `macosx_15_0`; older Macs
   stay on System VapourSynth instead of receiving a bundle that cannot load.
 - **Committing the bundle.** Binaries do not belong in Git; the manifest and lock are the
   reviewable source, and CI produces the bytes.
@@ -653,18 +681,18 @@ by component and by target:
   payloads, and a GPU generation matrix that a bundled installer cannot meaningfully cover.
   A user may install them into the bundled Python as a custom environment.
 
-## 11. Phase 6 gates
+## 11. Phase 5 gates
 
 | Gate | Task | Pass condition |
 | --- | --- | --- |
-| Manifest and recipes exist for every target | 6.15 | `toolchain:verify` green; every claimed target has a source, licence, install path and wheel tag; no floating ref |
-| Windows bundle builds and installs | 6.16, 6.18 | the installer lands `<resources>/tools`; the service starts with only `--tools-dir`, every bundled row is available, and a fixture encode completes |
-| macOS bundle signs and notarises | 6.4, 6.16, 6.18, 6.22 | every nested Mach-O is signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict` and `spctl`, and a clean Mac runs the encode |
-| Linux bundle builds and installs | 6.5, 6.16, 6.18, 6.22 | the `.deb` declares WebKitGTK and the AppImage runs on the 24.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
-| Fork-built fmetrics reproduces | 6.16 | the shared library builds from the pinned fork commit on every claimed target, the upstream-base and target patch checks pass, and a metric probe loads it |
-| Provider selection works | 6.17, 6.19 | the mixed matrix in [plan/06-deployment.md](plan/06-deployment.md) passes, including a restart-required VapourSynth switch |
-| Clean-VM behaviour per target | 6.20 | a machine with no Python, VapourSynth or FFmpeg encodes with the bundle only; macOS is 13+, Linux has WebKitGTK 4.1 and no other toolchain |
-| Transparency assets ship per target | 6.23 | that target's lock, notices, SPDX and source offer are attached to the release and rendered in About |
-| Size is acceptable per target | 6.21 | each target's measured installer size is recorded; the companion-installer fallback is chosen separately where needed |
-| VapourSynth relocation on macOS/Linux | 6.22 | a wheel-based staged tree with its runtime `vapoursynth.toml` probes and signs successfully after being moved, or those platforms stay System and say so |
-| Minimum OS is declared | 6.18 | macOS `minimumSystemVersion` is 13.0; the Linux package states WebKitGTK 4.1 and the glibc baseline |
+| Manifest and recipes exist for every target | 5.19 | `toolchain:verify` green; every claimed target has a source, licence, install path and lock entry; no floating ref |
+| Windows bundle builds and installs | 5.20, 5.22 | the installer lands `<resources>/tools`; the service starts with only `--tools-dir`, every bundled row is available, and a fixture encode completes |
+| macOS bundle is signed or explicitly ad-hoc | 5.8, 5.20, 5.22, 5.26 | with a Developer ID, every nested Mach-O is signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict` and `spctl`; without one, the ad-hoc build is labeled and the Gatekeeper override is documented |
+| Linux bundle builds and installs | 5.9, 5.20, 5.22, 5.26 | the `.deb` declares WebKitGTK; the system `.deb` also declares FFMS2, and the AppImage runs on the 24.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
+| Fork-built fmetrics reproduces | 5.20 | the shared library builds from the pinned fork commit on every claimed target, the upstream-base and target patch checks pass, and a metric probe loads it |
+| Provider selection works | 5.21, 5.23 | the mixed matrix in [plan/05-ci.md](plan/05-ci.md#16-manual-release-test-plan) passes, including a restart-required VapourSynth switch |
+| Clean-VM behaviour per target | 5.24 | a machine with no Python, VapourSynth or FFmpeg encodes with the bundle only; macOS is 15+, Linux has WebKitGTK 4.1 and no other toolchain |
+| Transparency assets ship per target | 5.27 | that target's lock, notices, SPDX and source offer are attached to the release and rendered in About |
+| Size is acceptable per target | 5.25 | each target's measured installer size is recorded; the companion-installer fallback is chosen separately where needed |
+| VapourSynth relocation on macOS/Linux | 5.26 | a wheel-based staged tree with its runtime `vapoursynth.toml` probes and signs successfully after being moved, or those platforms stay System and say so |
+| Minimum OS is declared | 5.22 | macOS `minimumSystemVersion` is 15.0; the Linux package states WebKitGTK 4.1 and the glibc baseline |

@@ -31,7 +31,7 @@ backend.
 | 1.1.3 | `.gitignore` for `node_modules`, `target`, `dist`, `test-results`, `.tauri` | |
 | 1.1.4 | `.gitattributes` with `* text=auto eol=lf` for source, binary for media | `core.autocrlf` is on locally; normalise |
 | 1.1.5 | `LICENSE` (GPL-3.0), `rust-toolchain.toml` (1.97), `.nvmrc` (Node 26) | |
-| 1.1.6 | `README.md`, `AGENTS.md`, `docs/`, and `design/penpot/` from Phase 0 | include the draft `11 Website` generators if the draft is kept in-tree |
+| 1.1.6 | `README.md`, `AGENTS.md`, `docs/`, and `design/penpot/` from Phase 0 | include the application design sources only |
 | 1.1.7 | `.vscode/launch.json` + `tasks.json` for one-click debugging | compound config: Tauri + Vite + headless service  |
 
 ### 1.2 Engine dependency — the risky part
@@ -81,7 +81,7 @@ before continuing. Do not silently switch strategies.
 | 1.5.5 | `packages/ui` — tokens CSS, one headless primitive (`Button`), one screen (`/about`) | proves the design system |
 | 1.5.6 | `apps/desktop` — Tauri shell + Vite entry, injects `HttpTransport` with the injected port | |
 | 1.5.7 | `apps/web` — same UI, same transport, user-supplied origin | |
-| 1.5.8 | `apps/website` — same UI, `MockTransport` with fixtures | host only; the public landing/docs/demo pages are Phase 6 work  |
+| 1.5.8 | `apps/website` — same UI, `MockTransport` with fixtures | host only; the public landing/docs/demo pages are Phase 5 work  |
 | 1.5.9 | ESLint `no-restricted-imports` forbidding `transport/` outside `packages/api` and `@tauri-apps/*` in `packages/ui`/`apps` | the boundary must be enforced from day one |
 | 1.5.10 | TypeScript pinned to `6.x` | 7.x breaks `typescript-eslint` |
 
@@ -121,7 +121,7 @@ before continuing. Do not silently switch strategies.
 ## 3. Deliverables
 
 - A repository with one commit replacing the Electron tree.
-- `cargo build --workspace` and `npm run build` both succeed from clean.
+- `cargo build --workspace` and `npm run build:ci` both succeed from clean; the publishable website build additionally needs generated screenshot captures.
 - `npm run dev` opens a window showing the About screen with the real app version fetched
   from `/api/health`.
 - `av1ation-service --port <p>` serves the same UI in a normal browser.
@@ -142,7 +142,7 @@ before continuing. Do not silently switch strategies.
 ## 5. Exit checklist
 
 - [x] `cargo build --workspace` clean from a fresh clone — verified with `--locked` on 2026-10-31
-- [x] `npm ci && npm run build` clean from a fresh clone — verified 2026-10-31
+- [x] `npm ci && npm run build:ci` clean from a fresh clone — verified 2026-10-31 (the website was added later; `build:ci` is its clean-checkout equivalent)
 - [x] `npm run dev` launches and shows real data — the Tauri process and its embedded
       `/api/health` were verified; the native window is not captured by the browser preview tool
 - [x] desktop, web, and website hosts render the same screen — one shared `App`; web and

@@ -532,6 +532,17 @@ select {
     background-repeat: no-repeat;
 }
 
+/*
+ * The popup list is painted by the platform, not by the field. An option left transparent
+ * can pair the inherited light text with a light platform menu in the dark theme, so the
+ * options carry the overlay surface and its matching text explicitly.
+ */
+select option,
+select optgroup {
+    background-color: var(--bg-overlay);
+    color: var(--text-primary);
+}
+
 select:disabled {
     cursor: default;
 }
@@ -575,4 +586,30 @@ select:disabled {
     min-height: 3rem;
     padding-top: 0.375rem;
     padding-bottom: 0.375rem;
+}
+
+/*
+ * The embedded demo owns its overlays.
+ *
+ * Menus, popovers, sheets, and dialogs portal into this frame-sized layer instead of
+ * document.body. The layer itself is inert to pointer input so the live screen stays
+ * clickable; each portalled surface opts back in. Clipping keeps a widened menu or a
+ * dialog scrim inside the frame rather than over the marketing article.
+ */
+.video-demo {
+    position: relative;
+    isolation: isolate;
+}
+
+.video-demo__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    overflow: hidden;
+    clip-path: inset(0);
+    pointer-events: none;
+}
+
+.video-demo__overlay > * {
+    pointer-events: auto;
 }

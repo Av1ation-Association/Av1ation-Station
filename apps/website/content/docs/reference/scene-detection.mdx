@@ -1,0 +1,45 @@
+## Method
+
+| Method | Model needed | Strength |
+| --- | --- | --- |
+| AVSceneChange | No | Fast, built-in scene-change detection |
+| TransNetV2 | Yes | Shot-boundary model for harder cuts |
+
+The method is part of the Scene detection document. Changing it does not reuse measurements from the previous method; run detection again before encoding.
+
+## Scene lengths
+
+Minimum and maximum scene length are frame counts. A minimum merges shorter shots; a maximum forces a split inside a long take. Both values constrain the resulting table and are validated against each other. A minimum above the maximum is refused on save.
+
+<Callout tone="note" title="Detection replaces the table">
+Detection rewrites scene rows and their measurements. Splits, merges, and per-scene encoder documents tied to the old rows do not survive a rerun.
+</Callout>
+
+## Input override
+
+A video's Scene detection section can override the project's whole document. The override panel shows the project's method and bounds beside the video's own values. Resetting the section returns the video to inheritance.
+
+## Per-frame scores
+
+Detection writes a score per frame and a threshold decision for each boundary. Scores are engine data: the Scenes screen can read them but does not let you edit them. A scene with no score predates the current detection run or came from a manual edit.
+
+## Model
+
+TransNetV2 needs a model path or an installed model. The path is a provider setting, probed with the other dependencies; a missing model names the expected file instead of falling back to AVSceneChange. An AVSceneChange configuration ignores the model field.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Engine default | No document at this scope |
+| Set | A saved document with a chosen method |
+| No scenes | Detection has not run for this video |
+| Detected | Scene rows exist and carry a detection provenance |
+| Model missing | TransNetV2 is selected but its model is unavailable |
+| Locked | The encoding video cannot change detection during a run |
+
+<RelatedLinks>
+<a href="/docs/concepts/scenes">Scenes and preview</a>
+<a href="/docs/guides/edit-scenes">Inspect and edit scenes</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+</RelatedLinks>

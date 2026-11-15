@@ -1,0 +1,83 @@
+This walkthrough creates one project, queues one video, starts a run, and reads the result. It uses only local files; no network service is involved.
+
+<Callout tone="note" title="Before you start">
+Complete [Install and verify](/docs/get-started/install). You need a source video on a local disk and an output folder with free space. The output folder is derived from the source by default and can be changed per video.
+</Callout>
+
+## Create a project
+
+<Steps>
+<Step title="Open the create form" result="Home shows the project name field and a Create project action.">
+From Home, select **New project**. The form is inline; nothing is created until you submit it.
+</Step>
+<Step title="Name the project" result="The new project appears in the recent list.">
+Use a name you will recognize in the queue. The name is not a file path and can be changed later from the project menu.
+</Step>
+</Steps>
+
+<LiveSample kind="new-project" />
+
+## Add a video
+
+<Steps>
+<Step title="Open the project queue" result="The queue shows its empty state with an add action.">
+Select the new project. An empty queue still offers **Add videos**.
+</Step>
+<Step title="Queue the source" result="A row appears with the source path and a derived output path.">
+Add the video file. The application never copies the source. If the derived output is not what you want, change it in the row or in the video's General section before running.
+</Step>
+<Step title="Check the source" result="The video's General section shows the source and output you intended.">
+Open the video's Configuration tab. Confirm the input kind, the source path, and the exact output. A script input needs a working VapourSynth provider; a native video input decodes through FFMS2.
+</Step>
+</Steps>
+
+## Check the source and output
+
+The General card shows the input that the run will decode and the file that concatenation will write. The output defaults to a sibling of the source. If another process owns that folder, Start is blocked by the preflight rather than failing halfway through the run.
+
+<Callout tone="warning" title="Unique output">
+Two videos in one queue must not write the same output. The queue checks this before a run and refuses a batch that would collide.
+</Callout>
+
+## Start the run
+
+<Steps>
+<Step title="Run the video" result="The pipeline becomes active and the first sequence starts.">
+Select **Start** on the video or run the selected rows from the queue. Whichever control you use, the backend takes the one process-wide run lock.
+</Step>
+<Step title="Watch progress" result="The active sequence, its progress, and the next runnable action stay visible.">
+The sequence cards update live. Completed work remains visible; a sequence that has not run is marked as such rather than invented.
+</Step>
+</Steps>
+
+<LiveSample kind="run-control" />
+
+## Watch the pipeline
+
+A run can fail before its first sequence or between two sequences. The failure is recorded in the video's state and in its history. It does not silently advance the pipeline. Use the card that owns the failure to fix the cause; the [recovery guide](/docs/guides/recover-run) explains the order.
+
+## Read the result
+
+<Steps>
+<Step title="Check the video card" result="The pipeline reports completed sequences and an existing output.">
+The Configuration tab shows the derived phase and the output state. The output path is exact, not a glob.
+</Step>
+<Step title="Open History" result="The run's attempts and terminal message are recorded.">
+History lists each attempt. A completed run has a terminal record; an interrupted or failed attempt keeps the message the engine reported.
+</Step>
+<Step title="Open Logs" result="The run's log is readable and filterable.">
+Logs are the service's event view for the run. Export creates a redacted text file; review the preview before sharing it.
+</Step>
+</Steps>
+
+## Next steps
+
+- Configure the project before adding more videos: [Configure the pipeline stages](/docs/guides/configure-pipeline).
+- Add more queue rows and run a batch: [Run and monitor a batch queue](/docs/guides/batch-queue).
+- Learn what each stage writes: [How the pipeline works](/docs/concepts/pipeline).
+
+<RelatedLinks>
+<a href="/docs/guides/batch-queue">Run and monitor a batch queue</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+</RelatedLinks>

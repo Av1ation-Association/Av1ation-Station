@@ -36,8 +36,7 @@ test profiles.
 | Command | Purpose |
 | --- | --- |
 | `npm run test` | Run the plain web suite, then the plain Rust suite. |
-| `npm run test:web` | Run Vitest once. |
-| `npm run test:web:isolated` | Run Vitest with file isolation. |
+| `npm run test:web` | Run Vitest once, isolated per test file. |
 | `npm run test:web:coverage` | Run Vitest with v8 coverage and write the JSON report under `dist/coverage/web/`. |
 | `npm run test:inventory` | Regenerate `docs/test-inventory.md` from test and coverage reports. |
 | `npm run check:test-inventory` | Validate inventory counts, the documentation baseline, and coverage evidence. |
@@ -46,9 +45,10 @@ test profiles.
 | `npm run coverage:check:web` | Evaluate the frontend coverage policy and print the module report. |
 | `npm run coverage:check:rust` | Evaluate the engine/service coverage policy and print the module report. |
 | `npm run coverage:check:changed` | Check changed-line coverage against `BASE_SHA`. |
-| `npm run coverage:report` | Write the nightly coverage trend report. |
+| `npm run coverage:report` | Write the weekly coverage trend report. |
 | `npm run test:rust` | Run the full Rust workspace suite with `--locked`. |
 | `npm run test:real-encode` | Run the ignored real-encode suite and reject skipped tests or a changed count. |
+| `npm run audit:dependencies` | Run the npm and Cargo audits, write `dist/audits/`, and render the weekly report and issue body; findings are advisory. |
 | `npm run check:disk-space` | Fail when free space is below the configured floor. |
 | `npm run test:rust:coverage` | Run `llvm-cov` for the engine and service and write the Rust lcov report. |
 | `npm run test:e2e:build` | Build or reuse the cached headless service and desktop SPA. |
@@ -59,18 +59,30 @@ test profiles.
 
 | Command | Purpose |
 | --- | --- |
-| `npm run build` | Build every workspace host bundle. |
+| `npm run build` | Build every workspace host bundle; the website requires the generated screenshot captures. |
+| `npm run build:ci` | Build every host for CI and clean checkouts; the website uses the gallery variant, which does not require generated captures. |
 | `npm run build:desktop` | Build the desktop host bundle. |
 | `npm run build:service` | Build the debug headless service used for review and E2E. |
 | `npm run build:web` | Build the LAN web host bundle. |
-| `npm run build:website` | Build the website host bundle. |
-| `npm run build:website:gallery` | Build the website gallery variant. |
+| `npm run build:website` | Build the website host bundle; requires the generated docs and mobile-tour captures. |
+| `npm run build:website:gallery` | Build the website gallery variant for the screenshot pipeline. |
+| `npm run build:demo-tour` | Regenerate the six mobile tour captures from `dist/screenshots`. |
+| `npm run check:bundle-size` | Fail when a built host's initial JavaScript exceeds 250 KB gzip; reads the existing `dist/apps` output. |
 | `npm run build:system` | Build a desktop release using system providers only. |
-| `npm run release:build` | Build both desktop release variants and aggregate checksums. |
-| `npm run release:manifest` | Regenerate release notes and the manifest from existing artifacts. |
+| `npm run release:build -- --tag <tag>` | Build both desktop release variants and aggregate checksums; the tag is required and selects the weekly/RC/stable shape, and a detached checkout also needs `--branch <name>`. |
+| `npm run release:manifest -- --tag <tag>` | Regenerate release notes and the manifest from existing artifacts; the tag is required, and a detached checkout also needs `--branch <name>`. Add `--code-signed`, `--notarized`, or `--updater` only when true. |
+| `npm run release:preflight -- --tag <tag>` | Fail-closed release readiness checks against a candidate artifact directory; writes `dist/release/preflight.json`. Does not tag or publish. |
+| `npm run release:website` | Project the checked-in published release manifest into the website's generated release metadata. |
+| `npm run check:website-release -- --urls` | Fail when the generated metadata is stale or a linked download is missing or has a different size on GitHub. |
+| `npm run toolchain:lock` | Hash the four built target trees into `packaging/toolchain.lock.json`; refuses a partial or missing target. |
+| `npm run toolchain:check` | Validate the reviewed manifest and recipe paths without requiring a lock. |
+| `npm run toolchain:plan` | Print the component/target build matrix with its cache keys. |
+| `npm run toolchain:build -- --target <triple>` | Build one target component by component, reusing each component cache when its recipe, builder and target are unchanged. |
+| `npm run toolchain:stage -- --target <triple>` | Assemble a target tree from existing component caches. |
+| `npm run toolchain:verify` | Fail closed unless the manifest and complete four-target lock are present and internally consistent. |
 | `npm run clean:outputs` | Remove transient generated output. |
 | `npm run clean:target` | Clean the Cargo target tree. |
-| `npm run stage:tools` | Stage the release toolchain tree. |
+| `npm run stage:tools` | Stage the release toolchain tree, including the full provider set on every target. |
 
 ### Formatting, linting, and static checks
 
@@ -94,7 +106,7 @@ test profiles.
 | `npm run check:error-evidence` | Validate the error-evidence registry. |
 | `npm run check:evidence` | Run the error-evidence and route-test-matrix checks. |
 | `npm run check:web` | Run the shared web static profile. |
-| `npm run check:rust` | Run the shared Rust static profile. |
+| `npm run check:rust` | Run the shared Rust static profile, including toolchain manifest and recipe validation. |
 | `npm run evidence:generate` | Regenerate the error-evidence registry. |
 | `npm run check:docs` | Validate documentation links, anchors, and Contents maps. |
 | `npm run check:route-matrix` | Validate the generated route-test matrix. |
@@ -134,7 +146,7 @@ requirements for those commands into failures.
 `npm run test:e2e` needs Chromium installed once with `npx playwright install chromium`.
 `npm run test:real-encode` needs the full real-encode toolchain described in
 [CONTRIBUTING.md](../CONTRIBUTING.md#checks-and-tests) and
-[testing.md](testing.md#nightly-real-encode-gate).
+[testing.md](testing.md#weekly-real-encode-gate).
 
 ## CI and local verification
 
@@ -143,10 +155,10 @@ Pull-request CI runs the same named profiles as local verification:
 | Environment | Profiles |
 | --- | --- |
 | Local `npm run verify` | `check:static`, then `verify:web` and `verify:rust` in parallel |
-| CI web job | `check:web`, then `verify:web` |
+| CI web job | `check:web`, then `verify:web`, then `build:ci` |
 | CI Rust job | `check:rust`, then `verify:rust` |
 | CI browser job | `test:e2e` |
-| Nightly real-encode job | `test:real-encode` |
+| Weekly real-encode job | `test:real-encode` |
 
 `check:static` is `check:web` followed by `check:rust`. `check:web` includes
 `check:evidence`, so `check:error-evidence` and `check:route-matrix` run locally and in CI.
@@ -155,9 +167,9 @@ Intentional differences:
 
 - CI splits the static profiles across a Linux web job and a Windows Rust job; local
   `verify` runs both on the host machine.
-- CI runs `coverage:check:changed` with the base commit and `npm run build`; local `verify`
-  does neither. Changed-line coverage needs the pull-request diff.
+- CI runs `coverage:check:changed` with the base commit and `npm run build:ci`; local
+  `verify` does neither. Changed-line coverage needs the pull-request diff.
 - Local `verify` does not run E2E or the real-encode suite; CI runs those as separate jobs
   with the same `test:e2e` and `test:real-encode` profile names.
-- The nightly coverage-trend job measures coverage reports without running the full verify
+- The weekly coverage-trend job measures coverage reports without running the full verify
   gates. Screenshot and gallery checks remain advisory and are not part of either gate.

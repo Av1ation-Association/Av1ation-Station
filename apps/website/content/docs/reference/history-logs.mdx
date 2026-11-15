@@ -1,0 +1,50 @@
+## History cards
+
+History is grouped by run, newest first. Each card reports the start time, duration, frames processed, and outcome. Expanding a card lists sequence attempts with their own outcomes and terminal messages. A run that failed before its first sequence still has a card.
+
+## Logs viewer
+
+The viewer reads one run's log directory. Records carry a timestamp, level, target, and message. The card's log action and the viewer share the run id, so the two cannot point at different runs. A missing directory says so; it does not substitute the newest log.
+
+## Filters and search
+
+| Control | Effect |
+| --- | --- |
+| Level | Show one or more severity levels |
+| Search | Match message, target, or timestamp text |
+| Clear | Restore the unfiltered view |
+
+Filtering and sorting run on the service. A filter that matches nothing shows an empty result, not all records.
+
+## Sort
+
+Sort by time ascending or descending. Follow mode overrides the sort to keep the newest record visible; leaving follow restores the chosen order. Sorting never reorders the underlying file.
+
+## Follow
+
+Follow tails a live run. It stops at the run's terminal record or when you scroll away deliberately. A completed run cannot be followed; the action is disabled rather than tailing a file that will not grow.
+
+## Export
+
+Export builds one redacted string and offers Copy and Download of that same string. The preview is the exact text, not an approximation. Known paths, filenames, hostnames, and addresses become placeholders; project names and free-form messages are not interpreted.
+
+## Delete
+
+Delete removes a run's log directory and its History card. It does not delete source files, output files, or scene chunks. A live run cannot be deleted; stop it first.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Loading | History or the log is being read |
+| Empty | The video has no recorded run |
+| Live | A run is active; follow is available |
+| Complete | The run has a terminal record |
+| Missing | The log directory no longer exists |
+| Filtered empty | No record matches the current filters |
+
+<RelatedLinks>
+<a href="/docs/concepts/runs">Runs, history, and logs</a>
+<a href="/docs/guides/logs-evidence">Review logs and export support evidence</a>
+<a href="/docs/guides/recover-run">Recover from a failed or interrupted run</a>
+</RelatedLinks>

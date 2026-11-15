@@ -13,6 +13,7 @@ without scanning the whole file.
 - [Editing and presentation](#editing-and-presentation)
 - [Concatenation](#concatenation)
 - [Testing and evidence](#testing-and-evidence)
+- [Public documentation](#public-documentation)
 - [Build and delivery](#build-and-delivery)
 - [Reading the top level](#reading-the-top-level)
 
@@ -110,18 +111,37 @@ without scanning the whole file.
 | **Feature screenshot manifest** | The optional subset written for release notes when a feature run selects one group or screen id. | `dist/screenshots/feature-screenshots.json` |
 | **Route family** | One path registered in `ROUTE_META`; dynamic section values share the family. It is the unit of four-state certification. | `packages/ui/src/app/route-meta.ts` |
 
+## Public documentation
+
+| Term | Meaning | Primary location |
+| --- | --- | --- |
+| **Capture** | One deterministic screenshot case in the gallery catalog, rendered in both themes. | [website-docs.md](website-docs.md#8-screenshot-inventory), `e2e/screenshots/catalog.ts` |
+| **Crop** | A native-scale region cut from a capture for one documentation figure; never a resized application window. | [website-docs.md](website-docs.md#84-figure-rules) |
+| **Docs manifest** | The typed index of public pages, live slots, and search metadata that the build checks against the page inventory. | [website-docs.md](website-docs.md#9-authoring-routing-and-search) |
+| **Figure** | One capture or live component presented with alt text, a caption, and optional DOM annotations. | [website-docs.md](website-docs.md#84-figure-rules) |
+| **Focused sample** | A production component, or a small set of them, mounted in a docs page under only the provider, router, or demo context its described action needs. | [website-docs.md](website-docs.md#7-live-content) |
+| **Live widget** | One real UI component mounted inline in a docs page with fixture data, without the application shell. | [website-docs.md](website-docs.md#7-live-content) |
+| **Page** | One public `/docs/...` URL and its single MDX body. | [website-docs.md](website-docs.md#4-page-inventory) |
+| **Reference page** | Lookup material for one application surface or configuration area, with no ordered task. | [website-docs.md](website-docs.md#6-reference-inventory) |
+| **Task page** | A Get started tutorial or a Guide, with an outcome, ordered steps, a result, and a recovery path. | [website-docs.md](website-docs.md#5-task-page-inventory) |
 
 ## Build and delivery
 
 | Term | Meaning | Primary location |
 | --- | --- | --- |
 | **Build output root** | The one ignored tree for generated artifacts: Cargo target, host builds, toolchains, caches, coverage, and test reports. | `dist/` |
+| **Build provenance attestation** | A keyless GitHub attestation binding an artifact digest to its repository, commit, workflow, and builder. It is not a code signature. | GitHub Actions attestations; [releases.md](releases.md#transparency) |
 | **Dev toolchain cache** | A real-file copy of the staged toolchain used by `npm run dev`; it mirrors the release tree and survives `cargo clean`. | `dist/dev-tools/`, `scripts/dev-tools.mjs` |
 | **Generated artifact** | A file produced by a build or contract step, such as `schema/<group>/*.json`, generated contracts, or lockfiles. | `schema/`, `packages/contracts/src`, `rust/Cargo.lock` |
 | **Kache store** | The optional local Rust compiler cache, capped at 8 GiB. It is regenerable and is not part of the repository. | configured `KACHE_CACHE_DIR`, `.cargo/config.toml` |
+| **Release channel** | One of the weekly, release-candidate, or stable publication lines. Weekly tests are not a channel. | [releases.md](releases.md#channels) |
 | **Release output** | Locally built installers and archives. The expanded portable tree and Tauri debug copies are transient. | `dist/release` |
 | **Service build cache** | A debug `av1ation-service` binary keyed by the Rust sources and lockfile, so an unchanged checkout can restore it after `clean:target`. | `dist/cache/service/`, `scripts/build-service.mjs` |
 | **Staged toolchain** | The release-pruned `tools/` tree that a release bundle installs under `<resources>/tools`. | `dist/tools`, `scripts/stage-tools.mjs` |
+| **Toolchain lock** | The generated per-target record of every component's immutable source, artifact URL, SHA-256, size, and install path. | `packaging/toolchain.lock.json`; [releases.md](releases.md#toolchain-lock-gate) |
+| **Unsigned release** | A release with no Authenticode signature, Developer ID, or notarisation ticket; it must carry explicit labels and hash verification instructions. | [releases.md](releases.md#unsigned-distribution) |
+| **Updater signature** | A project minisign signature over an update manifest and artifact, independent of OS code signing and used only on the stable channel. | `plugins.updater`; [releases.md](releases.md#update-policy) |
+| **Weekly release** | An automatically published, tagged prerelease from a weekly code change; it has no updater entry and is retained for a limited window. | [releases.md](releases.md#channels) |
 
 ## Reading the top level
 

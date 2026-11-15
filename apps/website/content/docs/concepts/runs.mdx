@@ -1,0 +1,39 @@
+A run is one acquired encode lock and one log directory. A run contains attempts: each sequence attempt and one terminal record. History is the append-only account of those attempts; it is never used to decide what the pipeline may do next.
+
+## One run, many attempts
+
+Starting a video acquires the process-wide lock. If the lock is held, the start is refused with a conflict, not queued. Inside the run, each sequence appends an attempt when it starts and a terminal record when it ends. A failure can occur before the first sequence, so the run itself always gets a terminal record with the message.
+
+## Outcomes
+
+**Completed** means the sequence or run reached its end. **Failed** means the engine reported an error. **Cancelled** means the user stopped it. A control refusal, such as starting while another run holds the lock, is not a run outcome and does not create a failed attempt.
+
+<Callout tone="note" title="Interrupted is not failed">
+A cancelled run is not a failure. A process that dies without a terminal record leaves an incomplete attempt, which History shows as such instead of inventing an outcome.
+</Callout>
+
+## History
+
+History is grouped by run. Each card shows when the run started, how long it took, how many frames it processed, and its outcome. Expanding a run lists its sequence attempts with the same measures. The terminal message is the first place to look for a failure reason.
+
+<LiveSample kind="history-item" />
+
+## Logs
+
+The Logs tab reads the service's event view for one run. Records carry a time, level, target, and message. Filters and sorting are server-side, so a large log does not have to be downloaded to be useful. Following a live run keeps the newest records in view without changing the current filter.
+
+<LiveSample kind="log-filter" />
+
+## Export and redaction
+
+Export replaces known paths, filenames, hostnames, and addresses with placeholders. The sheet previews exactly the text that will be copied or downloaded, and those are the same redacted string. Redaction protects the common leaks; it does not understand project names written inside a custom message.
+
+## What survives deletion
+
+Deleting a run removes its log and its history card. It does not delete source files, output files, or retained scene chunks. Deleting retained work is a separate Storage action. A live run cannot be deleted.
+
+<RelatedLinks>
+<a href="/docs/guides/logs-evidence">Review logs and export support evidence</a>
+<a href="/docs/guides/recover-run">Recover from a failed or interrupted run</a>
+<a href="/docs/reference/history-logs">History and logs reference</a>
+</RelatedLinks>

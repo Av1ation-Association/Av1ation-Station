@@ -1,0 +1,50 @@
+## Symptom
+
+A capability is unavailable: a video will not start because VapourSynth is missing, TransNetV2 has no model, an encoder cannot be found, or a quality metric is unavailable. Sometimes the run starts and fails immediately at the stage that needed the tool.
+
+## Check preflight
+
+Open **Settings → Dependencies** and read the Diagnostics card. It groups providers by capability and counts available, missing, and rejected ones. Expand the row for the stage that failed rather than scanning the whole page.
+
+<Callout tone="tip" title="Capabilities are independent">
+A missing encoder does not disable decoding. A missing metric does not disable muxing. Fix the one capability the workflow needs; do not install everything on the page.
+</Callout>
+
+## Read the row
+
+| Row state | Meaning | First action |
+| --- | --- | --- |
+| Available | A provider probed successfully | None |
+| Unavailable | No path and no bundled or system provider | Locate a path or install the tool |
+| Rejected | A path was offered and failed its probe | Read the reason, then choose a valid executable |
+| Version unknown | The probe ran but could not parse a version | Save if the tool works; note the version in support |
+| Model missing | The selected detector or metric has no model | Set the model path |
+
+A row also names the executable it looked for. A path that exists but is not executable is rejected, not accepted and failing later.
+
+## Fix by provider
+
+Locate the executable in the row and save it. The accepted path becomes the provider for exactly that capability. A rejected attempt is transient and is not saved. For a model, use the model picker or path field; a missing model is not replaced by a different detector.
+
+<Steps>
+<Step title="Locate the executable" result="The probe runs and reports a version or a rejection reason.">
+A probe result is per capability. Do not assume a valid FFmpeg path also satisfies the encoder or muxer capability.
+</Step>
+<Step title="Re-probe" result="The capability reports available and the row shows the accepted path.">
+Re-probe rescans accepted paths and defaults. It does not download or install anything.
+</Step>
+</Steps>
+
+## Restart
+
+Encoder, FFmpeg, mkvmerge, and metric provider changes apply on next use. A VapourSynth provider change can require an application restart because one process hosts one runtime. If the row reports available and every VapourSynth run still fails, restart before changing more settings.
+
+## Still missing
+
+Check that the executable runs from a terminal, that its dependencies are installed, and that the application's user can read it. On Linux, a missing shared library makes a present executable fail its probe. If the provider is valid but the run fails, the failure is downstream of availability: read the run log rather than re-probing.
+
+<RelatedLinks>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+<a href="/docs/get-started/install">Install and verify</a>
+<a href="/docs/reference/settings">Settings</a>
+</RelatedLinks>

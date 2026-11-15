@@ -1,0 +1,62 @@
+## Rail
+
+The rail lists every scene in order with its index, start, end, frame count, and chunk marker. It is virtualized, so a five-thousand-scene table does not create five thousand nodes. Selecting a row selects the same scene everywhere.
+
+## Timeline
+
+The timeline is proportional to frame count, not to scene count. Each block carries its index and chunk state. Gaps are visible as gaps. Dragging the playhead seeks; selecting a block selects its scene. The ruler reports the current frame.
+
+## Details
+
+The details panel follows the selection. For one scene it reports the range, the encoder provenance, engine data, and chunks. For several scenes it reports the aggregate range and the shared encoder state. The panel is the only place a boundary is edited precisely.
+
+## Engine data
+
+| Group | Contents |
+| --- | --- |
+| Detection | Method, score, threshold decision |
+| Noise | Measured value and scale factor |
+| Target quality | Probe history, fit, chosen quantizer |
+| Encoding | Chunk path, size, encoder fingerprint |
+| Quality check | Scene and aggregate scores |
+
+Engine data is read-only. It is exactly what the engine wrote, including the absence of a value.
+
+## Sequence data
+
+The active sequence's progress is attached to the scene that is currently encoding. A completed scene keeps its result; a queued scene shows no progress rather than a fabricated zero.
+
+## Player sources
+
+| Source | Reads | Requires |
+| --- | --- | --- |
+| Original | The queued source file | A resolvable source |
+| Decoded | The decoded filter graph | A resolvable decode graph |
+| Encoded | The retained scene chunk | A scene at the playhead with a chunk |
+
+The player maps the scene-relative frame across sources. Unavailable choices are disabled with the reason named.
+
+## Editing
+
+Split, merge, delete, add a scene in a gap, and set boundaries. One structural edit can be undone. A chunk reset is a storage action and is not undone by the structural undo. Edits are refused while the video is locked.
+
+## Chunks
+
+A chunk marker reports whether a scene has a retained encoded chunk. A changed encoder fingerprint reopens the source instead of treating the old chunk as current. Removing a chunk frees its space and leaves the scene needing re-encoding.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Empty | No scene table exists |
+| Ready | The table is valid and startable |
+| Warning | Gaps exist; the run will name them |
+| Invalid | Overlap or reversed range disables Start |
+| Locked | A run prevents edits |
+| No preview | The source cannot be resolved by this host |
+
+<RelatedLinks>
+<a href="/docs/concepts/scenes">Scenes and preview</a>
+<a href="/docs/guides/edit-scenes">Inspect and edit scenes</a>
+<a href="/docs/guides/compare-previews">Compare Original, Decoded, and Encoded</a>
+</RelatedLinks>

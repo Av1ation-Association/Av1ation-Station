@@ -1,0 +1,53 @@
+The pipeline is a fixed order of stages over one video. Each stage reads what the previous one wrote and adds its own data. The application never stores a phase; it reads the scene table, the chunks, the output, and the live progress stream.
+
+## The six stages
+
+1. **Scene detection** writes scene boundaries and per-frame scores.
+2. **Noise generation** optionally measures grain and scales the denoise strength per scene.
+3. **Target quality** optionally probes scenes and writes a quantizer for each.
+4. **Parallel encoding** writes one chunk per scene plus its encoder sidecars.
+5. **Concatenation** joins the chunks into the final file.
+6. **Quality check** optionally scores the result against the source.
+
+The first, fourth, and fifth stages are structural: without them there is no output. The two quality stages and noise generation are optional and can be enabled independently.
+
+## What each stage produces
+
+| Stage | Writes | Read by |
+| --- | --- | --- |
+| Scene detection | Scene rows and scores | Every later stage, the Scenes screen |
+| Noise generation | Per-scene noise and scale factor | Encoding |
+| Target quality | Per-scene quantizer and probe history | Encoding, measured data |
+| Parallel encoding | Scene chunks and encoder logs | Concatenation, Quality check |
+| Concatenation | Final output, chapters, tracks | History, Quality check |
+| Quality check | Per-scene and aggregate scores | Analytics and History |
+
+## Derived state
+
+A stage is complete when its data exists, not when a status flag says so. That is why deleting a chunk makes Encoding show work again, and why a missing output is visible instead of being masked by a stored `completed` value.
+
+<Callout tone="note" title="History is the exception">
+The execution timeline records what happened and when. It is append-only history, never read to decide the current phase. A completed run and its history can disagree with the disk only if a file was removed outside the application, and the disk wins.
+</Callout>
+
+## Optional stages
+
+Noise generation and Target quality are turned on per project or per video. An enabled stage with a valid configuration runs; a disabled stage is skipped, not failed. Quality check reads retained chunks and the final output, so it needs both.
+
+<Callout tone="warning" title="Optional does not mean harmless">
+Target quality changes the encoder arguments for every scene it scores. Disabling it returns to a fixed quantizer or CRF and can change output size substantially.
+</Callout>
+
+## Retained work
+
+Encoded scene chunks are kept after a successful run unless Storage opts in to deleting them. They are what makes a later quality check and a re-encode of selected scenes possible. Removing them is a storage decision, not part of concatenation.
+
+## Reading the pipeline
+
+On a video's Configuration tab, each card shows the section's configuration, the sequence status it owns, and the next runnable action. A card that reads **Inherited** has no override; a card with an override count is editable only for this video. A failure appears on the card that owns it and in History.
+
+<RelatedLinks>
+<a href="/docs/guides/configure-pipeline">Configure the pipeline stages</a>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+</RelatedLinks>

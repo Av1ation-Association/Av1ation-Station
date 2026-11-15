@@ -169,6 +169,8 @@ jsdom` docblock so the unit suite stays DOM-free. For each screen: loading, empt
 populated. `axe-core` is the accessibility gate: the `packages/ui/src/app/a11y-*.test.tsx`
 route-family files render
 the real shell and lazy route for all 17 route families and fails on a structural violation.
+`a11y-demo.test.tsx` repeats the scan for the four screens embedded in the marketing page,
+with the host's `main` around them, so a nested landmark is a failure.
 The four-state matrix and axe pass take their route list from `ROUTE_META` through
 `packages/ui/src/test/route-cases.ts`; its detail map is keyed by `RoutePath`, so a new
 registry route cannot be omitted from either without a typecheck failure. The behaviour
@@ -178,6 +180,13 @@ Settings panels, and the About actions. jsdom performs no layout, so that harnes
 `e2e/a11y-route-sweep.spec.ts` visits every registry route and every Settings hash against
 the populated application in Chromium, including contrast, target size, and the
 accessible-name checks that need real layout.
+
+Each web test file gets a fresh fork and module graph. File-scoped `vi.mock` factories
+cannot share a cache: the route and axe suites load every screen under Monaco stubs, and
+a broad file can otherwise leave a later component with an editor or provider instance
+different from the one its test mounted. The extra process and jsdom startup roughly
+doubles the frontend suite's wall time, but makes mocks and contexts independent of file
+order. File isolation is the default; there is no separate isolated command.
 
 Component tests render with the mock transport rather than mocking modules, which keeps
 the transport contract under test. `MockTransport` takes an optional picker (`pickers`
@@ -376,21 +385,23 @@ source and position unchanged, and the validation strip blocking only run errors
 covers the scene encoder sheet writing one per-scene override, and a not-yet-run sequence
 rendering `—` rather than a fabricated value.
 
-The real-encode tests are marked `#[ignore]` and are expected to run locally and on a
-nightly CI job only, with `cargo test -- --ignored`. They generate their clips with FFmpeg
+The real-encode tests are marked `#[ignore]` and are expected to run locally and on the
+weekly CI job only, with `cargo test -- --ignored`. They generate their clips with FFmpeg
 into a per-test `tempfile` directory: native FFMS2 with x264, the VapourSynth BestSource
 default, a script that modifies one detected scene, and a live Noise Detector → Parallel
 Encoder run. Generation uses FFV1 (lossless) except where the test needs a keyframe
 interval, which uses the native `mpeg4` encoder; clip generation never requires `libx264`.
-The preview test does need FFmpeg's `libx264` encoder for its H.264 proxy, so the nightly
+The preview test does need FFmpeg's `libx264` encoder for its H.264 proxy, so the weekly
 job installs a full FFmpeg build rather than the application's LGPL bundle. The service suite also drives
 create→encode→concatenate over HTTP and checks the persisted chunks, derived state,
 timeline, and log. No test reads a committed clip: `AV1ATION_FFMPEG` selects a specific
 binary, and `PATH` is the fallback.
 
-#### Nightly real-encode gate
+#### Weekly real-encode gate
 
-`.github/workflows/nightly.yml` runs at 03:17 UTC and on `workflow_dispatch`. It installs
+`.github/workflows/weekly.yml` runs Mondays at 03:17 UTC and on `workflow_dispatch`, and skips
+a scheduled run when nothing outside documentation changed since the previous successful
+scheduled run. It installs
 FFmpeg with libx264, MKVToolNix, pinned x264 and SVT-AV1 builds, and VapourSynth R80 with
 BestSource, then runs `npm run test:real-encode`. That command is the same locally and in CI:
 it executes `cargo test --workspace --locked --no-fail-fast -- --ignored --test-threads=1
@@ -398,9 +409,9 @@ it executes `cargo test --workspace --locked --no-fail-fast -- --ignored --test-
 `av1ation-test-support`; no media file is committed. `--test-threads=1` avoids interleaving
 VSScript's process-wide Python runtime.
 
-The command writes `dist/nightly/real-encode.log` and treats any `skipped:` line or a pass
+The command writes `dist/real-encode/real-encode.log` and treats any `skipped:` line or a pass
 count other than 12 as a failure, because a missing optional dependency must not turn the
-nightly green. The workflow uploads that log and `dist/nightly/toolchain.txt` even when the
+weekly run green. The workflow uploads that log and `dist/real-encode/toolchain.txt` even when the
 job fails. The generated clips themselves live in per-test `tempfile` directories and are
 removed when each test finishes.
 
@@ -416,10 +427,10 @@ The local prerequisites are the tools in the preceding paragraph. `npm run docto
 SVT-AV1, Cargo/Rust, MSVC on Windows, and both the project and temp volumes. The base
 `npm run doctor` only reports optional providers; the profile turns those into failures. If
 a dependency is missing, its tests print `skipped:` and the command exits non-zero instead
-of reporting a partial pass. Use the nightly workflow's pinned installation steps as the
+of reporting a partial pass. Use the weekly workflow's pinned installation steps as the
 reference environment.
 
-#### Nightly coverage trend
+#### Weekly coverage trend
 
 The same workflow's `coverage-trend` job runs on Windows in parallel with the real-encode
 job. It measures frontend coverage into `dist/coverage/web/` and Rust coverage into
@@ -429,8 +440,20 @@ Markdown to the GitHub run summary and uploads `dist/coverage/` as an artifact. 
 producer directories mean a web coverage run cannot delete the Rust lcov report that a
 combined report still needs. This is the scheduled visibility record for package totals,
 critical-file floors, and the lowest line/branch/function modules; it is not a merge gate. A
-policy failure still turns the nightly job red, so a regression is visible rather than being
+policy failure still turns the weekly job red, so a regression is visible rather than being
 recorded as a green run.
+
+#### Weekly dependency audit
+
+The workflow's `dependency-audit` job runs on Ubuntu, installs `cargo-audit`, and executes
+`npm run audit:dependencies`. That command writes
+`dist/audits/{npm.json,cargo.json,summary.json,report.md}` and reports npm high/critical
+findings and Cargo vulnerabilities. When findings exist, the job opens or updates one issue
+titled `Weekly dependency audit findings`; when the audit is clean, it comments and closes
+that issue. Findings are advisory and do not fail the job; a scanner or parse failure does
+fail the job and leaves the issue unchanged. It does not run on pull requests and is not a
+required status. The screenshot gallery is not part of this workflow; it is the separate
+manual run described in §3.5.
 
 ### 3.4 Measured cost
 
@@ -440,12 +463,12 @@ from the same machine and date.
 
 | Suite                          | Tests     | Wall (parallel harness)                                     |
 | ------------------------------ | --------- | ----------------------------------------------------------- |
-| Engine unit                    | 128       | 0.43 s                                                      |
-| Service unit                   | 227       | 9.37 s                                                      |
-| Service route                  | 130       | 13.09 s                                                     |
+| Engine unit                    | 130       | 0.43 s                                                      |
+| Service unit                   | 229       | 9.24 s                                                      |
+| Service route                  | 130       | 14.37 s                                                     |
 | Contract and event integration | 5         | 0.00 s                                                      |
 | Desktop shell and test support | 2         | 0.00 s                                                      |
-| **Normal Rust total**          | **492**   | **≈22.9 s**                                                 |
+| **Normal Rust total**          | **496**   | **≈24.0 s**                                                 |
 | Engine real encode (gated)     | 3         | 0.00 s                                                      |
 | Script re-evaluation (gated)   | 7         | 0.00 s                                                      |
 | Service thumbnail (gated)      | 1         | 0.00 s                                                      |
@@ -458,16 +481,45 @@ Vitest test-result JSON, and `npm run test:inventory` reads it and writes
 [test-inventory.md](test-inventory.md) without rerunning the suite. Pass
 `-- --rerun` to `test:inventory` only when a standalone inventory run is needed. The
 Rust rows report the harness's own wall clock from the last recorded full
-`cargo test --workspace --locked` run: 492 passed, 0 failed, and 12 ignored. The ignored
+`cargo test --workspace --locked` run: 496 passed, 0 failed, and 12 ignored. The ignored
 rows need FFmpeg, VapourSynth, an encoder, or MKVToolNix and return immediately without
 them. The service unit and route binaries dominate the wall time.
+
+#### 3.4.1 PR CI workflow timings
+
+Measured 2026-11-13 on Windows 11 with Node 26.13.0 and Rust 1.97.1, using warm npm,
+Cargo, Playwright, and service caches; the web row was re-measured 2026-11-14 with per-file
+Vitest isolation. The command sets match `ci.yml` apart from the Rust audit step added
+later, which is excluded from the figures below. The changed-line checks used `HEAD^` as
+the base.
+
+| Workflow path                    | Local command set                                                                                       | Measured          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------- |
+| Docs-only `changes`              | `npm ci && npm run check:docs`                                                                          | 57 s              |
+| Web checks                       | `npm audit`, `check:web`, `verify:web`, changed-line frontend coverage, `build:ci`, `check:bundle-size` | 122 s             |
+| Rust checks                      | `check:rust`, `verify:rust`, changed-line Rust coverage                                                 | 164 s             |
+| Browser E2E                      | `npx playwright install chromium`, `test:e2e`                                                           | 99 s              |
+| Full-PR local component estimate | 57 s install + slowest job (Rust)                                                                       | **221 s (3m41s)** |
+| Measured local component sum     | install + web + Rust + E2E                                                                              | **442 s (7m22s)** |
+
+The per-job rows exclude `npm ci`, hosted-runner setup, and the `changes` and gate jobs.
+Hosted CI runs `npm ci` in each parallel job, and the 57 s install above is the measured cost
+of that command. The web row was measured alone with warm caches; the E2E and Rust rows
+retain the 2026-11-13 measurements, where Web and E2E ran concurrently and Rust was rerun
+alone after E2E teardown so the shared Windows workspace did not lock
+`av1ation-service.exe`. The 221 s full-PR figure is a **local component estimate** (install
+plus the slowest measured job), not a measured full-PR wall time. The 442 s figure is the
+**sum of the component rows**, not a single end-to-end CI run. The static profiles, full
+tests, and `verify:web` pass locally, including frontend coverage at 75.02% total and 73.56%
+UI against baselines 74.91% and 73.46%. No hosted run of the current three-gate workflow exists yet, and the only hosted CI run used the
+older workflow shape and failed. Hosted confirmation is pending for both exit items.
 
 **What is still worth doing, in order.**
 
 1. **Run the gated targets concurrently when enabled.** Cargo runs test binaries one after
    another, and the gated targets are the slow ones when their environment is present.
    A small runner or `cargo nextest` would overlap them. This changes scheduling only, not
-   coverage, and belongs on the nightly job, not in PR CI.
+   coverage, and belongs on the weekly job, not in PR CI.
 2. **Keep real encodes out of the PR path.** They are already `#[ignore]`d; do not “make CI
    realistic” by removing the attribute. The fake suite covers the same routes and state
    rules.
@@ -477,6 +529,7 @@ them. The service unit and route binaries dominate the wall time.
 4. **Cache compilation and filter docs-only changes.** The warm compile is under a second,
    but a cold workspace build is the dominant cost and no test rewrite can fix it. That is
    Phase 5's `sccache`/`rust-cache` and path-filter work, not a reason to weaken tests.
+   The measured PR timings are in §3.4.1.
 
 Do not reduce the race iterations to save 0.3 s: they are the only check that a read racing
 DELETE cannot recreate a project directory, and the failure is intermittent. Do not merge
@@ -527,13 +580,20 @@ dist/screenshots/
 └── README.md
 ```
 
+The same pass writes the six mobile tour crops to the gitignored
+`apps/website/public/demo-tour/`. A normal website build fails before compiling when any
+are missing or invalid and prints the two regeneration commands; the gallery build skips
+that check because it runs before the captures exist.
+
 `index.html` is a local contact sheet with a theme toggle and feature filters. `README.md`
 is the usage contract for consumers; §3.8 describes the catalog shape. The gallery is
 deliberately not a pixel comparison: there is no committed baseline and no required check.
-`.github/workflows/screenshots.yml` runs the same command when renderer paths change,
-uploads `dist/screenshots/` as the `screenshots` artifact, and never gates a merge.
-Reviewers download the artifact and compare it with the previous pass; a visual regression
-is raised as a review comment, not by a threshold.
+`.github/workflows/screenshots.yml` runs the same command on manual dispatch, uploads
+`dist/screenshots/` as the `screenshots` artifact, and never gates a merge. It is manual
+because its output is website and release asset material, and the website that consumes it
+is not designed yet; an automatic run would produce images nothing reads. Reviewers download
+the artifact and compare it with the previous pass; a visual regression is raised as a
+review comment, not by a threshold.
 
 The command fails when FFmpeg is unavailable, the build fails, a capture fails, either
 theme is missing, an image cannot be converted, or the publisher sees inconsistent copy
@@ -564,8 +624,11 @@ The CI path builds the app, starts it, drives the UI, and asserts outcomes.
 profile. Job-level path filters skip the web, Rust, and browser E2E runners on a docs-only
 pull request, while the changes job runs `npm run check:docs`; the always-running
 `Web checks gate`, `Rust checks gate`, and `Browser E2E gate` jobs report the required
-statuses. Keep the filters on the jobs rather than the `pull_request` trigger, or the gates
-are skipped too and required checks stay pending. `e2e/support/hosts.ts` starts three headless services on `--port 0` — complete,
+statuses. These three aggregate gates are the only required checks; do not require the
+underlying `web`, `rust`, or `e2e` jobs directly. `.github/workflows/trial-linux.yml` is a
+manual dispatch that runs copies of the `rust` and `e2e` jobs on `ubuntu-latest` to see
+whether they need the Windows runners; it is not a gate and reports no required status. Keep the filters on the jobs rather than the
+`pull_request` trigger, or the gates are skipped too and required checks stay pending. `e2e/support/hosts.ts` starts three headless services on `--port 0` — complete,
 holding, and LAN-enabled — against fresh data directories. The table tracks the full target; the headless
 build, fake runners, port discovery, built SPA, isolated data, deterministic
 locale/timezone/motion, service-build cache, and external-host blocking are wired. The
@@ -577,7 +640,7 @@ one-build fan-out across CI jobs remains CI work.
 | **`--fake-engine`**                 | a real encode needs VapourSynth, an encoder, and minutes of wall clock | debug builds swap in `FakeRunner`, which holds a run open for lock and cancel tests, or `CompletingRunner`, which emits progress and a terminal completion; release builds keep `RealRunner`       |
 | **`--fake-preflight`**              | the UI validates before Start, but the fake runner needs no encoder    | debug-only headless flag injects the fixed encoder, muxing, and decode rows the journey validates; release builds probe this machine instead                                                       |
 | **Port discovery**                  | no fixed port may be assumed                                           | `e2e/support/hosts.ts` parses each service's `AV1ATION_PORT` line                                                                                                                                  |
-| **A built SPA**                     | the service serves the real frontend                                   | `npm run build` output, served by the same router                                                                                                                                                  |
+| **A built SPA**                     | the service serves the real frontend                                   | the E2E build's SPA output, served by the same router                                                                                                                                              |
 | **Pinned Playwright + browser**     | version skew is the top source of flake                                | `npx playwright install --with-deps <pinned-version>`                                                                                                                                              |
 | **Deterministic environment**       | timezone, locale, and animation all change pixels and timing           | `TZ=UTC`, `LANG=en_US.UTF-8`, reduced-motion emulation, fixed viewport                                                                                                                             |
 | **No network**                      | tests must not reach the internet                                      | a context route guard allows only the known service origins, aborts and records everything else, and teardown asserts the list is empty                                                            |
@@ -594,7 +657,7 @@ one-build fan-out across CI jobs remains CI work.
   `http://127.0.0.1:<port>`. A pattern without the port builds cleanly but denies every
   dialog and documentation link at runtime, and no CI run can click a native dialog to
   discover that.
-- Real encodes (nightly only, `#[ignore]`d, on a generated clip).
+- Real encodes (weekly only, `#[ignore]`d, on a generated clip).
 - GPU/DirectML paths (no CI runner with a GPU).
 - macOS/Windows-specific packaging (release workflow only).
 
@@ -605,10 +668,10 @@ creation, not only reads. `packages/ui/src/shared/random-id.ts` is the shared fa
 (`randomUUID` → `getRandomValues` → timestamp), and `random-id.test.ts` covers all three
 paths. These IDs are transient row identities, never credentials.
 
-**The real-encode tests** run in `.github/workflows/nightly.yml`, not per-PR: they need
+**The real-encode tests** run in `.github/workflows/weekly.yml`, not per-PR: they need
 VapourSynth, an encoder, FFmpeg, and MKVToolNix installed on the runner, take minutes, and
 most changes are already covered by the fake-engine suite. The native FFMS2 case can run
-without VapourSynth, but the nightly gate fails if any of the 12 tests skips.
+without VapourSynth, but the weekly gate fails if any of the 12 tests skips.
 
 ### 3.7 Playback benchmark
 
@@ -762,7 +825,7 @@ save; it never changes completion ([data-model.md](data-model.md#41-sequences-no
 | ------------------------ | ------------------------------------------------------------------------------------------ |
 | Visual regression in CI  | the gallery in §3.5 is advisory and has no pixel baseline or committed images              |
 | Native webview behaviour | the retrospective's conclusion: no reliable driver                                         |
-| Real encodes in PR CI    | slow, needs GPU/VapourSynth; nightly only                                                  |
+| Real encodes in PR CI    | slow, needs GPU/VapourSynth; weekly only                                                   |
 | GPU/DirectML paths       | no CI runner with a GPU; validated manually per release, recorded in the release checklist |
 | Third-party crates       | not our code                                                                               |
 
@@ -812,6 +875,17 @@ adding a measured module. `npm run coverage:check:rust` aggregates line coverage
 targets. The preflight uses 6 GiB as the floor and accepts
 `AV1ATION_MIN_FREE_GIB` to override it deliberately. The Rust commands require
 `cargo-llvm-cov` and the `llvm-tools-preview` component; CI installs both. `npm run coverage:check` runs both policies against the baseline.
+
+On Windows, run the coverage command from a Visual Studio Developer Command Prompt
+(`vcvars64.bat`) with the MSVC tool directory ahead of Git's `usr\bin`. The default Git Bash
+PATH resolves Git's `link.exe`; coverage attempts there failed while linking instrumented test
+binaries with `0xc0000142` (`STATUS_DLL_INIT_FAILED`). The clean-environment run on
+2026-11-14 passed 490 tests (12 ignored) and wrote a 1.4 MB lcov report;
+`npm run coverage:check:rust` then passed with engine 73.68% and service 79.98%. The clean
+rerun does not by itself prove linker ordering was the only cause, but it is the reproducible
+local prerequisite. CI performs the same setup explicitly: the PR Rust job and the weekly
+coverage-trend job run `ilammy/msvc-dev-cmd` and fail if the first `link.exe` does not
+resolve under Visual Studio.
 
 ### 8.3 Coverage-run performance
 

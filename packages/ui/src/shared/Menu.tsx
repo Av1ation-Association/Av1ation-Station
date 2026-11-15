@@ -5,6 +5,7 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
 
 import { cn } from "./cn";
+import { useEmbeddedDemoHost } from "./demo-mode";
 
 type MenuMode = "dropdown" | "context";
 
@@ -25,17 +26,22 @@ type MenuProps = {
  * only the Radix root differs. Keeping the choice here means a screen never composes a
  * second, subtly different menu implementation.
  */
-export function Menu({ mode = "dropdown", ...props }: MenuProps) {
+export function Menu({ mode = "dropdown", modal, ...props }: MenuProps) {
+    // A modal Radix menu locks body scrolling and marks every sibling aria-hidden. That is
+    // correct for the desktop document, but in the marketing embed it would hide the article
+    // around the demo. The host context is the single switch for every menu call site.
+    const embedded = useEmbeddedDemoHost() !== null;
+    const resolvedModal = embedded ? false : (modal ?? true);
     if (mode === "context") {
         return (
             <MenuModeContext.Provider value="context">
-                <ContextMenuPrimitive.Root {...props} />
+                <ContextMenuPrimitive.Root {...props} modal={resolvedModal} />
             </MenuModeContext.Provider>
         );
     }
     return (
         <MenuModeContext.Provider value="dropdown">
-            <DropdownMenuPrimitive.Root {...props} />
+            <DropdownMenuPrimitive.Root {...props} modal={resolvedModal} />
         </MenuModeContext.Provider>
     );
 }
@@ -84,10 +90,15 @@ export function MenuContent({
     ...props
 }: MenuContentProps) {
     const mode = useContext(MenuModeContext);
+    const portalContainer = useEmbeddedDemoHost()?.portalContainer;
+    const portalProps =
+        portalContainer === null || portalContainer === undefined
+            ? {}
+            : { container: portalContainer };
     const classes = cn(contentClass, className);
     if (mode === "context") {
         return (
-            <ContextMenuPrimitive.Portal>
+            <ContextMenuPrimitive.Portal {...portalProps}>
                 <ContextMenuPrimitive.Content
                     className={classes}
                     side={side}
@@ -100,7 +111,7 @@ export function MenuContent({
         );
     }
     return (
-        <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Portal {...portalProps}>
             <DropdownMenuPrimitive.Content
                 className={classes}
                 align={align}

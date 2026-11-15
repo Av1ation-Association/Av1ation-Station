@@ -1,0 +1,55 @@
+## Before you start
+
+A project must exist, the source decoder and at least one encoder must be available, and no encode may be running on this project. Project sections are locked while a run is active.
+## General
+
+<Steps>
+<Step title="Set the shared input" result="The project General card shows the input kind and any shared script document.">
+Choose the input kind the queue will inherit. A project script is shared by every video; leave the source path empty here because each video supplies its own.
+</Step>
+<Step title="Set the output policy" result="The derived output mode and the project filter list are deliberate.">
+Use the output mode you expect for every video and add filters only if the whole queue needs them. A filter list is ordered; the top row runs first.
+</Step>
+</Steps>
+
+## Scene detection
+
+Choose AVSceneChange (fast, built in) or TransNetV2 (a model file is required), then set minimum and maximum scene lengths. A minimum that is too large merges short shots; a maximum forces splits inside long takes. Save and inspect the resulting table on one video before queuing the rest.
+
+## Noise generation
+
+<Callout tone="tip" title="Optional stage">
+Noise generation is optional. Enable it when the source has grain you want to preserve; otherwise the encoder receives no noise measurement and no scale factor.
+</Callout>
+
+Set the detector's reference and denoised filters, the scaler's threshold, minimum, and maximum, and whether chroma is scaled. The WNNM pair is a usable starting point; changing it changes what the sequence measures.
+
+## Encoding
+
+Choose the encoder variant, its executable build, the worker count, and the parameters every scene should share. A parameter you do not set keeps the executable's own default. The card shows the parameter count so an accidental partial set is visible.
+
+## Target quality
+
+Enable this only if you want a quantizer per scene. Choose the metric, its target range, the maximum probes, and the quantizer bounds. Leave bitrate optimization off unless output size matters more than a stable quality target.
+
+## Concatenation
+
+Choose mkvmerge, FFmpeg, or IVF. mkvmerge is the only method that can carry tracks, attachments, chapters, and metadata. The project method is a default; a video can override the whole section.
+
+## Quality check
+
+Choose the metric, statistic, and strategy. A quality check needs retained chunks and a final output. If Storage deletes chunks on success, enable the check before relying on it.
+
+## Check your result
+
+Each section card should read **Set** or **Engine default** deliberately. Open one video and confirm its grid reports inherited values and zero overrides. No card should show an unsaved draft.
+
+## If it goes wrong
+
+A validation error names the field and stays on the section page. A run lock is not an error; wait for the active run or stop it. A missing dependency affects only its capability: fix the provider in Settings, then retry the section save if it was refused.
+
+<RelatedLinks>
+<a href="/docs/reference/general">General reference</a>
+<a href="/docs/reference/scene-detection">Scene detection reference</a>
+<a href="/docs/guides/templates">Save and reuse a project template</a>
+</RelatedLinks>

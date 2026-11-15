@@ -1,0 +1,43 @@
+A VapourSynth script is one input for an entire video. The engine does not run a separate script per scene; it evaluates one program, and the program can read scene data and apply behaviour to frame ranges itself. This keeps decoding state and filter graphs coherent across scene boundaries.
+
+## Where scripts live
+
+A script can live at three scopes. A **project** script is shared by every video in the queue. A **video** script overrides it for one video. A **template** script is copied into new projects that apply the template. A template or project document cannot name a source path, because that would point every video at the same file; the video's own General section supplies the path.
+
+## Input kinds
+
+The General section chooses between native video, VapourSynth, and VapourSynth script inputs. Native video decodes through FFMS2 and requires no VapourSynth provider. VapourSynth inputs require a working VapourSynth runtime and a script that returns a clip.
+
+<LiveSample kind="input-kinds" />
+
+<Callout tone="warning" title="Provider scope">
+Switching the VapourSynth provider can require a restart because a bundled runtime and a system runtime cannot share one VSScript initialisation. Encoder, FFmpeg, and mkvmerge provider changes apply on next use.
+</Callout>
+
+## The generated data module
+
+Before every sequence, the runner writes a module named `condor_data` into the scene directory and imports it from the script. It contains only values the runner actually knows: the current video path, the per-run scratch directory, the run id, the sequence name, the scene table, and the sequence-specific data for the current stage. A generated stub documents the same fields for the editor.
+
+## Scene data
+
+Each scene in the module carries its index, start and end frames, frame count, encoder document, and the data written by detection, noise, target quality, and encoding. Reading a field that the current sequence has not written returns its default; the script should check what it needs instead of assuming a measurement exists.
+
+## Validation and completion
+
+The editor validates syntax and can report the Python error the interpreter returned. Completion is parsed from the generated stub, so it documents the module the runner will actually import. Validation does not execute the encode: a script can parse and still fail when a path is missing or a filter namespace is absent.
+
+<LiveSample kind="script-validation" />
+
+## Limits
+
+- No per-scene script process.
+- No rewriting user Python.
+- No automatic download of a VapourSynth runtime.
+- A GPU-dependent filter is not a supported requirement.
+- The script cannot change the number of frames the engine expects without making the scene table wrong.
+
+<RelatedLinks>
+<a href="/docs/guides/script-scene-data">Inject scene data into a VapourSynth script</a>
+<a href="/docs/reference/script-api">Script data API</a>
+<a href="/docs/reference/general">General reference</a>
+</RelatedLinks>

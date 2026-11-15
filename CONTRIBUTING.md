@@ -19,9 +19,8 @@ This file covers setup, local commands, and the pull-request workflow.
 
 ## Repository state
 
-The implementation lives on the orphan branch `condor`. `main` remains the Electron archive
-at `fb44b60` until the owner switches the default branch and renames it. CI and documentation
-must not hardcode `main` until the rename is complete.
+The implementation lives on `main`, the default branch. The Electron archive is
+`v0.0.1-electron`.
 
 ## Before you start
 
@@ -87,12 +86,13 @@ providers, or copy a release `tools/` tree into it.
 
 - `npm run dev:tools -- --from <path>` copies a release tree. After `npm run stage:tools`
   creates `dist/tools`, plain `npm run dev:tools` copies it by default.
-- `stage:tools` stages the full provider set on Windows. On Linux add `--partial` to leave
-  missing providers to System; Linux staging also copies the shared-library closure into
-  `tools/lib`, writes `$ORIGIN` rpaths, and requires `patchelf`.
-- Stop `npm run dev` before restaging; Windows cannot replace a loaded DLL. A partial tree is
-  valid, and every capability reports its own provider. VapourSynth source changes need the
-  restart offered by the Dependencies screen.
+- `stage:tools` stages the full provider set on every target. Point it at a target tree with
+  `--from dist/cargo/toolchain/<triple>` (or at a `tools/` directory). Linux staging copies
+  the shared-library closure into `tools/lib`, writes `$ORIGIN` rpaths, and requires
+  `patchelf`.
+- Stop `npm run dev` before restaging; Windows cannot replace a loaded DLL. Every capability
+  reports its own provider. VapourSynth source changes need the restart offered by the
+  Dependencies screen.
 - The copy resolves links so a staged `python/` junction does not depend on a machine-wide
   interpreter. `cargo clean` removes `dist/cargo/` but not the toolchain cache.
 - Do not point the cache at a full Python installation: the CUDA/TensorRT/PySide6 payload is
@@ -160,6 +160,9 @@ on an ephemeral port.
 | `npm run verify` | Full pass: static checks once, then web and Rust coverage gates in parallel. |
 | `npm run test:e2e` | Build the headless service and SPA, then run the Playwright browser journeys. |
 | `npm run test:real-encode` | Run the 12 ignored real-encode tests with the real toolchain. |
+| `npm audit --audit-level=high` | Audit JavaScript dependencies; high and critical advisories fail. |
+| `cargo audit --file rust/Cargo.lock` | Audit Rust dependencies; install `cargo-audit` once with `cargo install cargo-audit --locked`. |
+| `npm run tauri -- build --no-bundle` | Compile the Tauri shell without producing installers. |
 
 `npm run verify` is the full local gate: it runs `check:web` and `check:rust`, then
 `verify:web` and `verify:rust` concurrently. Use the matching pair for the side you changed:
@@ -171,11 +174,14 @@ on an ephemeral port.
 | Contracts, routes, or both sides | `npm run verify` |
 
 `check:web` includes the error-evidence and route-matrix checks. CI runs the same named
-profiles, then adds changed-line coverage and `npm run build`; E2E and nightly real-encode
-remain separate jobs. The changed-line checks need the pull-request base commit.
+profiles, then adds changed-line coverage and `npm run build:ci`; the npm audit runs in the
+web job, the Rust audit in the Rust job, and E2E, push-only Tauri compile, and weekly
+real-encode remain separate jobs. The changed-line checks need the pull-request base commit.
+CI uses `build:ci` because the publishable website build needs generated screenshot captures,
+which are not committed.
 
 `npm run verify` does not include `test:e2e` or `test:real-encode`; run those explicitly. For
-test architecture, coverage floors, E2E setup, nightly real-encode, and screenshot policy,
+test architecture, coverage floors, E2E setup, weekly real-encode, and screenshot policy,
 see [docs/testing.md](docs/testing.md). The complete script list is in
 [docs/commands.md](docs/commands.md); the CI/local comparison is in
 [docs/commands.md#ci-and-local-verification](docs/commands.md#ci-and-local-verification).
@@ -184,26 +190,30 @@ see [docs/testing.md](docs/testing.md). The complete script list is in
 
 | Command | Result |
 | --- | --- |
-| `npm run build` | Builds the three host SPAs into `dist/apps/`; no installer. |
+| `npm run build` | Builds the three host SPAs into `dist/apps/`; the website needs the generated docs and mobile-tour captures, so run `npm run screenshots` first. No installer. |
+| `npm run build:ci` | Compiles the three hosts for CI and clean checkouts; the website uses its gallery variant, so generated captures are not required. |
 | `npm run build:service` | Builds the debug headless service used by review and E2E. |
 | `npm run stage:tools` | Stages the release toolchain tree under `dist/tools`. |
-| `npm run release:build` | Builds both desktop variants on the host, then aggregate checksums and notes; the bundled variant requires a staged `dist/tools` tree. |
+| `npm run release:build -- --tag <tag>` | Builds both desktop variants on the host, then aggregate checksums and notes; the tag is required and the bundled variant requires a staged `dist/tools` tree. |
 | `npm run tauri build` | Builds the bundled-provider desktop release; requires `dist/tools`. |
 | `npm run build:system` | Builds the system-provider desktop release; no bundled tools. |
-| `npm run release:manifest` | Regenerates notes and the manifest from existing build output; requires a prior `release:build`. |
+| `npm run release:manifest -- --tag <tag>` | Regenerates notes and the manifest from existing build output; requires a prior `release:build` and the explicit tag. |
 
 ### Release order
 
 1. Optional: run `npm run screenshots:features -- <feature-group-or-screen-id>` before
    `release:build`, or before rerunning `release:manifest`, so the notes include the feature
    section.
-2. For the bundled variant, stage the toolchain before building:
-   `npm run stage:tools`. On Linux use `npm run stage:tools -- --partial` and install
+2. For the bundled variant, stage the toolchain before building. Build a target with
+   `npm run toolchain:build -- --target <triple>`, then run
+   `npm run stage:tools -- --from dist/cargo/toolchain/<triple>`. On Linux install
    `patchelf` first.
-3. Build both variants with `npm run release:build`, or use `-- --skip-bundled` for a
-   system-only build and `-- --skip-system` for a bundled-only build.
-4. Rerun `npm run release:manifest` after changing the artifacts or adding feature
-   screenshots; it requires the checksum file written by step 3.
+3. Build both variants with `npm run release:build -- --tag <tag>`. Add `--skip-bundled`
+   for a system-only build or `--skip-system` for a bundled-only build. The tag is required;
+   the command fails before building when it is absent. Add `--code-signed`, `--notarized`,
+   or `--updater` only when those claims are true.
+4. Rerun `npm run release:manifest -- --tag <tag>` after changing the artifacts or adding
+   feature screenshots; it requires the checksum file written by step 3.
 
 Bundled releases carry the staged `dist/tools` tree; system releases use installed
 providers. See [docs/preflight.md](docs/preflight.md) for provider selection.
@@ -219,7 +229,7 @@ macOS, and `deb`/`rpm`/`appimage` on Linux. Set `AV1ATION_BUNDLES` for another s
 
 Linux release builds target Debian 13 or Ubuntu 24.04; the engine's prebuilt ONNX Runtime
 needs glibc 2.38, and current artifacts emit GLIBC_2.39. These are local, unsigned artifacts;
-signing and the release workflow are Phase 6 work. See [docs/packaging.md](docs/packaging.md)
+signing and the release workflow are Phase 5 work. See [docs/packaging.md](docs/packaging.md)
 for the packaging contract.
 
 After changing generated inputs, run the matching generator:
@@ -234,16 +244,17 @@ Each command has a `:check` counterpart that detects drift.
 
 ## Workflow
 
-1. Branch from `condor` until the default branch is renamed; `main` is still the Electron
-   archive.
+1. Branch from `main`.
 2. Make one logical change per commit, using Conventional Commits.
 3. Keep the tree buildable at every commit.
 4. Update [docs/progress.md](docs/progress.md) when a phase task changes state.
-5. Open a pull request. The web, Rust, and browser E2E gates must be green; a docs-only
-   pull request skips their runners but still reports every gate.
+5. Open a pull request. The `Web checks gate`, `Rust checks gate`, and
+   `Browser E2E gate` statuses must be green; a docs-only pull request skips the
+   runners but still reports all three gates.
 
-Branch protection is the Phase 5 exit criterion; until it is enabled, a green workflow is
-not yet a merge gate.
+Branch protection requires those three aggregate statuses, not the underlying runner jobs.
+It is enabled on `main`; the owner retains admin bypass until a second writer/reviewer is
+available.
 
 ## Rules that are easy to get wrong
 

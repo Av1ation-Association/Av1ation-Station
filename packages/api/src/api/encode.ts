@@ -222,6 +222,11 @@ export function useEncodeEvents(): void {
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.videoRuns(event.project_id, event.video_id),
             });
+            // The execution timeline appends one record per completed sequence and one
+            // for the run's terminal outcome, so History must follow the same transitions.
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.videoHistory(event.project_id, event.video_id),
+            });
             if (event.kind === "completed") {
                 void queryClient.invalidateQueries({
                     queryKey: queryKeys.videoStorage(event.project_id, event.video_id),
@@ -233,6 +238,8 @@ export function useEncodeEvents(): void {
                 event.kind === "finished" ||
                 event.kind === "failed"
             ) {
+                // The final lines may have arrived between the log viewer's tail polls.
+                void queryClient.invalidateQueries({ queryKey: queryKeys.runLogs(event.run_id) });
                 void queryClient.invalidateQueries({
                     queryKey: queryKeys.videoStorage(event.project_id, event.video_id),
                 });

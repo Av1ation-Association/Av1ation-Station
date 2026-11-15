@@ -1,0 +1,60 @@
+## Before you start
+
+Know which volume holds your sources and which holds the app's scratch space. No encode should be running while you change scratch; the encoding video's storage section is locked.
+## Read storage
+
+Open **Settings → Storage**. The cards report the app-data volume, the scratch root, the retained chunk space, and free space. A path is a resolved location, not a placeholder derived from the installation directory.
+
+<LiveSample kind="storage" />
+
+## Change scratch
+
+<Steps>
+<Step title="Choose a new scratch root" result="The picker or text field names an existing writable directory.">
+Scratch holds run logs, scene working files, and the generated data module. It can live on a faster disk than the output volume.
+</Step>
+<Step title="Apply" result="New runs use the new root; existing retained work stays where it is.">
+Changing scratch does not move chunks that already exist. A run in progress keeps the scratch it started with.
+</Step>
+</Steps>
+
+## Set retention
+
+The encoding video's storage section decides whether successful scene chunks are kept. Keeping them is the default and is what makes a later quality check and a selected-scene re-encode possible. Deleting them on success saves space and removes both capabilities.
+
+<Callout tone="warning" title="Retention is not cleanup">
+Retention applies after a successful run. It is not a periodic cleanup, and it never touches the source or the final output.
+</Callout>
+
+## Remove retained work
+
+Select the retained-work action on a project or video, review the reported size, and confirm. The removal frees the reported space and cannot be undone. It does not delete the source, the output, or the run history.
+
+<Steps>
+<Step title="Review the size" result="The reported size matches the work you intend to remove.">
+The size covers scene chunks and their sidecars, not logs or scratch.
+</Step>
+<Step title="Confirm removal" result="The retained space drops and affected scenes report no chunk.">
+A scene without a chunk must be re-encoded before concatenation. Quality check cannot score it.
+</Step>
+</Steps>
+
+<LiveSample kind="retained-removal" />
+
+## Reveal app data
+
+Use **Reveal app data** to open the resolved application-data folder. This is where settings, the database, and logs live. Do not move files while the application is running; the service may recreate or lock them.
+
+## Check your result
+
+The storage card reports the new scratch root, the free-space values refresh, and a video's storage section matches the retention you chose. After removal, the project's reported retained size and the scene chunk markers agree.
+
+## If it goes wrong
+
+A scratch path that is not writable is refused before it is saved. A removal that is refused may be blocked by an active run; stop it first. A missing chunk after removal is expected, not a corruption.
+
+<RelatedLinks>
+<a href="/docs/reference/settings">Settings reference</a>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+</RelatedLinks>

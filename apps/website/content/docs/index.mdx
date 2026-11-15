@@ -1,0 +1,49 @@
+The public manual is the end-user guide to the current 0.1.0 pre-release. It explains what the application does, how its settings fit together, and how to recover when a run does not. Architecture, contracts, and contribution rules live in the repository and are linked from [For contributors](/docs/contributing).
+
+## Start here
+
+If you have not installed the application, begin with [Install and verify](/docs/get-started/install). If it is already running, [Your first project and encode](/docs/get-started/first-encode) walks one video from the queue to a readable output.
+
+<Callout tone="tip" title="Choose by the job">
+Pick the page by what you are trying to do: install, first encode, a configuration area, or a symptom. The reference pages are for lookup, not for reading front to back.
+</Callout>
+
+## Understand the pipeline
+
+Av1ation Station is a desktop workspace around a scene-aware encode. The pipeline has six stages: scene detection, optional noise generation, optional target quality, parallel encoding, concatenation, and an optional quality check. Each stage writes its own data, so the current state is read from that data rather than stored separately.
+
+<Callout tone="note" title="One project, many videos">
+A project owns shared configuration and a queue. Each video inherits that configuration until it overrides a whole section. The queue runs one video at a time; the encode lock is process-wide.
+</Callout>
+
+Read [How the pipeline works](/docs/concepts/pipeline) for what each stage produces, and [Configuration and inheritance](/docs/concepts/configuration) for why a video override is complete rather than a patch.
+
+## Browse the manual
+
+- **Get started** — install, first encode, workspace tour.
+- **Concepts** — pipeline, configuration, quality, scenes, runs, scripting.
+- **Guides** — one outcome and one recovery path per task.
+- **Reference** — one page per configuration section and application surface.
+- **Troubleshooting** — symptoms, diagnosis, and support evidence.
+
+<Callout tone="tip" title="Search the manual">
+Press <KeySequence keys={["Ctrl", "K"]} /> or select **Search the manual** in the sidebar. Search indexes page titles, sections, field labels, and guide prose; it runs entirely in the browser.
+</Callout>
+
+## Get help
+
+The [troubleshooting pages](/docs/troubleshooting/dependencies) start from a symptom. When the application cannot explain a failure itself, follow [Diagnostics and support](/docs/troubleshooting/support) before sharing a log: exported evidence is redacted, but screenshots and project files may not be.
+
+## What this covers
+
+This manual documents the surfaces a user can reach in 0.1.0: Projects, a project queue, video configuration and scenes, History and Logs, Settings, project templates, encoders, filters, the script data module, and keyboard shortcuts. It does not document unused API routes, future features, or a migration workflow the release does not provide.
+
+<Callout tone="warning" title="Pre-release">
+Installers are unsigned and macOS is not available in this release. The application is usable for real encodes, but keep backups of project files you care about.
+</Callout>
+
+<RelatedLinks>
+<a href="/docs/get-started/install">Install and verify</a>
+<a href="/docs/get-started/first-encode">Your first project and encode</a>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+</RelatedLinks>

@@ -1,0 +1,63 @@
+## Tabs
+
+| Tab | Owns |
+| --- | --- |
+| Configuration | The pipeline cards, section overrides, and measured data |
+| Scenes | The rail, timeline, player, details, and chunk actions |
+| History | Run attempts and their terminal messages |
+| Logs | The selected run's event stream and export |
+
+The tab is part of the URL. A reload returns to the same tab, and a run does not move the reader to another tab.
+
+## Configuration grid
+
+The grid repeats the project's seven sections at video scope. Each card shows a summary, its override state, and a route to its editor. The pipeline strip above the grid shows the derived sequence state and the active progress.
+
+## Overrides
+
+| State | Meaning |
+| --- | --- |
+| Inherited | No document at this scope; the project's section applies |
+| Overridden | The video holds a complete section document |
+| Mixed | Some sections are overridden and some are inherited |
+| Reset | The override was removed and inheritance is restored |
+
+An override is whole-section, never a field-level patch. The editor shows the project's values beside the video's own so the difference is visible before saving.
+
+## Measured data
+
+The measured-data card shows what the engine wrote for this video: scene boundaries, noise measurements, probe history and chosen quantizers, and quality scores. A stage that has not run shows its empty state rather than zeroes.
+
+## Clip details
+
+The clip details panel reports the source's frame count, frame rate, duration, dimensions, colour description, and audio/subtitle stream count as the decode path reports them. A field the decoder does not expose is omitted.
+
+## Output
+
+The output row reports the exact file concatenation will write, the container, and whether the path is writable. It is not a pattern. A collision with another queued video is an error on the queue, not a silent overwrite.
+
+## Scratch
+
+Scratch reports the run's working directory and its free space. Chunks and logs live under it according to the storage settings. Changing scratch affects new runs only.
+
+## Lock
+
+While a run is active, this video's General, overrides, storage, scenes, and sequence reset are read-only. Sibling videos, other projects, and templates remain editable. The lock is enforced by the service, not only by disabled controls.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Idle | No run is active for this video |
+| Running | A sequence is active and progress is streaming |
+| Completed | Required sequences have their results |
+| Failed | A sequence or the run ended with an error |
+| Cancelled | The run was stopped deliberately |
+| Blocked | Validation prevents Start |
+| Missing output | The derivation says completed but the file is absent |
+
+<RelatedLinks>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+<a href="/docs/reference/history-logs">History and logs</a>
+<a href="/docs/guides/batch-queue">Run and monitor a batch queue</a>
+</RelatedLinks>

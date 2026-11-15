@@ -1,0 +1,368 @@
+{
+    "schema_version": 1,
+    "revision": "2026.11.1",
+    "components": [
+        {
+            "id": "vapoursynth",
+            "version": "R82",
+            "license": "LGPL-3.0 AND MIT AND PSF-2.0",
+            "provides": ["decode:vapoursynth", "script:vapoursynth", "interpreter:python"],
+            "source": {
+                "kind": "pypi",
+                "project": "vapoursynth",
+                "version": "82"
+            },
+            "build": {
+                "recipe": "packaging/recipes/vapoursynth.mjs",
+                "toolchain": "cpython-build-standalone-20261110",
+                "indexes": [
+                    "https://pypi.org/simple",
+                    "https://jaded-encoding-thaumaturgy.github.io/vs-wheels/simple"
+                ],
+                "variables": {
+                    "python_version": "3.14.10",
+                    "python_build": "20261110",
+                    "vsjetpack": "3.0.0",
+                    "vapoursynth_ffms2": "5.4.0"
+                }
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/python" },
+                "aarch64-apple-darwin": { "install": "tools/python" },
+                "x86_64-apple-darwin": { "install": "tools/python" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/python" }
+            }
+        },
+        {
+            "id": "vapoursynth-ffms2",
+            "version": "5.4.0",
+            "license": "MIT",
+            "provides": ["source:vapoursynth-ffms2"],
+            "source": {
+                "kind": "pypi",
+                "project": "vapoursynth-ffms2",
+                "version": "5.4.0",
+                "index": "https://jaded-encoding-thaumaturgy.github.io/vs-wheels/simple"
+            },
+            "build": {
+                "recipe": "packaging/recipes/vapoursynth-ffms2.mjs",
+                "indexes": ["https://jaded-encoding-thaumaturgy.github.io/vs-wheels/simple"]
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": {
+                    "install": "tools/python/Lib/site-packages/vapoursynth/plugins"
+                },
+                "aarch64-apple-darwin": {
+                    "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
+                },
+                "x86_64-apple-darwin": {
+                    "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
+                },
+                "x86_64-unknown-linux-gnu": {
+                    "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
+                }
+            }
+        },
+        {
+            "id": "ffms2",
+            "version": "5.0",
+            "license": "MIT",
+            "provides": ["decode:ffms2"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/FFMS/ffms2",
+                "tag": "5.0",
+                "commit": "7ed5e4d039ca9a6236bd2ebdfdd656c4304fbe04"
+            },
+            "build": { "recipe": "packaging/recipes/ffms2.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/lib/ffms2.dll" },
+                "aarch64-apple-darwin": { "install": "tools/lib/libffms2.dylib" },
+                "x86_64-apple-darwin": { "install": "tools/lib/libffms2.dylib" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/lib/libffms2.so" }
+            }
+        },
+        {
+            "id": "encoder:aom",
+            "version": "3.15.3",
+            "license": "BSD-3-Clause",
+            "provides": ["encode:aom"],
+            "source": {
+                "kind": "git",
+                "url": "https://aomedia.googlesource.com/aom",
+                "tag": "v3.15.3",
+                "commit": "b141d9c45db236335351c8a4b2a14b3ade27c937"
+            },
+            "build": { "recipe": "packaging/recipes/aom.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/aomenc.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/aomenc" },
+                "x86_64-apple-darwin": { "install": "tools/bin/aomenc" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/aomenc" }
+            }
+        },
+        {
+            "id": "encoder:svt-av1",
+            "version": "4.3.0",
+            "license": "BSD-3-Clause-Clear",
+            "provides": ["encode:svt-av1"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/AOMediaCodec/SVT-AV1",
+                "tag": "v4.3.0",
+                "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe"
+            },
+            "build": { "recipe": "packaging/recipes/svt-av1.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/SvtAv1EncApp.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
+                "x86_64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/SvtAv1EncApp" }
+            }
+        },
+        {
+            "id": "encoder:rav1e",
+            "version": "0.8.1",
+            "license": "BSD-2-Clause",
+            "provides": ["encode:rav1e"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/xiph/rav1e",
+                "tag": "v0.8.1",
+                "commit": "1fe82de02510767539e89b2ee6fa846920ae2686"
+            },
+            "build": { "recipe": "packaging/recipes/rav1e.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/rav1e.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/rav1e" },
+                "x86_64-apple-darwin": { "install": "tools/bin/rav1e" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/rav1e" }
+            }
+        },
+        {
+            "id": "encoder:vpx",
+            "version": "1.17.0",
+            "license": "BSD-3-Clause",
+            "provides": ["encode:vpx"],
+            "source": {
+                "kind": "git",
+                "url": "https://chromium.googlesource.com/webm/libvpx",
+                "tag": "v1.17.0",
+                "commit": "6df3ec34557879fff673706f4a1d9fbd0f3a6f0e"
+            },
+            "build": { "recipe": "packaging/recipes/vpx.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/vpxenc.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/vpxenc" },
+                "x86_64-apple-darwin": { "install": "tools/bin/vpxenc" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/vpxenc" }
+            }
+        },
+        {
+            "id": "encoder:avm",
+            "version": "1.0.0",
+            "license": "BSD-3-Clause",
+            "provides": ["encode:avm"],
+            "source": {
+                "kind": "git",
+                "url": "https://aomedia.googlesource.com/avm",
+                "tag": "research-v1.0.0",
+                "commit": "0709d086b115a90c581082349a5f75c99638d4b0"
+            },
+            "build": { "recipe": "packaging/recipes/avm.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/avmenc.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/avmenc" },
+                "x86_64-apple-darwin": { "install": "tools/bin/avmenc" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/avmenc" }
+            }
+        },
+        {
+            "id": "encoder:x264",
+            "version": "snapshot-0480cb05",
+            "license": "GPL-2.0-or-later",
+            "provides": ["encode:x264"],
+            "source": {
+                "kind": "git",
+                "url": "https://code.videolan.org/videolan/x264",
+                "commit": "0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
+            },
+            "build": {
+                "recipe": "packaging/recipes/x264.mjs",
+                "toolchain": "msys2-or-host-toolchain"
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/x264.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/x264" },
+                "x86_64-apple-darwin": { "install": "tools/bin/x264" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/x264" }
+            }
+        },
+        {
+            "id": "encoder:x265",
+            "version": "4.3",
+            "license": "GPL-2.0",
+            "provides": ["encode:x265"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/Multicorewareinc/x265",
+                "tag": "4.3",
+                "commit": "e9b88125dc21393b3fd8d68e98083bdfb89778a8"
+            },
+            "build": { "recipe": "packaging/recipes/x265.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/x265.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/x265" },
+                "x86_64-apple-darwin": { "install": "tools/bin/x265" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/x265" }
+            }
+        },
+        {
+            "id": "encoder:vvenc",
+            "version": "1.14.0",
+            "license": "BSD-3-Clause-Clear",
+            "provides": ["encode:vvenc"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/fraunhoferhhi/vvenc",
+                "tag": "v1.14.0",
+                "commit": "9428ea8636ae7f443ecde89999d16b2dfc421524"
+            },
+            "build": { "recipe": "packaging/recipes/vvenc.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/vvencapp.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/vvencapp" },
+                "x86_64-apple-darwin": { "install": "tools/bin/vvencapp" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/vvencapp" }
+            }
+        },
+        {
+            "id": "ffmpeg",
+            "version": "9.0.2",
+            "license": "LGPL-2.1-or-later",
+            "provides": ["mux:ffmpeg", "encode:ffmpeg"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/FFmpeg/FFmpeg",
+                "tag": "n9.0.2",
+                "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+            },
+            "build": {
+                "recipe": "packaging/recipes/ffmpeg.mjs",
+                "toolchain": "msys2-or-host-toolchain",
+                "variables": {
+                    "configure": "static-lgpl"
+                }
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/ffmpeg.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/ffmpeg" },
+                "x86_64-apple-darwin": { "install": "tools/bin/ffmpeg" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/ffmpeg" }
+            }
+        },
+        {
+            "id": "mkvmerge",
+            "version": "103.0",
+            "license": "GPL-2.0",
+            "provides": ["mux:mkvmerge"],
+            "source": {
+                "kind": "git",
+                "url": "https://codeberg.org/mbunkus/mkvtoolnix",
+                "tag": "release-103.0",
+                "commit": "6e16746073fb4338b94d154e28dfa288df5d8a6a"
+            },
+            "build": {
+                "recipe": "packaging/recipes/mkvmerge.mjs",
+                "toolchain": "msys2-or-host-toolchain"
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/bin/mkvmerge.exe" },
+                "aarch64-apple-darwin": { "install": "tools/bin/mkvmerge" },
+                "x86_64-apple-darwin": { "install": "tools/bin/mkvmerge" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/bin/mkvmerge" }
+            }
+        },
+        {
+            "id": "scene-model",
+            "version": "TransNetV2-elya5-2026.11",
+            "license": "MIT",
+            "provides": ["scene:transnetv2"],
+            "source": {
+                "kind": "url",
+                "url": "https://huggingface.co/elya5/transnetv2/resolve/main/transnetv2.onnx",
+                "sha256": "c4d54a682bace32f25136ef83ca2c9d403e8f8193775efeb995172a0d95a8e0c"
+            },
+            "build": { "recipe": "packaging/recipes/scene-model.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/model/transnetv2.onnx" },
+                "aarch64-apple-darwin": { "install": "tools/model/transnetv2.onnx" },
+                "x86_64-apple-darwin": { "install": "tools/model/transnetv2.onnx" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/model/transnetv2.onnx" }
+            }
+        },
+        {
+            "id": "metric:libvmaf",
+            "version": "3.2.1",
+            "license": "BSD-2-Clause-Patent",
+            "provides": ["metric:vmaf"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/Netflix/vmaf",
+                "tag": "v3.2.1",
+                "commit": "f85a853692a8c730d0270cd733c8bb30b5b93b7c"
+            },
+            "build": { "recipe": "packaging/recipes/libvmaf.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/lib/libvmaf.dll" },
+                "aarch64-apple-darwin": { "install": "tools/lib/libvmaf.dylib" },
+                "x86_64-apple-darwin": { "install": "tools/lib/libvmaf.dylib" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/lib/libvmaf.so" }
+            }
+        },
+        {
+            "id": "metric:fmetrics",
+            "version": "0.1.0+ae87c8e",
+            "license": "Apache-2.0",
+            "provides": ["metric:ssimulacra2", "metric:butteraugli", "metric:cvvdp"],
+            "source": {
+                "kind": "git",
+                "url": "https://github.com/BoatsMcGee/fmetrics",
+                "commit": "ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac"
+            },
+            "build": {
+                "recipe": "packaging/recipes/fmetrics.mjs",
+                "toolchain": "zig-0.16.0",
+                "variables": {
+                    "upstream_base": "e8bf3cfe06fb78f51864804b2f7003667d4c5a71",
+                    "zig": "0.16.0"
+                }
+            },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/lib/fmetrics.dll" },
+                "aarch64-apple-darwin": { "install": "tools/lib/libfmetrics.dylib" },
+                "x86_64-apple-darwin": { "install": "tools/lib/libfmetrics.dylib" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/lib/libfmetrics.so" }
+            }
+        },
+        {
+            "id": "metric:libvship",
+            "version": "5.1.2",
+            "license": "MIT",
+            "provides": ["metric:vship"],
+            "source": {
+                "kind": "git",
+                "url": "https://codeberg.org/Line-fr/Vship",
+                "tag": "v5.1.2",
+                "commit": "5a627933274196219f782b3b74e13fad47cd6370"
+            },
+            "build": { "recipe": "packaging/recipes/vship.mjs" },
+            "artifacts": {
+                "x86_64-pc-windows-msvc": { "install": "tools/lib/libvship.dll" },
+                "aarch64-apple-darwin": { "install": "tools/lib/libvship.dylib" },
+                "x86_64-apple-darwin": { "install": "tools/lib/libvship.dylib" },
+                "x86_64-unknown-linux-gnu": { "install": "tools/lib/libvship.so" }
+            }
+        }
+    ]
+}

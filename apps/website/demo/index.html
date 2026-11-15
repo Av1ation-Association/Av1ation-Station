@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" class="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="color-scheme" content="dark" />
+        <meta name="theme-color" content="#0d1118" />
+        <meta name="robots" content="noindex" />
+        <title>Demo — Av1ation Station</title>
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                background: #0d1118;
+            }
+
+            body {
+                display: grid;
+                grid-template-rows: auto minmax(0, 1fr);
+                box-sizing: border-box;
+            }
+
+            #root {
+                min-width: 0;
+                min-height: 0;
+            }
+
+            .demo-note {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px 16px;
+                align-items: center;
+                justify-content: center;
+                min-height: 44px;
+                padding: 6px 16px;
+                border-bottom: 1px solid #2e3846;
+                background: #080b11;
+                color: #a3afc2;
+                font:
+                    12px/1.5 "Inter",
+                    ui-sans-serif,
+                    system-ui,
+                    sans-serif;
+            }
+
+            .demo-note strong {
+                color: #e8edf5;
+                font-weight: 600;
+            }
+
+            .demo-note a {
+                color: #38bdf8;
+                text-underline-offset: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="demo-note" role="note">
+            <span><strong>Sample data.</strong> This demo never reads or encodes a file.</span>
+            <a href="/">Back to the site</a>
+            <a href="/docs/">Documentation</a>
+        </div>
+        <div id="root"></div>
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
+</html>

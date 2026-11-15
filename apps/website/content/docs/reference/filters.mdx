@@ -1,0 +1,49 @@
+## Two targets
+
+The General document holds two independent ordered lists. **FFMS2** filters run before decoded frames enter the graph. **VapourSynth** filters run inside the graph. The input kind decides which target is offered; a project can carry both lists for videos that use different inputs.
+
+## Composer
+
+The composer reads the filter catalogue from the engine's schema. Choosing a filter generates its fields; the sheet never presents a hand-written form. Required fields are marked, and the sheet stays open on a validation error rather than saving a partial document.
+
+## FFMS2 OutputFormat
+
+The FFMS2 output format chooses the pixel format and colour behaviour presented by the source index. It is an FFMS2-target filter, not a VapourSynth one. Changing it after encoding does not re-encode existing chunks; their fingerprint no longer matches the new graph.
+
+## VapourSynth filters
+
+A VapourSynth filter references a plugin namespace and function. The composer generates fields from the schema, but the plugin itself must be installed in the selected VapourSynth provider. A plugin missing from the runtime is named by the availability check.
+
+<Callout tone="warning" title="Order is execution">
+The list runs top to bottom. Moving a denoise before a resize is a different graph from moving it after. Reordering rewrites the General document, and a saved chunk from the old order is stale.
+</Callout>
+
+## Cross-field rules
+
+`When`, `If`, and `Unless` relations come from the schema. A value that only applies when another field is enabled is shown disabled, not silently kept. The rule is evaluated on the draft and again by the service on save.
+
+## Availability
+
+| Condition | Effect |
+| --- | --- |
+| Filter in schema, plugin installed | Available |
+| Filter in schema, plugin missing | Named unavailable; cannot be saved as new |
+| VapourSynth target, no provider | Target unavailable |
+| FFMS2 target, native input | Available without VapourSynth |
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Empty | No filter is configured |
+| Ready | The ordered list is valid |
+| Draft | The sheet holds unsaved values |
+| Invalid | A field or relation fails validation |
+| Plugin missing | The named filter cannot run in this provider |
+| Stale | A chunk predates the current filter graph |
+
+<RelatedLinks>
+<a href="/docs/guides/input-filters">Add and order input filters</a>
+<a href="/docs/reference/general">General</a>
+<a href="/docs/concepts/scripting">VapourSynth scripting</a>
+</RelatedLinks>

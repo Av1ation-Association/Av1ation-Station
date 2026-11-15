@@ -1,26 +1,10 @@
 name: Screenshots
 
-# The deterministic gallery is an advisory visual record, never a merge gate. It runs only
-# when a change can alter the renderer or the gallery fixture, so a Rust-only or docs-only
-# pull request does not pay for it.
+# The deterministic gallery is an advisory visual record, never a merge gate. It is manual
+# only: its output is website and release asset material, and the website that consumes it is
+# not designed yet, so generating it on every renderer change would produce images nobody
+# reads. Run it on dispatch when those assets are needed.
 on:
-    pull_request:
-        paths:
-            - "packages/ui/**"
-            - "packages/api/**"
-            - "packages/contracts/**"
-            - "apps/desktop/**"
-            - "apps/web/**"
-            - "apps/website/**"
-            - "e2e/screenshots/**"
-            - "scripts/build-gallery-media.mjs"
-            - "scripts/generate-screenshots.mjs"
-            - "scripts/publish-screenshots.mjs"
-            - "scripts/serve-static.mjs"
-            - "playwright.screenshots.config.ts"
-            - "package.json"
-            - "package-lock.json"
-            - ".github/workflows/screenshots.yml"
     workflow_dispatch:
 
 permissions:
@@ -47,8 +31,6 @@ jobs:
             # the same FFmpeg. No encoder, VapourSynth install, or service is involved.
             - run: choco install ffmpeg -y --no-progress
             - run: npm run screenshots
-              env:
-                  CI: "true"
             - uses: actions/upload-artifact@v4
               if: always()
               with:

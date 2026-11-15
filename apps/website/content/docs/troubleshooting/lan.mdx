@@ -1,0 +1,40 @@
+## Symptom
+
+The LAN address does not load, the pairing form rejects a code, a paired browser loses access, or the desktop is reachable but the browser shows a blank shell. These are different failures; check the listener before the token.
+
+## Check the listener
+
+Open **Settings → Network** on the desktop. Confirm LAN is enabled, the advertised address is the interface the browser can reach, and the port is listening. A listener bound to loopback only is not reachable from another machine.
+
+<Callout tone="note" title="The desktop owns the listener">
+A paired browser cannot enable LAN or change its port. If the listener is off, pair again after the desktop enables it.
+</Callout>
+
+## Firewall
+
+Allow the chosen TCP port on the private network only. A public-network rule or a port forward exposes the service beyond the LAN even though it still requires a token. Remove the rule when LAN is turned off. Test from the browser's machine, not only from the desktop.
+
+## Pair
+
+| Symptom | Check |
+| --- | --- |
+| Code rejected | The session expired or was revoked; create a new one |
+| Link opens but not authenticated | The token did not survive; pair again |
+| QR scans to the wrong host | The advertised address is not the browser's route |
+| Paired but blank | The browser origin differs from the configured LAN origin |
+
+The code is single-use and expires with its session. A token is a bearer credential; do not paste it into a chat or a screenshot.
+
+## Revoke
+
+Revoke one session to invalidate exactly its token. Turning LAN off closes every session and revokes every token. Re-enabling creates new sessions; old tokens do not become valid again.
+
+## Still failing
+
+If the listener is correct and the firewall allows the port, compare the browser's origin with the advertised address. A proxy or an HTTPS terminator in front of the service changes the origin the service sees. Remove the proxy or pair through the address the service advertises; do not disable token checks to make it work.
+
+<RelatedLinks>
+<a href="/docs/guides/lan-access">Pair and use a LAN browser</a>
+<a href="/docs/reference/settings">Settings</a>
+<a href="/docs/troubleshooting/dependencies">Missing tools and providers</a>
+</RelatedLinks>

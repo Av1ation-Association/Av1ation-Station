@@ -14,7 +14,6 @@ When a board set is approved:
 | Date | File | File ID | Revision | Named version | External export | SHA-256 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-30 | Av1ation Station | `122350ae-89ad-8027-8008-dbc020d446ed` | `547` | pending — create `phase-0-app-boards` | pending — archive outside git | — |
-| 2026-10-30 | Av1ation Station | `122350ae-89ad-8027-8008-dbc020d446ed` | `569` | — draft only; website design deferred to Phase 6  | not applicable | — |
 | 2026-11-04 | Av1ation Station | `122350ae-89ad-8027-8008-dbc020d446ed` | `669` | `home-settings-project-resync` | pending — archive outside git | — |
 | 2026-11-04 | Av1ation Station | `122350ae-89ad-8027-8008-dbc020d446ed` | `673` | pending — create `board-layout-and-cost` | pending — archive outside git | — |
 | 2026-11-04 | Av1ation Station | `122350ae-89ad-8027-8008-dbc020d446ed` | `675` | pending — create `settings-project-refine` | pending — archive outside git | — |
@@ -65,7 +64,7 @@ When a board set is approved:
 - Generic-data pass at working revision `704`. Installation-specific content was removed from
 the boards: the project is `Demo Project`, the queue uses `Big Buck Bunny`, `Sintel`, and
 `Tears of Steel` with Ready / Encoding 42% / Queued states, Settings paths use
-`C:\Users\designer`, the Website demo uses `D:\Media`, and Video / Configuration reads
+`C:\Users\designer`, and Video / Configuration reads
 `General set.` instead of a failure. No board should carry a local username, personal
 project name, or an all-error queue.
 
@@ -116,9 +115,5 @@ project name, or an all-error queue.
 - Home, Settings and Project were brought to the shipped screens at working revision `669`
   on 2026-11-04. That supersedes those pages' content approval above; the named
   `home-settings-project-resync` version records it, and its external export is pending.
-- `11 Website` has eight root boards drawn at working revision `569` on 2026-10-30; they
-  are export-reviewed but not approved. They are a draft deferred to Phase 6 , not a
-  Phase 0 gate and not a `phase-0-website` candidate. The nested `Website / Demo / Browser`
-  and `Website / Demo / App` boards carry the demo's real app chrome.
 - The `.penpot` file is the only artefact that carries boards **and** tokens; the
   generators and `tokens.json` are the reviewable, diffable sources in this repository.

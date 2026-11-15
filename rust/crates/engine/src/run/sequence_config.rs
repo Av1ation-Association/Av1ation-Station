@@ -6,6 +6,7 @@
 //! adapter adds exactly those two fields and delegates every other handler to the same
 //! upstream structs. JSON stays flat, which keeps an existing project document readable.
 
+use andean_condor::models::input::Input;
 use andean_condor::models::sequence::{
     DefaultSequenceConfig, SequenceConfigHandler,
     benchmarker::{BenchmarkerConfig, BenchmarkerConfigHandler},
@@ -22,6 +23,7 @@ use andean_condor::models::sequence::{
 use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Every sequence the default pipeline can resolve, including the two upstream omits.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
@@ -120,6 +122,30 @@ impl ParallelEncoderConfigHandler for RunnerConfig {
 }
 
 impl SceneConcatenatorConfigHandler for RunnerConfig {
+    fn protected_sources(&self) -> Vec<PathBuf> {
+        [
+            self.scene_detector.input.as_ref(),
+            self.parallel_encoder.input.as_ref(),
+            self.noise_detector
+                .as_ref()
+                .and_then(|config| config.input.as_ref()),
+            self.target_quality
+                .as_ref()
+                .and_then(|config| config.input.as_ref()),
+            self.target_quality
+                .as_ref()
+                .and_then(|config| config.metric_input.as_ref()),
+            self.quality_check
+                .as_ref()
+                .and_then(|config| config.input.as_ref()),
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(Input::path)
+        .map(PathBuf::from)
+        .collect()
+    }
+
     fn scene_concatenator(&self) -> Result<&SceneConcatenatorConfig> {
         Ok(&self.scene_concatenator)
     }

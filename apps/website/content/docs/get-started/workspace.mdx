@@ -1,0 +1,55 @@
+The application has four surfaces: Projects, a project, a video, and Settings. Every other page is a tab or a sheet inside one of those surfaces. This tour names where each control lives before you need it under time pressure.
+
+## Projects
+
+Home lists projects in last-accessed order. Each card shows the project name, its video count, and the disk space its retained work uses. Search filters the list by project name. **New project** opens the inline create form; the project menu holds rename and delete.
+
+<Callout tone="note" title="Projects are not folders">
+A project is a configuration and a queue. The media files stay where they are; deleting a project does not delete the source files or the encoded output.
+</Callout>
+
+## Project workspace
+
+A project opens on its configuration grid and queue. The seven section cards are General, Scene detection, Noise generation, Target quality, Encoding, Concatenation, and Quality check. A card reads **Engine default**, **Set**, or **Locked** so you can tell a deliberate value from an inherited one.
+
+The queue below the cards holds the videos in run order. Rows can be reordered, selected, and removed. The bulk bar appears only when a selection exists. Applying a template changes the project configuration and General section; it does not rewrite an existing video's overrides.
+
+## Video workspace
+
+A video has four tabs: Configuration, Scenes, History, and Logs. Configuration repeats the seven sections for that video, with inherited values and an override count. Scenes owns the rail, timeline, player, and details. History and Logs are the run record.
+
+<LiveSample kind="video-config" />
+
+## Settings
+
+Settings holds seven tabs: Appearance, Dependencies, Encoders, Project Templates, Storage, Network, and About. Dependencies and Encoders are capability settings; Storage and Network are host settings; Appearance is shared by every host that loads the application.
+
+<Callout tone="tip" title="Changes apply where they are made">
+Configuration saves to the scope you are editing. A project section change affects every video without an override; a video section change affects that video only.
+</Callout>
+
+## Command palette and shortcuts
+
+Press <KeySequence keys={["Ctrl", "K"]} /> to open the command palette. It reaches every project, settings tab, and action that has a command. The **Keyboard Shortcuts** entry opens the complete chord list.
+
+<LiveSample kind="command-palette" />
+
+<Steps>
+<Step title="Open the palette" result="A searchable command list appears over the current page.">
+Use the palette to navigate without losing your place; a command that would discard a draft is refused rather than silently applied.
+</Step>
+<Step title="Open the shortcut dialog" result="Every global and player chord is visible in one place.">
+The dialog separates global commands from the Scenes player keys. Platform labels follow the host: Windows and Linux show Ctrl, macOS shows Command.
+</Step>
+</Steps>
+## Where to go next
+
+- [Project workspace reference](/docs/reference/project) for the section grid and queue.
+- [Video workspace reference](/docs/reference/video) for the four tabs.
+- [Keyboard shortcuts](/docs/reference/shortcuts) for the complete list.
+
+<RelatedLinks>
+<a href="/docs/reference/project">Project workspace and queue</a>
+<a href="/docs/reference/video">Video workspace and overrides</a>
+<a href="/docs/reference/shortcuts">Keyboard shortcuts</a>
+</RelatedLinks>

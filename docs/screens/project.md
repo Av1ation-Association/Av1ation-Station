@@ -259,7 +259,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 - **Input kind.** A radio group: `FFMS2`, `VapourSynth`, `VapourSynth script`. Each kind owns
   an ordered filter list.
 - **Filter families.** FFMS2 accepts `Ffms2Filter`; VapourSynth and VapourSynth script accept
-  the engine's nine `VapourSynthFilter` variants listed under [Filter list](#filter-list).
+  the engine's ten `VapourSynthFilter` variants listed under [Filter list](#filter-list).
 - **VapourSynth import method.** A second radio group (`FFmpegSource`, `BestSource`,
   `L-SMASH-Works`, `DGDecNV`), shown only for the VapourSynth kind and stored on the
   project's General defaults.
@@ -596,7 +596,10 @@ optimization**. Each stage has its own run control.
   norm, CVVDP's display model — sit behind one `Metric options` disclosure that shows how
   many values are set.
 - **Probe strategy.** The engine's own `Whole`, `Skip { skip }`, or
-  `Subset { position, length }`; the control reveals the fields of the chosen variant.
+  `Subset { position, length }`; the control reveals the fields of the chosen variant. The
+  engine rejects a zero skip stride, so the field's minimum is 1 and a legacy zero is shown
+  as 1. The run boundary applies the same repair without rewriting the saved document. A
+  percentage subset length is greater than 0 and at most 100.
 - **Quantizer bounds.** Come from the selected encoder's own descriptor — rav1e ends at 255,
   SVT-AV1 at 63, x265 at 51 — rather than a fixed 0–51; enabling the stage seeds that
   encoder's range.

@@ -1,0 +1,40 @@
+## Collect
+
+Start with the exact failure message, the sequence it belongs to, and the application version from **About**. Note whether the run failed, was cancelled, or was refused before starting. Reproduce once with the same settings; a second failure confirms it is not a transient path or lock.
+
+## Logs
+
+Open the failed run's log from History. Filter to errors and read the first one. Export produces a redacted string that is identical to its preview. Attach that export rather than a screenshot of a terminal; the export keeps targets and timestamps.
+
+<Callout tone="tip" title="One run, one log">
+Attach the log for the failing run, not the newest log in the directory. The History card's action carries the run id.
+</Callout>
+
+## Diagnostics bundle
+
+**About → Export diagnostics** writes a bundle with the version, platform, dependency inventory, settings that are safe to share, and recent logs. The bundle is for support, not for publication. It does not include source media or encoded output.
+
+## Redact
+
+| Data | In an exported log | In a screenshot or project file |
+| --- | --- | --- |
+| Paths and filenames | Replaced with placeholders | Visible |
+| Hostnames and addresses | Replaced | Visible |
+| Project and video names | Not interpreted | Visible |
+| Tokens and pairing codes | Not exported | Visible if captured |
+
+Review the preview before sharing. Redaction covers values the service knows; it cannot know a name typed into a title or a tag.
+
+## Report
+
+Include the version, platform, the failing sequence, the exact message, the redacted log, and the steps that reproduce it. State what you already checked: provider availability, output space, and whether another run held the lock. A report that names a stage can be acted on; one that says "it failed" cannot.
+
+## What not to share
+
+Do not send pairing tokens, LAN bearer tokens, source media you do not own, or an unredacted project database. Do not publish a diagnostics bundle to a public issue. If a maintainer needs a project file, share it privately and remove paths first.
+
+<RelatedLinks>
+<a href="/docs/guides/logs-evidence">Review logs and export support evidence</a>
+<a href="/docs/troubleshooting/runs">Failed or interrupted runs</a>
+<a href="/docs/reference/settings">Settings</a>
+</RelatedLinks>

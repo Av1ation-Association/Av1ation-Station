@@ -38,3 +38,4 @@ run(nodeCommand, [
     ...(featureNotes ? ["--feature-notes", selector] : []),
 ]);
 run(nodeCommand, [join("scripts", "check-gallery.mjs")]);
+run(nodeCommand, [join("scripts", "build-demo-tour.mjs")]);

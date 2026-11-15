@@ -121,8 +121,8 @@ it("switches encoder and seeds the new encoder's required fields", async () => {
             photon_noise: null,
         },
     });
-    // SVT-AV1's descriptor is in the catalogue but the mock marks the binary missing.
-    expect(screen.getByText("Missing")).toBeTruthy();
+    // The fixture carries every built-in encoder as available, including SVT-AV1.
+    expect(screen.getByText("Available")).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: "Encoder passes" })).toBeTruthy();
 });
 

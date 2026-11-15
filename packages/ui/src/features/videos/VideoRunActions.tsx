@@ -9,6 +9,7 @@ import {
 import type { PreflightCheck, VideoState } from "@av1ation/contracts";
 import { Link } from "@tanstack/react-router";
 
+import { useDemoMode } from "../../shared/demo-mode";
 import { InlineError } from "../../shared/InlineError";
 import { isModalOpen, isTextEntryTarget, useShortcut } from "../../shared/shortcuts";
 import { RunControl } from "../../shared/RunControl";
@@ -41,6 +42,7 @@ export function VideoRunActions({
     /** A structural error that makes the chain unrunnable, such as overlapping scenes. */
     blockedReason?: string | null;
 }) {
+    const demo = useDemoMode();
     const start = useStartVideoEncode(projectId);
     const cancel = useCancelVideoEncode(projectId);
     const validation = useVideoValidation(projectId, videoId);
@@ -77,6 +79,7 @@ export function VideoRunActions({
     // the selection here is the video the route names. A running encode keeps Stop on the
     // button, because the chord never means "stop".
     useShortcut("run", run, {
+        enabled: !demo,
         when: () => !active && !isTextEntryTarget(document.activeElement) && !isModalOpen(),
     });
 
@@ -86,6 +89,10 @@ export function VideoRunActions({
             onError: (failure) => setRefusal(failure.message),
         });
     };
+
+    if (demo) {
+        return null;
+    }
 
     return (
         <>

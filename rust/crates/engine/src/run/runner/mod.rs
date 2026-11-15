@@ -50,6 +50,7 @@ use andean_condor::{
             parallel_encoder::ParallelEncoderDataHandler, quality_check::QualityCheckDataHandler,
         },
     },
+    utils::cancellation::Cancellation,
 };
 use serde::Deserialize;
 
@@ -177,6 +178,8 @@ mod tests {
             encoder: Encoder::default_from_base(&EncoderBase::X264, false),
             sequence_data: DefaultSequenceData {
                 parallel_encoder: ParallelEncoderData {
+                    invalidated: false,
+                    provenance: None,
                     started_on: Some(started_on),
                     completed_on: Some(completed_on),
                     bytes: Some(bytes),
@@ -657,7 +660,9 @@ mod tests {
             quality_check: Some(Default::default()),
             ..RunnerConfig::default()
         };
-        let mut resume = Resume::scored(&scenes, &config).expect("a quality tally");
+        let mut resume = Resume::scored(&scenes, &config)
+            .expect("valid probe strategy")
+            .expect("a quality tally");
 
         let send = |resume: &mut Resume, frame: u64, score: f64| {
             let (sender, receiver) = mpsc::channel();
@@ -736,7 +741,9 @@ mod tests {
             quality_check: Some(Default::default()),
             ..RunnerConfig::default()
         };
-        let mut resume = Resume::scored(&scenes, &config).expect("a quality tally");
+        let mut resume = Resume::scored(&scenes, &config)
+            .expect("valid probe strategy")
+            .expect("a quality tally");
 
         let (sender, receiver) = mpsc::channel();
         forward_progress(

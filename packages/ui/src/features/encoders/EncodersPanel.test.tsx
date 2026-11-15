@@ -35,7 +35,7 @@ it("replaces one encoder's pane instead of appending a second one", async () => 
     // The old parameter table and its portalled draft group must be gone, not stacked.
     expect(screen.getAllByRole("heading", { name: "Parameters" })).toHaveLength(1);
     expect(screen.queryByText("Constant Rate Factor")).toBeNull();
-    expect(screen.getByText("This encoder has no descriptors yet.")).toBeTruthy();
+    expect(screen.getByText("Encoder preset")).toBeTruthy();
     expect(within(topBar).getAllByText("Save")).toHaveLength(1);
 });
 

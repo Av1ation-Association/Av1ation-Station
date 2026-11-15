@@ -385,6 +385,10 @@ fn find_libpython(library_dir: &Path, platform: Platform) -> Option<PathBuf> {
                 .and_then(|name| name.to_str())
                 .is_some_and(|name| platform.is_libpython(name))
         })
+        // python-build-standalone also ships `libpython3.so`, a linker stub with no series
+        // in its name. It passes the extension check but cannot provide the version VSScript
+        // needs, and its shorter name would otherwise win the sort below.
+        .filter(|path| python_series(path).is_some())
         .collect();
     candidates.sort_by_key(|path| {
         path.file_name()
@@ -629,6 +633,7 @@ mod tests {
             python_series(Path::new("libpython3.14.dylib")),
             Some("3.14".to_owned())
         );
+        assert_eq!(python_series(Path::new("libpython3.so")), None);
         assert_eq!(python_series(Path::new("libpython3.14.a")), None);
     }
 

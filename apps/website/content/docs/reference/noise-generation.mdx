@@ -1,0 +1,49 @@
+## Detector
+
+Noise generation measures grain in the source and derives a per-scene scale factor. The detector configuration selects a reference and a denoised clip; the difference is the noise estimate. The stage is optional: disabling it removes both the measurement and the scale factor from the encode.
+
+| Field | Meaning |
+| --- | --- |
+| Reference filter | The graph used as the noisy reference |
+| Denoised filter | The graph used as the clean comparison |
+| Strength | How much the measurement may move the encoder |
+| Chroma | Whether chroma noise participates in the estimate |
+
+The reference and denoised graphs must both be valid for the selected input kind. A VapourSynth filter needs its provider; an FFMS2 filter does not.
+
+## Scaler
+
+The scaler turns the measured noise into an encoder-facing value inside a bounded range.
+
+| Field | Meaning |
+| --- | --- |
+| Threshold | Noise below this value is treated as clean |
+| Minimum | Lower bound on the scale factor |
+| Maximum | Upper bound on the scale factor |
+| WNNM pair | The detector's paired parameters, both required when enabled |
+| Scale chroma | Whether the factor applies to chroma as well as luma |
+
+<Callout tone="warning" title="Seed real values">
+The engine schema carries no defaults, so enabling the stage writes zeroes unless the screen supplies starting values. The WNNM pair is the known starting point; a partial pair measures nothing useful.
+</Callout>
+
+## Availability
+
+The stage depends on its detector filters and, for a VapourSynth graph, on a working VapourSynth provider. A missing filter affects this stage only; decoding, encoding, and muxing remain available. The diagnostics row names the missing capability.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Disabled | The stage is skipped |
+| Enabled | A saved detector and scaler document is present |
+| Inherited | A video reads the project document |
+| Unavailable | A required filter or provider is missing |
+| Measured | Scenes carry a noise value and scale factor |
+| Locked | A run prevents changing the encoding video's document |
+
+<RelatedLinks>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+<a href="/docs/guides/configure-pipeline">Configure the pipeline stages</a>
+<a href="/docs/reference/scene-detection">Scene detection</a>
+</RelatedLinks>

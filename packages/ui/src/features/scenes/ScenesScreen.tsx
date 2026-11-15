@@ -21,6 +21,7 @@ import { Film, Lock, PanelLeftOpen, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { ScreenMain } from "../../shared/ScreenMain";
 import { sceneAtFrame, sceneValidation, sceneWarnings } from "../../shared/model/scene-layout";
 import { SceneContextMenu } from "./SceneContextMenu";
 import { SceneDetailsPanel } from "./SceneDetailsPanel";
@@ -332,7 +333,7 @@ export function ScenesScreen() {
 
     if (video.isPending) {
         return (
-            <main
+            <ScreenMain
                 aria-busy="true"
                 className="flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden"
             >
@@ -348,13 +349,13 @@ export function ScenesScreen() {
                     <div className="w-[300px] animate-pulse rounded-lg border border-line bg-surface" />
                     <div className="flex-1 animate-pulse rounded-lg border border-line bg-surface" />
                 </div>
-            </main>
+            </ScreenMain>
         );
     }
 
     if (video.isError) {
         return (
-            <main id="main" className="flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden">
+            <ScreenMain className="flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden">
                 <h1 className="sr-only">Scenes</h1>
                 <VideoTabs
                     projectId={projectId}
@@ -381,7 +382,7 @@ export function ScenesScreen() {
                         </Button>
                     </div>
                 </div>
-            </main>
+            </ScreenMain>
         );
     }
 
@@ -541,7 +542,7 @@ export function ScenesScreen() {
     );
 
     return (
-        <main id="main" className="flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden">
+        <ScreenMain className="flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden">
             {/* The tab strip is navigation, not the page's title: without this the screen has
                 no level-one heading and a screen reader's heading list starts at the panel. */}
             <h1 className="sr-only">Scenes</h1>
@@ -812,6 +813,6 @@ export function ScenesScreen() {
                 onCancelDelete={() => setConfirmDelete(false)}
                 onConfirmDelete={performDelete}
             />
-        </main>
+        </ScreenMain>
     );
 }

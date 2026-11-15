@@ -362,6 +362,13 @@ pub(crate) async fn reset_sequence(
         {
             return project_error(error);
         }
+        if plan.files.scene_concatenator
+            && let Err(error) = videos
+                .remove_scratch_directory(&video_id, temp, "Scene Concatenator")
+                .await
+        {
+            return project_error(error);
+        }
     }
     if plan.files.output {
         let output = record.output_path();

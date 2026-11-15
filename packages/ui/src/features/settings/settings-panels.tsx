@@ -30,6 +30,126 @@ function PanelHeader({ description }: { description: string }) {
     );
 }
 
+/**
+ * The scratch-directory card shared by Settings and the documentation sample.
+ *
+ * It owns the field, the host picker affordance, the default reset, and the free-space
+ * report. The draft and its Save action stay with the screen because they also cover
+ * retention; the card only edits the path it is handed.
+ */
+export function StorageScratchCard({
+    value,
+    placeholder,
+    freeBytes,
+    totalBytes,
+    retainedBytes,
+    canPick,
+    onChange,
+    onPick,
+    onUseDefault,
+    disabled = false,
+}: {
+    value: string;
+    placeholder: string;
+    freeBytes: number | null;
+    totalBytes: number | null;
+    retainedBytes: number;
+    canPick: boolean;
+    onChange: (value: string) => void;
+    onPick: (() => void) | undefined;
+    onUseDefault: () => void;
+    disabled?: boolean;
+}) {
+    const free = freeBytes;
+    const total = totalBytes;
+    const freePercent =
+        free !== null && total !== null && total > 0
+            ? Math.min(100, Math.max(0, (free / total) * 100))
+            : 0;
+    const retainedPercent =
+        total !== null && total > 0 ? Math.min(100, (retainedBytes / total) * 100) : 0;
+
+    return (
+        <section className="rounded-lg border border-line bg-surface">
+            <div className="border-b border-line px-5 py-4">
+                <h2 className="m-0 text-sm font-semibold text-ink">Temporary directory</h2>
+                <p className="mt-1 mb-0 text-[11.5px] leading-relaxed text-ink-secondary">
+                    Per-video scene chunks, probe files, and the preview cache. Empty means the
+                    app-data default.
+                </p>
+            </div>
+            <div className="px-5 py-4">
+                <div className="flex flex-wrap gap-2">
+                    <span className="relative min-w-[220px] flex-1">
+                        <FolderOpen
+                            aria-hidden="true"
+                            className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted"
+                        />
+                        <input
+                            aria-label="Temporary directory"
+                            value={value}
+                            disabled={disabled}
+                            onChange={(event) => onChange(event.target.value)}
+                            placeholder={placeholder}
+                            spellCheck={false}
+                            className={`${FIELD} pl-9 font-mono text-[11px]`}
+                        />
+                    </span>
+                    {!canPick || onPick === undefined ? null : (
+                        <Button
+                            variant="secondary"
+                            className="h-9 shrink-0 px-2.5 text-[12px]"
+                            disabled={disabled}
+                            onClick={onPick}
+                        >
+                            Change…
+                        </Button>
+                    )}
+                    <Button
+                        variant="secondary"
+                        className="h-9 shrink-0 px-2.5 text-[12px]"
+                        disabled={disabled || value.trim() === ""}
+                        onClick={onUseDefault}
+                    >
+                        Use default
+                    </Button>
+                </div>
+
+                <div className="mt-4">
+                    <div className="flex items-baseline justify-between gap-3 text-[10.5px] text-ink-muted">
+                        <span className="font-mono tracking-[0.12em] uppercase">Free space</span>
+                        <span>{free === null ? "Unavailable" : formatBytes(free)}</span>
+                    </div>
+                    <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-raised">
+                        <div
+                            className="h-full rounded-full bg-brand"
+                            style={{ width: `${String(freePercent)}%` }}
+                        />
+                        <div
+                            className="h-full bg-brand/35"
+                            style={{ width: `${String(retainedPercent)}%` }}
+                        />
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-[10.5px] text-ink-muted">
+                        <span>
+                            {free === null || total === null
+                                ? "This volume could not be read."
+                                : `${formatBytes(free)} free of ${formatBytes(total)}`}
+                            {" · "}
+                            retained work {formatBytes(retainedBytes)}
+                        </span>
+                        <span>Encodes need 512 MB free</span>
+                    </div>
+                    <p className="mt-2 mb-0 text-[10.5px] leading-relaxed text-ink-muted">
+                        The service checks writability on selection and never starts a run on a
+                        read-only mount. Clearing the field restores the app-data default.
+                    </p>
+                </div>
+            </div>
+        </section>
+    );
+}
+
 function ErrorCard({
     title,
     message,
@@ -153,12 +273,7 @@ export function StoragePanel() {
         return null;
     }
 
-    const free = data.free_bytes ?? null;
     const total = data.total_bytes ?? null;
-    const freePercent =
-        free !== null && total !== null && total > 0
-            ? Math.min(100, Math.max(0, (free / total) * 100))
-            : 0;
     const retainedPercent =
         total !== null && total > 0 ? Math.min(100, (data.retained_bytes / total) * 100) : 0;
 
@@ -226,98 +341,33 @@ export function StoragePanel() {
                         </div>
                     </section>
 
-                    <section className="rounded-lg border border-line bg-surface">
-                        <div className="border-b border-line px-5 py-4">
-                            <h2 className="m-0 text-sm font-semibold text-ink">
-                                Temporary directory
-                            </h2>
-                            <p className="mt-1 mb-0 text-[11.5px] leading-relaxed text-ink-secondary">
-                                Per-video scene chunks, probe files, and the preview cache. Empty
-                                means the app-data default.
-                            </p>
-                        </div>
-                        <div className="px-5 py-4">
-                            <div className="flex flex-wrap gap-2">
-                                <span className="relative min-w-[220px] flex-1">
-                                    <FolderOpen
-                                        aria-hidden="true"
-                                        className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted"
-                                    />
-                                    <input
-                                        aria-label="Temporary directory"
-                                        value={tempDir}
-                                        onChange={(event) => setTempDir(event.target.value)}
-                                        placeholder={data.default_directory}
-                                        spellCheck={false}
-                                        className={`${FIELD} pl-9 font-mono text-[11px]`}
-                                    />
-                                </span>
-                                {pickDirectory === null ? null : (
-                                    <Button
-                                        variant="secondary"
-                                        className="h-9 shrink-0 px-2.5 text-[12px]"
-                                        onClick={() => {
-                                            void pickDirectory()
-                                                .then((picked) => {
-                                                    if (picked !== null) {
-                                                        setTempDir(picked);
-                                                    }
-                                                })
-                                                .catch(() =>
-                                                    toast.error(
-                                                        "The folder picker was refused by the host.",
-                                                    ),
-                                                );
-                                        }}
-                                    >
-                                        Change…
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="secondary"
-                                    className="h-9 shrink-0 px-2.5 text-[12px]"
-                                    onClick={() => setTempDir("")}
-                                    disabled={tempDir.trim() === ""}
-                                >
-                                    Use default
-                                </Button>
-                            </div>
-
-                            <div className="mt-4">
-                                <div className="flex items-baseline justify-between gap-3 text-[10.5px] text-ink-muted">
-                                    <span className="font-mono tracking-[0.12em] uppercase">
-                                        Free space
-                                    </span>
-                                    <span>{free === null ? "Unavailable" : formatBytes(free)}</span>
-                                </div>
-                                <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-raised">
-                                    <div
-                                        className="h-full rounded-full bg-brand"
-                                        style={{ width: `${String(freePercent)}%` }}
-                                    />
-                                    <div
-                                        className="h-full bg-brand/35"
-                                        style={{ width: `${String(retainedPercent)}%` }}
-                                    />
-                                </div>
-                                <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-[10.5px] text-ink-muted">
-                                    <span>
-                                        {free === null || total === null
-                                            ? "This volume could not be read."
-                                            : `${formatBytes(free)} free of ${formatBytes(total)}`}
-                                        {" · "}
-                                        retained work {formatBytes(data.retained_bytes)}
-                                    </span>
-                                    <span>Encodes need 512 MB free</span>
-                                </div>
-                                <p className="mt-2 mb-0 text-[10.5px] leading-relaxed text-ink-muted">
-                                    The service checks writability on selection and never starts a
-                                    run on a read-only mount. Clearing the field restores the
-                                    app-data default.
-                                </p>
-                            </div>
-                        </div>
-                    </section>
+                    <StorageScratchCard
+                        value={tempDir}
+                        placeholder={data.default_directory}
+                        freeBytes={data.free_bytes ?? null}
+                        totalBytes={data.total_bytes ?? null}
+                        retainedBytes={data.retained_bytes}
+                        canPick={pickDirectory !== null}
+                        onChange={setTempDir}
+                        onPick={
+                            pickDirectory === null
+                                ? undefined
+                                : () => {
+                                      void pickDirectory()
+                                          .then((picked) => {
+                                              if (picked !== null) {
+                                                  setTempDir(picked);
+                                              }
+                                          })
+                                          .catch(() =>
+                                              toast.error(
+                                                  "The folder picker was refused by the host.",
+                                              ),
+                                          );
+                                  }
+                        }
+                        onUseDefault={() => setTempDir("")}
+                    />
 
                     <section className="rounded-lg border border-line bg-surface">
                         <div className="border-b border-line px-5 py-4">

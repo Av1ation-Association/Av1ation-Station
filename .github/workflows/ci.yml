@@ -2,7 +2,7 @@ name: CI
 
 on:
     push:
-        branches: [main, condor]
+        branches: [main]
     pull_request:
 
 permissions:
@@ -78,6 +78,10 @@ jobs:
                   node-version-file: .nvmrc
                   cache: npm
             - run: npm ci
+            - name: Audit JavaScript dependencies
+              run: npm audit --audit-level=high
+            - name: Validate website release metadata and download URLs
+              run: npm run check:website-release -- --urls
             - name: Run web static profile
               run: npm run check:web
             - name: Run web verification profile
@@ -85,7 +89,12 @@ jobs:
             - run: npm run coverage:check:changed -- --frontend
               env:
                   BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-            - run: npm run build
+            # The website's publishable build requires generated screenshot captures, which
+            # are not committed. Compile its gallery variant instead; the screenshot workflow
+            # and release build verify the captured site.
+            - run: npm run build:ci
+            - name: Check initial JavaScript bundle size
+              run: npm run check:bundle-size
             - uses: actions/upload-artifact@v4
               if: always()
               with:
@@ -116,9 +125,36 @@ jobs:
                   workspaces: rust -> ../dist/cargo
             - uses: taiki-e/install-action@v2
               with:
-                  tool: cargo-llvm-cov
+                  tool: cargo-llvm-cov,cargo-audit
             - run: rustup component add llvm-tools-preview
+            # Coverage instruments and relinks test binaries. Keep MSVC ahead of Git's
+            # link.exe; an ambient PATH can otherwise fail with 0xc0000142.
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
+            - name: Assert Visual Studio linker
+              shell: pwsh
+              run: |
+                  $link = (Get-Command link.exe -CommandType Application -ErrorAction Stop |
+                    Select-Object -First 1).Source
+                  $visualStudioRoots = @(
+                    $env:VCToolsInstallDir,
+                    $env:VCINSTALLDIR,
+                    $env:VSINSTALLDIR
+                  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                  $underVisualStudio = $link -match '\\Microsoft Visual Studio\\'
+                  if (-not $underVisualStudio) {
+                    $underVisualStudio = $visualStudioRoots | Where-Object {
+                      $link.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                  }
+                  if (-not $underVisualStudio) {
+                    throw "link.exe does not resolve under Visual Studio: $link"
+                  }
+                  Write-Host "link.exe resolves under Visual Studio: $link"
             - run: npm ci
+            - name: Audit Rust dependencies
+              run: cargo audit --file rust/Cargo.lock
             - name: Run Rust static profile
               run: npm run check:rust
             - name: Run Rust verification profile
@@ -165,6 +201,33 @@ jobs:
                       dist/playwright-report/
                       dist/test-results/
                   if-no-files-found: warn
+
+    # Compile-only, push-only: the release build proves the Tauri shell still links without
+    # adding its thirty-minute worst case to every pull request.
+    build-tauri:
+        name: Tauri compile
+        runs-on: windows-latest
+        timeout-minutes: 30
+        needs: changes
+        if: github.event_name == 'push' && needs.changes.outputs.run == 'true'
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+            - name: Prepare compile-only resource directory
+              shell: bash
+              run: mkdir -p dist/tools
+            - name: Compile Tauri shell
+              run: npm run tauri -- build --no-bundle
 
     web-gate:
         name: Web checks gate

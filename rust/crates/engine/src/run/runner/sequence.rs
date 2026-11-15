@@ -28,6 +28,13 @@ pub(super) fn explain_failure(sequence: &str, message: &str) -> String {
              its own; the engine's streaming encoder discards its stderr."
         );
     }
+    if message.contains("cannot resume") || message.contains("were invalidated") {
+        return format!(
+            "{sequence} failed: the saved result no longer matches the current source, \
+             scenes, encoder or metric, so it cannot be reused ({message}). Open Data and \
+             reset the named sequences; the source and configuration are kept."
+        );
+    }
     format!("{sequence} failed: {message}")
 }
 
@@ -139,6 +146,16 @@ impl AndeanCondor<DefaultSequenceData, RunnerConfig>
         progress_event_tx: mpsc::Sender<SequenceProgressEvent>,
         cancelled: Arc<AtomicBool>,
     ) -> anyhow::Result<((), SequenceWarningsTuple)> {
+        self.process_one_cancel(processor_index, progress_event_tx, cancelled.into())
+    }
+
+    fn process_one_cancel(
+        &mut self,
+        processor_index: Option<usize>,
+        progress_event_tx: mpsc::Sender<SequenceProgressEvent>,
+        cancellation: Cancellation,
+    ) -> anyhow::Result<((), SequenceWarningsTuple)> {
+        cancellation.check()?;
         let index = processor_index.unwrap_or(0);
         let processor = &mut self.sequences[index];
         let details = processor.details();
@@ -157,10 +174,11 @@ impl AndeanCondor<DefaultSequenceData, RunnerConfig>
             }
             Ok(())
         });
-        let (_, initialization_warnings) = processor.initialize(&mut self.condor, progress_tx)?;
+        let initialized = processor.initialize_cancel(&mut self.condor, progress_tx, &cancellation);
         initialization_progress_thread
             .join()
             .map_err(|_| anyhow::anyhow!("the initialization progress bridge panicked"))??;
+        let (_, initialization_warnings) = initialized?;
 
         let (progress_tx, progress_rx) = mpsc::channel();
         let process_progress_thread = thread::spawn(move || -> anyhow::Result<()> {
@@ -174,10 +192,12 @@ impl AndeanCondor<DefaultSequenceData, RunnerConfig>
             }
             Ok(())
         });
-        let (_, process_warnings) = processor.execute(&mut self.condor, progress_tx, cancelled)?;
+        let executed =
+            processor.execute_cancel(&mut self.condor, progress_tx, cancellation.clone());
         process_progress_thread
             .join()
             .map_err(|_| anyhow::anyhow!("the processing progress bridge panicked"))??;
+        let (_, process_warnings) = executed?;
 
         Ok((
             (),
@@ -194,15 +214,24 @@ impl AndeanCondor<DefaultSequenceData, RunnerConfig>
         progress_event_tx: mpsc::Sender<SequenceProgressEvent>,
         cancelled: Arc<AtomicBool>,
     ) -> anyhow::Result<Vec<((), SequenceWarningsTuple)>> {
+        self.process_all_cancel(progress_event_tx, cancelled.into())
+    }
+
+    fn process_all_cancel(
+        &mut self,
+        progress_event_tx: mpsc::Sender<SequenceProgressEvent>,
+        cancellation: Cancellation,
+    ) -> anyhow::Result<Vec<((), SequenceWarningsTuple)>> {
         let mut warnings = Vec::with_capacity(self.sequences.len());
         for index in 0..self.sequences.len() {
-            if cancelled.load(Ordering::Relaxed) {
+            cancellation.check_forced()?;
+            if cancellation.is_cancelled() {
                 break;
             }
-            warnings.push(self.process_one(
+            warnings.push(self.process_one_cancel(
                 Some(index),
                 progress_event_tx.clone(),
-                Arc::clone(&cancelled),
+                cancellation.clone(),
             )?);
         }
         Ok(warnings)

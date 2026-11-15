@@ -59,13 +59,15 @@ flowchart TB
     end
 
     browser["LAN browser<br/>(same SPA bundle)"]
-    site["Website demo<br/>(same SPA, mock transport)<br/>landing and docs deferred"]
+    site["Website<br/>(public site + demo)<br/>real app screens with mock transport"]
 
     browser <-->|HTTP + SSE| axum
     site <-->|in-memory mocks| site
 ```
 
-Three hosts, one bundle. The desktop webview talks to the same `axum` router over
+Three hosts share the UI source: the desktop webview and LAN browser use the same SPA
+bundle, and the website ships that demo beside its marketing entry. The desktop webview
+talks to the same `axum` router over
 loopback as a LAN browser does; Tauri IPC exists only for things the OS must do on the
 webview's behalf (native dialogs, opening a path or URL, and writing an exported file to
 the path a save dialog returned).
@@ -168,7 +170,7 @@ Av1ation-Station/
 ├── apps/
 │   ├── desktop/                 # desktop webview entry
 │   ├── web/                     # LAN/web build target (same UI, HTTP transport)
-│   └── website/                 # public demo; injects MockTransport (deferred landing)
+│   └── website/                 # public site + demo; demo injects MockTransport
 └── packages/
     ├── contracts/               # generated TS types + Zod schemas
     ├── api/                     # transport façade + query/mutation layer
@@ -323,8 +325,9 @@ flowchart LR
 
 The filesystem check is the only one with I/O cost, so it is cached with a short TTL and
 invalidated by run events. It is what makes "resume where it left off" possible after a
-crash, and it is why the concatenator can warn "3 of 40 scenes are not encoded" before the
-user asks it to run.
+crash, and it is why the concatenator can report "3 of 40 scenes are not encoded" before the
+user asks it to run. Concatenation itself waits for all of them: the engine refuses a
+partial scene set, so a shortened output is never offered.
 
 This is specified in detail in [data-model.md](data-model.md#4-derived-state).
 

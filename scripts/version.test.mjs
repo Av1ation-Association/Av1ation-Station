@@ -45,7 +45,7 @@ describe("version sync", () => {
         const pinnedRevision = /^\s*andean-condor\s*=\s*\{[^}]*\brev\s*=\s*"([0-9a-f]{40})"/mu.exec(
             workspace,
         )?.[1];
-        expect(workspace).toContain('git = "https://github.com/BoatsMcGee/Av1an"');
+        expect(workspace).toContain('git = "https://github.com/rust-av/Av1an"');
         const engineRevision = pinnedRevision;
         const appVersion = /export const APP_VERSION = "([^"]+)";/u.exec(generated)?.[1];
         const exportedEngine = /export const ENGINE_VERSION = "([^"]+)";/u.exec(generated)?.[1];

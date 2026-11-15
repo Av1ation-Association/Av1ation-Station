@@ -27,15 +27,22 @@ packages/
 apps/
 ├── desktop/       desktop webview entry; the native shell lives in rust/desktop-shell
 ├── web/           standalone web build; injects the HTTP transport with a user-supplied origin
-└── website/       public demo; injects the mock transport (landing/docs deferred)
+└── website/       public site plus the mock-transport demo
 ```
 
 `apps/{desktop,web}` are small entry points: mount the same `<App />`, inject a different
 transport, done. The desktop entry additionally injects host pickers when it runs inside
-Tauri. `apps/website` currently mounts only the demo entry:
-the same `<App />` with `MockTransport`. The public landing and documentation pages are
-deferred to Phase 6. Any application component that lives in an `apps/*` directory is a
-bug.
+Tauri. `apps/website` has two entries: `src/site.tsx` is the public marketing and docs site,
+and `src/main.tsx` is the demo that mounts the same `<App />` with `MockTransport` at
+`/demo/`. Any application component that lives in an `apps/*` directory is a bug.
+
+The marketing homepage also mounts four real video screens through `VideoDemo`. That host
+is a boundary, not a second shell: it supplies `DemoModeProvider` with an overlay root
+inside `.video-demo`, so menus, popovers, sheets, and dialogs portal inside the application
+frame and open non-modally. A scroll lock or `aria-hidden` sweep would otherwise affect the
+surrounding article. `ScreenMain` renders the screen landmark as `main` only in the desktop
+application and as a plain block under the embed, because the marketing page already owns
+the document's main landmark.
 
 `packages/ui/src` is organized by feature, not by file kind:
 
@@ -455,10 +462,12 @@ skeleton or progress indicator for anything over ~300ms.
   repeats that name. Focus reveals the same label, so the pattern is not mouse-only.
 - Charts get a text summary and a "view as table" toggle — pie and line charts are not
   accessible on their own.
-- `axe-core` runs in the component-test screen harness over all 17 route families and fails
-  on a violation. Its jsdom environment cannot measure contrast or target size, so the route
-  gallery runs the full rule set against each populated route in Chromium in both themes;
-  the browser journeys add the same pass for interactive and locked states.
+- `axe-core` runs in the component-test screen harness over all 17 route families and the
+  four embedded demo screens, and fails on a violation. The embedded cases mount the
+  marketing main around the real `VideoDemo`, so a duplicate landmark or an overlay that
+  hides the host is a test failure. Its jsdom environment cannot measure contrast or target
+  size, so the route gallery runs the full rule set against each populated route in Chromium
+  in both themes; the browser journeys add the same pass for interactive and locked states.
 
 ## 10. Performance strategy
 
@@ -473,7 +482,10 @@ skeleton or progress indicator for anything over ~300ms.
 | route chunking | every route is a lazy boundary |
 
 Bundle budget: initial JS under 250 KB gzipped excluding Monaco and ECharts; those must
-stay in lazy chunks. A bundle-size check is planned for Phase 5.
+stay in lazy chunks. `npm run check:bundle-size` reads each built host's `index.html`
+module entry and `modulepreload` graph, gzips it at a fixed level, and fails above the
+budget; route imports are absent from that graph, so the lazy editors and charts are not
+counted.
 
 ## 11. Error and empty-state design
 

@@ -1,15 +1,6 @@
 import { useLanguageServer, useLanguageServerChannel, useSaveTextFile } from "@av1ation/api";
 import type { ScriptCheck, ScriptGuide, ScriptMaterialised } from "@av1ation/contracts";
-import {
-    Check,
-    CircleAlert,
-    CircleDashed,
-    Copy,
-    Download,
-    FileCode2,
-    Lock,
-    RefreshCw,
-} from "lucide-react";
+import { Copy, Download, FileCode2, Lock, RefreshCw } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 
@@ -17,6 +8,7 @@ import { downloadText } from "../../shared/download";
 import { Button } from "../../shared/Button";
 import { parseStub } from "./python-stub";
 import { ScriptEditor } from "./ScriptEditor";
+import { ScriptValidationResult } from "./ScriptValidationResult";
 import { DraftActions } from "../../shared/TopBarActions";
 
 /** The file name a path ends with, or the placeholder for stored text. */
@@ -26,37 +18,6 @@ export function scriptFileName(path: string): string {
         .filter((part) => part !== "")
         .pop();
     return name === undefined || name === "" ? "script.vpy" : name;
-}
-
-function validationChip(check: ScriptCheck | null) {
-    if (check === null) {
-        return {
-            icon: CircleDashed,
-            label: "Not checked yet",
-            tone: "text-ink-muted border-line",
-        };
-    }
-    switch (check.status) {
-        case "valid":
-            return {
-                icon: Check,
-                label: "Validated",
-                tone: "text-success border-success/40 bg-success-soft",
-            };
-        case "invalid":
-            return {
-                icon: CircleAlert,
-                label: "The script failed",
-                tone: "text-danger border-danger/40 bg-danger-soft",
-            };
-        case "unavailable":
-        default:
-            return {
-                icon: CircleAlert,
-                label: "Cannot check here",
-                tone: "text-warning border-warning/40 bg-warning-soft",
-            };
-    }
 }
 
 /**
@@ -141,8 +102,6 @@ export function ScriptPage({
         languageServer.data?.available === true && typeof languageServer.data.workspace === "string"
             ? languageServer.data.workspace
             : undefined;
-    const chip = validationChip(check);
-    const ChipIcon = chip.icon;
     const stub = guide?.stub ?? "";
     const variables = guide?.variables ?? [];
     const module = parseStub(stub);
@@ -563,23 +522,10 @@ export function ScriptPage({
                             </div>
 
                             <div className="border-t border-line px-4 py-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] ${chip.tone}`}
-                                    >
-                                        <ChipIcon
-                                            aria-hidden="true"
-                                            className="h-3 w-3"
-                                            strokeWidth={2}
-                                        />
-                                        {chip.label}
-                                    </span>
-                                    <p className="m-0 min-w-0 flex-1 text-[11px] leading-relaxed break-words text-ink-muted">
-                                        {check === null
-                                            ? "Validate runs the script and asks the clip it returns; a check never saves."
-                                            : check.detail}
-                                    </p>
-                                </div>
+                                <ScriptValidationResult
+                                    check={check}
+                                    emptyDetail="Validate runs the script and asks the clip it returns; a check never saves."
+                                />
                                 <p className="mt-2 mb-0 text-[10.5px] leading-relaxed text-ink-muted">
                                     {languageServer.data?.available === true
                                         ? typeof languageServer.data.interpreter !== "string"

@@ -124,7 +124,7 @@ pub fn write_scene_encoded_proxy(
     let passes = encoder.total_passes().max(1);
     let sentinel = context.output.with_extension("encoder-stream");
     let sentinel_text = sentinel.to_string_lossy().to_string();
-    let arguments = scene_arguments(&encoder, (passes, passes), &sentinel, &sentinel_text, &info);
+    let arguments = scene_arguments(&encoder, (passes, passes), &sentinel, &sentinel_text, &info)?;
     // Resolve the frame header before any child exists, so a failed header leaves no
     // process behind waiting on a pipe nobody will close.
     let header = opened

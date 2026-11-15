@@ -9,6 +9,7 @@ import {
     MenuSeparator,
     MenuTrigger,
 } from "../../shared/Menu";
+import { useDemoMode } from "../../shared/demo-mode";
 import { SOURCES, type PreviewSource } from "./preview-player";
 
 type PreviewSourceMenuProps = {
@@ -28,16 +29,25 @@ export function PreviewSourceMenu({
     setEncodeFrom,
 }: PreviewSourceMenuProps) {
     const [open, setOpen] = useState(false);
+    const demo = useDemoMode();
     const status = SOURCES[source];
     const SourceIcon = status.icon;
 
+    // The shared menu reads the embedded host context, so this menu cannot lock the host
+    // page or hide the marketing article around the demo.
     return (
         <Menu open={open} onOpenChange={setOpen}>
             <MenuTrigger asChild>
                 <button
                     type="button"
                     aria-label={`Preview source: ${status.label}`}
-                    data-tip={open ? undefined : `Source: ${status.label}`}
+                    data-tip={
+                        open
+                            ? undefined
+                            : demo
+                              ? `Source: ${status.label} · Decoded and Encoded are unavailable in the browser demo`
+                              : `Source: ${status.label}`
+                    }
                     data-tip-align="end"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line-strong bg-raised text-ink-secondary transition-colors duration-150 hover:border-ink-muted hover:bg-hover hover:text-ink"
                 >
@@ -57,7 +67,8 @@ export function PreviewSourceMenu({
                 >
                     {(Object.keys(SOURCES) as PreviewSource[]).map((id) => {
                         const entry = SOURCES[id];
-                        const unavailable = id === "encode" && sceneIndex === null;
+                        const browserOnly = demo && id !== "original";
+                        const unavailable = browserOnly || (id === "encode" && sceneIndex === null);
                         return (
                             <MenuRadioItem
                                 key={id}
@@ -70,9 +81,11 @@ export function PreviewSourceMenu({
                                     {entry.label}
                                 </span>
                                 <span className="mt-0.5 block text-[10px] leading-snug text-ink-muted">
-                                    {unavailable
-                                        ? "No scene contains the playhead. Detect scenes or move the playhead inside one."
-                                        : entry.detail}
+                                    {browserOnly
+                                        ? "Unavailable in the browser demo; the captured source plays as Original."
+                                        : unavailable
+                                          ? "No scene contains the playhead. Detect scenes or move the playhead inside one."
+                                          : entry.detail}
                                 </span>
                             </MenuRadioItem>
                         );

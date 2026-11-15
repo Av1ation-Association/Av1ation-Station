@@ -1,0 +1,301 @@
+# Releases
+
+**Scope:** the release channels, version rules, platform matrix, unsigned distribution,
+updater policy, and audit bundle. This document owns release policy; current delivery status
+lives in [progress.md](progress.md), and the toolchain contents and provider rules live in
+[packaging.md](packaging.md).
+
+The release gate is **closed** until a complete per-target
+`packaging/toolchain.lock.json` exists. The reviewed manifest and the component build
+workflow are present; no weekly or tagged release workflow is added while the generated lock
+is absent. The local artifacts under `dist/release/` are development evidence, not release
+candidates.
+
+## Contents
+
+- [Channels](#channels)
+- [Source and tags](#source-and-tags)
+- [Versions](#versions)
+- [Platform matrix](#platform-matrix)
+- [Artifact formats](#artifact-formats)
+- [Website download metadata](#website-download-metadata)
+- [Unsigned distribution](#unsigned-distribution)
+- [Toolchain lock gate](#toolchain-lock-gate)
+- [Update policy](#update-policy)
+- [Transparency](#transparency)
+- [Publication and retention](#publication-and-retention)
+- [Current gate](#current-gate)
+
+## Channels
+
+| Channel | Trigger | Tag | Publication | Updater |
+| --- | --- | --- | --- | --- |
+| Weekly tagged prerelease | Scheduled, from a clean `main` checkout | `v<base>-weekly.YYYYMMDD` | Automatic GitHub pre-release | Never |
+| Release candidate | Manual tag | `v<base>-rc.<n>` | Draft GitHub release, manually published | Never |
+| Stable | Manual tag | `v<base>` | Draft GitHub release, manually published | Stable only |
+| Weekly tests | Weekly schedule | No release tag | No release artifacts | Not applicable |
+
+The existing `.github/workflows/weekly.yml` remains a **test** workflow. It may run real
+encodes and coverage, but it is not a release channel and its system packages are not
+release inputs.
+
+### Historical 0.1.0 preview
+
+`v0.1.0-1` is the first published 0.1.0 pre-release. It was built before the channel
+tooling existed, so it is not a fourth channel: `release:build` cannot produce it and
+`release:preflight` rejects it as a new candidate. The checked-in website snapshot marks
+it with `"channel": "legacy"`; the projection still derives its download URLs from that
+tag because those are the published assets. Leave those URLs unchanged until a
+channel-built release replaces the snapshot. New candidates always use the weekly, RC, or
+stable tags in the table above.
+
+A weekly run is skipped when the diff from the last weekly tag to `HEAD` contains only
+documentation: `docs/**` and `*.md`. A change to `packaging/**`, `scripts/**`, source, tests,
+or the lock is a code change and produces a weekly candidate. There is at most one weekly
+tag per date; rerunning a failed workflow does not move an existing tag.
+
+## Source and tags
+
+- Weekly candidates and release tags are built only from `main`.
+- A release build starts from a clean checkout. A dirty worktree is never a release input.
+- Every release build names its tag with `--tag`. `npm run release:build` and
+  `npm run release:manifest` fail when it is absent; there is no implicit stable
+  `v<package version>` default. The planned release workflow will pass `github.ref_name` for
+  a tag build and the `release_tag` input for a manual dispatch.
+- Before creating a tag, run `npm run release:preflight -- --tag <tag> --artifacts <candidate>`.
+  It checks the lock through `toolchain:verify`, tag/version agreement through
+  `releaseShape`, required artifacts, updater key, signing labels, and the audit bundle. It
+  writes a JSON report and exits non-zero when any check fails; it does not create tags or
+  publish.
+- The tag commit must be reachable from the selected branch and must contain the lock and
+  policy being claimed.
+- Tags are immutable. Do not force-push, move, or reuse a release tag; a bad build gets a
+  new patch or release-candidate number.
+- The release manifest records the full source commit, the tag, the branch, the lock hash,
+  and the workflow run. A tag build checks out a detached HEAD, so it passes
+  `--branch <name>`; an unresolved branch fails the manifest instead of guessing one.
+
+## Versions
+
+The single source is `package.json`; `npm run version:sync` propagates it to the Tauri
+configuration, the workspace manifest, the workspace entries in `Cargo.lock`, and the
+generated contract metadata. `npm run version:check` rejects drift.
+
+| Channel | Tag | Package version | Notes |
+| --- | --- | --- | --- |
+| Weekly | `v0.1.0-weekly.20261116` | `0.1.0-weekly.20261116.<7-char-sha>` | The tag is the release identity; the package version adds the source commit. |
+| Release candidate | `v0.1.0-rc.1` | `0.1.0-rc.1` | Exact tag/version match. |
+| Stable | `v0.1.0` | `0.1.0` | Exact tag/version match. |
+
+The weekly version is stamped only in the CI workspace; it is never committed. The release
+verifier checks that the package version starts with the tag's SemVer base and carries the
+recorded commit suffix. Stable and release-candidate tags must match the package version
+exactly.
+
+The Tauri configuration and the Rust workspace version must agree with `package.json` at
+build time. An RC or weekly identifier is valid SemVer, but it is not a substitute for the
+numeric version required by the Windows MSI installer; see [Artifact formats](#artifact-formats).
+
+## Platform matrix
+
+| Platform | Target | Variants | Bundle scope | Runner |
+| --- | --- | --- | --- | --- |
+| Windows x64 | `x86_64-pc-windows-msvc` | bundled, system | Full bundled set on Windows | `windows-2025` |
+| Linux x64 | `x86_64-unknown-linux-gnu` | bundled, system | Full bundled set, including VapourSynth/Python and native metrics | `ubuntu-24.04` |
+| macOS arm64 | `aarch64-apple-darwin` | bundled, system | Full bundled set, including VapourSynth/Python and native metrics | `macos-15` |
+| macOS x64 | `x86_64-apple-darwin` | bundled, system | Full bundled set, including VapourSynth/Python and native metrics | `macos-15-intel` |
+
+Every channel uses all eight target/variant legs. A leg is not optional because another
+target succeeds. Every bundled leg is intended to carry the full provider set. The current
+local artifacts are not release candidates: they predate the lock, and the observed Windows
+artifact lacks providers the contract claims. No target is called full until its lock and
+smoke gate pass. A bundle is not renamed to imply a capability it does not carry.
+
+Excluded targets are Windows arm64 and Linux arm64. macOS arm64 and x64 are thin builds,
+never universal. macOS 15.0 is the floor, because the vsjetpack plugin wheels use
+`macosx_15_0`. Linux is Ubuntu 24.04 / Debian 13 with glibc 2.39;
+Ubuntu 22.04 and Debian 12 are not supported release baselines.
+
+## Artifact formats
+
+| Platform | Weekly and RC | Stable |
+| --- | --- | --- |
+| Windows | NSIS `.exe` and portable `.zip` | MSI, NSIS `.exe`, portable `.zip` |
+| macOS | Ad-hoc-signed `.dmg` and `.app.zip` | Ad-hoc-signed `.dmg` and `.app.zip` |
+| Linux | `.deb` and AppImage | `.deb` and AppImage |
+
+Windows MSI is stable-only. Tauri's WiX bundler accepts only numeric prerelease/build
+identifiers for MSI, and the weekly and RC identifiers contain words; attempting an MSI for
+those channels is a release error, not a warning. NSIS and the portable ZIP carry the
+prerelease build instead.
+
+Linux RPM is not a release artifact. The supported Linux forms are the `.deb` and the
+AppImage. The `.deb` declares WebKitGTK 4.1; the system variant also declares FFMS2. The
+AppImage is built on the Ubuntu 24.04 baseline and documents the FUSE 2 fallback.
+
+## Website download metadata
+
+The public site must build and render without a GitHub request. Its checked-in
+`apps/website/release-manifest.json` is the published release manifest snapshot; its tag,
+publication date, asset names, asset kinds, and byte sizes all come from that manifest. The
+current snapshot is the historical `v0.1.0-1` preview described above, not a channel build.
+The visible version comes from `package.json`, the repository's one version source.
+
+Run `npm run release:website` to project the manifest into
+`apps/website/src/site/release.generated.json`. Commit the source manifest and the generated
+projection with the release, and do not hand-edit either one. When a release manifest is
+prepared for publication, replace the checked-in snapshot with the complete release manifest,
+regenerate the projection, and review the diff. The website derives its platform groups and
+download links from the manifest rather than carrying a second asset list.
+
+CI runs `npm run check:website-release -- --urls`. It rejects a stale projection and performs
+a `HEAD` request for every installer, portable, and checksum URL, comparing GitHub's
+`Content-Length` with the size in the manifest. A missing URL or a changed asset fails the
+web gate.
+
+## Unsigned distribution
+
+The project currently has no Authenticode certificate, no Apple Developer ID, and no
+notarisation. The release policy permits unsigned artifacts, but never describes them as
+signed, notarised, or publisher-verified.
+
+| Platform | Current trust state | User-facing consequence |
+| --- | --- | --- |
+| Windows | Unsigned | SmartScreen may warn; the release notes require SHA-256 verification before **More info → Run anyway**. |
+| macOS | Ad-hoc signed, not notarised | Gatekeeper blocks a downloaded app until the documented override; the release notes never claim `spctl` acceptance or a stapled ticket. |
+| Linux | Unsigned | The `.deb`/AppImage rely on SHA-256 and the published audit bundle; there is no package-signing claim. |
+
+An unsigned build may be published on the stable channel. Its release object and manifest
+must carry `code_signed: false` and `notarized: false`. A future certificate changes those
+fields; it does not silently change the policy for older artifacts.
+
+Ad-hoc macOS signing covers every nested Mach-O before the outer `.app` is signed. The
+release notes must name the Gatekeeper override and the absence of notarisation. Code
+signing is a distribution decision; the release workflow must not imply it from the updater
+signature.
+
+## Toolchain lock gate
+
+`packaging/toolchain.lock.json` is the only version input for a release. The manifest owns
+the immutable source references; the lock records the built output for every component and
+target: provenance URL, SHA-256, size, install path, and the file list for directory
+artifacts. The lock is generated, never hand-written.
+
+`npm run toolchain:lock` reads the reviewed manifest and four built target trees, hashes the
+actual files, and writes the lock. Its default input is `dist/cargo/toolchain/<target>/`; use
+`--from <directory>` when the trees are elsewhere. It refuses to write unless every target
+directory exists, every claimed artifact is present and non-empty, and every target has at
+least one component without a duplicate install path. A source-built component's URL is its source provenance URL; its SHA-256 is the
+built output. `--check` compares the generated lock with the checked-in file without writing.
+
+`npm run toolchain:verify` is the local and CI check after generation. It fails closed when:
+
+- `packaging/toolchain.json` or `packaging/toolchain.lock.json` is absent;
+- any of the four release targets is absent from the lock;
+- a source is a branch, `latest`, or an unhashed URL;
+- a claimed component has no artifact for a target;
+- a lock component disagrees with the manifest's version, licence, or source;
+- an artifact lacks a SHA-256, size, or install path under `tools/`;
+- a target's install path is duplicated or does not match the manifest.
+
+The verifier checks metadata and manifest/lock agreement. It does not inspect wheel tags,
+SPDX licence IDs, build-tool versions, patch ancestry, or provider semantics.
+
+There is no fallback to `dist/tools`, a system package manager, or a network lookup. A target
+without a lock entry stays **not provided**; a channel with a missing target stays blocked.
+The weekly skip rule never bypasses this gate.
+
+Updating a component is a reviewed change to `packaging/toolchain.json` followed by
+`toolchain:lock`, with the lock diff reviewed as part of the pull request. The lock is not
+auto-bumped from upstream tags. A component with no stable, machine-readable source is not
+claimed as bundled for that target.
+
+The reviewed `packaging/toolchain.json` is present, but `packaging/toolchain.lock.json` is not.
+The verifier therefore reports the gate as closed; the existing `dist/tools` tree is not a lock
+and cannot satisfy it.
+
+## Update policy
+
+The updater is a **stable-only** channel. Weekly and release-candidate builds never write an
+updater manifest and never offer themselves to installed copies.
+
+The update artifact is verified with a project minisign key, separate from code signing. The
+public key is compiled into the application; the private key and its password are supplied
+to CI as secrets and are never committed. `npm run tauri signer generate` creates the key
+pair when the release owner is ready to provision it.
+
+- The updater checks a stable `latest.json`; it refuses downgrades and never installs
+  silently. The user approves the download and restart.
+- `createUpdaterArtifacts` and `latest.json` remain disabled until the public key is in the
+  application and the private key is in CI. A stable release without those secrets publishes
+  no updater claim.
+- The stable updater covers Windows and the Linux AppImage. The macOS updater remains
+  disabled until a Developer ID exists; ad-hoc signing is not a trusted macOS update
+  identity. The `.deb` is a manual install and update path.
+- The updater signature proves the update manifest and artifact came from the project key.
+  It does not make the initial installer trusted by Windows or macOS.
+
+## Transparency
+
+Every published target/variant release carries:
+
+- `SHA256SUMS` for its installers, portable artifacts, toolchain lock, notices, SBOM, and
+  source offer;
+- that target's `toolchain.lock.json`;
+- `THIRD_PARTY_NOTICES.md` generated from the resolved component set;
+- `sbom.spdx.json` with the bundle revision and target triple;
+- `SOURCE-OFFER.md` naming the exact source revision, recipe, patches, and publication
+  location for every GPL/LGPL component;
+- a GitHub build-provenance attestation for each artifact's digest.
+
+The attestation is keyless and is not a code signature. It binds the artifact to the
+repository, commit, workflow, and builder, but it does not make Windows SmartScreen or
+Gatekeeper trust the file. The release notes state that distinction.
+
+A target's lock, notices, SBOM, and source offer never stand in for another target's. The
+release manifest records the audit file names and hashes. The planned `GET /api/toolchain`
+summary and the About screen are not implemented yet; no release may claim they are.
+
+## Publication and retention
+
+- A weekly run that finds non-documentation changes creates its tag and publishes a GitHub
+  pre-release automatically. It is explicitly unsigned and has no updater.
+- RC and stable tags create a **draft** GitHub release. A release owner checks the lock,
+  checksums, unsigned labels, audit bundle, and source offer before publishing.
+- The release manifest derives `channel` and `prerelease` from the tag and records
+  `code_signed`, `notarized`, and the updater claim from explicit inputs. The tag must be
+  supplied explicitly; a missing tag is an error, never a stable default. Weekly tags are
+  always unsigned with no updater; RC tags are prereleases; only stable tags may enable the
+  updater. A notarized release must also be marked code-signed.
+- Keep the last eight weekly releases. Older weekly release objects may be removed; their
+  tags remain and are never moved. Release candidates and stable releases are retained for
+  audit.
+- A bad stable release is unpublished or superseded, and `latest.json` is repointed to the
+  previous stable artifact. A bad weekly is superseded by the next weekly release.
+- All artifacts are built from the tagged commit and retain the workflow run and lock hash
+  in the manifest.
+
+## Current gate
+
+The following are unresolved and block the first workflow:
+
+1. **Full lock absent.** `packaging/toolchain.json` and the component recipes exist, but no
+   generated lock exists for the four targets. The verifier intentionally fails closed. A
+   complete lock needs real per-target inputs and hashes; it cannot be inferred from the
+   current `dist/tools` tree.
+2. **macOS relocation not proven.** The recipes stage the full macOS provider set, but the
+   relocation, nested-code signing, and clean-install gate has not been run. Until it passes,
+   macOS bundled variants must not claim to be verified.
+3. **Updater key not provisioned.** No minisign public key is compiled in and no private key
+   is in CI, so stable publication cannot claim an updater yet.
+4. **No certificates.** Windows and Linux are unsigned; macOS is ad-hoc signed and not
+   notarised. The release notes must say so until certificates exist.
+5. **No release publication workflow.** `.github/workflows/toolchain.yml` builds, caches
+   and assembles the toolchain and can package installers on manual dispatch, but the weekly
+   release channel, updater publication and `release.yml` are intentionally not added while
+   the full lock is absent. `.github/workflows/weekly.yml` is only the scheduled test suite.
+
+The implementation order is: run the component workflow, populate all four target entries
+with its generated `toolchain:lock`, pass `toolchain:verify`, prove macOS relocation and
+signing, provision the updater key, then add the weekly and tagged workflows with the
+fail-closed gate.

@@ -30,9 +30,17 @@ interface CaptureEntry {
     readonly height: number;
 }
 
-function galleryPath(path: string, mode: string): string {
-    const url = new URL(path, "http://gallery.local");
-    url.searchParams.set("gallery", mode);
+function galleryPath(item: GalleryCase): string {
+    // The demo is a separate entry at /demo/ and routes with a fragment, so the screenshot
+    // path is the hash and the gallery mode stays on the entry URL. A capture-only host
+    // route replaces the shell entirely and has no hash route of its own.
+    const url = new URL("/demo/", "http://gallery.local");
+    if (item.capture !== undefined) {
+        url.searchParams.set("capture", item.capture);
+        return `${url.pathname}${url.search}`;
+    }
+    url.searchParams.set("gallery", item.mode ?? "populated");
+    url.hash = item.path.startsWith("/") ? item.path : `/${item.path}`;
     return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -135,7 +143,7 @@ async function capture(page: Page, testInfo: TestInfo, item: GalleryCase): Promi
 for (const item of GALLERY_CASES) {
     test(`${item.id}`, async ({ page }, testInfo) => {
         const theme = testInfo.project.name === "light" ? "light" : "dark";
-        await page.goto(galleryPath(item.path, item.mode ?? "populated"));
+        await page.goto(galleryPath(item));
         await settle(page, item, theme);
         if (item.prepare !== undefined) {
             await item.prepare(page);

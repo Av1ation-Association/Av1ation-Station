@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
-    useCreateProject,
     useDeleteProject,
     useHealth,
     useProjects,
@@ -10,12 +9,14 @@ import {
 } from "@av1ation/api";
 import type { ProjectSummary } from "@av1ation/contracts";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { FolderOpen, Pencil, Plus } from "lucide-react";
+import { FolderOpen, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { NewProjectButton, NewProjectForm } from "./NewProject";
 import { ListRow, ROW_NAME_CLASS } from "../../shared/ListRow";
 import { RemoveButton } from "../../shared/RemoveButton";
+import { ScreenMain } from "../../shared/ScreenMain";
 import { SearchField } from "../../shared/SearchField";
 import { Skeleton } from "../../shared/Skeleton";
 import { formatBytes } from "../../shared/format";
@@ -32,7 +33,14 @@ function videosLabel(project: ProjectSummary): string {
     return `${String(project.completed_videos)} / ${String(project.video_count)} videos`;
 }
 
-function ProjectRow({ project, onDelete }: { project: ProjectSummary; onDelete: () => void }) {
+/** One Home row, exported so the documentation can mount the real row against sample data. */
+export function ProjectRow({
+    project,
+    onDelete,
+}: {
+    project: ProjectSummary;
+    onDelete: () => void;
+}) {
     const rename = useRenameProject();
     const revealPath = useRevealPath();
     const navigate = useNavigate();
@@ -211,63 +219,6 @@ function ProjectRow({ project, onDelete }: { project: ProjectSummary; onDelete: 
     );
 }
 
-function NewProjectForm({ onClose }: { onClose: () => void }) {
-    const create = useCreateProject();
-    const [name, setName] = useState("");
-    const trimmed = name.trim();
-
-    const submit = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (trimmed === "" || create.isPending) {
-            return;
-        }
-        create.mutate(trimmed, {
-            onSuccess: () => {
-                setName("");
-                onClose();
-                toast.success("Project created");
-            },
-        });
-    };
-
-    return (
-        <form onSubmit={submit} className="mb-4 rounded-lg border border-line bg-surface p-4">
-            <label
-                htmlFor="new-project-name"
-                className="text-[11px] font-medium tracking-wide text-ink-secondary uppercase"
-            >
-                Project name
-            </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <input
-                    id="new-project-name"
-                    autoFocus
-                    value={name}
-                    maxLength={MAX_NAME}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Untitled project"
-                    className="h-9 min-w-0 flex-1 rounded-md border border-line-strong bg-app px-3 text-sm text-ink placeholder:text-ink-muted"
-                />
-                <div className="flex gap-2">
-                    <Button type="submit" disabled={trimmed === "" || create.isPending}>
-                        {create.isPending ? "Creating…" : "Create project"}
-                    </Button>
-                    <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-                        Cancel
-                    </Button>
-                </div>
-            </div>
-            {create.isError ? (
-                <p role="alert" className="mt-3 mb-0 text-[12px] leading-relaxed text-danger">
-                    {create.error instanceof Error
-                        ? create.error.message
-                        : "The project could not be created. Try again."}
-                </p>
-            ) : null}
-        </form>
-    );
-}
-
 function LoadingRows() {
     return (
         <ul
@@ -346,7 +297,7 @@ export function HomeScreen() {
     };
 
     return (
-        <main id="main" className="page flex min-h-[calc(100dvh-3.5rem)] flex-col py-8">
+        <ScreenMain className="page flex min-h-[calc(100dvh-3.5rem)] flex-col py-8">
             <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <h1 className="m-0 min-w-0 text-2xl font-semibold tracking-tight text-ink">
                     Projects
@@ -361,14 +312,11 @@ export function HomeScreen() {
                         label="Search projects by name or path"
                         className="h-9 w-full sm:w-64"
                     />
-                    <Button
+                    <NewProjectButton
                         onClick={() => setCreating((open) => !open)}
-                        aria-expanded={creating}
+                        expanded={creating}
                         disabled={isError}
-                    >
-                        <Plus aria-hidden="true" className="h-4 w-4" />
-                        New project
-                    </Button>
+                    />
                 </div>
             </header>
 
@@ -413,10 +361,7 @@ export function HomeScreen() {
                             A project holds one configuration and one video queue, plus the scene
                             chunks every run retains.
                         </p>
-                        <Button onClick={() => setCreating(true)}>
-                            <Plus aria-hidden="true" className="h-4 w-4" />
-                            New project
-                        </Button>
+                        <NewProjectButton onClick={() => setCreating(true)} />
                     </div>
                 ) : null}
 
@@ -548,6 +493,6 @@ export function HomeScreen() {
                     </div>
                 )}
             </dialog>
-        </main>
+        </ScreenMain>
     );
 }

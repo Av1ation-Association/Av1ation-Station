@@ -263,7 +263,7 @@ pub(super) fn encode(
         // Parallel Encoder's ticks carry the aggregate frame count but no scene count. A
         // reader also needs to know how many of the video's scenes are done, and this is the
         // one place that sees both every completion and the table they are counted against.
-        let resume = Resume::for_sequence(id, &app.condor.scenes, &config);
+        let resume = Resume::for_sequence(id, &app.condor.scenes, &config)?;
 
         let (progress_tx, progress_rx) = mpsc::channel::<SequenceProgressEvent>();
         let forwarder = thread::Builder::new()

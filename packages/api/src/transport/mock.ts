@@ -23,7 +23,7 @@ import { put as putRoute } from "./mock/routes/put";
 import { putJson as putJsonRoute } from "./mock/routes/putJson";
 import { patchJson as patchJsonRoute } from "./mock/routes/patchJson";
 import { deleteRoute } from "./mock/routes/delete";
-import { fixtures, MOCK_FILTER_SCHEMAS, MOCK_SCRIPT_GUIDE } from "./mock/fixtures";
+import { fixtures, MOCK_ENCODERS, MOCK_FILTER_SCHEMAS, MOCK_SCRIPT_GUIDE } from "./mock/fixtures";
 import { pickBrowserFile, pickBrowserFiles } from "./mock/pickers";
 
 export interface EffectiveConfigValues {
@@ -63,8 +63,8 @@ export class MockTransport implements Transport {
     readonly videoOverrideFields = new Map<string, Record<string, unknown>>();
     /** Template configuration documents, keyed by template id, so a section save round-trips. */
     readonly templateDefaults = new Map<string, Record<string, unknown>>();
-    /** The demo's clean preflight unless a route test supplies another. */
-    readonly validation: Partial<VideoValidation> | undefined;
+    /** The demo's clean preflight unless a route test or fixture supplies another. */
+    validation: Partial<VideoValidation> | undefined;
     /** Saved encoder forks, so the Encoders tab round-trips without a backend. */
     forks: Array<{ record: EncoderFork; descriptor: EncoderDescriptor }> = [];
     /** User edits to the demo's built-in descriptors, keyed by encoder id. */
@@ -182,31 +182,21 @@ export class MockTransport implements Transport {
             [
                 "/api/encoders",
                 () => [
-                    {
-                        id: "x265",
-                        base: "x265",
-                        label: "x265",
-                        default: { X265: { executable: null, options: {} } },
-                        parameters: this.parametersFor("x265"),
+                    ...MOCK_ENCODERS.map((encoder) => ({
+                        id: encoder.id,
+                        base: encoder.id,
+                        label: encoder.label,
+                        default: encoder.default,
+                        parameters: this.parametersFor(encoder.id),
                         source: "Builtin",
-                        version: "x265 on PATH",
+                        version: encoder.version,
                         available: true,
                         fork: false,
-                        overridden: this.parameterOverrides.has("x265"),
-                        ...this.customProvider("encoder:x265"),
-                    },
-                    {
-                        id: "svt-av1",
-                        base: "svt-av1",
-                        label: "SVT-AV1",
-                        default: { SVTAV1: { executable: null, options: {} } },
-                        parameters: this.parametersFor("svt-av1"),
-                        source: "Builtin",
-                        available: false,
-                        fork: false,
-                        overridden: this.parameterOverrides.has("svt-av1"),
-                        ...this.customProvider("encoder:svt-av1"),
-                    },
+                        overridden: this.parameterOverrides.has(encoder.id),
+                        ...this.customProvider(
+                            encoder.id === "ffmpeg" ? "ffmpeg" : `encoder:${encoder.id}`,
+                        ),
+                    })),
                     ...this.forks.map((entry) => entry.descriptor),
                 ],
             ],
@@ -269,30 +259,7 @@ export class MockTransport implements Transport {
         if (override !== undefined) {
             return override;
         }
-        return id === "x265"
-            ? {
-                  "--crf": {
-                      delimiter: "Space",
-                      label: "Constant Rate Factor",
-                      description: "Quality target; lower keeps more detail.",
-                      doc_link: null,
-                      kind: {
-                          Number: {
-                              integer: true,
-                              min: 0,
-                              max: 63,
-                              step: 1,
-                              unit: null,
-                          },
-                      },
-                      default: 24,
-                      widget: "Auto",
-                      advanced: false,
-                      group: null,
-                      relations: [],
-                  },
-              }
-            : {};
+        return MOCK_ENCODERS.find((encoder) => encoder.id === id)?.parameters ?? {};
     }
 
     /** A saved custom provider, projected onto its catalogue row the way the service does. */

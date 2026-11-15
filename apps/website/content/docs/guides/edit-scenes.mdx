@@ -1,0 +1,61 @@
+## Before you start
+
+Scene detection must have run for this video, and the video must not be encoding. While a run is active the scene table is read-only.
+
+## Detect scenes
+
+Open the Scenes tab. If the table is empty, run scene detection from the empty state or the video's Scene detection card. Detection writes the boundaries and their scores; the Scenes tab then shows the rail and timeline.
+
+<Callout tone="warning" title="Detection replaces edits">
+Running detection again replaces the table. Splits, merges, and per-scene encoder documents tied to the old boundaries are not preserved.
+</Callout>
+
+## Select and inspect
+
+<Steps>
+<Step title="Select a scene" result="The details panel names the range, the encoder provenance, and the engine data.">
+Select a block on the timeline or a row in the rail. The selection is shared by the player, the timeline, and the details panel.
+</Step>
+<Step title="Read the engine data" result="You know whether the scene has a chunk and whether it has been measured.">
+A scene with no retained chunk says so. A score appears only after the measuring sequence wrote it.
+</Step>
+</Steps>
+
+## Split, merge, or delete
+
+- **Split** at the playhead inside a scene.
+- **Merge** two or more adjacent selected scenes.
+- **Delete** selected scenes. This removes their boundaries and retained chunks.
+- **Add scene here** appears in a gap; a gap is legal but a warning for the run.
+
+A split changes the ownership of frames and invalidates the old chunks for the affected scenes. A delete is not restored by undo once its chunks are removed.
+
+## Undo
+
+One structural edit can be undone from the toolbar. Undo applies to the edit, not to a chunk deletion on disk. Saved chunk removal is a Storage action and is permanent.
+
+## Edit multiple scenes
+
+Shift-click extends the selection. The details panel then shows aggregate range and encoder data instead of a single scene's fields. Bulk actions apply only to the selected rows; the player follows the first selected scene's start unless you seek.
+
+## Set a scene encoder
+
+Select one or more scenes and choose **Change** in the encoder row. Use the sheet to copy the video's encoder or write an encoder document to exactly the selected scenes. The scope is visible in the sheet title and in the row's custom marker.
+
+## Reset chunks
+
+Reset removes the retained chunk for the current selection and marks those scenes for re-encoding. It does not change the boundaries. A reset while the video is locked is refused.
+
+## Check your result
+
+The table should have no overlaps or reversed ranges. Gaps are named as warnings; only errors disable Start. The intended edit should be visible in the rail and timeline, and Save should be complete with no dirty draft.
+
+## If it goes wrong
+
+An invalid boundary keeps the table visible and names the scene. Fix the range in the details panel; Start remains disabled until the error is gone. If undo is unavailable, the edit was a destructive chunk action rather than a structural edit.
+
+<RelatedLinks>
+<a href="/docs/concepts/scenes">Scenes and preview</a>
+<a href="/docs/reference/scenes">Scenes and player reference</a>
+<a href="/docs/guides/compare-previews">Compare Original, Decoded, and Encoded</a>
+</RelatedLinks>

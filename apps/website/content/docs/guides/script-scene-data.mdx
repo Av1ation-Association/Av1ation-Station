@@ -1,0 +1,57 @@
+## Before you start
+
+The video must use a VapourSynth or VapourSynth script input, and a VapourSynth provider must be available. If the script reads scene values, scene detection must have run.
+
+## Open the script page
+
+Open the video's **Script** tab. The editor shows the script and a script-data panel listing the injected module's variables and scene fields. The project and template script pages use the same editor at their own scope.
+
+## Read the variables
+
+The generated module is written into the scene directory before each sequence. It exposes the video path, the scratch directory, the run id, the current sequence, and the detected scenes. A field is present only when the runner knows it; the stub documents the same surface the editor completes from.
+
+<Steps>
+<Step title="Inspect the stub" result="You can name the module and the fields your script will read.">
+The stub is generated from the runner's module source. Do not hand-write a second symbol list; it will drift.
+</Step>
+<Step title="Check the input path" result="The video path is populated for a queued video.">
+A project or template script cannot name a source path. The runner injects the queued video's own path per run.
+</Step>
+</Steps>
+
+## Edit the script
+
+The script is one input for the whole video. Do not generate one script per scene. Use the scene table in the module and apply frame-range behaviour inside the graph.
+
+<Callout tone="warning" title="No rewriting">
+The editor does not rewrite user Python. If a filter is unavailable, name it and install it; the application will not patch around a missing namespace.
+</Callout>
+
+## Use scene data
+
+Iterate the scene list and compare a scene's start and end frames with your frame range. A field such as a scene's measurements may be absent for the current sequence; check before using it. The script should return one clip, not one clip per scene.
+
+## Validate
+
+Validation parses the script and can report the interpreter's error. It does not run the full encode, so a syntax-valid script can still fail on a missing filter, source, or output path.
+
+## Save
+
+Save writes the script at the current scope. A video save affects one video; a project save is inherited by videos without their own script; a template save affects new projects that apply it. Save is refused while the encoding video is locked.
+
+## Check your result
+
+Validation returns the clip or the expected error, and the saved document is what the next run reads. The script-data panel should list the fields you use.
+
+## If it goes wrong
+
+- **Import error**: the module path is wrong or the runner could not write it; check the scene directory.
+- **Missing namespace**: install the VapourSynth plugin or remove the call.
+- **No frames**: the source path is empty or the script returns an empty clip.
+- **Stale field**: the editor warns when the stub and the script disagree; reload the page and re-read the generated stub.
+
+<RelatedLinks>
+<a href="/docs/concepts/scripting">VapourSynth scripting</a>
+<a href="/docs/reference/script-api">Script data API</a>
+<a href="/docs/reference/general">General reference</a>
+</RelatedLinks>

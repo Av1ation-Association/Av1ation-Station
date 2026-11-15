@@ -1,0 +1,62 @@
+## Input
+
+The Encoding section reads the input chosen in General. It does not restate the source path; a video override of Encoding does not change what is decoded. The input kind affects which encoder paths and filters are valid, not the encoder family itself.
+
+## Encoder
+
+The encoder selector lists the families in the catalogue. The family determines the parameter schema, the default executable, and the version probe. Changing the family clears the executable, the saved build, and the parameter document; they are not portable across schemas.
+
+## Saved builds
+
+A saved build is a named executable of a known family, with its own probed version and survey. A build whose executable is missing remains listed but unavailable. Selecting it makes the run refuse with the build's name rather than silently using the family default.
+
+## Executable
+
+The executable row shows the resolved path for the selected build or the family default. It is a provider detail, not a free-form run argument. A path entered here must survive the version probe before it can be saved.
+
+## Passes
+
+| Setting | Effect |
+| --- | --- |
+| Single pass | One encode per scene, no analysis pass |
+| Two pass | A first pass writes statistics, the second uses them |
+| Passes | Number of analysis passes when the encoder supports them |
+
+Two-pass increases run time and is serialized in the encoder document. A per-scene encoder override carries its own pass configuration.
+
+## Colour and grain
+
+Colour fields describe the source and the encoded stream: matrix, transfer, primaries, range, and chroma location. Photon noise is a denoise or grain-retention control where the encoder supports it. A mismatched colour description is a warning at save, not a silent conversion.
+
+## Parameters
+
+The parameter table lists the encoder's schema. Each row shows a label, the flag, the current value, and whether it differs from the executable default. A search filters by label. The header counts set parameters so an accidental partial document is visible.
+
+## Add parameter
+
+Adding a parameter selects from the encoder's schema, not from arbitrary text. The new row is serialized like any other and participates in validation. A duplicate of an existing parameter is refused.
+
+## FFmpeg filter
+
+An FFmpeg filter string is passed to the encoder only where the selected path accepts one. It is validated as text, not interpreted by the application. A filter that the executable rejects fails the run at encoding time.
+
+## Warnings
+
+Warnings are advisory: an unusual combination is named but saved. An error blocks Save. A warning that repeats on every run is still worth fixing, because it hides the one that matters.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Engine default | No Encoding document at this scope |
+| Set | A saved encoder document exists |
+| Build unavailable | The selected saved build's executable is missing |
+| Inherited | A video reads the project document |
+| Invalid | A parameter value fails its schema |
+| Locked | A run prevents editing the encoding video |
+
+<RelatedLinks>
+<a href="/docs/guides/tune-encoder">Tune encoder parameters</a>
+<a href="/docs/reference/encoders">Encoders</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+</RelatedLinks>

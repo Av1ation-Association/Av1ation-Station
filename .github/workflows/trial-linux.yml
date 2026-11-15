@@ -1,0 +1,92 @@
+name: Linux runner trial
+
+# Manual trial, not a gate: it runs copies of the Rust and browser E2E jobs from ci.yml on
+# ubuntu-latest, so a maintainer can see whether those jobs actually need the Windows
+# runners they use today. Nothing here is required by branch protection, and changing the
+# real CI stays a separate decision once a run has passed or shown what is missing.
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: trial-linux-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    rust:
+        name: Rust checks (Linux trial)
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+                  components: rustfmt, clippy
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - uses: taiki-e/install-action@v2
+              with:
+                  tool: cargo-llvm-cov,cargo-audit
+            - run: rustup component add llvm-tools-preview
+            # The Windows job puts MSVC's link.exe ahead of Git's; the Linux toolchain
+            # links with the system cc, so there is nothing to assert here.
+            - run: npm ci
+            - name: Audit Rust dependencies
+              run: cargo audit --file rust/Cargo.lock
+            - name: Run Rust static profile
+              run: npm run check:rust
+            - name: Run Rust verification profile
+              run: npm run verify:rust
+            # A dispatch has no pull-request base, so the script falls back to HEAD^;
+            # fetch-depth 0 above makes that resolve.
+            - run: npm run coverage:check:changed -- --rust
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: trial-rust-coverage
+                  path: dist/coverage/rust/
+                  if-no-files-found: warn
+
+    e2e:
+        name: Browser E2E (Linux trial)
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        env:
+            CI: "true"
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - run: npm ci
+            # The hosted Ubuntu image lacks several Chromium shared libraries, so this
+            # trial installs them; the Windows job needs no equivalent step.
+            - run: npx playwright install --with-deps chromium
+            - name: Run browser E2E profile
+              run: npm run test:e2e
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: trial-playwright
+                  path: |
+                      dist/playwright-report/
+                      dist/test-results/
+                  if-no-files-found: warn

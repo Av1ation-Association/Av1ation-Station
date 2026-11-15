@@ -1,0 +1,63 @@
+## Project method
+
+The project Concatenation section chooses one default muxer for every inheriting video. The three methods are mkvmerge, FFmpeg, and IVF. The method determines the track map's namespace and which metadata features are available. A video can override the whole section.
+
+## Video workbench
+
+A video's Concatenation tab mounts one muxer at a time. Selecting a method changes the inventory, track map, and feature panels together; a track override keyed for another method is not reinterpreted.
+
+## Track map
+
+| Row kind | Default | Can exclude |
+| --- | --- | --- |
+| Encoded video | Included, locked | No |
+| Source audio | Included when selected | Yes, per track |
+| Source subtitles | Included when selected | Yes, per track |
+| Attachments | Not included | Yes, per file |
+
+mkvmerge track IDs, FFmpeg stream indices, and IVF's single stream are separate namespaces. Never copy a row override between methods; the workbench keys every row by the muxer that produced it.
+
+## Track sheet
+
+The sheet edits language, title, default, forced, commentary, hearing-impaired, and delay where the method supports them. Apply writes the row's override; Cancel discards it. An unmatched saved key remains visible so it can be removed rather than silently ignored.
+
+## Chapters
+
+mkvmerge can copy or replace source chapters. FFmpeg has a narrower chapter path; IVF has none. The chapter count is reported after probing. A copy decision is per method, not a universal switch.
+
+## Metadata
+
+Copy-all keeps the source tags. An explicit title and tag map replace them. FFmpeg exposes copy-on or copy-off only, because it has no tag-writing path. A tag key that the muxer rejects is reported by name.
+
+## Attachments
+
+Attachments are files carried by the container, not streams. Add a file, give it a name and MIME type, and include it. An attachment is not probed as a track and is not part of the encoded video row.
+
+## Extra inputs
+
+An extra input is another source merged before the encoded scenes. Each has a path, a track selection, and method options. Its paths are not copied to the output automatically; a missing extra input is refused at save or run time with its name.
+
+## Muxer limits
+
+| Method | Tracks | Chapters | Attachments | Tags |
+| --- | --- | --- | --- | --- |
+| mkvmerge | Full map | Copy or replace | Yes | Copy or replace |
+| FFmpeg | Single video plus selected streams | Limited | No | Copy on or off |
+| IVF | Raw AV1 only | No | No | No |
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| No inventory | The source has not been probed |
+| Probing | The muxer is reading source streams |
+| Probe failed | The muxer is missing or the source is unreadable |
+| Mapped | Rows carry include and override decisions |
+| Method unsupported | The selected muxer cannot express a requested track |
+| Locked | A run prevents editing the encoding video |
+
+<RelatedLinks>
+<a href="/docs/guides/concatenate">Configure concatenation and tracks</a>
+<a href="/docs/concepts/pipeline">How the pipeline works</a>
+<a href="/docs/reference/encoding">Encoding</a>
+</RelatedLinks>

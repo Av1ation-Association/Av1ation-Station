@@ -9,9 +9,10 @@ license = "GPL-3.0-only"
 publish = false
 
 [workspace.dependencies]
-# Pinned to the BoatsMcGee/Av1an fork. Cargo resolves the engine's three path-sibling
-# metric crates from this same git source, so no [patch] entries are needed.
-andean-condor = { git = "https://github.com/BoatsMcGee/Av1an", rev = "e0c34a1727053055228ebefa3cdb4f088d7b7831" }
+# Pinned to upstream rust-av/Av1an main, which now carries Condor. Cargo resolves the
+# engine's three path-sibling metric crates from this same git source, so no [patch]
+# entries are needed.
+andean-condor = { git = "https://github.com/rust-av/Av1an", rev = "7e37c21dffd13fbc7825d60586c69104e95e71a4" }
 av1ation-test-support = { path = "crates/test-support" }
 axum = { version = "0.8", features = ["ws"] }
 futures-util = "0.3"

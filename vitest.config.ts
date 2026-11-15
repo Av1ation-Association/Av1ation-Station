@@ -6,9 +6,11 @@ export default defineConfig({
         // keeps the budget about the work, not the instrumentation; it does not relax an
         // assertion.
         testTimeout: 15_000,
-        // Reuse workers across files. The shared setup and per-file cleanup keep DOM state
-        // isolated; `test:web:isolated` is the escape hatch when a leak is suspected.
-        isolate: false,
+        // File-scoped `vi.mock` factories cannot share a module cache. A broad route/a11y
+        // file can pin an editor or provider module under its own stub, leaving a later test
+        // with the wrong context even though its mock is registered. A fresh fork per file
+        // costs about half a minute and makes the suite independent of file order.
+        isolate: true,
         setupFiles: ["./packages/ui/src/test/setup.ts"],
         exclude: ["**/node_modules/**", "**/dist/**", "**/target/**", "e2e/**"],
         coverage: {

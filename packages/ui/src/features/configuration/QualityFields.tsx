@@ -194,6 +194,100 @@ function metricBodySchema(root: JsonSchema, node: JsonSchema, key: MetricKey): J
     };
 }
 
+/** The target band inside a metric, split out so a reference can mount it without the dropdown. */
+export function TargetRangeField({
+    value,
+    onChange,
+    disabled,
+}: {
+    value: unknown;
+    onChange: (next: Record<string, unknown>) => void;
+    disabled: boolean;
+}) {
+    const { key, body } = metricEntry(value);
+    const range = Array.isArray(body.target_range) ? (body.target_range as unknown[]) : [0, 0];
+    const whole = INTEGER_METRICS.includes(key);
+
+    return (
+        <div className="min-w-0">
+            <span className="block text-[10.5px] font-medium text-ink-secondary">Target range</span>
+            <div className="mt-1 flex items-center gap-1.5">
+                <NumberField
+                    value={typeof range[0] === "number" ? range[0] : 0}
+                    label="Target range minimum"
+                    disabled={disabled}
+                    step={whole ? 1 : 0.1}
+                    integer={whole}
+                    onChange={(next) => onChange(withTargetRange(value, 0, next))}
+                    className="w-[116px]"
+                />
+                <span className="text-[10.5px] text-ink-muted">to</span>
+                <NumberField
+                    value={typeof range[1] === "number" ? range[1] : 0}
+                    label="Target range maximum"
+                    disabled={disabled}
+                    step={whole ? 1 : 0.1}
+                    integer={whole}
+                    onChange={(next) => onChange(withTargetRange(value, 1, next))}
+                    className="w-[116px]"
+                />
+            </div>
+        </div>
+    );
+}
+
+/** The encoder's quantizer search bounds, shared with the sparse target-quality screen. */
+export function QuantizerRangeField({
+    value,
+    onChange,
+    min,
+    max,
+    disabled,
+}: {
+    value: unknown;
+    onChange: (next: [number, number]) => void;
+    min: number;
+    max: number;
+    disabled: boolean;
+}) {
+    const range = Array.isArray(value) ? value : [];
+    const lower = typeof range[0] === "number" ? range[0] : min;
+    const upper = typeof range[1] === "number" ? range[1] : max;
+
+    return (
+        <div className="min-w-0">
+            <span className="block text-[10.5px] font-medium text-ink-secondary">
+                Quantizer range
+            </span>
+            <div className="mt-1 flex items-center gap-1.5">
+                <NumberField
+                    label="Quantizer range minimum"
+                    value={lower}
+                    min={min}
+                    max={max}
+                    step={1}
+                    integer
+                    disabled={disabled}
+                    onChange={(next) => onChange([next, upper])}
+                    className="w-[116px]"
+                />
+                <span className="text-[10.5px] text-ink-muted">to</span>
+                <NumberField
+                    label="Quantizer range maximum"
+                    value={upper}
+                    min={min}
+                    max={max}
+                    step={1}
+                    integer
+                    disabled={disabled}
+                    onChange={(next) => onChange([lower, next])}
+                    className="w-[116px]"
+                />
+            </div>
+        </div>
+    );
+}
+
 export function MetricField({
     value,
     onChange,
@@ -205,8 +299,9 @@ export function MetricField({
 }: {
     value: unknown;
     onChange: (next: Record<string, unknown>) => void;
-    root: JsonSchema;
-    node: JsonSchema;
+    /** The generated schemas for the metric's optional body; omitted by a metric-only control. */
+    root?: JsonSchema | undefined;
+    node?: JsonSchema | undefined;
     disabled: boolean;
     /** A sibling control that shares the row, such as Maximum probes. */
     trailing?: ReactNode;
@@ -215,10 +310,9 @@ export function MetricField({
 }) {
     const [open, setOpen] = useState(false);
     const { key, body } = metricEntry(value);
-    const range = Array.isArray(body.target_range) ? (body.target_range as unknown[]) : [0, 0];
     const count = metricOptionCount(value);
-    const extras = metricBodySchema(root, node, key);
-    const whole = INTEGER_METRICS.includes(key);
+    const extras =
+        root === undefined || node === undefined ? null : metricBodySchema(root, node, key);
 
     return (
         <div className="min-w-0">
@@ -247,53 +341,30 @@ export function MetricField({
                 </label>
 
                 {showRange ? (
-                    <div className="min-w-0">
-                        <span className="block text-[10.5px] font-medium text-ink-secondary">
-                            Target range
-                        </span>
-                        <div className="mt-1 flex items-center gap-1.5">
-                            <NumberField
-                                value={typeof range[0] === "number" ? range[0] : 0}
-                                label="Target range minimum"
-                                disabled={disabled}
-                                step={whole ? 1 : 0.1}
-                                integer={whole}
-                                onChange={(next) => onChange(withTargetRange(value, 0, next))}
-                                className="w-[116px]"
-                            />
-                            <span className="text-[10.5px] text-ink-muted">to</span>
-                            <NumberField
-                                value={typeof range[1] === "number" ? range[1] : 0}
-                                label="Target range maximum"
-                                disabled={disabled}
-                                step={whole ? 1 : 0.1}
-                                integer={whole}
-                                onChange={(next) => onChange(withTargetRange(value, 1, next))}
-                                className="w-[116px]"
-                            />
-                        </div>
-                    </div>
+                    <TargetRangeField value={value} onChange={onChange} disabled={disabled} />
                 ) : null}
 
                 {trailing === undefined ? null : <div className="min-w-0">{trailing}</div>}
             </div>
 
-            <button
-                type="button"
-                aria-expanded={open}
-                onClick={() => setOpen((previous) => !previous)}
-                className="mt-2 flex items-center gap-1 text-[10.5px] text-brand-text transition-colors duration-150 hover:text-ink"
-            >
-                {open ? (
-                    <ChevronDown aria-hidden="true" className="h-3 w-3" />
-                ) : (
-                    <ChevronRight aria-hidden="true" className="h-3 w-3" />
-                )}
-                Metric options
-                <span className="text-ink-muted">· {count} set</span>
-            </button>
+            {extras === null ? null : (
+                <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpen((previous) => !previous)}
+                    className="mt-2 flex items-center gap-1 text-[10.5px] text-brand-text transition-colors duration-150 hover:text-ink"
+                >
+                    {open ? (
+                        <ChevronDown aria-hidden="true" className="h-3 w-3" />
+                    ) : (
+                        <ChevronRight aria-hidden="true" className="h-3 w-3" />
+                    )}
+                    Metric options
+                    <span className="text-ink-muted">· {count} set</span>
+                </button>
+            )}
 
-            {open && extras !== null ? (
+            {open && extras !== null && root !== undefined ? (
                 <div
                     aria-label="Metric options"
                     className="mt-2 rounded-md border border-line bg-sunken px-3"
@@ -369,7 +440,8 @@ export function strategyEntry(value: unknown): {
     if (key === "Skip") {
         return {
             key: "Skip",
-            skip: typeof body.skip === "number" ? body.skip : 10,
+            // The engine now rejects a zero stride; legacy documents may still carry one.
+            skip: typeof body.skip === "number" ? Math.max(1, Math.trunc(body.skip)) : 10,
             position: "Middle",
             lengthKind: "Frames",
             length: 11,
@@ -405,7 +477,7 @@ export function withStrategy(
         return "Whole";
     }
     if (current.key === "Skip") {
-        return { Skip: { skip: Math.max(0, Math.trunc(current.skip)) } };
+        return { Skip: { skip: Math.max(1, Math.trunc(current.skip)) } };
     }
     return {
         Subset: {
@@ -498,9 +570,9 @@ export function ProbeFields({
                             disabled={disabled}
                             step={1}
                             integer
-                            min={0}
+                            min={1}
                             onChange={(skip) =>
-                                onStrategy(withStrategy(strategy, { skip: Math.max(0, skip) }))
+                                onStrategy(withStrategy(strategy, { skip: Math.max(1, skip) }))
                             }
                             className="w-[116px]"
                         />

@@ -96,6 +96,16 @@ fn run() -> Result<(), Box<dyn Error>> {
                 resources.as_ref().map(|directory| directory.join("tools"))
             };
 
+            // Tauri's generated AppImage launcher exports a distribution Python home
+            // (`$APPDIR/usr`) that cannot import the standalone interpreter's standard
+            // library. Prefer the bundled `tools/python` tree whenever a launcher supplies
+            // an inherited Python home.
+            if let Some(tools) = tools_dir.as_ref()
+                && std::env::var_os("PYTHONHOME").is_some()
+            {
+                unsafe { std::env::set_var("PYTHONHOME", tools.join("python")) };
+            }
+
             // Tauri resolves the platform app-data directory; the service never derives it
             // from the manifest or the current directory.
             let data_dir = app.path().app_data_dir()?;

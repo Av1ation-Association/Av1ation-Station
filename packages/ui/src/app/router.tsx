@@ -1,4 +1,6 @@
 import {
+    createHashHistory,
+    createMemoryHistory,
     createRootRoute,
     createRoute,
     createRouter,
@@ -189,12 +191,23 @@ const routeTree = rootRoute.addChildren([
  * desktop and web hosts from different roots; a file-based generator would emit three
  * trees for one application and race on a shared output.
  */
-export function createAppRouter() {
+export function createAppRouter(options: { hashHistory?: boolean; memoryEntry?: string } = {}) {
+    // A host that serves the tree below a path (the public demo at `/demo/`) cannot rely on
+    // a rewrite for deep links, so it opts into fragment routing instead. A bounded host (the
+    // documentation live frame) instead owns a memory history, so no navigation it makes
+    // reaches the host page's address. Memory wins when both are supplied.
+    const history =
+        options.memoryEntry !== undefined
+            ? createMemoryHistory({ initialEntries: [options.memoryEntry] })
+            : options.hashHistory === true
+              ? createHashHistory()
+              : undefined;
     return createRouter({
         routeTree,
         defaultPreload: "intent",
         defaultPreloadStaleTime: 0,
         defaultErrorComponent: RouteErrorScreen,
+        ...(history === undefined ? {} : { history }),
     });
 }
 

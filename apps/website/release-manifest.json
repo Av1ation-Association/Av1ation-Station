@@ -1,0 +1,136 @@
+{
+    "schema_version": 1,
+    "generated_at": "2026-11-11T05:29:52Z",
+    "repository": "Av1ation-Association/Av1ation-Station",
+    "release": {
+        "tag": "v0.1.0-1",
+        "channel": "legacy",
+        "published_at": "2026-11-11T05:29:52Z",
+        "prerelease": true,
+        "checksums_file": "SHA256SUMS-github.txt"
+    },
+    "platforms": [
+        {
+            "os": "windows",
+            "arch": "x64",
+            "label": "Windows x64"
+        },
+        {
+            "os": "linux",
+            "arch": "x64",
+            "label": "Linux x64"
+        }
+    ],
+    "assets": [
+        {
+            "name": "Av1ation.Station.System_0.1.0_amd64-system.AppImage",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "system",
+            "format": "appimage",
+            "kind": "portable",
+            "size": 167012856,
+            "sha256": "a29da9c5ec7eda92b290754669b53160b751d29fedc0084079b54ee169e353d1"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0_amd64-system.deb",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "system",
+            "format": "deb",
+            "kind": "installer",
+            "size": 33068496,
+            "sha256": "ae665f841b66b68122e58faf8a3a897662faa46f58724e286c5a85fb2a8b44aa"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0_x64-setup-system.exe",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "system",
+            "format": "exe",
+            "kind": "installer",
+            "size": 22321449,
+            "sha256": "d68a9a1dc3acdfb25dc7f1f09553c84dd6ee54edf7d9774e3a2daafea8290e03"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0_x64_en-US-system.msi",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "system",
+            "format": "msi",
+            "kind": "installer",
+            "size": 49953878,
+            "sha256": "1db3621fdab270ead0ffa77d12e29d486c4597692324595c8c6c13a25065e56d"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0_x64_portable-system.zip",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "system",
+            "format": "zip",
+            "kind": "portable",
+            "size": 39567237,
+            "sha256": "6bb0bc66799c7a526640f8772d73320699f813840383cdd158acddbec126d779"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0_amd64-bundled.AppImage",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "appimage",
+            "kind": "portable",
+            "size": 242391544,
+            "sha256": "7d56511e050c4dedb0544298a15cefd5cea6bd7ab10691718f2df9efeeaaa2bb"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0_amd64-bundled.deb",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "deb",
+            "kind": "installer",
+            "size": 182879766,
+            "sha256": "f434401480bafc057a945c6641533e1ef60f8d591b1258b4e46ace8f9dc68e62"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0_x64-setup-bundled.exe",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "exe",
+            "kind": "installer",
+            "size": 366777483,
+            "sha256": "dd85fcc52d3914cf0ca8876a647a1d43c87f88033e2fee66514ee1b43f76f1b8"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0_x64_en-US-bundled.msi",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "msi",
+            "kind": "installer",
+            "size": 495498176,
+            "sha256": "633aca2d4a4c43a66e3ffcba1197578145575dd9018bf9e2ead067e6baf35002"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0_x64_portable-bundled.zip",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "zip",
+            "kind": "portable",
+            "size": 512913527,
+            "sha256": "391622036b755c2aa997b9fcd3e6e3362333d7d7996c01e22375c8b871343eb7"
+        },
+        {
+            "name": "SHA256SUMS-github.txt",
+            "platform": "release",
+            "arch": "x64",
+            "variant": "release",
+            "format": "txt",
+            "kind": "checksums",
+            "size": 1140,
+            "sha256": "4ecf7e843382a8c73f2e577fff90b4694b4a8886a9d3901f155052be0d0502cc"
+        }
+    ]
+}

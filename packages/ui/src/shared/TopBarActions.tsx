@@ -32,6 +32,7 @@ export function TopBarButton({
     disabled,
     tone = "neutral",
     hint,
+    showLabel = false,
 }: {
     label: string;
     icon: ReactNode;
@@ -39,6 +40,8 @@ export function TopBarButton({
     disabled: boolean;
     tone?: "neutral" | "danger" | "brand";
     hint?: string | undefined;
+    /** Keep the name visible beside the icon; the docs sample uses this to label the controls. */
+    showLabel?: boolean;
 }) {
     const color =
         tone === "danger"
@@ -62,7 +65,11 @@ export function TopBarButton({
             </span>
             <span
                 aria-hidden="true"
-                className={`max-w-0 overflow-hidden text-[11.5px] font-medium whitespace-nowrap opacity-0 transition-[max-width,opacity,margin] duration-150 ease-out group-hover/action:ml-1 group-hover/action:max-w-24 group-hover/action:opacity-100 group-focus-visible/action:ml-1 group-focus-visible/action:max-w-24 group-focus-visible/action:opacity-100 motion-reduce:transition-none`}
+                className={
+                    showLabel
+                        ? "ml-1 text-[11.5px] font-medium whitespace-nowrap"
+                        : "max-w-0 overflow-hidden text-[11.5px] font-medium whitespace-nowrap opacity-0 transition-[max-width,opacity,margin] duration-150 ease-out group-hover/action:ml-1 group-hover/action:max-w-24 group-hover/action:opacity-100 group-focus-visible/action:ml-1 group-focus-visible/action:max-w-24 group-focus-visible/action:opacity-100 motion-reduce:transition-none"
+                }
             >
                 {label}
             </span>
@@ -89,6 +96,7 @@ export function DraftActions({
     canRedo,
     onUndo,
     onRedo,
+    showLabels = false,
 }: {
     dirty: boolean;
     pending: boolean;
@@ -107,6 +115,8 @@ export function DraftActions({
     canRedo?: boolean | undefined;
     onUndo?: (() => void) | undefined;
     onRedo?: (() => void) | undefined;
+    /** Show every action's name at rest; the documentation sample uses this. */
+    showLabels?: boolean;
 }) {
     // A control that owns a rule the document cannot express — the script variable list is
     // one — reports it while it is mounted. The button refuses the write for every screen,
@@ -161,6 +171,7 @@ export function DraftActions({
                         icon={<Undo2 className="h-3.5 w-3.5" />}
                         disabled={canUndo !== true || pending || locked}
                         onClick={onUndo}
+                        showLabel={showLabels}
                     />
                 )}
                 {onRedo === undefined ? null : (
@@ -170,6 +181,7 @@ export function DraftActions({
                         icon={<Redo2 className="h-3.5 w-3.5" />}
                         disabled={canRedo !== true || pending || locked}
                         onClick={onRedo}
+                        showLabel={showLabels}
                     />
                 )}
                 <TopBarButton
@@ -179,6 +191,7 @@ export function DraftActions({
                     disabled={!dirty || pending}
                     onClick={onDiscard}
                     tone="danger"
+                    showLabel={showLabels}
                 />
                 <TopBarButton
                     label={pending ? "Saving…" : "Save"}
@@ -195,6 +208,7 @@ export function DraftActions({
                     disabled={!dirty || pending || locked || !saveable}
                     onClick={onSave}
                     tone="brand"
+                    showLabel={showLabels}
                 />
             </div>
         </TopBarActions>

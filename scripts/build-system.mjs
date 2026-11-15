@@ -40,6 +40,16 @@ config.bundle = {
     resources: { "../../dist/apps/desktop/": "web/" },
 };
 
+// The system variant links the distribution's FFMS2 at runtime. The bundled variant carries
+// its own copy under tools/, so this dependency belongs only to this generated config.
+config.bundle.linux = {
+    ...config.bundle.linux,
+    deb: {
+        ...config.bundle.linux?.deb,
+        depends: ["libffms2-5"],
+    },
+};
+
 const generatedPath = path.join(tauriDir, "tauri.system.conf.json");
 fs.writeFileSync(generatedPath, `${JSON.stringify(config, null, 2)}\n`);
 console.log(`System-toolchain build: ${config.productName}`);

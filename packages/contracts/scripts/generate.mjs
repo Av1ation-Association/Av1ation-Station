@@ -303,8 +303,8 @@ const engineDependency = /^\s*andean-condor\s*=\s*\{([^}]*)\}/mu.exec(workspaceM
 if (engineDependency === undefined) {
     throw new Error("rust/Cargo.toml has no andean-condor dependency");
 }
-if (!engineDependency.includes('git = "https://github.com/BoatsMcGee/Av1an"')) {
-    throw new Error("andean-condor must come from the BoatsMcGee/Av1an fork");
+if (!engineDependency.includes('git = "https://github.com/rust-av/Av1an"')) {
+    throw new Error("andean-condor must come from upstream rust-av/Av1an");
 }
 const engineRevision = /\brev = "([0-9a-f]{40})"/u.exec(engineDependency)?.[1];
 if (typeof packageJson.version !== "string") {

@@ -15,12 +15,12 @@ import { createAppRouter } from "./router";
 import "../styles.css";
 
 /** Mounts the same application tree against the host's transport. */
-export function mountApp(transport: Transport): void {
+export function mountApp(transport: Transport, options: { hashHistory?: boolean } = {}): void {
     const container = document.getElementById("root");
     if (container === null) {
         throw new Error("The host document is missing #root.");
     }
-    const router = createAppRouter();
+    const router = createAppRouter(options);
     createRoot(container).render(
         <StrictMode>
             <ApiProvider transport={transport}>

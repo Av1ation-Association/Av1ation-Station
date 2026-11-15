@@ -1,0 +1,60 @@
+## Before you start
+
+You need a project whose configuration is worth reusing, or a template from a previous session. Templates are edited in Settings → Project Templates and applied from a project's header.
+## Create a template
+
+<Steps>
+<Step title="Start a template" result="A new template appears with an empty configuration and General document.">
+Give it a name that describes the content and the encode intent. A template is not tied to a source file or an output path.
+</Step>
+<Step title="Capture a project" result="An existing project's configuration is copied into the template.">
+Saving a project as a template copies its sections and General document. It does not copy video overrides, queued videos, or retained chunks.
+</Step>
+</Steps>
+
+## Edit a section
+
+Open a section from the template overview. The template editor is the same generated form as a project section, so a template cannot drift into a different shape. Save writes the template's own document.
+
+## Edit the template script
+
+A template script is part of the General document. It is copied into a new project; it is not shared live after the copy. Use the script tab to edit it, and keep source paths out of it because every video supplies its own.
+
+## Mark the default
+
+<Callout tone="tip" title="One default">
+Exactly one template can be marked default. New projects without an explicit template copy it. Changing the default does not change existing projects.
+</Callout>
+
+Use the star action in the template list. The default marker is visible in the list and in the project's Apply Template picker.
+
+## Apply to a project
+
+Open a project and select **Apply Template**. The picker searches by name. Applying copies the template's configuration and General document into the project and leaves every video override untouched.
+
+<Steps>
+<Step title="Preview the effect" result="You know the project sections and General section will be replaced.">
+The picker names the template; the project header shows the current template provenance. Applying is not an undoable edit to a video.
+</Step>
+<Step title="Confirm" result="The project's section cards reflect the template values.">
+A video with its own override keeps it. A video without one now reads the new project values.
+</Step>
+</Steps>
+
+## Reset or delete
+
+Reset a template to the engine defaults or start it over with an empty document. Deleting a template removes it from the picker and from the default slot; it does not change projects that already applied it.
+
+## Check your result
+
+The template is listed, the default marker is deliberate, and applying it changed the project but not a video override. Open one overridden video and confirm its section still shows its own values.
+
+## If it goes wrong
+
+A dirty template guards navigation; save or discard before leaving. A template that will not apply may be invalid in one section; open that section and read the error. Deleting the default leaves no default until you mark another.
+
+<RelatedLinks>
+<a href="/docs/reference/templates">Project templates reference</a>
+<a href="/docs/concepts/configuration">Configuration and inheritance</a>
+<a href="/docs/guides/configure-pipeline">Configure the pipeline stages</a>
+</RelatedLinks>

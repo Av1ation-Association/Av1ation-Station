@@ -1,0 +1,56 @@
+## Before you start
+
+At least one run must have a log directory. A live run's log can be followed; it cannot be deleted while the run is active.
+## Open History
+
+Open the video's History tab. Run cards are ordered by attempt. Each card shows the start time, duration, frames, and outcome. Expand a card to see its sequence attempts and the terminal message.
+
+## Open the log
+
+<Steps>
+<Step title="Choose a run" result="The log viewer opens for that run's directory.">
+The History card's log action carries the run id, so the viewer and the card cannot point at different runs.
+</Step>
+<Step title="Read the newest records" result="The failure or completion message is visible without downloading anything.">
+A run that failed before its first sequence still has a terminal record. That record is the first place to look.
+</Step>
+</Steps>
+
+## Filter and search
+
+Level filters and a text search narrow the visible records. Sorting and filtering are server-side, so a large log does not need to be loaded in full. A filter combination that matches nothing says so instead of showing unfiltered rows.
+
+## Follow a live run
+
+**Follow** keeps the newest records in view without changing the current filters. It stops when the run ends or when you scroll away deliberately.
+
+## Export
+
+<Steps>
+<Step title="Open Export" result="The sheet shows the redacted preview and its actions.">
+The preview is the exact text that Copy and Download produce. It is not a second approximation.
+</Step>
+<Step title="Read the preview" result="No unredacted path, filename, hostname, or address remains.">
+Known values are replaced with placeholders. A project name or a custom message inside the log can still contain identifying text; review before sharing.
+</Step>
+</Steps>
+
+## Review redactions
+
+The export replaces paths and host details it knows. It cannot know every identifier a user typed into a title or a tag. Read the preview rather than assuming redaction is complete.
+
+## Delete a run
+
+Deleting a run removes its log and history card. It does not delete source or output files, and it does not free retained chunks. A live run is refused.
+
+## If it goes wrong
+
+- **Log missing**: the run's directory was deleted or moved. The newest log is not substituted silently.
+- **Export empty**: the run has no records, or every record was filtered out before export.
+- **Live log will not delete**: stop the run first.
+
+<RelatedLinks>
+<a href="/docs/concepts/runs">Runs, history, and logs</a>
+<a href="/docs/reference/history-logs">History and logs reference</a>
+<a href="/docs/troubleshooting/support">Diagnostics and support</a>
+</RelatedLinks>

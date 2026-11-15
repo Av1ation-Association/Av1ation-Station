@@ -1,0 +1,66 @@
+## Metric and range
+
+The metric is the measure probing optimizes. It must have a usable backend in the preflight inventory. The range is the score band the fit aims for: for a higher-is-better metric, the lower bound is the minimum acceptable and the upper bound is the point of diminishing returns. An inverted or empty range is refused on save.
+
+| Field | Meaning |
+| --- | --- |
+| Metric | The probe metric and its direction |
+| Target | Lower and upper bounds of the desired score |
+| Metric options | Additional settings the chosen metric exposes |
+
+## Probes
+
+| Field | Meaning |
+| --- | --- |
+| Frames per probe | How many frames each probe sample encodes |
+| Probes | Maximum probe encodes per scene |
+| Probe strategy | How the next quantizer is chosen from prior results |
+
+More probes improve the fit and increase run time. A probe budget of zero measures nothing; the stage is then better disabled.
+
+## Quantizer bounds
+
+Minimum and maximum quantizer limit the search. A scene that would need a value outside the bounds is clamped and marked in the measured data. Bounds that exclude the whole useful range produce no solution and leave the scene unmeasured.
+
+## Interpolators
+
+The interpolator fits a curve through the probe points. A linear fit is stable with few probes; a higher-order fit can follow a steep response but needs more data. The chosen interpolator is recorded with the measurements so a later reader can reproduce the fit.
+
+## Probe strategy
+
+| Strategy | Behaviour |
+| --- | --- |
+| Uniform | Probes evenly across the quantizer bounds |
+| Binary | Narrows the range toward the target score |
+| Adaptive | Uses prior scene results to choose the next probe |
+
+The strategy changes cost and accuracy, not the target itself. A scene that cannot meet the target is reported, not silently assigned a fabricated quantizer.
+
+## Speed scaling
+
+Speed scaling adds quantizer offsets by playback speed. Each point maps a speed band to an offset. An empty list applies no scaling. A point outside the encoder's quantizer domain is refused.
+
+## Bitrate optimization
+
+Enabling bitrate optimization adds a size objective. The threshold is the tolerated deviation from the target bitrate. It can pull the chosen quantizer away from the quality target; leave it off for a pure quality target.
+
+## Metric options
+
+Some metrics expose options such as a model, a device, or a temporal window. The options are generated from the metric's schema. Changing the metric resets options that do not exist on the new one.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Disabled | The stage is skipped |
+| Enabled | A saved document with a metric and range |
+| Unavailable | The metric has no usable backend |
+| Measured | Scenes have probe history and a chosen quantizer |
+| Unmeasured | A scene could not be scored; it is named |
+| Locked | A run prevents editing the encoding video |
+
+<RelatedLinks>
+<a href="/docs/guides/target-quality">Hit a quality target</a>
+<a href="/docs/concepts/quality">Quality targets and checks</a>
+<a href="/docs/reference/quality-check">Quality check</a>
+</RelatedLinks>

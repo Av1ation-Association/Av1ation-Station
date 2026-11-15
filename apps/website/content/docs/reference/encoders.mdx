@@ -1,0 +1,61 @@
+## Catalogue
+
+The catalogue is the set of encoder families the build knows. Each family has a stable key, a label, a default executable, and a generated parameter schema. A fork of a family appears under that family; it does not create a new schema.
+
+## Provider
+
+The provider panel chooses the executable for a family. A bundled path, a system path, or a user-located path can provide it. The picked path is probed for a version before it is accepted. A rejected path is not saved.
+
+## Parameter table
+
+<LiveWidget id="W05" />
+
+| Column | Meaning |
+| --- | --- |
+| Label | The human name from the schema |
+| Flag | The executable's spelling of the parameter |
+| Value | The current draft value, or the executable default |
+| Set | Whether the draft differs from the executable default |
+
+Search filters by label. The header counts set parameters. A parameter absent from the schema cannot be added.
+
+## Editor sheet
+
+The sheet edits one parameter with the control its type requires: number with bounds, choice, switch, text, or structured value. Validation is inline; Apply writes the draft, Cancel discards it. A value outside the schema is refused, not coerced.
+
+## JSON
+
+The JSON view shows the serialized encoder document. It is read-only in the screen; the service rejects a hand-edited document that fails the schema. The view is useful for support and for comparing two builds' documents.
+
+## Saved builds
+
+| Field | Meaning |
+| --- | --- |
+| Name | The selector label |
+| Family | The parameter schema and probe behaviour |
+| Executable | The probed binary |
+| Version | The parsed version, or unknown if unparsable |
+| Survey | Supported, unsupported, and unknown parameters |
+
+A saved build whose executable disappears remains listed but unavailable. Selecting it refuses the run with the build's name.
+
+## Overrides
+
+A project's Encoding document applies to every video without its own. A video override replaces the whole document. A per-scene encoder applies to exactly the selected scenes and is carried in their chunks' fingerprint.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| Loading | The catalogue or probe is in flight |
+| Ready | The family and provider are usable |
+| Probe failed | The executable could not be run or parsed |
+| Version unknown | The probe ran but the version did not parse |
+| Build unavailable | A saved build's executable is missing |
+| Invalid | The document fails the schema |
+
+<RelatedLinks>
+<a href="/docs/guides/tune-encoder">Tune encoder parameters</a>
+<a href="/docs/reference/encoding">Encoding</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+</RelatedLinks>

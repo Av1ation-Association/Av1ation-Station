@@ -11,11 +11,14 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use andean_condor::{
-    core::input::{Input as CoreInput, pixel_format::PixelFormat},
+    core::{
+        input::{Input as CoreInput, pixel_format::PixelFormat},
+        output::admit_output,
+    },
     ffmpeg::FFPixelFormat,
     models::{
         input::{
@@ -222,13 +225,42 @@ fn script_input(
 }
 
 /// The exact output file, with no container tags beyond what the engine defaults to.
+///
+/// `overwrite` records the user's consent when the output was chosen for this queue entry.
+/// The engine refuses to replace an existing distinct file without it; older documents lack
+/// the field and are normalised by [`ensure_output_overwrite`].
 pub fn native_output(path: &str) -> Value {
     serde_json::to_value(Output {
         path: PathBuf::from(path),
+        overwrite: true,
         tags: HashMap::new(),
         video_tags: HashMap::new(),
     })
     .unwrap_or(Value::Null)
+}
+
+/// Give an older output document the overwrite consent this application always recorded.
+///
+/// The engine added `overwrite` with a default of `false`, so a document saved before that
+/// revision would otherwise make every rerun fail once the destination exists. Only a
+/// missing field is filled: an explicit `false` is a caller's decision and is preserved.
+pub fn ensure_output_overwrite(value: &mut Value) -> Result<(), String> {
+    value
+        .as_object_mut()
+        .ok_or_else(|| "the output is not a JSON object".to_owned())?
+        .entry("overwrite")
+        .or_insert(Value::Bool(true));
+    parse_output(value).map(|_| ())
+}
+
+/// Refuse an output that aliases the source or cannot be a regular destination.
+///
+/// This uses the engine's own admission rules with overwrite consent, because the queue
+/// entry names the destination explicitly. It still rejects hard links, symlinks and source
+/// aliases, which the engine would reject only after the user started a long encode.
+pub fn check_output_path(output: &str, source: &str) -> Result<(), String> {
+    admit_output(Path::new(output), &[PathBuf::from(source)], true, true)
+        .map_err(|error| format!("{error:#}"))
 }
 
 /// Validate a stored or submitted input document.
@@ -448,6 +480,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_legacy_output_gains_consent_but_an_explicit_refusal_is_kept() {
+        let mut legacy = serde_json::json!({
+            "path": "out.mkv", "tags": {}, "video_tags": {}
+        });
+        ensure_output_overwrite(&mut legacy).expect("the legacy document is valid");
+        assert_eq!(legacy["overwrite"], serde_json::json!(true));
+
+        let mut refused = serde_json::json!({
+            "path": "out.mkv", "overwrite": false, "tags": {}, "video_tags": {}
+        });
+        ensure_output_overwrite(&mut refused).expect("the document is valid");
+        assert_eq!(
+            refused["overwrite"],
+            serde_json::json!(false),
+            "an imported document's refusal is not overwritten"
+        );
+    }
+
+    #[test]
     fn a_script_scene_table_has_no_hole_to_cut_out_of_the_clip() {
         // The table a preview or an export opens is a list of splice ranges. A hole would be
         // cut out of the clip, shortening it and moving every later scene's frames.
@@ -551,8 +602,12 @@ mod tests {
         );
         assert_eq!(value["Video"]["filters"][0]["OutputFormat"]["bit_depth"], 8);
         assert!(
-            validate_vapour_synth_filters(&filters).is_err(),
-            "an FFMS2 filter is not a VapourSynth filter"
+            validate_vapour_synth_filters(&filters).is_ok(),
+            "upstream now shares OutputFormat between the two input kinds"
+        );
+        assert!(
+            validate_ffms2_filters(&[serde_json::json!({ "Crop": { "top": 2 } })]).is_err(),
+            "a VapourSynth-only filter is not a native FFMS2 filter"
         );
     }
 

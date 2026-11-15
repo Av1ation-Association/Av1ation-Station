@@ -1,0 +1,47 @@
+## Symptom
+
+A video stops at a sequence, History shows a failed or incomplete attempt, the output is missing, or Start is refused with a message that looks like a failure. The last two are different problems: a refusal is a control decision, not a run outcome.
+
+## Find the failure
+
+Open History and read the terminal message on the newest attempt. Then open Logs and read the first error. The pipeline card names the sequence that owns it. A run that failed before its first sequence still has a run-level record; a process that died without one leaves an incomplete attempt.
+
+<Callout tone="warning" title="Refusal is not a failure">
+Starting while another run holds the lock is refused with a conflict. It does not create a failed attempt. Read the message before retrying; a batch refused for the lock should wait, not rerun.
+</Callout>
+
+## Diagnose
+
+| Message points at | Check |
+| --- | --- |
+| Detection | Method, model path, scene length bounds |
+| Noise generation | Detector fields, WNNM pair, VapourSynth provider |
+| Target quality | Metric availability, range, quantizer bounds |
+| Parallel encoding | Encoder build, executable, worker count, output space |
+| Concatenation | Muxer path, track map, output permission, extra input |
+| Quality check | Retained chunks, final output, metric backend |
+
+The first error is the cause; later errors are often consequences. A missing chunk after a detection failure and a concatenation error after an encoder failure are examples.
+
+## Recover
+
+Fix the owning setting, then retry the video. Completed sequences do not run again unless their inputs changed. Retained chunks allow a selected-scene re-encode; resetting a chunk is a clean re-encode, not a repair.
+
+<Steps>
+<Step title="Fix the cause" result="The section saves and the card no longer reports the same failure.">
+A save is refused while the encoding video is locked; stop or wait first.
+</Step>
+<Step title="Retry" result="A new attempt appears in History and resumes at the first missing result.">
+The old attempt stays visible. Do not delete it before the retry succeeds.
+</Step>
+</Steps>
+
+## Prevent
+
+Keep accepted provider paths rather than temporary ones. Validate a template before applying it to a queue. Do not delete retained chunks while a quality check is pending. Leave enough free space for the output and the retained work.
+
+<RelatedLinks>
+<a href="/docs/guides/recover-run">Recover from a failed or interrupted run</a>
+<a href="/docs/concepts/runs">Runs, history, and logs</a>
+<a href="/docs/reference/history-logs">History and logs</a>
+</RelatedLinks>

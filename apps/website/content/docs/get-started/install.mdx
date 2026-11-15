@@ -1,0 +1,34 @@
+The release ships unsigned Windows and Linux installers. Start with the bundled build: it includes FFmpeg, VapourSynth, MKVToolNix, the encoders, the scene model, and the quality metrics, so there is nothing else to install.
+
+## Install
+
+<PlatformInstall />
+
+## Check the toolchain
+
+Open **Settings → Dependencies**. Each row names a capability, the provider the application found, and where that provider comes from. Choose **Bundled**, **System** for an executable already on `PATH`, or **Custom** to point at a specific file.
+
+<LiveSample kind="toolchain" />
+
+The system build starts without the bundled tools. After installing it, set a provider for every capability your workflow uses and check again. Restart only when a row says a restart is required.
+
+A missing optional encoder removes only that encoder. It does not disable decoding, scene detection, or muxing. A missing required provider blocks only the step that needs it.
+
+Read [Resolve dependencies and add encoder builds](/docs/guides/dependencies) to register an encoder build, or [Missing tools and providers](/docs/troubleshooting/dependencies) when a row stays unavailable.
+
+## Troubleshooting
+
+- **Windows SmartScreen warns about the publisher**: the installer is unsigned. Confirm the download came from the project release page; do not disable system-wide security controls.
+- **There is no macOS installer**: this release does not produce one. The source build is unsupported but available from the Source tab.
+- **The installer is blocked by policy**: use the portable build if policy allows it, or build from source. Do not turn off security controls to force the installer to run.
+- **A capability is still unavailable**: check the row's source and executable, then check again. The [dependency troubleshooting guide](/docs/troubleshooting/dependencies) explains what each state means.
+
+## Next step
+
+Create a project and run one encode with [Your first project and encode](/docs/get-started/first-encode).
+
+<RelatedLinks>
+<a href="/docs/troubleshooting/dependencies">Missing tools and providers</a>
+<a href="/docs/guides/dependencies">Resolve dependencies and add encoder builds</a>
+<a href="/docs/reference/settings">Settings reference</a>
+</RelatedLinks>

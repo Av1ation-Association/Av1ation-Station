@@ -64,7 +64,9 @@ chrome.
    only its folder; **Project default** restores the derived name. **Open** opens the folder
    that contains the file, which is a video's own directory rather than the project's.
    Changing the file moves an existing output on save and refuses to overwrite a file already
-   at the destination.
+   at the destination. New output documents carry the engine's overwrite consent, and an
+   older one is treated the same when a run is prepared, so a rerun of the same target
+   replaces it.
 8. **Change the scratch directory.** The scratch directory is read-only in place, with
    **Change…** and **Project default**. A video's chunks record absolute paths in the
    encoder's sidecars, so the service refuses the move while retained work exists. The card

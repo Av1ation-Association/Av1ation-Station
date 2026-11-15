@@ -5,7 +5,7 @@
 
 const WORKSPACE_MANIFEST: &str = include_str!("../../Cargo.toml");
 const ENGINE_DEPENDENCY: &str = "andean-condor =";
-const ENGINE_REPOSITORY: &str = "https://github.com/BoatsMcGee/Av1an";
+const ENGINE_REPOSITORY: &str = "https://github.com/rust-av/Av1an";
 
 fn main() {
     println!("cargo:rerun-if-changed=../../Cargo.toml");

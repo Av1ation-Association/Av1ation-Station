@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
 import { DeleteRunDialog } from "./DeleteRunDialog";
+import { ScreenMain } from "../../shared/ScreenMain";
 import { Switch } from "../../shared/Switch";
 import { VideoRunActions } from "../videos/VideoRunActions";
 import { VideoTabs } from "../videos/VideoTabs";
@@ -39,20 +40,11 @@ import { LogErrorPanel } from "./LogErrorPanel";
 import { LogExportSheet } from "./LogExportSheet";
 import { LogFilterBar } from "./LogFilterBar";
 import { LogLineMenu } from "./LogLineMenu";
+import { LogRow, LOG_ROW_HEIGHT } from "./LogRow";
 import { LogSortHeader } from "./LogSortHeader";
-import {
-    COLUMNS,
-    LEVELS,
-    LEVEL_CHIP,
-    clock,
-    type Level,
-    type LogMenu,
-    type SortColumn,
-} from "./log-format";
+import { COLUMNS, LEVELS, type Level, type LogMenu, type SortColumn } from "./log-format";
 
 const PAGE_SIZE = 400;
-/** One fixed-height line. A log row never wraps, so the virtualizer can size the scrollbar. */
-const ROW_HEIGHT = 22;
 
 /** How long a touch has to rest on a row before the copy menu opens. */
 const LONG_PRESS_MS = 480;
@@ -64,42 +56,6 @@ function useDebouncedValue(value: string, delay: number): string {
         return () => window.clearTimeout(timer);
     }, [value, delay]);
     return settled;
-}
-
-/** Marks the search needle inside a line without splitting it into a regex. */
-function Highlight({ text, needle }: { text: string; needle: string }) {
-    if (needle === "") {
-        return text;
-    }
-    const lower = text.toLowerCase();
-    const wanted = needle.toLowerCase();
-    const parts: Array<{ text: string; match: boolean }> = [];
-    let cursor = 0;
-    let found = lower.indexOf(wanted);
-    while (found >= 0) {
-        if (found > cursor) {
-            parts.push({ text: text.slice(cursor, found), match: false });
-        }
-        parts.push({ text: text.slice(found, found + wanted.length), match: true });
-        cursor = found + wanted.length;
-        found = lower.indexOf(wanted, cursor);
-    }
-    if (cursor < text.length) {
-        parts.push({ text: text.slice(cursor), match: false });
-    }
-    return (
-        <>
-            {parts.map((part, index) =>
-                part.match ? (
-                    <mark key={index} className="rounded-xs bg-brand/25 px-0.5 text-ink">
-                        {part.text}
-                    </mark>
-                ) : (
-                    <span key={index}>{part.text}</span>
-                ),
-            )}
-        </>
-    );
 }
 
 /**
@@ -224,8 +180,8 @@ export function LogsScreen() {
         return () => observer.disconnect();
     }, [tail.isPending, total]);
 
-    const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 24);
-    const endIndex = Math.min(total, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + 24);
+    const startIndex = Math.max(0, Math.floor(scrollTop / LOG_ROW_HEIGHT) - 24);
+    const endIndex = Math.min(total, Math.ceil((scrollTop + viewportHeight) / LOG_ROW_HEIGHT) + 24);
 
     // Aligned pages under the viewport. A page the tail already covers is not requested a
     // second time; the partial page that straddles the tail is still fetched for the rows
@@ -368,13 +324,13 @@ export function LogsScreen() {
     // describe the video, not the selected run, so a list that is still loading, failed,
     // or empty must not replace them with a bare document.
     const pageShell = (body: ReactNode, note: ReactNode) => (
-        <main id="main" className="flex min-h-[calc(100dvh-56px)] flex-col">
+        <ScreenMain className="flex min-h-[calc(100dvh-56px)] flex-col">
             {/* The tab strip replaces the visible page title, so the destination still names itself. */}
             <h1 className="sr-only">Logs</h1>
             <VideoTabs projectId={projectId} videoId={videoId} active="logs" note={note} />
             <VideoRunActions projectId={projectId} videoId={videoId} state={state.data} />
             <div className="page flex-1 py-4">{body}</div>
-        </main>
+        </ScreenMain>
     );
 
     if (runs.isPending) {
@@ -623,7 +579,7 @@ export function LogsScreen() {
                         >
                             <div
                                 className="relative w-full"
-                                style={{ height: `${String(total * ROW_HEIGHT)}px` }}
+                                style={{ height: `${String(total * LOG_ROW_HEIGHT)}px` }}
                             >
                                 {Array.from(
                                     { length: Math.max(0, endIndex - startIndex) },
@@ -637,8 +593,8 @@ export function LogsScreen() {
                                                     aria-hidden="true"
                                                     className={`${COLUMNS} absolute inset-x-0 px-3 sm:px-4`}
                                                     style={{
-                                                        top: `${String(index * ROW_HEIGHT)}px`,
-                                                        height: `${String(ROW_HEIGHT)}px`,
+                                                        top: `${String(index * LOG_ROW_HEIGHT)}px`,
+                                                        height: `${String(LOG_ROW_HEIGHT)}px`,
                                                     }}
                                                 >
                                                     <span className="ml-auto h-2 w-6 animate-pulse rounded-xs bg-raised motion-reduce:animate-none" />
@@ -650,14 +606,14 @@ export function LogsScreen() {
                                             );
                                         }
                                         return (
-                                            <div
+                                            <LogRow
                                                 key={index}
-                                                className={`${COLUMNS} absolute inset-x-0 px-3 font-mono text-[11px] leading-none text-ink-secondary transition-colors duration-100 hover:bg-hover sm:px-4`}
+                                                record={record}
+                                                search={search}
+                                                className="absolute inset-x-0"
                                                 style={{
-                                                    top: `${String(index * ROW_HEIGHT)}px`,
-                                                    height: `${String(ROW_HEIGHT)}px`,
+                                                    top: `${String(index * LOG_ROW_HEIGHT)}px`,
                                                 }}
-                                                data-tip={`${record.at} · ${record.message}`}
                                                 onContextMenu={() => {
                                                     setMenu({ record });
                                                 }}
@@ -665,28 +621,7 @@ export function LogsScreen() {
                                                 onPointerMove={trackPress}
                                                 onPointerUp={cancelPress}
                                                 onPointerCancel={cancelPress}
-                                            >
-                                                <span className="text-right text-[10px] text-ink-muted tabular-nums">
-                                                    {record.seq.toLocaleString()}
-                                                </span>
-                                                <span className="text-[10px] text-ink-muted tabular-nums">
-                                                    {clock(record.at)}
-                                                </span>
-                                                <span
-                                                    className={`text-[9.5px] font-medium uppercase ${LEVEL_CHIP[record.level] ?? "text-ink-muted"}`}
-                                                >
-                                                    {record.level}
-                                                </span>
-                                                <span className="hidden truncate text-[10px] text-ink-muted sm:block">
-                                                    {record.sequence ?? "run"}
-                                                </span>
-                                                <span className="min-w-0 truncate text-ink-secondary">
-                                                    <Highlight
-                                                        text={record.message}
-                                                        needle={search}
-                                                    />
-                                                </span>
-                                            </div>
+                                            />
                                         );
                                     },
                                 )}
