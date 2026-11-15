@@ -153,6 +153,12 @@ jobs:
                   }
                   Write-Host "link.exe resolves under Visual Studio: $link"
             - run: npm ci
+            # The Tauri build script requires its resource directory to exist even when
+            # tests do not bundle a frontend; the compile-only job creates the same empty
+            # directory.
+            - name: Prepare compile-only resource directory
+              shell: bash
+              run: mkdir -p dist/apps/desktop
             - name: Install FFMS2 development files
               uses: ./.github/actions/install-ffms2
             - name: Audit Rust dependencies
