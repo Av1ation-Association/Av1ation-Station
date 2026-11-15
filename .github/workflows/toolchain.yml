@@ -98,8 +98,10 @@ jobs:
                     build-essential cmake ninja-build meson nasm yasm pkg-config \
                     autoconf automake libtool ruby rake unzip \
                     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+                    libogg-dev libvorbis-dev libflac-dev \
+                    libboost-filesystem-dev libboost-system-dev libgmp-dev \
                     libboost-dev libebml-dev libmatroska-dev libpugixml-dev libfmt-dev \
-                    libnlohmann-json3-dev qt6-base-dev libvulkan-dev libshaderc-dev \
+                    nlohmann-json3-dev qt6-base-dev qmake6 libvulkan-dev libshaderc-dev \
                     glslang-tools spirv-tools
 
             - name: Install macOS build tools
@@ -107,41 +109,126 @@ jobs:
               run: |
                   brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
                     libogg libvorbis flac
-                  brew install vulkan-headers glslang shaderc molten-vk || true
+                  if [[ "${{ matrix.id }}" == "mkvmerge" ]]; then
+                    brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase
+                  fi
+                  if [[ "${{ matrix.id }}" == "vapoursynth" && "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
+                    brew install ncnn protobuf onnx
+                  fi
+                  brew install vulkan-headers
+
+            - name: Install macOS Vship Vulkan tooling
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS'
+              run: brew install vulkan-loader glslang shaderc molten-vk || true
+
+            - name: Install macOS VapourSynth Vulkan tooling
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              run: brew install vulkan-loader
+
+            # MKVToolNix probes libogg with a raw -logg link rather than pkg-config, so
+            # Homebrew's prefix has to be on the compiler's search paths explicitly.
+            - name: Point macOS builds at Homebrew
+              if: runner.os == 'macOS'
+              shell: bash
+              run: |
+                  prefix="$(brew --prefix)"
+                  {
+                    echo "CPPFLAGS=-I${prefix}/include"
+                    echo "LDFLAGS=-L${prefix}/lib"
+                    echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig"
+                    echo "CMAKE_PREFIX_PATH=${prefix}"
+                  } >> "$GITHUB_ENV"
 
             - name: Point mac Vship at Homebrew's Vulkan SDK
               if: matrix.id == 'metric:libvship' && runner.os == 'macOS'
               shell: bash
               run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
 
+            # Homebrew's Qt installs qmake, while MKVToolNix looks for qmake6.
+            - name: Point mac MKVToolNix at Homebrew's Qt
+              if: matrix.id == 'mkvmerge' && runner.os == 'macOS'
+              shell: bash
+              run: echo "QMAKE6=$(brew --prefix qtbase)/bin/qmake" >> "$GITHUB_ENV"
+
+            - name: Point mac VapourSynth at Homebrew's Vulkan SDK
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              shell: bash
+              run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
+
             - uses: msys2/setup-msys2@v2
+              id: msys2
               if: runner.os == 'Windows'
               with:
-                  msystem: MINGW64
+                  msystem: UCRT64
                   update: true
                   install: >-
-                      mingw-w64-x86_64-toolchain
-                      mingw-w64-x86_64-cmake
-                      mingw-w64-x86_64-ninja
-                      mingw-w64-x86_64-nasm
-                      mingw-w64-x86_64-pkgconf
-                      mingw-w64-x86_64-autotools
-                      mingw-w64-x86_64-ffmpeg
+                      mingw-w64-ucrt-x86_64-toolchain
+                      mingw-w64-ucrt-x86_64-cmake
+                      mingw-w64-ucrt-x86_64-ninja
+                      mingw-w64-ucrt-x86_64-nasm
+                      mingw-w64-ucrt-x86_64-pkgconf
+                      mingw-w64-ucrt-x86_64-autotools
+                      mingw-w64-ucrt-x86_64-meson
+                      mingw-w64-ucrt-x86_64-ffmpeg
+                      mingw-w64-ucrt-x86_64-libogg
+                      mingw-w64-ucrt-x86_64-libvorbis
+                      mingw-w64-ucrt-x86_64-flac
+                      mingw-w64-ucrt-x86_64-libiconv
+                      mingw-w64-ucrt-x86_64-zlib
+                      mingw-w64-ucrt-x86_64-boost
+                      mingw-w64-ucrt-x86_64-gmp
+                      mingw-w64-ucrt-x86_64-fmt
+                      mingw-w64-ucrt-x86_64-pugixml
+                      mingw-w64-ucrt-x86_64-nlohmann-json
+                      mingw-w64-ucrt-x86_64-utf8cpp
+                      mingw-w64-ucrt-x86_64-qt6-base
                       make
 
-            - name: Put MSYS2 and MinGW on PATH
+            # The runner image also has a C:\msys64 UCRT64 tree. It must not shadow the
+            # action's installation, or pkg-config sees the image's libraries instead of
+            # the ones installed above.
+            - name: Put the action's MSYS2 UCRT64 tree on PATH
               if: runner.os == 'Windows'
               shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
               run: |
-                  echo 'C:\msys64\usr\bin' >> "$GITHUB_PATH"
-                  echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
+                  echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+                  echo "${MSYS2_LOCATION}\\usr\\bin" >> "$GITHUB_PATH"
 
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows'
 
+            # setup-ruby's DevKit puts an MSYS link.exe on PATH. Cargo resolves the linker
+            # by name, so pin the Visual Studio one instead of letting that GNU link.exe
+            # receive MSVC arguments.
+            - name: Pin the MSVC linker for Cargo
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  $linker = Join-Path $env:VCToolsInstallDir 'bin\HostX64\x64\link.exe'
+                  if (-not (Test-Path $linker)) {
+                    throw "The MSVC linker was not found at $linker"
+                  }
+                  "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$linker" >> $env:GITHUB_ENV
+
             - name: Install Vulkan SDK for Vship
               if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
               run: choco install vulkan-sdk -y --no-progress
+
+            - name: Point Windows Vship at the Vulkan SDK
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  $sdk = [Environment]::GetEnvironmentVariable('VULKAN_SDK', 'Machine')
+                  if ([string]::IsNullOrWhiteSpace($sdk)) {
+                    $sdk = Get-ChildItem (Join-Path $env:ProgramFiles 'VulkanSDK') `
+                      -Directory | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
+                  }
+                  if ([string]::IsNullOrWhiteSpace($sdk)) {
+                    throw 'The Vulkan SDK installation directory was not found'
+                  }
+                  "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
 
             - uses: ruby/setup-ruby@v1
               if: runner.os == 'Windows'

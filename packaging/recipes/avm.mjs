@@ -19,7 +19,7 @@ export default async function build({ target, workDir, outputDir, component }) {
     if (target === "aarch64-apple-darwin") {
         // AVM's generic ARM CPU probe has no macOS arm64 path; the baseline build is
         // already native, so runtime dispatch is not needed here.
-        configureArgs.push("-DENABLE_RUNTIME_CPU_DETECT=OFF");
+        configureArgs.push("-DCONFIG_RUNTIME_CPU_DETECT=OFF");
     }
     cmakeBuild({
         source,

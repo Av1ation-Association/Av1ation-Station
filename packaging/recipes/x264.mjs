@@ -19,7 +19,10 @@ export default async function build({ target, workDir, outputDir, component }) {
     });
     const args = ["--enable-cli", "--enable-static", "--disable-opencl"];
     if (platform(target) === "win32") {
-        args.push("--host=x86_64-w64-mingw32", "--cross-prefix=x86_64-w64-mingw32-");
+        // The UCRT64 toolchain is native, so its binutils do not install the
+        // x86_64-w64-mingw32-* aliases that the MINGW64 packages provide. Leave the
+        // cross prefix empty and let configure use gcc, strings, and windres directly.
+        args.push("--host=x86_64-w64-mingw32");
     }
     shellScript("./configure", args, { cwd: source });
     makeConfigured(source);

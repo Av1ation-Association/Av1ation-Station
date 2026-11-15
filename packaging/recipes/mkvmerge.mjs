@@ -28,8 +28,17 @@ export default async function build({ target, workDir, outputDir, component }) {
     if (platform(target) === "win32") {
         args.push("--host=x86_64-w64-mingw32");
     }
+    if (platform(target) === "darwin" && process.env.QMAKE6) {
+        args.push(`--with-qmake6=${process.env.QMAKE6}`);
+    }
     shellScript("./configure", args, { cwd: source });
-    run("rake", ["-j", "4"], { cwd: source });
+    // RubyInstaller exposes rake as a .bat wrapper, which CreateProcess cannot execute
+    // directly; let cmd resolve it through PATHEXT on Windows.
+    if (platform(target) === "win32") {
+        run("cmd", ["/c", "rake", "-j", "4"], { cwd: source });
+    } else {
+        run("rake", ["-j", "4"], { cwd: source });
+    }
     const name = executable(target, "mkvmerge");
     const binary = requireFile(
         source,

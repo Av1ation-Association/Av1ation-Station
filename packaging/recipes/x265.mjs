@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { cmakeBuild, executable, gitCheckout, requireFile, stageFile } from "./lib.mjs";
+import { cmakeBuild, executable, gitCheckout, requireFile, run, stageFile } from "./lib.mjs";
 
 export default async function build({ target, workDir, outputDir, component }) {
     const source = join(workDir, "src");
@@ -9,6 +9,20 @@ export default async function build({ target, workDir, outputDir, component }) {
         commit: component.source.commit,
         destination: source,
     });
+    // gitCheckout fetches one commit, not tags. x265 derives its version from
+    // `git describe --tags`, and CMake errors on an empty VERSION_LIST.
+    if (component.source.tag !== undefined) {
+        run("git", [
+            "-C",
+            source,
+            "fetch",
+            "--quiet",
+            "--depth",
+            "1",
+            "origin",
+            `refs/tags/${component.source.tag}:refs/tags/${component.source.tag}`,
+        ]);
+    }
     const build = join(workDir, "build");
     cmakeBuild({
         source: join(source, "source"),
