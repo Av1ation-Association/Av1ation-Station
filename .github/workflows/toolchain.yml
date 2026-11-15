@@ -222,6 +222,13 @@ jobs:
                   }
                   "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$linker" >> $env:GITHUB_ENV
 
+            # rav1e is the only component that invokes Cargo. Pin the workspace's Rust
+            # channel instead of relying on the runner image's ambient toolchain.
+            - uses: dtolnay/rust-toolchain@stable
+              if: matrix.id == 'encoder:rav1e' && runner.os == 'Windows'
+              with:
+                  toolchain: "1.97"
+
             - name: Install Vulkan SDK for Vship
               if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
               run: choco install vulkan-sdk -y --no-progress
@@ -251,6 +258,19 @@ jobs:
               with:
                   path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
                   key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
+
+            # Surface PATH-resolution drift before a component fails deep in configure
+            # or CMake. `link` may expose the GNU shim; Cargo uses the pin above.
+            - name: Report resolved Windows build tools
+              if: runner.os == 'Windows'
+              shell: bash
+              run: |
+                  set -u
+                  for tool in bash gcc pkg-config make qmake6 link; do
+                    path="$(command -v "$tool" 2>/dev/null || true)"
+                    printf '%-12s %s\n' "$tool" "${path:-MISSING}"
+                  done
+                  printf '%-12s %s\n' 'cargo-link' "${CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER:-MISSING}"
 
             - name: Build or reuse ${{ matrix.id }}
               shell: bash
