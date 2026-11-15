@@ -352,6 +352,9 @@ Detail in [`docs/testing.md`](docs/testing.md).
   [`docs/decisions.md`](docs/decisions.md) in the same pull request.
 - Generated artifacts are committed: contracts, the schema snapshot, and the lockfiles.
   Never commit build output, `dist/`, or screenshots.
+- Do not commit without explicit approval of the contents, the commit message, and the
+  description. Commit messages follow the established pattern; do not add a description
+  or body without explicit approval of that description.
 
 ## 9. Forbidden shortcuts
 
