@@ -623,10 +623,29 @@ stages every uploadable file in the flat `dist/release/assets/` directory: each 
 or portable gets `-bundled` or `-system` inserted before its extension, `release-manifest`
 rejects duplicate flat names, and `upload.asset_paths` lists only that one directory.
 `SHA256SUMS-github.txt` uses those flat names; the aggregate `SHA256SUMS.txt` keeps the
-platform and variant paths for local checks. The Cargo
+platform and variant paths for local checks. `release-manifest` selects only paths that end in
+an installer or portable extension and are outside `audit/`, so the audit bundle, preflight
+reports and logs cannot collide with or enter the upload set. The Cargo
 `release/bundle/` tree and the expanded `dist/release/portable/` staging tree are
 intermediate; remove them with `npm run clean:outputs` after the archives exist. `dist/tools`
 is a staging input, not a release artifact.
+
+### Measured sizes
+
+Windows x64 bundled artifacts built from the local working tree on 2026-11-16 (HEAD
+`866febc`, with the uncommitted service and CI changes present) and measured then:
+
+| Artifact | Bytes | MiB |
+| --- | ---: | ---: |
+| MSI installer | 460,486,641 | 439.2 |
+| NSIS installer | 325,232,139 | 310.2 |
+| Portable ZIP | 475,090,956 | 453.1 |
+| NSIS installed tree (8,931 files) | 1,222,063,514 | 1,165.5 |
+
+The Windows MSI and NSIS installers and the portable ZIP are all below the 2 GiB compressed
+threshold, so the bundled Windows target does not need a companion `scale` installer. These
+are the only measurements so far: the system variant and every macOS and Linux target remain
+unmeasured, and the release readiness gate stays pending until they are recorded too.
 
 ## 9. Licence positions
 

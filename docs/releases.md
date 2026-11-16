@@ -20,6 +20,7 @@ candidates.
 - [Versions](#versions)
 - [Platform matrix](#platform-matrix)
 - [Artifact formats](#artifact-formats)
+- [Uninstall](#uninstall)
 - [Website download metadata](#website-download-metadata)
 - [Unsigned distribution](#unsigned-distribution)
 - [Toolchain lock gate](#toolchain-lock-gate)
@@ -161,6 +162,21 @@ prerelease build instead.
 Linux RPM is not a release artifact. The supported Linux forms are the `.deb` and the
 AppImage. The `.deb` declares WebKitGTK 4.1; the system variant also declares FFMS2. The
 AppImage is built on the Ubuntu 24.04 baseline and documents the FUSE 2 fallback.
+
+## Uninstall
+
+On Windows, the MSI and NSIS uninstallers remove the installed application tree, Start Menu
+shortcut, and uninstall registration. They deliberately leave the app-data directory
+(`%APPDATA%\com.av1ation.station` on Windows) in place: it contains the user's settings,
+projects, logs, caches, and unpacked tools. Delete that directory manually to remove all
+user data and reclaim its space. The portable ZIP has no uninstaller; delete its extracted
+folder and, if desired, the same app-data directory.
+
+A Windows NSIS check measured an installed tree of 1,165.5 MiB over 8,931 files, with no
+helper process left after installation. A first silent uninstall exited successfully but
+left the tree in place; a second synchronous silent run removed the tree, shortcut, and
+registration. The uninstall gate remains open until that repeatability issue and the macOS
+and Linux checks are resolved, and until the app-data retention is confirmed on each target.
 
 ## Website download metadata
 
@@ -351,11 +367,19 @@ The following are unresolved and block publication:
 3. **Updater key not provisioned.** No minisign public key is compiled in and no private key
    is in CI, so stable publication cannot claim an updater yet.
 4. **Clean-VM, size and attestation gates not run.** No clean Windows, macOS or Ubuntu
-   install has exercised the bundled trees; compressed and installed sizes and build-provenance
-   attestations remain unmeasured. The audit generator produces the lock copy, top-level
-   notices, Python/plugin notices, licence texts, SPDX SBOM and source offer; the fmetrics fork
-   commit, upstream base and recipe digest are recorded, and the transitive-notices readiness
-   gate is passed. The weekly tag job creates nothing while the other gates are pending.
+   install has exercised the bundled trees; build-provenance attestations remain unmeasured.
+   Only the Windows x64 bundled sizes are recorded: MSI 439.2 MiB, NSIS 310.2 MiB, portable
+   ZIP 453.1 MiB, and an NSIS installed tree of 1,165.5 MiB over 8,931 files. The system
+   variant and every macOS and Linux target remain unmeasured. The audit generator produces
+   the lock copy, top-level notices, Python/plugin notices, licence texts, SPDX SBOM and source
+   offer; the fmetrics fork commit, upstream base and recipe digest are recorded, and the
+   transitive-notices readiness gate is passed. The weekly tag job creates nothing while the
+   other gates are pending.
+5. **Uninstall is only partly checked.** A Windows NSIS install had no helper process after
+   installation, and a second synchronous silent uninstall removed the install tree, Start
+   Menu shortcut and uninstall registration while retaining the documented `<app-data>` user
+   data. The first silent invocation exited 0 with the install tree still present, so the
+   result is not yet repeatable; macOS and Linux uninstall checks also remain.
 
 Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
 generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,

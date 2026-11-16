@@ -16,15 +16,15 @@
         },
         "installer-sizes": {
             "status": "pending",
-            "evidence": "",
+            "evidence": "Windows x64 bundled artifacts built from the local working tree on 2026-11-16 (HEAD 866febc plus the uncommitted service and CI changes): MSI 460,486,641 bytes (439.2 MiB), NSIS 325,232,139 bytes (310.2 MiB), portable ZIP 475,090,956 bytes (453.1 MiB), and an NSIS installed tree of 1,222,063,514 bytes (1,165.5 MiB) over 8,931 files. All are below the 2 GiB compressed threshold. The system variant and every macOS/Linux target remain unmeasured.",
             "verified_at": null,
-            "note": "Needs compressed and installed sizes for every target and variant, reviewed against the release budget."
+            "note": "Needs compressed and installed sizes for every target and variant, reviewed against the release budget. Only the Windows x64 bundled variant is recorded so far."
         },
         "uninstall": {
             "status": "pending",
-            "evidence": "",
+            "evidence": "Windows x64 NSIS install at D:\\av1ation-release\\nsis-install had no helper process after installation. A first silent uninstall exited 0 but left the install tree; a second synchronous silent run removed the tree, Start Menu shortcut and uninstall registration. App data under %APPDATA%\\com.av1ation.station (pre-existing, 1,285.3 MiB) remained and is now documented as retained user data.",
             "verified_at": null,
-            "note": "Needs an uninstall check confirming no orphaned helper processes or undocumented user data."
+            "note": "Needs a repeatable one-run uninstall check confirming no orphaned helper processes or undocumented user data, on every target. The first Windows silent run left files in place; macOS and Linux are unverified."
         },
         "transitive-notices": {
             "status": "pass",
