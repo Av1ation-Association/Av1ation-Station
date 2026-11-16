@@ -426,7 +426,7 @@ dependencies = [
 
 [[package]]
 name = "av1ation-contracts"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "schemars 1.2.3",
  "serde",
@@ -435,7 +435,7 @@ dependencies = [
 
 [[package]]
 name = "av1ation-desktop"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "av1ation-service",
  "serde_json",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "av1ation-engine"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "andean-condor",
  "anyhow",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "av1ation-service"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "av1ation-contracts",
  "av1ation-engine",
@@ -497,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "av1ation-test-support"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "tempfile",
 ]
