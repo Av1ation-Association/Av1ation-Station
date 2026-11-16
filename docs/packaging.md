@@ -5,9 +5,9 @@ the provider rules, and the release gate. Current delivery status lives in
 [progress.md](progress.md). Release channels, unsigned distribution, and the updater policy
 are owned by [releases.md](releases.md).
 
-Every target stages the full provider set. `npm run stage:tools` accepts either a staged
-`tools/` tree or a target directory produced by `npm run toolchain:build` and requires the
-encoders, FFmpeg, MKVToolNix, the scene model, VapourSynth/Python and the native metrics.
+Every supported target stages the full provider set. `npm run stage:tools` accepts either a
+staged `tools/` tree or a target directory produced by `npm run toolchain:build` and requires
+the encoders, FFmpeg, MKVToolNix, the scene model, VapourSynth/Python and the native metrics.
 The pinned lock, verifier, and installers are part of this contract. A normal development
 build uses the machine's toolchain unless a staged tree is supplied.
 
@@ -83,10 +83,10 @@ vs-wheels simple index as well as PyPI.
 target equally. Windows x64 and Linux x86_64 carry the complete `full`, `gpu`, `cl` and
 `vulkan` set. macOS arm64 carries it; macOS x64 has no `hysteresis`, `mlrt-ncnn` or
 `vs-placebo` wheel in 3.0.0, so the recipe builds those from the pinned sources. The lock and
-About row name any omission rather than claiming a plugin that is not there. The clean-VM
-stage test (5.24) imports the target's plugin set on this pin before an installer is
-approved; a plugin wheel that does not publish a 3.14 build is the one input that can move
-the pin back, and it must be recorded in the lock. The extra also pulls
+About row name any omission rather than claiming a plugin that is not there. The hosted
+package job installs and removes the Windows/Linux payload; a full plugin import smoke remains
+part of the deferred clean-VM matrix. A plugin wheel that does not publish a 3.14 build is the
+one input that can move the pin back, and it must be recorded in the lock. The extra also pulls
 `vapoursynth-bm3dcpu`, whose DLL targets the retired VapourSynth API 3 and is refused by R82;
 the `vapoursynth-bm3d` wheel in the same extra supplies the `bm3d` namespace, so the
 capability is present and the inert DLL is only dead weight.
@@ -479,19 +479,20 @@ tree with `toolchain:lock --target <triple> --check`. `release.yml` downloads th
 rechecks the audit bundle and writes the manifest before creating a release. Stable Windows
 legs build MSI, NSIS and the portable; weekly and RC legs build NSIS and the portable only.
 
-Certificate-based code signing is **not planned**. The manual package job produces unsigned artifacts on
-Windows and Linux. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`,
-ffms2, the metric libraries, VapourSynth plugins and extension modules — is ad-hoc signed
-inside-out before the `.app`; it is not notarised. `codesign --deep` is not a substitute for
-signing inside-out. On Linux the recipes strip symbols and publish the ELF files with their
-SONAME/rpath intact; the `.deb` declares its WebKitGTK dependency and the AppImage is built
-on the baseline image.
+Certificate-based code signing is **not planned**. The hosted package job produces unsigned
+artifacts on Windows and Linux and ad-hoc-signed artifacts on macOS. On macOS, every nested
+Mach-O — `python3`, `libpython`, `libvsscript`, ffms2, the metric libraries, VapourSynth
+plugins and extension modules — is ad-hoc signed inside-out before the `.app`; the result is
+not notarised and remains unverified because no macOS host is available. `codesign --deep`
+is not a substitute for signing inside-out. On Linux the recipes strip symbols and publish
+the ELF files with their SONAME/rpath intact; the `.deb` declares its WebKitGTK dependency
+and the AppImage is built on the baseline image.
 
 The project will not obtain code-signing certificates. It therefore follows
 [releases.md](releases.md): Windows and Linux artifacts are unsigned, macOS artifacts are
-ad-hoc signed and not notarised, and every release says so. The updater signature is a
-separate minisign key and does not make the installer trusted by the operating system. A
-build is never described as signed or notarised when the corresponding signature is absent.
+ad-hoc signed and not notarised, and every release says so. There is no updater signature in
+this phase. A build is never described as signed or notarised when the corresponding
+signature is absent.
 
 Reproducibility is a claim about inputs and recorded outputs, not a promise of bit-identical
 binaries from every upstream build system. The lock pins every input per target; our recipes
@@ -538,9 +539,9 @@ source offer.
 The release bundle embeds a generated summary of the target's lock (id, version, licence,
 source URL, artefact hash). `GET /api/toolchain` returns that summary without touching the
 filesystem; the service's build script projects only the lock entry for its target. Settings →
-About does not render a **Bundled toolchain** list yet because its live Penpot board could not
-be reviewed; the public documentation site can serve the same JSON per target without a live
-service. Settings → Dependencies already shows the selected source and version per
+About lists the same components with source links; its layout is provisional pending live
+Penpot board review. The public documentation site can serve the same JSON per target without
+a live service. Settings → Dependencies already shows the selected source and version per
 capability. One target's notices and SBOM do not stand in for another's.
 
 Nothing in that summary contains a secret, a signing key, or a user path. Installed paths are
@@ -551,24 +552,21 @@ shown only in the local process's dependency rows.
 | Target | Release target | VapourSynth bundle |
 | --- | --- | --- |
 | Windows x64 (`x86_64-pc-windows-msvc`) | full bundle, primary, Windows 10/11 | bundled |
-| macOS arm64 (`aarch64-apple-darwin`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
-| macOS x64 (`x86_64-apple-darwin`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
-| Linux x64 (`x86_64-unknown-linux-gnu`) | full bundle after 5.26, secondary | bundled after 5.26; System before |
+| Linux x64 (`x86_64-unknown-linux-gnu`) | full bundle, secondary | bundled |
+| macOS arm64 (`aarch64-apple-darwin`) | best-effort full bundle, unverified | bundled; install/signing unverified |
+| macOS x64 (`x86_64-apple-darwin`) | best-effort full bundle, unverified | bundled; install/signing unverified |
 | Windows arm64 (`aarch64-pc-windows-msvc`) | not supported | no wheel |
 | Linux arm64 (`aarch64-unknown-linux-gnu`) | out of Phase 5; possible later with a reduced plugin set | wheel exists, plugin coverage is uneven |
 
-Windows x64 is the first full bundle and the Phase 5 release gate. “Secondary” is a
-build order, not a support tier: Phase 5 exits only with an installer for every listed
-release target. R82 publishes wheels for all four of them, so VapourSynth is no longer the
-reason the other targets wait; they wait on the relocation and signing gate in 5.26, not on
-an artefact.
+All four targets build. Windows and Linux carry the executable toolchain, VapourSynth/Python,
+and the native metrics; the package job validates install, size, and one-run uninstall on each
+hosted runner. macOS builds the same bundle on hosted runners but is **best-effort**: its
+installed tree, ad-hoc signing, and runtime behaviour are unverified because no macOS host is
+available.
 
 The macOS floor is **15.0**, because the vsjetpack plugin wheels are `macosx_15_0`; the
-VapourSynth and Python wheels themselves still begin at `macosx_13_0`.
-Tauri's default `minimumSystemVersion` is older; 5.22 raises it to 15.0. A Mac before 15
-keeps **System** VapourSynth and says so; it cannot load the bundled plugin wheels. macOS installers
-are thin (arm64 and x64), not universal: the Python, VapourSynth and plugin wheels are
-architecture-specific, and a universal app would still need both trees.
+VapourSynth and Python wheels themselves begin at `macosx_13_0`. macOS installers are thin
+(arm64 and x64), never universal. A Mac before 15 cannot load the bundled plugin wheels.
 
 The Linux floor is Ubuntu 24.04 / Debian 13. The engine's prebuilt ONNX Runtime requires
 glibc 2.38, and the current Ubuntu 24.04 build emits GLIBC_2.39 symbols; the effective
@@ -583,26 +581,25 @@ The other targets stage in this order:
 
 1. Bundle the executable toolchain (encoders, FFmpeg, mkvmerge, model) and the native metric
    libraries; they are portable and do not need VapourSynth.
-2. Bundle the VapourSynth runtime only after a relocation spike passes: on Linux a wheel in
-   a staged Python tree with a verified `libpython` link and a runtime-generated
-   `vapoursynth.toml`, on macOS the same with `install_name`/rpath rewriting and nested-code
-   signing. The spike is a gate, not an assumption.
-3. Until that gate passes, those platforms select **System** for `vapoursynth` and say so;
-   the row never offers a bundle that is not there.
+2. Bundle the VapourSynth runtime: on Linux a wheel in a staged Python tree with a verified
+   `libpython` link and a runtime-generated `vapoursynth.toml`; on macOS the same with
+   `install_name`/rpath rewriting and nested-code signing, best-effort.
+3. Linux validates the bundle in the package job. macOS ships the same bundle unverified; a
+   relocation or runtime failure is reported, not treated as a v0.1 release blocker.
 
-This is why the packaged Windows build does not wait on macOS ad-hoc signing of a Python tree.
-The Phase 5 exit criterion is an installer for every target, each carrying the largest
-toolchain it can prove: Windows complete, macOS and Linux complete once 5.26 passes and
-otherwise the executable/metrics subset with System VapourSynth.
+The packaged Windows and Linux builds do not wait on macOS ad-hoc signing of a Python tree.
+The Phase 5 exit criterion is an installer for every target, with Windows/Linux installs
+validated and macOS published best-effort without a support guarantee.
 
 ## 8. Size and installer shape
 
 The bundle is installed by the normal installer for the target; there is no first-run
 download and no separate package manager. The `full,gpu,cl,vulkan` plugin set is large
-(OpenVINO, DirectML and Vulkan payloads dominate it), so task 5.25 measures each target's
-compressed installer and installed size before the release candidate is approved. Sizes are
-not shared between targets: a thin macOS build and a Linux AppImage have different contents
-from the Windows bundle.
+(OpenVINO, DirectML and Vulkan payloads dominate it), so the package job measures each
+Windows/Linux variant's compressed installer and installed size before the release candidate
+is approved. The macOS job records DMG and app-ZIP sizes but does not install the app. Sizes
+are not shared between targets: a Linux AppImage has different contents from the Windows
+bundle.
 
 One installer per target is the default. If a target's measured compressed installer exceeds
 2 GiB, the `scale` extra (OpenVINO) moves to an optional companion installer artefact built
@@ -632,20 +629,20 @@ is a staging input, not a release artifact.
 
 ### Measured sizes
 
-Windows x64 bundled artifacts built from the local working tree on 2026-11-16 (HEAD
-`866febc`, with the uncommitted service and CI changes present) and measured then:
+Windows x64 bundled and system artifacts built from the local working tree on 2026-11-16
+(HEAD `866febc`, with the uncommitted service and CI changes present) and measured then:
 
-| Artifact | Bytes | MiB |
-| --- | ---: | ---: |
-| MSI installer | 460,486,641 | 439.2 |
-| NSIS installer | 325,232,139 | 310.2 |
-| Portable ZIP | 475,090,956 | 453.1 |
-| NSIS installed tree (8,931 files) | 1,222,063,514 | 1,165.5 |
+| Artifact | Bundled bytes | Bundled MiB | System bytes | System MiB |
+| --- | ---: | ---: | ---: | ---: |
+| MSI installer | 460,486,641 | 439.2 | 50,715,593 | 48.4 |
+| NSIS installer | 325,232,139 | 310.2 | 22,846,725 | 21.8 |
+| Portable ZIP | 475,090,956 | 453.1 | 40,307,836 | 38.4 |
+| NSIS installed tree | 1,222,063,514 (8,931 files) | 1,165.5 | 79,661,184 (178 files) | 76.0 |
 
-The Windows MSI and NSIS installers and the portable ZIP are all below the 2 GiB compressed
-threshold, so the bundled Windows target does not need a companion `scale` installer. These
-are the only measurements so far: the system variant and every macOS and Linux target remain
-unmeasured, and the release readiness gate stays pending until they are recorded too.
+Every Windows artifact is below the 2 GiB compressed threshold, so neither Windows variant
+needs a companion `scale` installer. Windows is fully measured; Linux sizes and install/uninstall
+behaviour are recorded by the hosted package job. macOS sizes are recorded the same way, but
+its install and uninstall remain unverified.
 
 ## 9. Licence positions
 
@@ -730,12 +727,25 @@ by component and by target:
 | --- | --- | --- |
 | Manifest and recipes exist for every target | 5.19 | `toolchain:verify` green; every claimed target has a source, licence, install path and lock entry; no floating ref |
 | Windows bundle builds and installs | 5.20, 5.22 | the installer lands `<resources>/tools`; the service starts with only `--tools-dir`, every bundled row is available, and a fixture encode completes |
-| macOS bundle is explicitly ad-hoc | 5.8, 5.20, 5.22, 5.26 | every nested Mach-O is ad-hoc signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict`, and the Gatekeeper override is documented; `spctl` rejection is expected without notarisation |
+| macOS bundle is best-effort | 5.8, 5.20, 5.22, 5.26 | the DMG/app ZIP build and ad-hoc signing run on hosted macOS; install, `codesign --verify`, and runtime are unverified and do not block the release |
 | Linux bundle builds and installs | 5.9, 5.20, 5.22, 5.26 | the `.deb` declares WebKitGTK; the system `.deb` also declares FFMS2, and the AppImage runs on the 24.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
 | Fork-built fmetrics reproduces | 5.20 | the shared library builds from the pinned fork commit on every claimed target, the upstream-base and target patch checks pass, and a metric probe loads it |
 | Provider selection works | 5.21, 5.23 | the mixed matrix in [plan/05-ci.md](plan/05-ci.md#16-manual-release-test-plan) passes, including a restart-required VapourSynth switch |
-| Clean-VM behaviour per target | 5.24 | a machine with no Python, VapourSynth or FFmpeg encodes with the bundle only; macOS is 15+, Linux has WebKitGTK 4.1 and no other toolchain |
+| Hosted package install/uninstall | package job | the Windows NSIS and Linux `.deb` install, measure and uninstall on the hosted runner; a clean-VM manual matrix is deferred |
 | Transparency assets ship per target | 5.27 | that target's lock, notices, SPDX and source offer are attached to the release and rendered in About |
 | Size is acceptable per target | 5.25 | each target's measured installer size is recorded; the companion-installer fallback is chosen separately where needed |
-| VapourSynth relocation on macOS/Linux | 5.26 | a wheel-based staged tree with its runtime `vapoursynth.toml` probes and signs successfully after being moved, or those platforms stay System and say so |
+| VapourSynth relocation on macOS | 5.26 | the bundle ships best-effort; moved-tree linkage and signing are unverified |
 | Minimum OS is declared | 5.22 | macOS `minimumSystemVersion` is 15.0; the Linux package states WebKitGTK 4.1 and the glibc baseline |
+
+Automated package validation covers install and uninstall on the hosted Windows/Linux
+runners. The manual clean-VM matrix is deferred and is not a v0.1 gate. macOS checks are
+best-effort and do not block the release. The remaining native checks to run before tagging:
+
+- [ ] fresh install on a clean Windows VM with **no** Python, VapourSynth, FFmpeg, MKVToolNix
+      or encoder on `PATH` → app opens, preflight is green, nothing downloads, a real encode runs
+- [ ] fresh install on Ubuntu 24.04 with WebKitGTK 4.1 and **no** Python, VapourSynth, FFmpeg,
+      encoder or `~/.config/vapoursynth/vapoursynth.toml` → the `.deb` installs its declared
+      dependencies, the app opens, and a real encode runs; repeat with the AppImage and
+      `libfuse2` installed
+- [ ] best-effort macOS: open the DMG/app on macOS 15+, run `codesign --verify --deep --strict`,
+      and record the Gatekeeper result; a failure is reported, not treated as a v0.1 blocker

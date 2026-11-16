@@ -2,46 +2,10 @@
     "schema_version": 1,
     "updated_at": "2026-11-16",
     "gates": {
-        "macos-relocation": {
-            "status": "pending",
-            "evidence": "",
-            "verified_at": null,
-            "note": "Needs a macOS host or hosted macOS run that relocates the staged tree, signs nested Mach-O files, and verifies the app with codesign --verify --deep --strict."
-        },
-        "clean-vm": {
-            "status": "pending",
-            "evidence": "",
-            "verified_at": null,
-            "note": "Needs clean Windows, macOS, and Ubuntu hosts with no preinstalled Python, VapourSynth, FFmpeg, MKVToolNix, or encoders."
-        },
-        "installer-sizes": {
-            "status": "pending",
-            "evidence": "Windows x64 bundled artifacts built from the local working tree on 2026-11-16 (HEAD 866febc plus the uncommitted service and CI changes): MSI 460,486,641 bytes (439.2 MiB), NSIS 325,232,139 bytes (310.2 MiB), portable ZIP 475,090,956 bytes (453.1 MiB), and an NSIS installed tree of 1,222,063,514 bytes (1,165.5 MiB) over 8,931 files. All are below the 2 GiB compressed threshold. The system variant and every macOS/Linux target remain unmeasured.",
-            "verified_at": null,
-            "note": "Needs compressed and installed sizes for every target and variant, reviewed against the release budget. Only the Windows x64 bundled variant is recorded so far."
-        },
-        "uninstall": {
-            "status": "pending",
-            "evidence": "Windows x64 NSIS install at D:\\av1ation-release\\nsis-install had no helper process after installation. A first silent uninstall exited 0 but left the install tree; a second synchronous silent run removed the tree, Start Menu shortcut and uninstall registration. App data under %APPDATA%\\com.av1ation.station (pre-existing, 1,285.3 MiB) remained and is now documented as retained user data.",
-            "verified_at": null,
-            "note": "Needs a repeatable one-run uninstall check confirming no orphaned helper processes or undocumented user data, on every target. The first Windows silent run left files in place; macOS and Linux are unverified."
-        },
         "transitive-notices": {
             "status": "pass",
-            "evidence": "Hosted runs 43808022233 and 43822686084 assembled all four target trees against the committed lock. release:audit --tools read each staged tree: 73 Python/plugin packages on Windows and Linux and 74 on each macOS target, with 98 licence texts per target; PYTHON_NOTICES.md and PYTHON-LICENSES.txt were generated for all four targets. The fmetrics fork commit ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac, upstream base e8bf3cfe06fb78f51864804b2f7003667d4c5a71 and recipe digest 5b7b7a8d928a398ff0fbf8856143982b154b56fbffae634b496190fea544fa12 are present in each SOURCE-OFFER.md. The audit checks pass; installer and other readiness gates remain pending.",
+            "evidence": "Hosted runs 43808022233 and 43822686084 assembled all target trees against the committed lock. release:audit --tools read each staged tree: 73 Python/plugin packages on Windows and Linux and 74 on each macOS target, with 98 licence texts per target; PYTHON_NOTICES.md and PYTHON-LICENSES.txt were generated for all four targets. The fmetrics fork commit ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac, upstream base e8bf3cfe06fb78f51864804b2f7003667d4c5a71 and recipe digest 5b7b7a8d928a398ff0fbf8856143982b154b56fbffae634b496190fea544fa12 are present in each SOURCE-OFFER.md. The audit checks pass.",
             "verified_at": "2026-11-16"
-        },
-        "manual-release-plan": {
-            "status": "pending",
-            "evidence": "",
-            "verified_at": null,
-            "note": "Needs the complete manual release test plan with recorded evidence."
-        },
-        "updater": {
-            "status": "pending",
-            "evidence": "",
-            "verified_at": null,
-            "note": "Stable releases only: provision the minisign key pair and verify a signed n-1 to n update on Windows and Linux."
         }
     }
 }

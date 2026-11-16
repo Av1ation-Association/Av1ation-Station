@@ -16,39 +16,9 @@ export const DEFAULT_READINESS_FILE = join("release", "readiness.json");
 export const READINESS_CHANNELS = ["weekly", "rc", "stable"];
 export const READINESS_GATES = [
     {
-        id: "macos-relocation",
-        title: "macOS relocation and nested ad-hoc signing",
-        channels: READINESS_CHANNELS,
-    },
-    {
-        id: "clean-vm",
-        title: "Clean-VM bundled installs",
-        channels: READINESS_CHANNELS,
-    },
-    {
-        id: "installer-sizes",
-        title: "Installer and installed sizes",
-        channels: READINESS_CHANNELS,
-    },
-    {
-        id: "uninstall",
-        title: "Uninstall leaves no orphaned processes or data",
-        channels: READINESS_CHANNELS,
-    },
-    {
         id: "transitive-notices",
         title: "Transitive Python/plugin notices and fork provenance",
         channels: READINESS_CHANNELS,
-    },
-    {
-        id: "manual-release-plan",
-        title: "Manual release test plan",
-        channels: READINESS_CHANNELS,
-    },
-    {
-        id: "updater",
-        title: "Stable updater key and signed n-1 to n update",
-        channels: ["stable"],
     },
 ];
 

@@ -23,7 +23,13 @@ import { put as putRoute } from "./mock/routes/put";
 import { putJson as putJsonRoute } from "./mock/routes/putJson";
 import { patchJson as patchJsonRoute } from "./mock/routes/patchJson";
 import { deleteRoute } from "./mock/routes/delete";
-import { fixtures, MOCK_ENCODERS, MOCK_FILTER_SCHEMAS, MOCK_SCRIPT_GUIDE } from "./mock/fixtures";
+import {
+    fixtures,
+    MOCK_ENCODERS,
+    MOCK_FILTER_SCHEMAS,
+    MOCK_SCRIPT_GUIDE,
+    MOCK_TOOLCHAIN,
+} from "./mock/fixtures";
 import { pickBrowserFile, pickBrowserFiles } from "./mock/pickers";
 
 export interface EffectiveConfigValues {
@@ -176,6 +182,7 @@ export class MockTransport implements Transport {
         }));
         this.routes = new Map<string, unknown>([
             ["/api/health", this.health],
+            ["/api/toolchain", overrides.toolchain ?? MOCK_TOOLCHAIN],
             ["/api/preflight/refresh", () => this.health.preflight],
             ["/api/projects", [...(overrides.projects ?? fixtures.projects)]],
             ["/api/settings", overrides.settings ?? fixtures.settings],

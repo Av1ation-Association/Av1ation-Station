@@ -260,16 +260,16 @@ describe("release preflight", () => {
         );
     });
 
-    it("fails closed when a manual readiness gate is pending", () => {
+    it("fails closed when a readiness gate is pending", () => {
         const candidate = fixture();
         const readiness = JSON.parse(
             readFileSync(join(candidate.root, "release", "readiness.json"), "utf8"),
         );
-        readiness.gates["clean-vm"] = {
+        readiness.gates["transitive-notices"] = {
             status: "pending",
             evidence: "",
             verified_at: null,
-            note: "clean hosts are not available yet",
+            note: "no notice bundle yet",
         };
         writeFile(
             join(candidate.root, "release", "readiness.json"),
@@ -281,7 +281,7 @@ describe("release preflight", () => {
         expect(report.ready).toBe(false);
         expect(report.checks).toContainEqual(
             expect.objectContaining({
-                id: "readiness.clean-vm",
+                id: "readiness.transitive-notices",
                 status: "fail",
             }),
         );

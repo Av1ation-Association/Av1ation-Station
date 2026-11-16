@@ -546,6 +546,9 @@ asks save / discard / stay before the panel changes.
 - Version from `/api/health`, never a hardcoded string; the engine package version and pinned
   revision; the API contract; the GPL obligations and licence link; the repository, website,
   and documentation links.
+- **Bundled toolchain.** A full-width card below the two-column cards lists the target lock's
+  components: id, version, licence, source link, and artifact hash. The target triple and lock
+  revision sit in the header. Installed paths are not part of the response.
 - **Check now** and **Export…** actions.
 - The diagnostics bundle's project list is one dropdown of checkboxes rather than a row per
   project, and starts on the project used most recently.
@@ -560,22 +563,28 @@ asks save / discard / stay before the panel changes.
 3. **Export diagnostics.** **Export…** builds the bundle from `GET /api/diagnostics/bundle`
    only when pressed, then asks the host where to write it. The bundle is redacted by the
    service before the screen sees it, and the copy action never writes a file.
-4. **Link from elsewhere.** Home's footer links to `/settings#about`; the palette's About
+4. **Inspect the bundle.** The toolchain card reads `GET /api/toolchain` and renders the
+   target's components from the lock embedded in the running binary. A component's **Source**
+   link opens its provenance page; the hash is the reviewed artifact digest. The layout is
+   provisional pending live Penpot review.
+5. **Link from elsewhere.** Home's footer links to `/settings#about`; the palette's About
    entry does the same.
 
 ### About states
 
 | State | Contract |
 | --- | --- |
-| Loading | The version card renders a skeleton. |
-| Empty | No published release is a normal answer; the running build is still shown. |
-| Error | Update-check and diagnostics-export failures stay inline; the copy action does not write a file. |
-| Populated | Version, contract, licences, links, and actions are visible. |
+| Loading | The version card and the toolchain card render skeletons. |
+| Empty | No published release is a normal answer; the running build is still shown. An empty lock summary lists no components. |
+| Error | Update-check, toolchain-summary, and diagnostics-export failures stay inline; the copy action does not write a file. |
+| Populated | Version, contract, licences, links, actions, and the bundled components are visible. |
 | Locked | Not applicable; Settings is not part of an encode lock. |
 
 ### About data and contracts
 
 - **Health.** `GET /api/health`.
+- **Toolchain.** `GET /api/toolchain`; the summary is embedded at build time from the target's
+  reviewed lock and never reads the filesystem.
 - **Updates.** `GET /api/update`; an available release opens its page.
 - **Diagnostics.** `GET /api/diagnostics/bundle`; redacted server-side before the screen sees
   it.

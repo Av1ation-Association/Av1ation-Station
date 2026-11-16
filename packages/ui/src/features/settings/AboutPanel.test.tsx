@@ -96,6 +96,54 @@ describe("AboutPanel", () => {
         expect(screen.queryByText(/Last checked/u)).toBeNull();
     });
 
+    it("lists the bundled toolchain for this target", async () => {
+        const transport = new AboutTransport({ projects: [ROUTE_PROJECT] });
+        const sha = "a".repeat(64);
+        transport.routes.set("/api/toolchain", {
+            target: "x86_64-test-target",
+            revision: "2026.11.1",
+            components: [
+                {
+                    id: "test:encoder",
+                    version: "1.2.3",
+                    license: "BSD-3-Clause",
+                    source_url: "https://example.test/source",
+                    sha256: sha,
+                },
+            ],
+        });
+        mount(transport);
+
+        expect(
+            await screen.findByRole("heading", { name: "Components in this build" }),
+        ).toBeTruthy();
+        expect(await screen.findByText("x86_64-test-target")).toBeTruthy();
+        expect(screen.getByText("2026.11.1")).toBeTruthy();
+        expect(screen.getByText("test:encoder")).toBeTruthy();
+        expect(screen.getByText("1.2.3")).toBeTruthy();
+        expect(screen.getByText("BSD-3-Clause")).toBeTruthy();
+        expect(screen.getByText(sha)).toBeTruthy();
+        expect(
+            screen.getByRole("link", { name: "Open source for test:encoder" }).getAttribute("href"),
+        ).toBe("https://example.test/source");
+    });
+
+    it("reports a failed toolchain summary without losing the version card", async () => {
+        const transport = new AboutTransport({ projects: [ROUTE_PROJECT] });
+        const get = transport.get.bind(transport);
+        transport.get = async <T,>(path: string, schema: ZodType<T>): Promise<T> => {
+            if (path === "/api/toolchain") {
+                throw new Error("The lock summary is unavailable.");
+            }
+            return await get(path, schema);
+        };
+        mount(transport);
+
+        const alert = await screen.findByRole("alert", {}, { timeout: 5_000 });
+        expect(alert.textContent).toContain("The lock summary is unavailable.");
+        expect(screen.getByRole("heading", { name: "Av1ation Station" })).toBeTruthy();
+    });
+
     it("checks the newest release only when asked and links the update", async () => {
         mount();
         await screen.findByRole("heading", { name: "Av1ation Station" });

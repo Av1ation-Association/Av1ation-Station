@@ -6,9 +6,8 @@ name: Release
 # preflight, the reviewed manual readiness record must be complete, and the release-security
 # gates must pass before anything is uploaded.
 #
-# Unsigned Windows/Linux artifacts and ad-hoc macOS artifacts are the permanent policy. The
-# workflow never passes code-signing or notarisation flags, and it never enables the updater;
-# a stable release without the minisign key is published as a draft with no latest.json.
+# Unsigned Windows/Linux artifacts and best-effort ad-hoc macOS artifacts are the policy.
+# The workflow never passes code-signing or notarisation flags and never enables the updater.
 on:
     push:
         tags:
@@ -70,9 +69,10 @@ jobs:
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
                   echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
-            # Manual clean-VM, relocation, size, uninstall and updater evidence cannot be
-            # inferred from the build. A tag must not spend the packaging matrix unless the
-            # reviewed readiness record applies to its channel.
+            # The reviewed readiness record still owns the transitive notice attestation.
+            # Installer size and uninstall evidence is produced by the package job, not inferred
+            # here. A tag must not spend the packaging matrix unless the record applies to its
+            # channel.
             - name: Require release readiness evidence
               env:
                   TAG: ${{ steps.resolve.outputs.tag }}
@@ -177,7 +177,8 @@ jobs:
             - name: Remove per-host release metadata
               run: |
                   rm -f dist/release/SHA256SUMS.txt dist/release/SHA256SUMS-github.txt \
-                    dist/release/RELEASE-NOTES.md dist/release/release-manifest.json
+                    dist/release/RELEASE-NOTES.md dist/release/release-manifest.json \
+                    dist/release/package-validation.json
                   rm -rf dist/release/assets
 
             - run: npm ci

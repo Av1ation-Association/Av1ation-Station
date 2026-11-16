@@ -15,6 +15,7 @@ import { Button } from "../../shared/Button";
 import { downloadText } from "../../shared/download";
 import { DOCUMENTATION, ENGINE_REPOSITORY, REPOSITORY, WEBSITE } from "../../shared/links";
 import { relativeTime, verdictFor, type UpdateVerdict } from "../../shared/update-status";
+import { BundledToolchain } from "./BundledToolchain";
 import { Kicker } from "./Kicker";
 
 /** The one line the check makes true, or nothing at all before it has run. */
@@ -532,6 +533,8 @@ export function AboutPanel() {
                     </section>
                 </aside>
             </div>
+
+            <BundledToolchain />
         </section>
     );
 }

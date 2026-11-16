@@ -4,6 +4,7 @@ import type {
     ParameterDescriptor,
     PreflightCheck,
     ProjectSummary,
+    ToolchainInfo,
     VideoValidation,
 } from "@av1ation/contracts";
 import {
@@ -21,6 +22,8 @@ export interface MockFixtures {
     validation?: Partial<VideoValidation>;
     /** Optional media mapping, so a deterministic gallery can show real images. */
     mediaUrl?: (path: string) => string;
+    /** Optional lock summary, for screen tests that need a different target. */
+    toolchain?: ToolchainInfo;
 }
 
 interface MockFamily {
@@ -512,6 +515,42 @@ export const MOCK_SCRIPT_GUIDE = {
             value: "C:\\\\temp",
             truncated: false,
             bytes: 6,
+        },
+    ],
+};
+
+/** The demo's target lock summary, mirroring the shape embedded in the service. */
+export const MOCK_TOOLCHAIN: ToolchainInfo = {
+    target: "x86_64-pc-windows-msvc",
+    revision: "2026.11.1",
+    components: [
+        {
+            id: "ffmpeg",
+            version: "9.0.2",
+            license: "LGPL-2.1-or-later",
+            source_url: "https://github.com/FFmpeg/FFmpeg",
+            sha256: "a".repeat(64),
+        },
+        {
+            id: "mkvmerge",
+            version: "v103.0",
+            license: "GPL-2.0-only",
+            source_url: "https://gitlab.com/mbunkus/mkvtoolnix",
+            sha256: "b".repeat(64),
+        },
+        {
+            id: "encoder:svt-av1",
+            version: "4.3.0",
+            license: "BSD-3-Clause-Clear",
+            source_url: "https://gitlab.com/AOMediaCodec/SVT-AV1",
+            sha256: "c".repeat(64),
+        },
+        {
+            id: "encoder:x265",
+            version: "4.1",
+            license: "GPL-2.0-only",
+            source_url: "https://bitbucket.org/multicoreware/x265_git",
+            sha256: "d".repeat(64),
         },
     ],
 };

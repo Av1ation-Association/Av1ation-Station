@@ -58,37 +58,22 @@ describe("release readiness", () => {
 
     it("fails a channel when a common gate is pending", () => {
         const gates = passingGates();
-        gates["clean-vm"] = {
+        gates["transitive-notices"] = {
             status: "pending",
             evidence: "",
             verified_at: null,
-            note: "no clean host yet",
+            note: "no notice bundle yet",
         };
         const report = checkReleaseReadiness({ root: fixture({ gates }), channel: "weekly" });
 
         expect(report.ready).toBe(false);
         expect(report.checks).toContainEqual(
             expect.objectContaining({
-                id: "readiness.clean-vm",
+                id: "readiness.transitive-notices",
                 status: "fail",
-                detail: expect.stringContaining("no clean host yet"),
+                detail: expect.stringContaining("no notice bundle yet"),
             }),
         );
-    });
-
-    it("requires the updater gate for stable but not for a weekly release", () => {
-        const gates = passingGates();
-        gates.updater = {
-            status: "pending",
-            evidence: "",
-            verified_at: null,
-        };
-        const root = fixture({ gates });
-
-        expect(checkReleaseReadiness({ root, channel: "weekly" }).ready).toBe(true);
-        const stable = checkReleaseReadiness({ root, channel: "stable" });
-        expect(stable.ready).toBe(false);
-        expect(stable.checks.some((check) => check.id === "readiness.updater")).toBe(true);
     });
 
     it("fails closed when the readiness file is missing", () => {
@@ -99,7 +84,7 @@ describe("release readiness", () => {
         expect(report.ready).toBe(false);
         expect(report.checks).toContainEqual(
             expect.objectContaining({
-                id: "readiness.macos-relocation",
+                id: "readiness.transitive-notices",
                 status: "fail",
             }),
         );
@@ -107,13 +92,13 @@ describe("release readiness", () => {
 
     it("rejects a pass entry without evidence", () => {
         const gates = passingGates();
-        gates["manual-release-plan"].evidence = "";
+        gates["transitive-notices"].evidence = "";
         const report = checkReleaseReadiness({ root: fixture({ gates }), channel: "weekly" });
 
         expect(report.ready).toBe(false);
         expect(report.checks).toContainEqual(
             expect.objectContaining({
-                id: "readiness.manual-release-plan",
+                id: "readiness.transitive-notices",
                 status: "fail",
                 detail: expect.stringContaining("passes without evidence"),
             }),

@@ -107,8 +107,9 @@ function UnsupportedPanel() {
     return (
         <div className="docs-install__empty">
             <p>
-                There is no macOS installer in {RELEASE.version}. The source tree may build on
-                macOS, but that path is unsupported and this release does not produce an app.
+                There is no macOS asset in the {RELEASE.version} preview snapshot. macOS builds
+                are best-effort and unverified; a published ad-hoc-signed app may still be blocked
+                by Gatekeeper.
             </p>
             <a
                 className="site-button site-button--secondary"

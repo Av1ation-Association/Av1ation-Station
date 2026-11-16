@@ -182,15 +182,12 @@ risk of running scripts with the user's privileges.
 
 ## 5. Updates
 
-- Tauri's updater with a **minisign-signed** manifest; the public key is compiled in.
-- Updates are user-initiated or user-approved; no silent install.
-- The manifest is served over HTTPS from a release host. The updater signature, not TLS, is
-  the update trust anchor.
-- Version downgrade is refused.
-- Only the stable channel offers updates. Weekly and release-candidate builds never write an
-  updater manifest. The initial installer may be code-unsigned under
-  [releases.md](releases.md#unsigned-distribution); the updater signature is separate and
-  does not make that installer trusted by Windows or macOS.
+v0.1 has **no in-app updater**. Settings → About reads the newest published release and opens
+its GitHub page; nothing is downloaded. There is no updater manifest or minisign key in this
+phase. If an updater is added later, it must be a stable-only, user-approved,
+minisign-verified download that refuses downgrades; its signature is separate from OS code
+signing and does not make the installer trusted. Weekly and release-candidate builds must
+never write an updater manifest.
 
 ## 6. Log anonymisation
 
@@ -262,9 +259,9 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 - That release will download nothing at install or run time, and no binary is committed to
   Git. It will publish the lock, generated third-party notices, an SPDX SBOM and a source
   offer, so a reviewer can rebuild or audit exactly what the installer contains.
-- When certificates are available, every bundled executable and DLL is signed before the
-  installer is assembled. Without them, [releases.md](releases.md) governs the explicit
-  unsigned/ad-hoc labels; an artifact is never described as signed when it is not.
+- Code signing is not planned for v0.1. [releases.md](releases.md) governs the explicit
+  unsigned Windows/Linux and ad-hoc macOS labels; macOS is best-effort and unverified, and an
+  artifact is never described as signed when it is not.
 - Phase 5 embeds a generated summary of the lock in the service and serves it at
   `GET /api/toolchain`. It contains versions, licences, source links and hashes only —
   never a secret or a user path.
@@ -292,10 +289,11 @@ Required before any tagged release:
 - [ ] `Origin` check on state-changing requests
 - [ ] Anonymiser fixture test green
 - [ ] `cargo-deny` clean under the reviewed license/ban/source policy
-- [ ] Updater signing key present and manifest signed
+- [ ] Updater deferred: no signing key or manifest is present in v0.1
 - [ ] No secrets in the repository, confirmed by the release-security scanner and its reviewed allowlist
 - [ ] `npm run toolchain:verify` green, and the release lock matches the installer
-- [ ] Code-signed where certificates exist, otherwise explicitly labeled unsigned or
-      ad-hoc per [releases.md](releases.md); notices, SBOM and source offer attached
-- [ ] Clean-VM install performs an encode with no Python, VapourSynth or FFmpeg installed
+- [ ] Explicitly labeled unsigned (or ad-hoc macOS) per [releases.md](releases.md); notices,
+      SBOM and source offer attached
+- [ ] Hosted package job installs and uninstalls the Windows/Linux payload; macOS sizes are
+      recorded but install/signing are unverified; the clean-VM encode matrix is deferred
 - [ ] Mixed provider selection (system VapourSynth, bundled encoders) encodes

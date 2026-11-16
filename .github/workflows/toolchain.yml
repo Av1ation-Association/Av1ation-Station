@@ -545,6 +545,17 @@ jobs:
                   fi
                   npm run release:build -- --tag "$RELEASE_TAG" --branch main
 
+            - name: Validate package (install where supported)
+              run: node scripts/release-package-check.mjs
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: package-validation-${{ matrix.target }}
+                  path: dist/release/package-validation.json
+                  if-no-files-found: warn
+                  retention-days: 14
+
             - uses: actions/upload-artifact@v4
               with:
                   name: release-${{ matrix.target }}
