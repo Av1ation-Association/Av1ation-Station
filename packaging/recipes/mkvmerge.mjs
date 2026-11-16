@@ -34,11 +34,13 @@ export default async function build({ target, workDir, outputDir, component }) {
             : prefix;
     if (windows) {
         // AX_BOOST_BASE searches /usr, /usr/local, /opt, and /opt/local; it does not
-        // discover MSYS2's UCRT64 prefix from the compiler's default include path.
+        // discover MSYS2's UCRT64 prefix from the compiler's default include path. Pass
+        // the MSYS-style prefix, not the drive-letter path: the Boost macro strips the
+        // first non-slash run from -L, which would drop a Windows drive letter.
         args.push(
             "--host=x86_64-w64-mingw32",
-            `--with-boost=${root}`,
-            `--with-boost-libdir=${root}/lib`,
+            `--with-boost=${prefix}`,
+            `--with-boost-libdir=${prefix}/lib`,
         );
     }
     if (platform(target) === "darwin" && process.env.QMAKE6) {
