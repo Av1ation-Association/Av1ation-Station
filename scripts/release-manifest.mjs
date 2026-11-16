@@ -382,10 +382,117 @@ function checksumsAsset() {
     };
 }
 
+const conventionalCommitPattern =
+    /^(?<type>[A-Za-z]+)(?:\((?<scope>[^)]+)\))?(?<breaking>!)?: (?<summary>.+)$/u;
+const changeSectionOrder = [
+    ["feat", "Features"],
+    ["fix", "Fixes"],
+    ["perf", "Performance"],
+    ["refactor", "Refactoring"],
+    ["revert", "Reverts"],
+    ["docs", "Documentation"],
+    ["test", "Tests"],
+    ["build", "Build"],
+    ["ci", "CI"],
+    ["chore", "Chores"],
+    ["style", "Style"],
+];
+
+/** Parse one Conventional Commit subject; merge and non-conforming subjects return null. */
+export function parseConventionalCommit(subject) {
+    if (typeof subject !== "string" || /^Merge\b/u.test(subject)) {
+        return null;
+    }
+    const match = conventionalCommitPattern.exec(subject.trim());
+    if (match === null) {
+        return null;
+    }
+    return {
+        type: match.groups.type.toLowerCase(),
+        scope: match.groups.scope?.trim() ?? null,
+        breaking: match.groups.breaking === "!",
+        summary: match.groups.summary.trim(),
+    };
+}
+
+function previousReleaseTag(runGit = git) {
+    return runGit(["describe", "--tags", "--abbrev=0", "--match", "v*", "HEAD^"]) ?? null;
+}
+
+/**
+ * Read commit subjects since the previous reachable release tag. The release owner edits
+ * the generated section before publishing; this function only supplies the draft.
+ */
+export function collectReleaseChanges({ from, to = "HEAD", runGit = git } = {}) {
+    const previous = from ?? previousReleaseTag(runGit);
+    const range = previous === null ? to : `${previous}..${to}`;
+    const output = runGit(["log", "--no-merges", "--format=%h%x09%s", range]) ?? "";
+    const changes = [];
+    for (const line of output.split("\n")) {
+        const tab = line.indexOf("\t");
+        if (tab === -1) {
+            continue;
+        }
+        const hash = line.slice(0, tab).trim();
+        const subject = line.slice(tab + 1).trim();
+        const conventional = parseConventionalCommit(subject);
+        if (conventional === null) {
+            changes.push({
+                hash,
+                subject,
+                type: "other",
+                scope: null,
+                breaking: false,
+                summary: subject,
+            });
+            continue;
+        }
+        changes.push({ hash, subject, ...conventional });
+    }
+    return { from: previous, to, changes };
+}
+
+export function renderReleaseChanges({ from, to, changes }) {
+    if (changes.length === 0) {
+        return "";
+    }
+    const groups = new Map();
+    for (const change of changes) {
+        const label =
+            changeSectionOrder.find(([type]) => type === change.type)?.[1] ?? "Other changes";
+        if (!groups.has(label)) {
+            groups.set(label, []);
+        }
+        groups.get(label).push(change);
+    }
+    const sections = changeSectionOrder
+        .map(([, label]) => [label, groups.get(label)])
+        .filter(([, entries]) => entries !== undefined && entries.length > 0)
+        .map(([label, entries]) => {
+            const lines = entries.map((change) => {
+                const scope = change.scope === null ? "" : ` (${change.scope})`;
+                const breaking = change.breaking ? "**BREAKING** " : "";
+                return `- ${breaking}${change.summary}${scope} (\`${change.hash}\`)`;
+            });
+            return `### ${label}\n\n${lines.join("\n")}`;
+        });
+    const other = groups.get("Other changes");
+    if (other !== undefined && other.length > 0) {
+        sections.push(
+            `### Other changes\n\n${other
+                .map((change) => `- ${change.summary} (\`${change.hash}\`)`)
+                .join("\n")}`,
+        );
+    }
+    const range = from === null ? `through \`${to}\`` : `from \`${from}\` to \`${to}\``;
+    return `## Changes\n\nConventional Commits ${range}.\n\n${sections.join("\n\n")}\n\n`;
+}
+
 function notesFor({
     artifacts,
     platforms,
     featureScreenshots,
+    changes,
     version,
     tag,
     sourceCommit,
@@ -522,7 +629,7 @@ ${hasLinuxBundled ? "The bundled Linux variant carries the full pinned toolchain
 
 Av1ation Station is a desktop workspace for scene-aware, quality-targeted video encoding with Av1an. Queue videos, configure the encoder, edit scenes, inspect charts and logs, and follow every run from one window.
 
-${featureSection}## Downloads
+${changes}${featureSection}## Downloads
 
 | Platform | Variant | Installer | Portable |
 | --- | --- | --- | --- |
@@ -745,6 +852,7 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
     const platforms = platformGroups(artifacts);
     const featureScreenshots = readFeatureScreenshots();
     const platformSummary = joinLabels(platforms.map((platform) => platform.label));
+    const changeLog = collectReleaseChanges({ to: sourceCommit });
     writeGithubChecksums(artifacts);
     const flatDirectory = stageFlatAssets(artifacts);
     copyFileSync(join(releaseDir, githubChecksumName), join(flatDirectory, githubChecksumName));
@@ -766,6 +874,7 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
         artifacts,
         platforms,
         featureScreenshots,
+        changes: renderReleaseChanges(changeLog),
         version,
         tag,
         sourceCommit,

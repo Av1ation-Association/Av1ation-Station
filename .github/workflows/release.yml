@@ -3,7 +3,8 @@ name: Release
 # A tag is a release request, not a permission to publish: the tag must be reachable from
 # main, its three required CI gates must be green, its package version must be valid for the
 # channel, the committed lock must match the assembled trees, the audit bundle must pass
-# preflight, and the release-security gates must pass before anything is uploaded.
+# preflight, the reviewed manual readiness record must be complete, and the release-security
+# gates must pass before anything is uploaded.
 #
 # Unsigned Windows/Linux artifacts and ad-hoc macOS artifacts are the permanent policy. The
 # workflow never passes code-signing or notarisation flags, and it never enables the updater;
@@ -68,6 +69,14 @@ jobs:
                   channel="$(TAG="$tag" node --input-type=module -e 'import { parseReleaseTag } from "./scripts/release-manifest.mjs"; console.log(parseReleaseTag(process.env.TAG).channel);')"
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
                   echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+            # Manual clean-VM, relocation, size, uninstall and updater evidence cannot be
+            # inferred from the build. A tag must not spend the packaging matrix unless the
+            # reviewed readiness record applies to its channel.
+            - name: Require release readiness evidence
+              env:
+                  TAG: ${{ steps.resolve.outputs.tag }}
+              run: node scripts/release-readiness.mjs --tag "$TAG"
 
             # The tag is expected to be created after the required checks pass. A missing or
             # failed context is a release blocker, never a warning.

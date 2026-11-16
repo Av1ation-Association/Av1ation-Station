@@ -89,7 +89,14 @@ function spdxId(id) {
     return `SPDXRef-Package-${id.replace(/[^A-Za-z0-9.-]/gu, "-")}`;
 }
 
-function componentRows({ lock, manifestById, target }) {
+function sha256File(path) {
+    if (!existsSync(path)) {
+        return null;
+    }
+    return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function componentRows({ root, lock, manifestById, target }) {
     const components = lock.targets[target].components;
     return Object.keys(components)
         .sort()
@@ -110,6 +117,14 @@ function componentRows({ lock, manifestById, target }) {
             }
             const install = artifact.install;
             const recipe = declared.build?.recipe ?? "not recorded";
+            const upstreamBase =
+                typeof declared.build?.variables?.upstream_base === "string"
+                    ? declared.build.variables.upstream_base
+                    : null;
+            const recipeSha256 = recipe === "not recorded" ? null : sha256File(join(root, recipe));
+            if (upstreamBase !== null && recipeSha256 === null) {
+                fail(`fork-built component ${id} has no readable recipe at ${recipe}`);
+            }
             return {
                 id,
                 version: resolved.version,
@@ -118,6 +133,8 @@ function componentRows({ lock, manifestById, target }) {
                 artifact,
                 install,
                 recipe,
+                recipeSha256,
+                upstreamBase,
                 provides: declared.provides ?? [],
             };
         });
@@ -161,6 +178,16 @@ function sourceOfferFor({ tag, target, manifest, lock, components, repository })
         (component) =>
             `| ${code(component.id)} | ${cell(sourceDescription(component.source))} | ${code(component.recipe)} | ${code(component.artifact.url)} |`,
     );
+    const forkRows = components
+        .filter((component) => component.upstreamBase !== null)
+        .map(
+            (component) =>
+                `| ${code(component.id)} | ${code(component.source.commit ?? "NOASSERTION")} | ${code(component.upstreamBase)} | ${code(component.recipe)} | ${code(component.recipeSha256 ?? "not recorded")} |`,
+        );
+    const forkSection =
+        forkRows.length === 0
+            ? ""
+            : `\n## Fork provenance\n\nThe fork commit is the reviewed source revision; the upstream base is the commit it was\nbased on. The recipe digest covers the committed build recipe that applies the target patch\nset, so the patch cannot change without changing this offer.\n\n| Component | Fork commit | Upstream base | Recipe | Recipe SHA-256 |\n| --- | --- | --- | --- | --- |\n${forkRows.join("\n")}\n`;
     const tagUrl = `https://github.com/${repository}/tree/${encodeURIComponent(tag)}`;
     return `# Source offer
 
@@ -173,8 +200,9 @@ The recipes apply only patches committed beside them in the tagged source tree.
 
 This offer covers the top-level components in \`packaging/toolchain.json\`. The VapourSynth
 row bundles CPython, VapourSynth, vsjetpack, and their wheels; their transitive package
-notices and licence texts remain a publication gate. The fmetrics fork commit is listed
-above, and its Windows portability patch is applied by \`packaging/recipes/fmetrics.mjs\`.
+notices and licence texts remain a publication gate. The fmetrics fork commit and upstream
+base are listed below, and its Windows portability patch is applied by
+\`packaging/recipes/fmetrics.mjs\`; the recipe digest pins the patch set.
 
 ## GPL and LGPL components
 
@@ -191,6 +219,7 @@ ${gplRows.join("\n")}
 | Component | Source revision | Recipe | Artifact source |
 | --- | --- | --- | --- |
 ${allRows.join("\n")}
+${forkSection}
 
 Build the source with the named recipe from the tagged repository. The build reads no
 mutable branch or latest asset; the lock records the exact resolved bytes for this target.
@@ -305,7 +334,7 @@ export function generateAuditBundle({
         mkdirSync(targetDirectory, { recursive: true });
         copyFileSync(lockPath, join(targetDirectory, "toolchain.lock.json"));
 
-        const components = componentRows({ lock, manifestById, target });
+        const components = componentRows({ root: resolvedRoot, lock, manifestById, target });
         if (components.length === 0) {
             fail(`toolchain lock target ${target} has no components`);
         }

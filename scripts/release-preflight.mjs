@@ -3,11 +3,12 @@
 // exits non-zero; there is no warning-only path.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { projectRoot } from "./build-paths.mjs";
 import { releaseShape } from "./release-manifest.mjs";
+import { DEFAULT_READINESS_FILE, checkReleaseReadiness } from "./release-readiness.mjs";
 import { TARGETS } from "./toolchain-manifest.mjs";
 
 const REPORT_SCHEMA_VERSION = 1;
@@ -57,6 +58,7 @@ Options:
   --tag <tag>                 v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD
   --artifacts <directory>     Candidate build root (default: dist/release)
   --audit-bundle <directory>  Audit bundle root (default: <artifacts>/audit)
+  --readiness <path>          Readiness record (default: release/readiness.json)
   --report <path>             JSON report path (default: dist/release/preflight.json)
   --json <path>               Alias for --report
   --code-signed               Assert the artifacts are code-signed
@@ -241,6 +243,21 @@ function checkUpdater(checks, { root, updater, updaterKeyFile, env }) {
     );
 }
 
+function checkForbiddenUpdaterArtifacts(checks, { artifactsDir, updater }) {
+    if (updater) {
+        return;
+    }
+    const forbidden = walkFiles(artifactsDir).filter((path) => basename(path) === "latest.json");
+    addCheck(
+        checks,
+        "updater.artifacts-forbidden",
+        forbidden.length === 0,
+        forbidden.length === 0
+            ? "no updater manifest in a release without an updater claim"
+            : `latest.json is not allowed without an updater claim: ${forbidden.join(", ")}`,
+    );
+}
+
 function checkMetadata(checks, { artifactsDir, tag, version, release }) {
     const manifestPath = join(artifactsDir, "release-manifest.json");
     const parsed = readJson(manifestPath);
@@ -285,6 +302,13 @@ function checkMetadata(checks, { artifactsDir, tag, version, release }) {
             actual?.updater?.manifest === release.updater.manifest,
         `release.updater must be ${JSON.stringify(release.updater)}`,
     );
+}
+
+function checkReadiness(checks, { root, readinessFile, channel }) {
+    const report = checkReleaseReadiness({ root, file: readinessFile, channel });
+    for (const check of report.checks) {
+        checks.push(check);
+    }
 }
 
 function checkAudit(checks, { root, auditDir, tag }) {
@@ -383,6 +407,7 @@ export function runPreflight({
     notarized = false,
     updater = false,
     updaterKeyFile,
+    readinessFile = DEFAULT_READINESS_FILE,
     env = process.env,
     verifyToolchain = verifyToolchainLock,
 } = {}) {
@@ -454,6 +479,15 @@ export function runPreflight({
     }
 
     checkArtifacts(checks, resolvedArtifacts, release.channel);
+    checkForbiddenUpdaterArtifacts(checks, {
+        artifactsDir: resolvedArtifacts,
+        updater: release.updater.enabled,
+    });
+    checkReadiness(checks, {
+        root: resolvedRoot,
+        readinessFile,
+        channel: release.channel,
+    });
     checkUpdater(checks, {
         root: resolvedRoot,
         updater: release.updater.enabled,
@@ -499,6 +533,7 @@ function parseCli(argv) {
         notarized: false,
         updater: false,
         updaterKeyFile: undefined,
+        readinessFile: DEFAULT_READINESS_FILE,
         help: false,
     };
     for (let index = 0; index < argv.length; index += 1) {
@@ -523,6 +558,10 @@ function parseCli(argv) {
                 break;
             case "--updater-key-file":
                 options.updaterKeyFile = requiredValue(argv, index, "--updater-key-file");
+                index += 1;
+                break;
+            case "--readiness":
+                options.readinessFile = requiredValue(argv, index, "--readiness");
                 index += 1;
                 break;
             case "--code-signed":

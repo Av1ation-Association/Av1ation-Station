@@ -1,0 +1,48 @@
+{
+    "schema_version": 1,
+    "updated_at": "2026-11-16",
+    "gates": {
+        "macos-relocation": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs a macOS host or hosted macOS run that relocates the staged tree, signs nested Mach-O files, and verifies the app with codesign --verify --deep --strict."
+        },
+        "clean-vm": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs clean Windows, macOS, and Ubuntu hosts with no preinstalled Python, VapourSynth, FFmpeg, MKVToolNix, or encoders."
+        },
+        "installer-sizes": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs compressed and installed sizes for every target and variant, reviewed against the release budget."
+        },
+        "uninstall": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs an uninstall check confirming no orphaned helper processes or undocumented user data."
+        },
+        "transitive-notices": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs the staged Python/plugin package metadata and licence texts, plus the fmetrics fork provenance reviewed in the audit bundle."
+        },
+        "manual-release-plan": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Needs the complete manual release test plan with recorded evidence."
+        },
+        "updater": {
+            "status": "pending",
+            "evidence": "",
+            "verified_at": null,
+            "note": "Stable releases only: provision the minisign key pair and verify a signed n-1 to n update on Windows and Linux."
+        }
+    }
+}

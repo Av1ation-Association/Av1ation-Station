@@ -378,3 +378,84 @@ jobs:
                   name: weekly-dependency-audit
                   path: dist/audits/
                   if-no-files-found: warn
+
+    weekly-tag:
+        name: Weekly release tag
+        needs: [changes, real-encode, coverage-trend, dependency-audit]
+        if: needs.changes.outputs.run == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: write
+            actions: write
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+
+            - name: Fetch release tags
+              run: git fetch --force --tags origin
+
+            - name: Require the main branch
+              shell: bash
+              run: |
+                  if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+                    echo "Weekly releases must be created from main, not $GITHUB_REF." >&2
+                    exit 1
+                  fi
+
+            # A tag is a permanent release request. Do not create one while a manual gate is
+            # still pending; warning and skipping keeps the weekly test suite green without
+            # leaving an immutable tag that release.yml can only reject.
+            - name: Check release readiness
+              id: readiness
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if node scripts/release-readiness.mjs --channel weekly; then
+                    echo "ready=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "ready=false" >> "$GITHUB_OUTPUT"
+                    echo "::warning::Manual release readiness is incomplete; no weekly tag was created."
+                  fi
+
+            - name: Plan the weekly tag
+              id: plan
+              if: steps.readiness.outputs.ready == 'true'
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  node scripts/weekly-release-tag.mjs --date "$(date -u +%Y%m%d)" --github-output "$GITHUB_OUTPUT"
+
+            - name: Create the weekly tag
+              if: >-
+                  steps.readiness.outputs.ready == 'true' &&
+                  steps.plan.outputs.skip == 'false'
+              shell: bash
+              env:
+                  TAG: ${{ steps.plan.outputs.tag }}
+              run: |
+                  set -euo pipefail
+                  if git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+                    echo "Tag $TAG already exists; refusing to move it." >&2
+                    exit 1
+                  fi
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git tag -a "$TAG" -m "Weekly release $TAG"
+                  git push origin "refs/tags/$TAG"
+
+            # A tag pushed with GITHUB_TOKEN does not trigger a second workflow. Dispatch
+            # release.yml explicitly so the tag is still built by the audited release path.
+            - name: Dispatch the release workflow
+              if: >-
+                  steps.readiness.outputs.ready == 'true' &&
+                  steps.plan.outputs.skip == 'false'
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAG: ${{ steps.plan.outputs.tag }}
+              run: gh workflow run release.yml --ref main -f tag="$TAG"

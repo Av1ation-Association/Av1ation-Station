@@ -6,15 +6,17 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 [packaging.md](packaging.md).
 
 The release gate is **closed** until the remaining packaging checks pass. The reviewed
-manifest, recipes, four-target lock, reusable toolchain and security workflows, and the
-tag-driven `release.yml` are present. No release tag has exercised them, and the macOS,
-updater, clean-VM and audit gates below still block publication. The local artifacts under
-`dist/release/` are development evidence, not release candidates.
+manifest, recipes, four-target lock, reusable toolchain and security workflows, the
+tag-driven `release.yml`, and the reviewed readiness record are present. No release tag has
+exercised them, and the macOS, updater, clean-VM and audit gates below still block
+publication. The local artifacts under `dist/release/` are development evidence, not release
+candidates.
 
 ## Contents
 
 - [Channels](#channels)
 - [Source and tags](#source-and-tags)
+- [Readiness record](#readiness-record)
 - [Versions](#versions)
 - [Platform matrix](#platform-matrix)
 - [Artifact formats](#artifact-formats)
@@ -36,11 +38,13 @@ updater, clean-VM and audit gates below still block publication. The local artif
 | Stable | Manual tag | `v<base>` | Draft GitHub release, manually published | Stable only |
 | Weekly tests | Weekly schedule | No release tag | No release artifacts | Not applicable |
 
-The existing `.github/workflows/weekly.yml` remains a **test** workflow. It may run real
-encodes and coverage, but it is not a release channel and its system packages are not
-release inputs. The schedule that creates a weekly release tag is not wired yet; create the
-tag from a clean `main` checkout after the weekly test run. `release.yml` only consumes an
-existing tag.
+`weekly.yml` remains a **test** workflow. It may run real encodes and coverage, but its
+system packages are not release inputs. After all weekly jobs pass, a separate `weekly-tag`
+job may create one tag for the UTC date and dispatch `release.yml`. It only does so from
+`main`, only when the diff from the previous weekly tag contains a non-documentation path,
+and only when the readiness record passes for the weekly channel. The explicit
+`workflow_dispatch` is required because a tag pushed with `GITHUB_TOKEN` does not trigger
+another workflow. `release.yml` still builds only the existing tag.
 
 ### Historical 0.1.0 preview
 
@@ -55,7 +59,9 @@ stable tags in the table above.
 A weekly run is skipped when the diff from the last weekly tag to `HEAD` contains only
 documentation: `docs/**` and `*.md`. A change to `packaging/**`, `scripts/**`, source, tests,
 or the lock is a code change and produces a weekly candidate. There is at most one weekly
-tag per date; rerunning a failed workflow does not move an existing tag.
+tag per date; rerunning a failed workflow does not move an existing tag. If readiness is
+pending, the tag job warns and creates nothing, so the weekly test suite can stay green
+without leaving an immutable tag that the release workflow must reject.
 
 ## Source and tags
 
@@ -72,9 +78,9 @@ tag per date; rerunning a failed workflow does not move an existing tag.
   or failed context fails the run.
 - Before creating a tag, run `npm run release:preflight -- --tag <tag> --artifacts <candidate>`.
   It checks the lock through `toolchain:verify`, tag/version agreement through
-  `releaseShape`, required artifacts, updater key, signing labels, and the audit bundle. It
-  writes a JSON report and exits non-zero when any check fails; it does not create tags or
-  publish.
+  `releaseShape`, the readiness record, required artifacts, updater key, forbidden
+  `latest.json`, signing labels, and the audit bundle. It writes a JSON report and exits
+  non-zero when any check fails; it does not create tags or publish.
 - The tag commit must be reachable from the selected branch and must contain the lock and
   policy being claimed.
 - Tags are immutable. Do not force-push, move, or reuse a release tag; a bad build gets a
@@ -82,6 +88,21 @@ tag per date; rerunning a failed workflow does not move an existing tag.
 - The release manifest records the full source commit, the tag, and the branch; each
   target's audit bundle records the lock. A tag build checks out a detached HEAD, so it
   passes `--branch <name>`; an unresolved branch fails the manifest instead of guessing one.
+
+## Readiness record
+
+`release/readiness.json` is the reviewed record for gates CI cannot execute itself:
+macOS relocation and nested ad-hoc signing, clean-VM installs, installer and installed
+sizes, uninstall behaviour, transitive Python/plugin notices, the manual release test plan,
+and (for stable releases) the signed updater path. Every gate that applies to the channel
+must have `status: pass`, non-empty `evidence`, and a real `verified_at` date. A pending,
+missing, malformed, or unknown gate fails closed.
+
+`npm run release:readiness -- --tag <tag>` checks the record for the tag's channel.
+`release.yml` runs that check before starting the packaging matrix, `release:preflight` runs
+it again against the candidate, and the weekly tag job refuses to create a tag while a
+common gate is pending. The record is deliberately checked in and reviewed: it is an
+attestation with named evidence, not a claim inferred from a successful build.
 
 ## Versions
 
@@ -288,11 +309,15 @@ target's lock, notices, SPDX SBOM and source offer as `<target>-<file>` plus
 prerelease), or stable (draft) releases. The workflow does not pass a signing flag, does not
 notarise, and does not publish an updater claim.
 
+The generated notes include a `## Changes` draft from Conventional Commits since the
+previous reachable release tag. The release owner edits that section and the limitations
+before publishing; hand editing is expected and does not feed back into the manifest.
+
 ## Publication and retention
 
-- A weekly tag publishes a GitHub pre-release automatically. Creating that tag from a clean
-  `main` checkout is still a manual step until the scheduled tag creator is wired. It is
-  explicitly unsigned and has no updater.
+- A weekly tag publishes a GitHub pre-release automatically. The weekly test workflow creates
+  at most one tag per UTC date after its jobs pass and the readiness record is complete. It
+  is explicitly unsigned and has no updater.
 - RC and stable tags create a **draft** GitHub release. A release owner checks the lock,
   checksums, unsigned labels, audit bundle, and source offer before publishing.
 - The release manifest derives `channel` and `prerelease` from the tag and records
@@ -314,8 +339,8 @@ notarise, and does not publish an updater claim.
 The following are unresolved and block publication:
 
 1. **No hosted tag run.** `release.yml` and its audit and security gates are present,
-   but no tag has been created or exercised. Weekly tag scheduling is also absent: the
-   workflow accepts a weekly tag, it does not create one. Run 43808022233 generated
+   but no tag has been created or exercised. The weekly tag job is wired but has not run;
+   it will skip while the readiness record is pending. Run 43808022233 generated
    `packaging/toolchain.lock.json` for all four targets, and it passes `toolchain:verify`.
 2. **macOS relocation not proven.** The recipes stage the full macOS provider set, but the
    relocation, nested ad-hoc signing, and clean-install gate has not been run. Until it passes,
@@ -325,10 +350,11 @@ The following are unresolved and block publication:
 4. **Clean-VM, size and attestation gates not run.** No clean Windows, macOS or Ubuntu
    install has exercised the bundled trees; compressed and installed sizes and build-provenance
    attestations remain unmeasured. The audit generator produces the lock copy, notices, SPDX
-   SBOM and source offer, but transitive Python/plugin notices and the fmetrics upstream base
-   still need review. `.github/workflows/weekly.yml` is only the scheduled test suite.
+   SBOM and source offer; the fmetrics fork commit, upstream base and recipe digest are now
+   recorded, but transitive Python/plugin notices still need review. The weekly tag job
+   creates nothing while these gates are pending.
 
 Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
 generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,
 provision the updater key, pass the clean-VM, size and attestation gates, then create a tag
-and exercise the tag-driven workflow, including the weekly tag schedule.
+and exercise the tag-driven workflow, including the weekly tag job.

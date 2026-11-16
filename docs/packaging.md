@@ -432,11 +432,12 @@ the shared library fails the component instead of falling back to the static arc
 library sits beside the other native metrics and the service points the fmetrics, VMAF and
 VSHIP loader hints at `tools/lib`.
 
-The source offer and staging recipe record the fork commit, upstream base, patch hash, and
-Zig version. `toolchain:verify` checks the manifest's source pin and lock agreement; it does
-not establish ancestry, patch content, or the Zig version. If upstream merges both changes,
-the component moves back to the official repository as a version bump, not as a new
-exception.
+The source offer records the fork commit, upstream base, and a SHA-256 of the committed
+recipe that applies the target patch set; the recipes also pin the Zig version. The digest
+covers the patch-producing code rather than a separately hashed patch file.
+`toolchain:verify` checks the manifest's source pin and lock agreement; it does not establish
+ancestry, patch content, or the Zig version. If upstream merges both changes, the component
+moves back to the official repository as a version bump, not as a new exception.
 
 ## 5. CI
 
@@ -525,8 +526,9 @@ publishes, beside that target's installer:
 reviewed manifest and lock. It copies the target's lock unchanged and writes the notices,
 SBOM and source offer; `release:preflight --audit-bundle` verifies it. The command refuses a
 target that the lock does not resolve. Its notices and source offer cover the top-level
-manifest components; the VapourSynth row's transitive Python/plugin notices and the fmetrics
-upstream base remain publication gates.
+manifest components; the VapourSynth row's transitive Python/plugin notices remain a
+publication gate, while the fmetrics fork commit, upstream base and recipe digest are
+included in the source offer.
 
 The planned release bundle will embed a generated summary of the target's lock (id, version,
 licence, source URL, artefact hash). **Not implemented yet:** `GET /api/toolchain` does not

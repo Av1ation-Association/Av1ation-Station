@@ -46,7 +46,10 @@ function fixture() {
                 url: "https://example.com/fmetrics",
                 commit: "b".repeat(40),
             },
-            build: { recipe: "packaging/recipes/fmetrics.mjs" },
+            build: {
+                recipe: "packaging/recipes/fmetrics.mjs",
+                variables: { upstream_base: "e".repeat(40) },
+            },
             artifacts: Object.fromEntries(
                 TARGETS.map((target) => [target, { install: "tools/lib/libfmetrics.so" }]),
             ),
@@ -55,6 +58,10 @@ function fixture() {
     const manifest = { schema_version: 1, revision: "2026.11.1", components };
     const manifestText = `${JSON.stringify(manifest, null, 4)}\n`;
     writeFile(join(root, "packaging", "toolchain.json"), manifestText);
+    writeFile(
+        join(root, "packaging", "recipes", "fmetrics.mjs"),
+        "// fixture fmetrics recipe with the target patch set\n",
+    );
     const targets = Object.fromEntries(
         TARGETS.map((target) => [
             target,
@@ -126,6 +133,12 @@ describe("release audit bundle", () => {
             const offer = readFileSync(join(directory, "SOURCE-OFFER.md"), "utf8");
             expect(offer).toContain("v0.1.0");
             expect(offer).toContain("a".repeat(40));
+            expect(offer).toContain("e".repeat(40));
+            expect(offer).toContain(
+                createHash("sha256")
+                    .update("// fixture fmetrics recipe with the target patch set\n")
+                    .digest("hex"),
+            );
             const sbom = JSON.parse(readFileSync(join(directory, "sbom.spdx.json"), "utf8"));
             expect(sbom.spdxVersion).toBe("SPDX-2.3");
             expect(sbom.name).toContain(target);

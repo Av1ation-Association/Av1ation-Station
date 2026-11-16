@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { projectRoot } from "./build-paths.mjs";
 import { runPreflight } from "./release-preflight.mjs";
+import { READINESS_GATES } from "./release-readiness.mjs";
 import { TARGETS } from "./toolchain-manifest.mjs";
 
 const roots = [];
@@ -55,6 +56,27 @@ function fixture({
     mkdirSync(join(root, "packaging"), { recursive: true });
     writeFile(join(root, "package.json"), `${JSON.stringify({ version }, null, 2)}\n`);
     writeFile(join(root, "packaging", "toolchain.lock.json"), "lock-file\n");
+    writeFile(
+        join(root, "release", "readiness.json"),
+        `${JSON.stringify(
+            {
+                schema_version: 1,
+                updated_at: "2026-11-16",
+                gates: Object.fromEntries(
+                    READINESS_GATES.map((gate) => [
+                        gate.id,
+                        {
+                            status: "pass",
+                            evidence: `${gate.id} verified`,
+                            verified_at: "2026-11-16",
+                        },
+                    ]),
+                ),
+            },
+            null,
+            2,
+        )}\n`,
+    );
     writeFile(
         join(root, "rust", "desktop-shell", "tauri.conf.json"),
         `${JSON.stringify(
@@ -231,6 +253,48 @@ describe("release preflight", () => {
         expect(report.checks).toContainEqual(
             expect.objectContaining({
                 id: `audit.${TARGETS[0]}.sbom`,
+                status: "fail",
+            }),
+        );
+    });
+
+    it("fails closed when a manual readiness gate is pending", () => {
+        const candidate = fixture();
+        const readiness = JSON.parse(
+            readFileSync(join(candidate.root, "release", "readiness.json"), "utf8"),
+        );
+        readiness.gates["clean-vm"] = {
+            status: "pending",
+            evidence: "",
+            verified_at: null,
+            note: "clean hosts are not available yet",
+        };
+        writeFile(
+            join(candidate.root, "release", "readiness.json"),
+            `${JSON.stringify(readiness, null, 2)}\n`,
+        );
+
+        const report = candidate.run();
+
+        expect(report.ready).toBe(false);
+        expect(report.checks).toContainEqual(
+            expect.objectContaining({
+                id: "readiness.clean-vm",
+                status: "fail",
+            }),
+        );
+    });
+
+    it("rejects latest.json when the release has no updater claim", () => {
+        const candidate = fixture();
+        writeFile(join(candidate.artifacts, "windows", "bundled", "latest.json"), "{}\n");
+
+        const report = candidate.run();
+
+        expect(report.ready).toBe(false);
+        expect(report.checks).toContainEqual(
+            expect.objectContaining({
+                id: "updater.artifacts-forbidden",
                 status: "fail",
             }),
         );

@@ -37,6 +37,8 @@
         "release:build": "node scripts/build-release.mjs",
         "release:manifest": "node scripts/release-manifest.mjs",
         "release:preflight": "node scripts/release-preflight.mjs",
+        "release:readiness": "node scripts/release-readiness.mjs",
+        "release:weekly-tag": "node scripts/weekly-release-tag.mjs",
         "release:website": "node scripts/website-release.mjs",
         "check:website-release": "node scripts/website-release.mjs --check",
         "toolchain:lock": "node scripts/toolchain-lock.mjs",

@@ -203,6 +203,10 @@ see [docs/testing.md](docs/testing.md). The complete script list is in
 
 ### Release order
 
+Before creating a release tag, confirm `release/readiness.json` has reviewed evidence for the
+channel and run `npm run release:readiness -- --tag <tag>`. A pending manual gate blocks
+the tag workflow and `release:preflight`.
+
 1. Optional: run `npm run screenshots:features -- <feature-group-or-screen-id>` before
    `release:build`, or before rerunning `release:manifest`, so the notes include the feature
    section.
@@ -216,7 +220,9 @@ see [docs/testing.md](docs/testing.md). The complete script list is in
    `--notarized`; the project ships unsigned Windows/Linux artifacts and ad-hoc macOS
    artifacts. Add `--updater` only when that claim is true.
 4. Rerun `npm run release:manifest -- --tag <tag>` after changing the artifacts or adding
-   feature screenshots; it requires the checksum file written by step 3.
+   feature screenshots; it requires the checksum file written by step 3. The generated
+   `## Changes` draft comes from Conventional Commits since the previous reachable tag;
+   edit it, the limitations, and the checksums before publishing.
 
 Bundled releases carry the staged `dist/tools` tree; system releases use installed
 providers. See [docs/preflight.md](docs/preflight.md) for provider selection.

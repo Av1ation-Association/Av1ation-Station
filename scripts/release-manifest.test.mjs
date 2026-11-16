@@ -5,9 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { projectRoot } from "./build-paths.mjs";
 import {
+    collectReleaseChanges,
+    parseConventionalCommit,
     parseBranchArgument,
     parseReleaseTag,
     parseTagArgument,
+    renderReleaseChanges,
     releaseShape,
     resolveReleaseBranch,
     writeReleaseManifest,
@@ -197,5 +200,83 @@ describe("release branch resolution", () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toMatch(/pass --branch/u);
+    });
+});
+
+describe("release note changes", () => {
+    it("parses Conventional Commit subjects and ignores merge commits", () => {
+        expect(parseConventionalCommit("feat(ui)!: add the scene rail")).toEqual({
+            type: "feat",
+            scope: "ui",
+            breaking: true,
+            summary: "add the scene rail",
+        });
+        expect(parseConventionalCommit("fix: keep the encoder name")).toMatchObject({
+            type: "fix",
+            scope: null,
+            breaking: false,
+        });
+        expect(parseConventionalCommit("Merge branch 'main'")).toBeNull();
+        expect(parseConventionalCommit("unstructured subject")).toBeNull();
+    });
+
+    it("collects commits since the previous release tag", () => {
+        const result = collectReleaseChanges({
+            from: "v0.1.0",
+            to: "HEAD",
+            runGit: (args) => {
+                expect(args[0]).toBe("log");
+                expect(args.at(-1)).toBe("v0.1.0..HEAD");
+                return "abc1234\tfeat(ui): add the rail\ndef5678\tfix: keep the name\nfedcba9\tunstructured subject";
+            },
+        });
+
+        expect(result.changes).toHaveLength(3);
+        expect(result.changes[0]).toMatchObject({
+            hash: "abc1234",
+            type: "feat",
+            scope: "ui",
+        });
+        expect(result.changes[2]).toMatchObject({
+            hash: "fedcba9",
+            type: "other",
+            summary: "unstructured subject",
+        });
+    });
+
+    it("renders features, fixes and an other-changes group", () => {
+        const text = renderReleaseChanges({
+            from: "v0.1.0",
+            to: "HEAD",
+            changes: [
+                {
+                    hash: "abc1234",
+                    type: "feat",
+                    scope: null,
+                    breaking: false,
+                    summary: "add the rail",
+                },
+                {
+                    hash: "def5678",
+                    type: "fix",
+                    scope: "ui",
+                    breaking: false,
+                    summary: "keep the name",
+                },
+                {
+                    hash: "fedcba9",
+                    type: "unknown",
+                    scope: null,
+                    breaking: false,
+                    summary: "another change",
+                },
+            ],
+        });
+
+        expect(text).toContain("## Changes");
+        expect(text).toContain("### Features");
+        expect(text).toContain("### Fixes");
+        expect(text).toContain("### Other changes");
+        expect(text).toContain("`abc1234`");
     });
 });

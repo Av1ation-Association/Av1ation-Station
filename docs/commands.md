@@ -72,6 +72,8 @@ test profiles.
 | `npm run release:build -- --tag <tag>` | Build both desktop release variants and aggregate checksums; the tag is required and selects the weekly/RC/stable shape, and a detached checkout also needs `--branch <name>`. |
 | `npm run release:manifest -- --tag <tag>` | Regenerate release notes and the manifest from existing artifacts; the tag is required, and a detached checkout also needs `--branch <name>`. Add `--code-signed`, `--notarized`, or `--updater` only when true. |
 | `npm run release:preflight -- --tag <tag>` | Fail-closed release readiness checks against a candidate artifact directory; writes `dist/release/preflight.json`. Does not tag or publish. |
+| `npm run release:readiness -- --tag <tag>` | Check the reviewed manual readiness record for the tag's channel; every applicable gate needs evidence and a verification date. |
+| `npm run release:weekly-tag -- --date <YYYYMMDD>` | Decide whether the tested HEAD should receive a weekly tag; skips documentation-only changes and existing dates. Does not create a tag; the weekly workflow checks readiness separately. |
 | `npm run release:website` | Project the checked-in published release manifest into the website's generated release metadata. |
 | `npm run check:website-release -- --urls` | Fail when the generated metadata is stale or a linked download is missing or has a different size on GitHub. |
 | `npm run toolchain:lock` | Hash the four built target trees into `packaging/toolchain.lock.json`; refuses a partial or missing target. |
