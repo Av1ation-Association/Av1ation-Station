@@ -198,7 +198,18 @@ function buildLock(manifest, manifestBytes) {
         if (Object.keys(lockedComponents).length === 0) {
             fail(`the built target has no components claimed in the manifest: ${target}`);
         }
-        targets[target] = { components: lockedComponents };
+        // The component hashes cover the files each recipe claims. The target tree hash
+        // also covers runtime files staged beside an executable, such as the MinGW/Qt DLL
+        // closure beside mkvmerge.exe, so a release input cannot change outside the lock.
+        const targetTree = hashPath(targetRoot);
+        targets[target] = {
+            components: lockedComponents,
+            tree: {
+                sha256: targetTree.sha256,
+                size: targetTree.size,
+                files: targetTree.files,
+            },
+        };
     }
     return {
         schema_version: 1,

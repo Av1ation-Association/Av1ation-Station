@@ -165,6 +165,42 @@ function validateLock(lock, manifest, manifestBytes, components) {
             problem(`toolchain lock.targets.${target}.components must not be empty`);
         }
 
+        const targetWhere = `toolchain lock.targets.${target}`;
+        const treeFiles = new Set();
+        if (!isObject(targetEntry.tree)) {
+            problem(`${targetWhere}.tree must be an object`);
+        } else {
+            const tree = targetEntry.tree;
+            const treeSha = requiredString(tree, "sha256", `${targetWhere}.tree`);
+            if (treeSha !== null && !SHA256.test(treeSha)) {
+                problem(`${targetWhere}.tree.sha256 must be a lowercase SHA-256`);
+            }
+            if (!Number.isInteger(tree.size) || tree.size < 1) {
+                problem(`${targetWhere}.tree.size must be a positive integer`);
+            }
+            if (!Array.isArray(tree.files) || tree.files.length === 0) {
+                problem(`${targetWhere}.tree.files must be a non-empty array`);
+            } else {
+                for (const file of tree.files) {
+                    if (typeof file !== "string" || file.trim() === "") {
+                        problem(`${targetWhere}.tree.files entries must be non-empty strings`);
+                        continue;
+                    }
+                    if (!file.startsWith("tools/") || file.split("/").includes("..")) {
+                        problem(`${targetWhere}.tree.files entry is outside tools/: ${file}`);
+                        continue;
+                    }
+                    if (/\.pdb$/iu.test(file)) {
+                        problem(`${targetWhere}.tree.files must not ship a debug symbol: ${file}`);
+                    }
+                    if (treeFiles.has(file)) {
+                        problem(`${targetWhere}.tree.files has a duplicate entry: ${file}`);
+                    }
+                    treeFiles.add(file);
+                }
+            }
+        }
+
         const installs = new Set();
         for (const [id, locked] of Object.entries(targetEntry.components)) {
             const where = `toolchain lock.targets.${target}.components.${id}`;
@@ -217,6 +253,26 @@ function validateLock(lock, manifest, manifestBytes, components) {
                 );
             }
             installs.add(artifact.install);
+        }
+
+        if (treeFiles.size > 0) {
+            for (const [id, locked] of Object.entries(targetEntry.components)) {
+                if (
+                    !isObject(locked) ||
+                    !isObject(locked.artifact) ||
+                    typeof locked.artifact.install !== "string"
+                ) {
+                    continue;
+                }
+                const install = locked.artifact.install;
+                if (
+                    ![...treeFiles].some(
+                        (file) => file === install || file.startsWith(`${install}/`),
+                    )
+                ) {
+                    problem(`${targetWhere}.tree.files does not cover ${id} artifact ${install}`);
+                }
+            }
         }
 
         for (const [id, component] of components) {

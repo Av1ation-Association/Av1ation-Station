@@ -178,8 +178,9 @@ workflow must not imply code signing from the updater signature.
 
 `packaging/toolchain.lock.json` is the only version input for a release. The manifest owns
 the immutable source references; the lock records the built output for every component and
-target: provenance URL, SHA-256, size, install path, and the file list for directory
-artifacts. The lock is generated, never hand-written.
+target: provenance URL, SHA-256, size, install path, the file list for directory artifacts,
+and a target-tree digest that covers runtime files staged beside an executable. The lock is
+generated, never hand-written.
 
 `npm run toolchain:lock` reads the reviewed manifest and four built target trees, hashes the
 actual files, and writes the lock. Its default input is `dist/cargo/toolchain/<target>/`; use

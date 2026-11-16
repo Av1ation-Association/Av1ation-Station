@@ -138,7 +138,7 @@ without scanning the whole file.
 | **Release output** | Locally built installers and archives. The expanded portable tree and Tauri debug copies are transient. | `dist/release` |
 | **Service build cache** | A debug `av1ation-service` binary keyed by the Rust sources and lockfile, so an unchanged checkout can restore it after `clean:target`. | `dist/cache/service/`, `scripts/build-service.mjs` |
 | **Staged toolchain** | The release-pruned `tools/` tree that a release bundle installs under `<resources>/tools`. | `dist/tools`, `scripts/stage-tools.mjs` |
-| **Toolchain lock** | The generated per-target record of every component's immutable source, artifact URL, SHA-256, size, and install path. | `packaging/toolchain.lock.json`; [releases.md](releases.md#toolchain-lock-gate) |
+| **Toolchain lock** | The generated per-target record of every component's immutable source, artifact URL, SHA-256, size, install path, and a target-tree digest covering staged runtime files. | `packaging/toolchain.lock.json`; [releases.md](releases.md#toolchain-lock-gate) |
 | **Unsigned release** | A release with no Authenticode signature, Developer ID, or notarisation ticket; it must carry explicit labels and hash verification instructions. | [releases.md](releases.md#unsigned-distribution) |
 | **Updater signature** | A project minisign signature over an update manifest and artifact, independent of OS code signing and used only on the stable channel. | `plugins.updater`; [releases.md](releases.md#update-policy) |
 | **Weekly release** | An automatically published, tagged prerelease from a weekly code change; it has no updater entry and is retained for a limited window. | [releases.md](releases.md#channels) |

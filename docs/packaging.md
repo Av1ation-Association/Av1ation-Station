@@ -46,7 +46,7 @@ toolchain configuration written at runtime is the macOS/Linux VSScript config un
 | `encoder:x265` | the target's `x265` | `EncoderBase::X265` | GPL-2.0 |
 | `encoder:vvenc` | the target's `vvencapp` built from the pinned VVenC source | `EncoderBase::Vvenc` | BSD-3-Clause-Clear |
 | `ffmpeg` | an LGPL FFmpeg build for the target from the pinned source, with autodetection disabled and no `--enable-gpl`, `--enable-nonfree`; muxing does not depend on the separately built encoder or metric libraries | muxing, concatenation, `EncoderBase::FFmpeg` | LGPL-2.1-or-later |
-| `mkvmerge` | MKVToolNix for the target | the muxing fallback | GPL-2.0 |
+| `mkvmerge` | MKVToolNix for the target; on Windows, the executable and its MSYS2/Qt runtime DLL closure | the muxing fallback | GPL-2.0 |
 | `scene-model` | `transnetv2.onnx`, exported in CI from the official MIT weights with a pinned exporter | TransNetV2 scene detection | MIT |
 | `metric:libvmaf` | the target's `libvmaf` with its built-in VMAF models | `QualityMetric::VMAF` | BSD-2-Clause-Patent |
 | `metric:libvship` | the target's `libvship` built from the pinned source and exposed through the handler C API | SSIMULACRA2 / BUTTERAUGLI / CVVDP on a usable GPU | MIT |
@@ -117,7 +117,8 @@ already require.
         vsjetpack/ vstools/ …# vsjetpack and its target's dependencies
     bin/                     # aomenc, SvtAv1EncApp, rav1e, vpxenc, avmenc,
                              # x264, x265, vvencapp, ffmpeg, mkvmerge
-                             # (.exe only on Windows)
+                             # (.exe only on Windows), plus mkvmerge's
+                             # Windows runtime DLL closure beside it
     lib/                     # libvmaf, libvship, fmetrics.dll / libfmetrics.*
     model/transnetv2.onnx
     vcruntime/               # Windows only: the app-local MSVC runtime DLLs
@@ -201,11 +202,14 @@ used there.
 
 `tools/bin` is not added to the user's `PATH`. At startup the service creates
 `<app-data>/toolbin` and puts it first on the process `PATH`; it contains a hard link (copy
-when the volumes differ) to the selected `ffmpeg` and `mkvmerge`. The engine resolves both
-with `which`, so replacing a link takes effect on the next use without restarting. Encoders
-do not need the directory: the launcher materialises the selected absolute executable into
-the run's encoder document. Names lose `.exe` off Windows, and no script assumes a Windows
-extension.
+when the volumes differ) to the selected `ffmpeg` and `mkvmerge`. On Windows the bundled
+`mkvmerge` also brings its sibling DLL closure into that directory: the link changes the
+directory the loader searches, so the DLLs staged beside `tools/bin/mkvmerge.exe` have to be
+beside the link too. Choosing System removes both the link and those runtime DLLs. The engine
+resolves both programs with `which`, so replacing a link takes effect on the next use without
+restarting. Encoders do not need the directory: the launcher materialises the selected
+absolute executable into the run's encoder document. Names lose `.exe` off Windows, and no
+script assumes a Windows extension.
 
 For a bundled choice the service sets `VSSCRIPT_PATH` to the selected `vsscript.dll`,
 `libvsscript.dylib` or `libvsscript.so`, `VMAF_LIB_DIR`, `FMETRICS_LIB_DIR`, `VSHIP_LIB_DIR` and
@@ -300,7 +304,7 @@ Two checked-in files and a recipe directory produce the bundle:
 | Path | Role |
 | --- | --- |
 | `packaging/toolchain.json` | reviewed bill of materials: component id, upstream version, licence identifier, source ref, build recipe, `provides`, install path. |
-| `packaging/toolchain.lock.json` | generated resolution for every target: provenance URL, SHA-256, size, install path, and the file list for directory artifacts. Never edited by hand. |
+| `packaging/toolchain.lock.json` | generated resolution for every target: provenance URL, SHA-256, size, install path, the file list for directory artifacts, and a target-tree digest covering staged runtime files. Never edited by hand. |
 | `packaging/recipes/` | one script per source-built component, plus patches; it names the compiler/toolchain and the configure/CMake arguments. |
 | `packaging/schema/` | the JSON Schema for the manifest and lock; the verifier implements the review checks directly. |
 
@@ -361,7 +365,8 @@ Two checked-in files and a recipe directory produce the bundle:
 
 A target missing from a component's `artifacts` map is not provided there; it is not an
 error. The lock adds the bytes actually present in each target's built tree: the provenance
-URL, SHA-256, size, install path, and the file list for a directory artifact. The manifest
+URL, SHA-256, size, install path, the file list for a directory artifact, and a digest of the
+whole target tree so runtime files staged beside an executable are pinned too. The manifest
 pins the source revision or downloaded input; the lock pins the built output. The build reads
 **only the lock**. It never lets a release's “latest” page or a branch decide what is built.
 A GitHub release asset is mutable, so the hash in the lock is the pin even when the tag is

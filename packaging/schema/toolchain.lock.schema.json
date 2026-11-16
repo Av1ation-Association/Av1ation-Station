@@ -46,7 +46,7 @@
     "$defs": {
         "target": {
             "type": "object",
-            "required": ["components"],
+            "required": ["components", "tree"],
             "additionalProperties": false,
             "properties": {
                 "components": {
@@ -54,6 +54,32 @@
                     "minProperties": 1,
                     "additionalProperties": {
                         "$ref": "#/$defs/component"
+                    }
+                },
+                "tree": {
+                    "$ref": "#/$defs/tree"
+                }
+            }
+        },
+        "tree": {
+            "type": "object",
+            "required": ["sha256", "size", "files"],
+            "additionalProperties": false,
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "size": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
                     }
                 }
             }

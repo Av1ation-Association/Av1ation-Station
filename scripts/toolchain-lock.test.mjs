@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +62,25 @@ describe("toolchain lock fixtures", () => {
         expect(result.status).toBe(0);
         expect(existsSync(join(root, "packaging", "toolchain.lock.json"))).toBe(true);
         expect(verification.status).toBe(0);
+    });
+
+    it("includes unclaimed runtime files in the target tree hash", () => {
+        const root = fixture([
+            { id: "encoder:test", version: "1.0.0", license: "MIT", provides: ["encode:test"] },
+        ]);
+        const lockPath = join(root, "packaging", "toolchain.lock.json");
+
+        expect(run(root).status).toBe(0);
+        const before = JSON.parse(readFileSync(lockPath, "utf8"));
+        const target = TARGETS[0];
+
+        writeFile(join(root, "builds", target, "tools", "bin", "runtime.dll"), "runtime\n");
+        expect(run(root).status).toBe(0);
+        const after = JSON.parse(readFileSync(lockPath, "utf8"));
+
+        expect(after.targets[target].tree.files).toContain("tools/bin/runtime.dll");
+        expect(after.targets[target].tree.sha256).not.toBe(before.targets[target].tree.sha256);
+        expect(runScript(verifyScript, root).status).toBe(0);
     });
 
     it("writes no lock when an artifact is zero bytes", () => {

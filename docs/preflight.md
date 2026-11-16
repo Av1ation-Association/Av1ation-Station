@@ -23,7 +23,8 @@ availability, and detail), a `selected_source` (what this process loaded) and a
 MKVToolNix, and every
 metric with a native backend. Encoder, FFmpeg and mkvmerge choices apply on the next use: the
 launcher writes the selected absolute executable into the run's encoder document, and
-`<app-data>/toolbin` holds links to the selected FFmpeg and mkvmerge first on `PATH`.
+`<app-data>/toolbin` holds links to the selected FFmpeg and mkvmerge first on `PATH`, plus
+the bundled mkvmerge's Windows runtime DLLs so the linked executable starts.
 VapourSynth and `metrics` are one process-wide choice each, because VSScript and the native
 metric libraries initialise once; changing either reports the old source as active until the
 application restarts. The metric rows still report their own active source: a metric whose

@@ -218,6 +218,10 @@ fn refresh_toolbin(
         tracing::warn!(%error, "the toolbin directory could not be created");
         return None;
     }
+    // The muxer links are hard links, so a Windows loader no longer sees the DLLs staged
+    // beside `tools/bin/mkvmerge.exe`. Clear the previous runtime and copy the selected
+    // bundle's sibling DLLs next to the link; a custom executable keeps its own directory.
+    clear_runtime_dlls(&toolbin);
 
     for family in [ToolFamily::Ffmpeg, ToolFamily::MkvMerge] {
         let setting = if family == ToolFamily::Ffmpeg {
@@ -234,19 +238,27 @@ fn refresh_toolbin(
         // An accepted custom path is the row's provider, so it also has to be the program
         // `which` resolves; otherwise the bundled link silently wins the documented
         // precedence. A saved path that has since disappeared falls through to the source.
-        let selected = customs
-            .get(family.as_str())
-            .filter(|path| path.is_file())
-            .or_else(|| {
-                (sources.get(setting).map(String::as_str) != Some("system") && bundled.is_file())
-                    .then_some(&bundled)
-            });
+        let custom = customs.get(family.as_str()).filter(|path| path.is_file());
+        let selected = custom.or_else(|| {
+            (sources.get(setting).map(String::as_str) != Some("system") && bundled.is_file())
+                .then_some(&bundled)
+        });
         if let Some(source) = selected {
             if let Err(error) = link_or_copy(source, &target) {
                 tracing::warn!(
                     %error,
                     source = %source.display(),
                     "a selected muxer could not be linked into the toolbin directory"
+                );
+            }
+            if family == ToolFamily::MkvMerge
+                && source == &bundled
+                && let Err(error) = copy_runtime_dlls(source, &toolbin)
+            {
+                tracing::warn!(
+                    %error,
+                    source = %source.display(),
+                    "the bundled muxer runtime DLLs could not be staged in the toolbin directory"
                 );
             }
         } else if target.exists()
@@ -263,6 +275,57 @@ fn refresh_toolbin(
     }
 
     Some(toolbin)
+}
+
+#[cfg(windows)]
+fn clear_runtime_dlls(toolbin: &Path) {
+    let Ok(entries) = fs::read_dir(toolbin) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("dll"))
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn clear_runtime_dlls(_toolbin: &Path) {}
+
+/// Copy a bundled executable's Windows runtime closure beside its toolbin link.
+///
+/// `mkvmerge.exe` is a hard link, so the loader cannot rely on the directory that holds
+/// the real executable. Its recipe stages the PE closure in the same `bin` directory, and
+/// this mirrors those DLLs into the directory the link is actually launched from. The call
+/// is a no-op on other platforms, where the loader does not use the executable's directory.
+fn copy_runtime_dlls(source: &Path, toolbin: &Path) -> std::io::Result<()> {
+    #[cfg(not(windows))]
+    {
+        let _ = (source, toolbin);
+        Ok(())
+    }
+    #[cfg(windows)]
+    {
+        let Some(directory) = source.parent() else {
+            return Ok(());
+        };
+        for entry in fs::read_dir(directory)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("dll"))
+            {
+                link_or_copy(&path, &toolbin.join(entry.file_name()))?;
+            }
+        }
+        Ok(())
+    }
 }
 
 fn link_or_copy(source: &Path, target: &Path) -> std::io::Result<()> {
@@ -428,6 +491,55 @@ mod tests {
             !link.exists(),
             "removing the custom muxer does not restore a bundled link under System"
         );
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_bundled_mkvmerge_runtime_dlls_follow_the_toolbin_link() {
+        let root = temporary();
+        let tools = root.join("tools");
+        let data = root.join("data");
+        let mkvmerge = binary_path(&tools, ToolFamily::MkvMerge);
+        fs::create_dir_all(mkvmerge.parent().expect("bin")).expect("bin");
+        fs::write(&mkvmerge, b"fixture").expect("mkvmerge");
+        fs::write(
+            mkvmerge.parent().expect("bin").join("Qt6Core.dll"),
+            b"runtime",
+        )
+        .expect("Qt runtime");
+        let toolbin = data.join("toolbin");
+        fs::create_dir_all(&toolbin).expect("toolbin");
+        fs::write(toolbin.join("stale.dll"), b"stale").expect("stale runtime");
+
+        apply_tool_sources(
+            Some(&tools),
+            Some(&data),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+        );
+        assert!(
+            toolbin.join("mkvmerge.exe").is_file(),
+            "automatic selection links the staged muxer"
+        );
+        assert!(
+            toolbin.join("Qt6Core.dll").is_file(),
+            "the runtime closure is staged beside the link"
+        );
+        assert!(
+            !toolbin.join("stale.dll").exists(),
+            "a previous provider's runtime is removed"
+        );
+
+        apply_tool_sources(
+            Some(&tools),
+            Some(&data),
+            &BTreeMap::from([("mkvmerge".to_owned(), "system".to_owned())]),
+            &BTreeMap::new(),
+        );
+        assert!(!toolbin.join("mkvmerge.exe").exists());
+        assert!(!toolbin.join("Qt6Core.dll").exists());
 
         fs::remove_dir_all(root).expect("cleanup");
     }
