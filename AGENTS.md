@@ -194,10 +194,11 @@ the document that owns it and the entry is removed.
 A release installs its toolchain under the resolved resource directory. Nothing is
 downloaded at install or run time, no binary or archive is committed, and no path is
 derived from the manifest directory or the working directory. The reviewed
-`packaging/toolchain.json` and its recipes exist, but `packaging/toolchain.lock.json` is not
-committed yet. Once the lock exists it is the only version input, `npm run toolchain:verify`
-is a required release check, and the build resolves nothing from the network. Until then the
-verifier fails closed and Phase 5 keeps the release gate closed. Provider choice is per
+`packaging/toolchain.json`, its recipes and `packaging/toolchain.lock.json` are committed. The
+lock is the only version input, `npm run toolchain:verify` is a required release check, and
+the build resolves nothing from the network. The verifier fails closed when the lock is
+missing or incomplete. Phase 5 keeps the release gate closed until the remaining packaging
+checks pass. Provider choice is per
 capability — bundled or system, with `custom_tools` still winning — never one global switch,
 and it is enforced by the service rather than by the screen. See
 [`docs/packaging.md`](docs/packaging.md).

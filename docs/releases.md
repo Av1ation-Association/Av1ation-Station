@@ -281,22 +281,20 @@ summary and the About screen are not implemented yet; no release may claim they 
 
 The following are unresolved and block the first workflow:
 
-1. **Full lock absent.** `packaging/toolchain.json` and the component recipes exist, but no
-   generated lock exists for the four targets. The verifier intentionally fails closed. A
-   complete lock needs real per-target inputs and hashes; it cannot be inferred from the
-   current `dist/tools` tree.
+1. **Release workflow absent.** Run 43808022233 generated
+   `packaging/toolchain.lock.json` for all four targets, and it passes `toolchain:verify`.
+   `release.yml` and the weekly release channel are still to be added.
 2. **macOS relocation not proven.** The recipes stage the full macOS provider set, but the
    relocation, nested ad-hoc signing, and clean-install gate has not been run. Until it passes,
    macOS bundled variants must not claim to be verified.
 3. **Updater key not provisioned.** No minisign public key is compiled in and no private key
    is in CI, so stable publication cannot claim an updater yet.
-4. **No release publication workflow.** `.github/workflows/toolchain.yml` builds, caches
-   and assembles the toolchain and can package installers on manual dispatch, but the weekly
-   release channel, updater publication and `release.yml` are intentionally not added while
-   the full lock is absent. `.github/workflows/weekly.yml` is only the scheduled test suite.
+4. **Clean-VM, size and transparency gates not run.** No clean Windows, macOS or Ubuntu
+   install has exercised the bundled trees; compressed and installed sizes, notices, SBOM and
+   the source offer remain unmeasured. `.github/workflows/weekly.yml` is only the scheduled
+   test suite.
 
-Unsigned and ad-hoc distribution is the permanent policy, not a gate. The implementation
-order is: run the component workflow, populate all four target entries with its generated
-`toolchain:lock`, pass `toolchain:verify`, prove macOS relocation and ad-hoc signing,
-provision the updater key, then add the weekly and tagged workflows with the fail-closed
-gate.
+Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
+generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,
+provision the updater key, pass the clean-VM, size and transparency gates, then add the
+weekly and tagged workflows with the fail-closed gate.
