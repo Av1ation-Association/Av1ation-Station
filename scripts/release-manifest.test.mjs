@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,10 +9,12 @@ import { describe, expect, it } from "vitest";
 import { projectRoot } from "./build-paths.mjs";
 import {
     collectReleaseChanges,
+    isReleaseAssetPath,
     parseConventionalCommit,
     parseBranchArgument,
     parseReleaseTag,
     parseTagArgument,
+    readArtifacts,
     renderReleaseChanges,
     releaseShape,
     resolveReleaseBranch,
@@ -151,6 +156,51 @@ describe("release manifest shapes", () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toMatch(/Release tag is required/u);
+    });
+});
+
+describe("release artifact selection", () => {
+    it("accepts installers and portables while ignoring audit and report files", () => {
+        expect(isReleaseAssetPath("windows/bundled/Av1ation Station_0.1.0_x64-setup.exe")).toBe(
+            true,
+        );
+        expect(isReleaseAssetPath("windows/bundled/Av1ation Station_0.1.0_x64_portable.zip")).toBe(
+            true,
+        );
+        expect(isReleaseAssetPath("macos/bundled/Av1ation Station.app.zip")).toBe(true);
+        expect(isReleaseAssetPath("audit/x86_64-pc-windows-msvc/PYTHON_NOTICES.md")).toBe(false);
+        expect(isReleaseAssetPath("audit/windows/future-asset.zip")).toBe(false);
+        expect(isReleaseAssetPath("preflight.json")).toBe(false);
+        expect(isReleaseAssetPath("preflight-run.log")).toBe(false);
+    });
+
+    it("reads only installable assets from a checksum file that also names audit files", () => {
+        const directory = mkdtempSync(join(tmpdir(), "av1ation-release-manifest-"));
+        try {
+            const files = new Map([
+                ["windows/bundled/setup.exe", "installer"],
+                ["windows/bundled/portable.zip", "portable"],
+                ["audit/x86_64-pc-windows-msvc/PYTHON_NOTICES.md", "notice"],
+                ["audit/aarch64-apple-darwin/PYTHON_NOTICES.md", "notice"],
+                ["preflight.json", "report"],
+            ]);
+            const lines = [];
+            for (const [path, contents] of files) {
+                const absolute = join(directory, ...path.split("/"));
+                mkdirSync(join(absolute, ".."), { recursive: true });
+                writeFileSync(absolute, contents);
+                const digest = createHash("sha256").update(contents).digest("hex");
+                lines.push(`${digest}  ${path}`);
+            }
+            writeFileSync(join(directory, "SHA256SUMS.txt"), `${lines.join("\n")}\n`);
+
+            expect(readArtifacts(directory).map((artifact) => artifact.name)).toEqual([
+                "setup-bundled.exe",
+                "portable-bundled.zip",
+            ]);
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
     });
 });
 

@@ -221,8 +221,23 @@ function joinLabels(labels) {
     return `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
 }
 
-function readArtifacts() {
-    const checksumPath = join(releaseDir, checksumName);
+/**
+ * Whether a checksum line names an installable or portable release asset.
+ *
+ * The release directory also carries audit bundles, preflight reports, and logs. They are
+ * intentionally not upload assets, and their repeated basenames must not collide with the
+ * per-target files that are.
+ */
+export function isReleaseAssetPath(path) {
+    const lower = path.toLowerCase();
+    if (lower.startsWith("audit/")) {
+        return false;
+    }
+    return releaseExtensions.some((extension) => lower.endsWith(extension));
+}
+
+export function readArtifacts(directory = releaseDir) {
+    const checksumPath = join(directory, checksumName);
     if (!existsSync(checksumPath)) {
         throw new Error(`missing ${checksumPath}; run the release build first`);
     }
@@ -249,7 +264,10 @@ function readArtifacts() {
         ) {
             continue;
         }
-        const absolute = join(releaseDir, ...path.split("/"));
+        if (!isReleaseAssetPath(path)) {
+            continue;
+        }
+        const absolute = join(directory, ...path.split("/"));
         if (!existsSync(absolute)) {
             throw new Error(`checksum names a missing file: ${path}`);
         }
