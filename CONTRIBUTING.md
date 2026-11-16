@@ -212,8 +212,9 @@ see [docs/testing.md](docs/testing.md). The complete script list is in
    `patchelf` first.
 3. Build both variants with `npm run release:build -- --tag <tag>`. Add `--skip-bundled`
    for a system-only build or `--skip-system` for a bundled-only build. The tag is required;
-   the command fails before building when it is absent. Add `--code-signed`, `--notarized`,
-   or `--updater` only when those claims are true.
+   the command fails before building when it is absent. Do not add `--code-signed` or
+   `--notarized`; the project ships unsigned Windows/Linux artifacts and ad-hoc macOS
+   artifacts. Add `--updater` only when that claim is true.
 4. Rerun `npm run release:manifest -- --tag <tag>` after changing the artifacts or adding
    feature screenshots; it requires the checksum file written by step 3.
 

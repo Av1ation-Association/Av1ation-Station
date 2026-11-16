@@ -468,16 +468,15 @@ Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 lock. The workflow's generated lock is an artifact for review, not a publication step. A
 release workflow must not be enabled until that lock is committed and the smoke legs pass.
 
-Signing is **not wired into `toolchain.yml` yet**; the manual package job produces unsigned
-artifacts. When certificates exist, every bundled PE and DLL will be Authenticode-signed on
-Windows. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`, ffms2, the
-metric libraries, VapourSynth plugins and extension modules — will be signed with the
-hardened runtime and a secure timestamp before the `.app` is signed and notarised; `codesign
---deep` is not a substitute for signing inside-out. On Linux the recipes strip symbols and
-publish the ELF files with their SONAME/rpath intact; the `.deb` declares its WebKitGTK
-dependency and the AppImage is built on the baseline image.
+Certificate-based code signing is **not planned**. The manual package job produces unsigned artifacts on
+Windows and Linux. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`,
+ffms2, the metric libraries, VapourSynth plugins and extension modules — is ad-hoc signed
+inside-out before the `.app`; it is not notarised. `codesign --deep` is not a substitute for
+signing inside-out. On Linux the recipes strip symbols and publish the ELF files with their
+SONAME/rpath intact; the `.deb` declares its WebKitGTK dependency and the AppImage is built
+on the baseline image.
 
-The current project has no code-signing certificates. It therefore follows
+The project will not obtain code-signing certificates. It therefore follows
 [releases.md](releases.md): Windows and Linux artifacts are unsigned, macOS artifacts are
 ad-hoc signed and not notarised, and every release says so. The updater signature is a
 separate minisign key and does not make the installer trusted by the operating system. A
@@ -566,7 +565,7 @@ The other targets stage in this order:
 3. Until that gate passes, those platforms select **System** for `vapoursynth` and say so;
    the row never offers a bundle that is not there.
 
-This is why the packaged Windows build does not wait on macOS notarisation of a Python tree.
+This is why the packaged Windows build does not wait on macOS ad-hoc signing of a Python tree.
 The Phase 5 exit criterion is an installer for every target, each carrying the largest
 toolchain it can prove: Windows complete, macOS and Linux complete once 5.26 passes and
 otherwise the executable/metrics subset with System VapourSynth.
@@ -687,7 +686,7 @@ by component and by target:
 | --- | --- | --- |
 | Manifest and recipes exist for every target | 5.19 | `toolchain:verify` green; every claimed target has a source, licence, install path and lock entry; no floating ref |
 | Windows bundle builds and installs | 5.20, 5.22 | the installer lands `<resources>/tools`; the service starts with only `--tools-dir`, every bundled row is available, and a fixture encode completes |
-| macOS bundle is signed or explicitly ad-hoc | 5.8, 5.20, 5.22, 5.26 | with a Developer ID, every nested Mach-O is signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict` and `spctl`; without one, the ad-hoc build is labeled and the Gatekeeper override is documented |
+| macOS bundle is explicitly ad-hoc | 5.8, 5.20, 5.22, 5.26 | every nested Mach-O is ad-hoc signed with the hardened runtime, the `.app` passes `codesign --verify --deep --strict`, and the Gatekeeper override is documented; `spctl` rejection is expected without notarisation |
 | Linux bundle builds and installs | 5.9, 5.20, 5.22, 5.26 | the `.deb` declares WebKitGTK; the system `.deb` also declares FFMS2, and the AppImage runs on the 24.04 baseline; the service starts with only `--tools-dir` and completes a fixture encode |
 | Fork-built fmetrics reproduces | 5.20 | the shared library builds from the pinned fork commit on every claimed target, the upstream-base and target patch checks pass, and a metric probe loads it |
 | Provider selection works | 5.21, 5.23 | the mixed matrix in [plan/05-ci.md](plan/05-ci.md#16-manual-release-test-plan) passes, including a restart-required VapourSynth switch |

@@ -155,24 +155,24 @@ web gate.
 
 ## Unsigned distribution
 
-The project currently has no Authenticode certificate, no Apple Developer ID, and no
-notarisation. The release policy permits unsigned artifacts, but never describes them as
-signed, notarised, or publisher-verified.
+The project will not obtain an Authenticode certificate or an Apple Developer ID. Its
+distribution policy is permanently unsigned on Windows and Linux, and ad-hoc signed without
+notarisation on macOS. Artifacts are never described as signed, notarised, or
+publisher-verified.
 
-| Platform | Current trust state | User-facing consequence |
+| Platform | Trust state | User-facing consequence |
 | --- | --- | --- |
 | Windows | Unsigned | SmartScreen may warn; the release notes require SHA-256 verification before **More info → Run anyway**. |
 | macOS | Ad-hoc signed, not notarised | Gatekeeper blocks a downloaded app until the documented override; the release notes never claim `spctl` acceptance or a stapled ticket. |
 | Linux | Unsigned | The `.deb`/AppImage rely on SHA-256 and the published audit bundle; there is no package-signing claim. |
 
 An unsigned build may be published on the stable channel. Its release object and manifest
-must carry `code_signed: false` and `notarized: false`. A future certificate changes those
-fields; it does not silently change the policy for older artifacts.
+always carry `code_signed: false` and `notarized: false`; a code-signing certificate is not
+planned.
 
 Ad-hoc macOS signing covers every nested Mach-O before the outer `.app` is signed. The
-release notes must name the Gatekeeper override and the absence of notarisation. Code
-signing is a distribution decision; the release workflow must not imply it from the updater
-signature.
+release notes must name the Gatekeeper override and the absence of notarisation. The release
+workflow must not imply code signing from the updater signature.
 
 ## Toolchain lock gate
 
@@ -230,8 +230,8 @@ pair when the release owner is ready to provision it.
   application and the private key is in CI. A stable release without those secrets publishes
   no updater claim.
 - The stable updater covers Windows and the Linux AppImage. The macOS updater remains
-  disabled until a Developer ID exists; ad-hoc signing is not a trusted macOS update
-  identity. The `.deb` is a manual install and update path.
+  disabled because no Developer ID will be provisioned; ad-hoc signing is not a trusted
+  macOS update identity. The `.dmg` and `.deb` are manual install and update paths.
 - The updater signature proves the update manifest and artifact came from the project key.
   It does not make the initial installer trusted by Windows or macOS.
 
@@ -266,7 +266,8 @@ summary and the About screen are not implemented yet; no release may claim they 
   `code_signed`, `notarized`, and the updater claim from explicit inputs. The tag must be
   supplied explicitly; a missing tag is an error, never a stable default. Weekly tags are
   always unsigned with no updater; RC tags are prereleases; only stable tags may enable the
-  updater. A notarized release must also be marked code-signed.
+  updater. The project does not produce code-signed or notarised releases, so both manifest
+  flags remain false.
 - Keep the last eight weekly releases. Older weekly release objects may be removed; their
   tags remain and are never moved. Release candidates and stable releases are retained for
   audit.
@@ -284,18 +285,17 @@ The following are unresolved and block the first workflow:
    complete lock needs real per-target inputs and hashes; it cannot be inferred from the
    current `dist/tools` tree.
 2. **macOS relocation not proven.** The recipes stage the full macOS provider set, but the
-   relocation, nested-code signing, and clean-install gate has not been run. Until it passes,
+   relocation, nested ad-hoc signing, and clean-install gate has not been run. Until it passes,
    macOS bundled variants must not claim to be verified.
 3. **Updater key not provisioned.** No minisign public key is compiled in and no private key
    is in CI, so stable publication cannot claim an updater yet.
-4. **No certificates.** Windows and Linux are unsigned; macOS is ad-hoc signed and not
-   notarised. The release notes must say so until certificates exist.
-5. **No release publication workflow.** `.github/workflows/toolchain.yml` builds, caches
+4. **No release publication workflow.** `.github/workflows/toolchain.yml` builds, caches
    and assembles the toolchain and can package installers on manual dispatch, but the weekly
    release channel, updater publication and `release.yml` are intentionally not added while
    the full lock is absent. `.github/workflows/weekly.yml` is only the scheduled test suite.
 
-The implementation order is: run the component workflow, populate all four target entries
-with its generated `toolchain:lock`, pass `toolchain:verify`, prove macOS relocation and
-signing, provision the updater key, then add the weekly and tagged workflows with the
-fail-closed gate.
+Unsigned and ad-hoc distribution is the permanent policy, not a gate. The implementation
+order is: run the component workflow, populate all four target entries with its generated
+`toolchain:lock`, pass `toolchain:verify`, prove macOS relocation and ad-hoc signing,
+provision the updater key, then add the weekly and tagged workflows with the fail-closed
+gate.
