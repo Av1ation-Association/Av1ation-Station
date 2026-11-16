@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -24,6 +24,11 @@ export default async function build({ target, workDir, outputDir, component }) {
     if (!existsSync(join(source, "configure"))) {
         shellScript("./autogen.sh", [], { cwd: source });
     }
+    // The commit-only checkout has no tag objects, so upstream's `git describe` cannot
+    // produce a version suffix anyway. Removing the metadata before rake also keeps it from
+    // spawning git inside zsh, where the Git for Windows entry is not on PATH; configure's
+    // pinned PACKAGE_VERSION is the complete version for this release build.
+    rmSync(join(source, ".git"), { recursive: true, force: true });
     const args = ["--disable-gui", "--disable-update-check"];
     const windows = platform(target) === "win32";
     const prefix = process.env.MINGW_PREFIX ?? "/ucrt64";

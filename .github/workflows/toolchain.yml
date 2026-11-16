@@ -222,10 +222,26 @@ jobs:
                       mingw-w64-ucrt-x86_64-docbook-xsl
                       mingw-w64-ucrt-x86_64-docbook-xml
                       mingw-w64-ucrt-x86_64-libxslt
-                      mingw-w64-ucrt-x86_64-inkscape
-                      mingw-w64-ucrt-x86_64-imagemagick
-                      zsh
                       make
+
+            # MKVToolNix's asset generator needs Inkscape and ImageMagick, and its
+            # rake target needs zsh. Keep them off the other Windows jobs: the
+            # Inkscape dependency tree is large, and a transient mirror failure
+            # here must not fail an unrelated encoder build.
+            - name: Install Windows MKV asset tools
+              if: matrix.id == 'mkvmerge' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  msys2="$(cygpath -u "$MSYS2_LOCATION")"
+                  for attempt in 1 2 3; do
+                    if "$msys2/usr/bin/bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-inkscape mingw-w64-ucrt-x86_64-imagemagick zsh"; then
+                      exit 0
+                    fi
+                    sleep 10
+                  done
+                  exit 1
 
             # Ruby is only needed by MKVToolNix's rake build. Install it before the
             # action's UCRT64 path is restored, because setup-ruby prepends its own
