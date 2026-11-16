@@ -506,14 +506,21 @@ A download page and an About screen are not an audit trail on their own. Each re
 publishes, beside that target's installer:
 
 - `toolchain.lock.json` — exactly what was built/downloaded for that target, with hashes.
-- `THIRD_PARTY_NOTICES.md` — generated from the target's resolved component set and the
-  components' licence files.
+- `THIRD_PARTY_NOTICES.md` — generated from the target's resolved component set, naming each
+  component's licence identifier and source.
 - `sbom.spdx.json` — the same components as an SPDX document, with the bundle revision and
   target triple.
 - `SOURCE-OFFER.md` — for every GPL/LGPL component, the exact source revision, the recipe,
   the patches and where the corresponding source archive is published. For `fmetrics` it
   also names the fork commit, the upstream base and, on Windows, the portability patch.
 - `SHA256SUMS` — for the installers, the target's toolchain archive and the notices.
+
+`npm run release:audit -- --tag <tag>` generates the per-target audit directory from the
+reviewed manifest and lock. It copies the target's lock unchanged and writes the notices,
+SBOM and source offer; `release:preflight --audit-bundle` verifies it. The command refuses a
+target that the lock does not resolve. Its notices and source offer cover the top-level
+manifest components; the VapourSynth row's transitive Python/plugin notices and the fmetrics
+upstream base remain publication gates.
 
 The planned release bundle will embed a generated summary of the target's lock (id, version,
 licence, source URL, artefact hash). **Not implemented yet:** `GET /api/toolchain` does not

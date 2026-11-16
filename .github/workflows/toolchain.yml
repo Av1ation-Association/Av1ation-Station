@@ -11,8 +11,8 @@ on:
                 description: Release tag for package builds; required when package is true
                 type: string
     workflow_call:
-    # No tag trigger until a reviewed packaging/toolchain.lock.json is committed. Packaging
-    # from a lock generated in the same run would bypass the release gate.
+    # Tagged builds belong in the release workflow; packaging from a lock generated in this
+    # run would bypass the reviewed release gate.
     push:
         branches: [main]
         paths:

@@ -33,6 +33,7 @@
         "build:demo-tour": "node scripts/build-demo-tour.mjs",
         "check:bundle-size": "node scripts/check-bundle-size.mjs",
         "build:system": "node scripts/build-system.mjs",
+        "release:audit": "node scripts/release-audit.mjs",
         "release:build": "node scripts/build-release.mjs",
         "release:manifest": "node scripts/release-manifest.mjs",
         "release:preflight": "node scripts/release-preflight.mjs",

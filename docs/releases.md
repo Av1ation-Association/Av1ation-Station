@@ -5,11 +5,10 @@ updater policy, and audit bundle. This document owns release policy; current del
 lives in [progress.md](progress.md), and the toolchain contents and provider rules live in
 [packaging.md](packaging.md).
 
-The release gate is **closed** until a complete per-target
-`packaging/toolchain.lock.json` exists. The reviewed manifest and the component build
-workflow are present; no weekly or tagged release workflow is added while the generated lock
-is absent. The local artifacts under `dist/release/` are development evidence, not release
-candidates.
+The release gate is **closed** until the remaining packaging checks pass. The reviewed
+manifest, recipes, four-target lock and component build workflow are present; `release.yml`
+and the publication gates are still to be added. The local artifacts under `dist/release/`
+are development evidence, not release candidates.
 
 ## Contents
 
@@ -211,9 +210,9 @@ Updating a component is a reviewed change to `packaging/toolchain.json` followed
 auto-bumped from upstream tags. A component with no stable, machine-readable source is not
 claimed as bundled for that target.
 
-The reviewed `packaging/toolchain.json` is present, but `packaging/toolchain.lock.json` is not.
-The verifier therefore reports the gate as closed; the existing `dist/tools` tree is not a lock
-and cannot satisfy it.
+The reviewed `packaging/toolchain.json` and `packaging/toolchain.lock.json` are present.
+`npm run toolchain:verify` passes for all four targets; the remaining release gates are
+outside the lock. The existing `dist/tools` tree is not a lock and cannot substitute for it.
 
 ## Update policy
 
@@ -248,6 +247,11 @@ Every published target/variant release carries:
 - `SOURCE-OFFER.md` naming the exact source revision, recipe, patches, and publication
   location for every GPL/LGPL component;
 - a GitHub build-provenance attestation for each artifact's digest.
+
+`npm run release:audit -- --tag <tag>` writes this bundle per target under
+`dist/release/audit/` from the reviewed manifest and lock. It copies the lock unchanged and
+generates the notices, SPDX SBOM and source offer; `release:preflight` consumes the directory
+with `--audit-bundle`.
 
 The attestation is keyless and is not a code signature. It binds the artifact to the
 repository, commit, workflow, and builder, but it does not make Windows SmartScreen or
@@ -289,12 +293,13 @@ The following are unresolved and block the first workflow:
    macOS bundled variants must not claim to be verified.
 3. **Updater key not provisioned.** No minisign public key is compiled in and no private key
    is in CI, so stable publication cannot claim an updater yet.
-4. **Clean-VM, size and transparency gates not run.** No clean Windows, macOS or Ubuntu
-   install has exercised the bundled trees; compressed and installed sizes, notices, SBOM and
-   the source offer remain unmeasured. `.github/workflows/weekly.yml` is only the scheduled
-   test suite.
+4. **Clean-VM, size and attestation gates not run.** No clean Windows, macOS or Ubuntu
+   install has exercised the bundled trees; compressed and installed sizes and build-provenance
+   attestations remain unmeasured. The audit generator produces the lock copy, notices, SPDX
+   SBOM and source offer, but transitive Python/plugin notices and the fmetrics upstream base
+   still need review. `.github/workflows/weekly.yml` is only the scheduled test suite.
 
 Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
 generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,
-provision the updater key, pass the clean-VM, size and transparency gates, then add the
+provision the updater key, pass the clean-VM, size and attestation gates, then add the
 weekly and tagged workflows with the fail-closed gate.
