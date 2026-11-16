@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolchainInfo",
+  "description": "The bundled components recorded for this target's reviewed lock.",
+  "type": "object",
+  "properties": {
+    "components": {
+      "description": "Every top-level component in the target's bundle, in lock order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ToolchainComponent"
+      }
+    },
+    "revision": {
+      "description": "Revision of the reviewed toolchain lock.",
+      "type": "string"
+    },
+    "target": {
+      "description": "Release target triple whose lock was projected into this summary.",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "target",
+    "revision",
+    "components"
+  ],
+  "$defs": {
+    "ToolchainComponent": {
+      "description": "One bundled component as the About screen lists it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable component id from the lock, such as `ffmpeg` or `encoder:aom`.",
+          "type": "string"
+        },
+        "license": {
+          "description": "SPDX licence expression recorded for the component.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the artifact recorded in the lock.",
+          "type": "string"
+        },
+        "source_url": {
+          "description": "Provenance URL for the source or package the artifact came from.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version the bundle carries.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "license",
+        "source_url",
+        "sha256"
+      ]
+    }
+  }
+}

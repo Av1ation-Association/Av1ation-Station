@@ -43,6 +43,54 @@ async fn health_reports_the_package_and_engine_versions() {
 }
 
 #[tokio::test]
+async fn toolchain_summary_matches_the_reviewed_lock() {
+    let app = router(health_state());
+    let (status, body) = send(
+        app,
+        Request::get("/api/toolchain").body(Body::empty()).unwrap(),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let target = if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        "x86_64-pc-windows-msvc"
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "aarch64-apple-darwin"
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        "x86_64-apple-darwin"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    };
+    assert_eq!(body["target"], target);
+
+    let lock_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../packaging/toolchain.lock.json");
+    let lock: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(lock_path).expect("read lock"))
+            .expect("parse lock");
+    assert_eq!(body["revision"], lock["revision"]);
+
+    let expected = lock["targets"][target]["components"]
+        .as_object()
+        .expect("components object");
+    let actual = body["components"].as_array().expect("components array");
+    assert_eq!(actual.len(), expected.len());
+    for component in actual {
+        let id = component["id"].as_str().expect("component id");
+        let recorded = expected.get(id).expect("locked component");
+        assert_eq!(component["version"], recorded["version"], "{id}");
+        assert_eq!(component["license"], recorded["license"], "{id}");
+        assert_eq!(component["sha256"], recorded["artifact"]["sha256"], "{id}");
+        assert!(
+            component["source_url"]
+                .as_str()
+                .is_some_and(|url| url.starts_with("https://")),
+            "{id} has a source link"
+        );
+    }
+}
+
+#[tokio::test]
 async fn preflight_can_be_refreshed_explicitly() {
     let app = router(health_state());
     let (status, body) = send(

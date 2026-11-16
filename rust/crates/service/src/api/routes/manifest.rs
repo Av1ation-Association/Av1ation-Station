@@ -99,6 +99,12 @@ routes! {
             get => (system::health, "api::routes::system", "app and engine package versions, pinned engine revision, API version, and the cached preflight report"),
         },
     },
+    "toolchain" => {
+        path: "/api/toolchain",
+        methods: {
+            get => (system::toolchain, "api::routes::system", "the bundled components recorded for this target's reviewed lock: versions, licences, source links, and artifact hashes"),
+        },
+    },
     "update" => {
         path: "/api/update",
         methods: {

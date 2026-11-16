@@ -294,9 +294,9 @@ Gatekeeper trust the file. The release notes state that distinction.
 
 A target's lock, notices, SBOM, and source offer never stand in for another target's. The
 release workflow attaches them as `<target>-<file>` and writes `AUDIT-SHA256SUMS.txt` over
-that upload set; `release:preflight` checks the bundle before the release is created. The
-planned `GET /api/toolchain` summary and the About screen are not implemented yet; no
-release may claim they are.
+that upload set; `release:preflight` checks the bundle before the release is created.
+`GET /api/toolchain` serves the target summary from the embedded lock. The About screen's
+Bundled toolchain list is not implemented yet; no release may claim it.
 
 ## Tag-driven workflow
 

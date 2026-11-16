@@ -12,6 +12,7 @@
 
 export const ROUTE_TEST_REQUIREMENTS = {
     "GET /api/health": ["success"],
+    "GET /api/toolchain": ["success"],
     "GET /api/update": ["success"],
     "GET /api/diagnostics/bundle": ["success", "validation", "not-found"],
     "POST /api/preflight/refresh": ["success"],

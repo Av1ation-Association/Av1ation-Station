@@ -535,13 +535,13 @@ components; the Python/plugin notices cover the distributions actually staged fo
 target, and the fmetrics fork commit, upstream base and recipe digest are included in the
 source offer.
 
-The planned release bundle will embed a generated summary of the target's lock (id, version,
-licence, source URL, artefact hash). **Not implemented yet:** `GET /api/toolchain` does not
-exist, and Settings → About does not render a **Bundled toolchain** list. When built, the
-route will return the summary without touching the filesystem, About will show the same rows
-with a source link, and the public documentation site can serve the same JSON per target
-without a live service. Settings → Dependencies already shows the selected source and version
-per capability. One target's notices and SBOM do not stand in for another's.
+The release bundle embeds a generated summary of the target's lock (id, version, licence,
+source URL, artefact hash). `GET /api/toolchain` returns that summary without touching the
+filesystem; the service's build script projects only the lock entry for its target. Settings →
+About does not render a **Bundled toolchain** list yet because its live Penpot board could not
+be reviewed; the public documentation site can serve the same JSON per target without a live
+service. Settings → Dependencies already shows the selected source and version per
+capability. One target's notices and SBOM do not stand in for another's.
 
 Nothing in that summary contains a secret, a signing key, or a user path. Installed paths are
 shown only in the local process's dependency rows.

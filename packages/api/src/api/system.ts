@@ -18,6 +18,7 @@ import {
     settingsSceneModelPath,
     settingsToolSourcePath,
     storagePath,
+    toolchainPath,
     updatePath,
 } from "./paths";
 import {
@@ -28,6 +29,7 @@ import {
     PreflightCheckSchema,
     PreflightReportSchema,
     StorageOverviewSchema,
+    ToolchainInfoSchema,
     UpdateStatusSchema,
     type AppInfo,
     type AppSettingsUpdate,
@@ -43,6 +45,17 @@ export function useHealth() {
         queryKey: queryKeys.health,
         queryFn: () => transport.get(healthPath(), AppInfoSchema),
         staleTime: 30_000,
+        retry: 1,
+    });
+}
+
+/** The bundled components the binary was built from; the lock changes only with a build. */
+export function useToolchain() {
+    const transport = useTransport();
+    return useQuery({
+        queryKey: queryKeys.toolchain,
+        queryFn: () => transport.get(toolchainPath(), ToolchainInfoSchema),
+        staleTime: Number.POSITIVE_INFINITY,
         retry: 1,
     });
 }

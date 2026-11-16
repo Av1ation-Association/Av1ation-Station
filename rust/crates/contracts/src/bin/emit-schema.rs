@@ -20,7 +20,7 @@ use av1ation_contracts::encoder::{
 };
 use av1ation_contracts::platform::{
     AppInfo, DiagnosticsBundle, LanPairing, LanStatus, LogExport, LogPage, LogRecord, PairRequest,
-    StorageOverview, StorageProject, UpdateStatus,
+    StorageOverview, StorageProject, ToolchainComponent, ToolchainInfo, UpdateStatus,
 };
 use av1ation_contracts::project::{
     Project, ProjectCreateRequest, ProjectDefaultsState, ProjectSummary, ProjectTemplate,
@@ -101,6 +101,16 @@ fn main() -> ExitCode {
             "platform",
             "storage-project.json",
             schema_for!(StorageProject),
+        ),
+        (
+            "platform",
+            "toolchain-component.json",
+            schema_for!(ToolchainComponent),
+        ),
+        (
+            "platform",
+            "toolchain-info.json",
+            schema_for!(ToolchainInfo),
         ),
         ("platform", "update-status.json", schema_for!(UpdateStatus)),
         // Settings: the stored settings document and the configuration it feeds.

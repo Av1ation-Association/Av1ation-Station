@@ -25,6 +25,34 @@ pub struct AppInfo {
     pub preflight: PreflightReport,
 }
 
+/// The bundled components recorded for this target's reviewed lock.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ToolchainInfo {
+    /// Release target triple whose lock was projected into this summary.
+    pub target: String,
+    /// Revision of the reviewed toolchain lock.
+    pub revision: String,
+    /// Every top-level component in the target's bundle, in lock order.
+    pub components: Vec<ToolchainComponent>,
+}
+
+/// One bundled component as the About screen lists it.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ToolchainComponent {
+    /// Stable component id from the lock, such as `ffmpeg` or `encoder:aom`.
+    pub id: String,
+    /// The version the bundle carries.
+    pub version: String,
+    /// SPDX licence expression recorded for the component.
+    pub license: String,
+    /// Provenance URL for the source or package the artifact came from.
+    pub source_url: String,
+    /// SHA-256 of the artifact recorded in the lock.
+    pub sha256: String,
+}
+
 /// The LAN listener and the token a browser uses to reach it.
 ///
 /// The token is returned only by the loopback host that owns the listener; it is never

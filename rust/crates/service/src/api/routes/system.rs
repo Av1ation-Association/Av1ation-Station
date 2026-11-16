@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use super::*;
 use crate::api::json::ApiJson;
 
@@ -70,6 +72,23 @@ pub(super) async fn health(State(state): State<AppState>) -> Json<AppInfo> {
     let mut info = state.info.clone();
     info.preflight = state.preflight().await;
     Json(info)
+}
+
+/// The toolchain summary is generated from the reviewed lock at build time, so answering it
+/// never reads the filesystem and cannot drift from the binary's own target.
+pub(super) async fn toolchain() -> Json<ToolchainInfo> {
+    static SUMMARY: OnceLock<ToolchainInfo> = OnceLock::new();
+    Json(
+        SUMMARY
+            .get_or_init(|| {
+                serde_json::from_str(include_str!(concat!(
+                    env!("OUT_DIR"),
+                    "/toolchain-summary.json"
+                )))
+                .expect("the build-generated toolchain summary is valid")
+            })
+            .clone(),
+    )
 }
 
 pub(super) async fn refresh_preflight(State(state): State<AppState>) -> Json<PreflightReport> {

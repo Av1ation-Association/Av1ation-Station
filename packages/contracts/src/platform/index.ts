@@ -302,6 +302,38 @@ export const StorageProjectSchema = z
     .describe("One project's retained work, as the Storage screen lists it.");
 export type StorageProject = z.infer<typeof StorageProjectSchema>;
 
+/** Generated from `schema/platform/toolchain-component.json`. */
+export const ToolchainComponentSchema = z
+    .object({
+        id: z
+            .string()
+            .describe("Stable component id from the lock, such as `ffmpeg` or `encoder:aom`."),
+        license: z.string().describe("SPDX licence expression recorded for the component."),
+        sha256: z.string().describe("SHA-256 of the artifact recorded in the lock."),
+        source_url: z
+            .string()
+            .describe("Provenance URL for the source or package the artifact came from."),
+        version: z.string().describe("The version the bundle carries."),
+    })
+    .strict()
+    .describe("One bundled component as the About screen lists it.");
+export type ToolchainComponent = z.infer<typeof ToolchainComponentSchema>;
+
+/** Generated from `schema/platform/toolchain-info.json`. */
+export const ToolchainInfoSchema = z
+    .object({
+        components: z
+            .array(z.lazy(() => ToolchainComponentSchema))
+            .describe("Every top-level component in the target's bundle, in lock order."),
+        revision: z.string().describe("Revision of the reviewed toolchain lock."),
+        target: z
+            .string()
+            .describe("Release target triple whose lock was projected into this summary."),
+    })
+    .strict()
+    .describe("The bundled components recorded for this target's reviewed lock.");
+export type ToolchainInfo = z.infer<typeof ToolchainInfoSchema>;
+
 /** Generated from `schema/platform/update-status.json`. */
 export const UpdateStatusSchema = z
     .object({

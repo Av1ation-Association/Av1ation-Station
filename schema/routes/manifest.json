@@ -13,6 +13,18 @@
       ]
     },
     {
+      "id": "toolchain",
+      "path": "/api/toolchain",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "system::toolchain",
+          "owner": "api::routes::system",
+          "purpose": "the bundled components recorded for this target's reviewed lock: versions, licences, source links, and artifact hashes"
+        }
+      ]
+    },
+    {
       "id": "update",
       "path": "/api/update",
       "methods": [

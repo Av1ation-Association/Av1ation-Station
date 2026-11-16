@@ -15,9 +15,34 @@ use std::{env, fs, path::PathBuf, process::Command};
 fn main() {
     println!("cargo:rerun-if-changed=assets/python-lsp.lock");
     println!("cargo:rerun-if-changed=../../../scripts/vendor-python-lsp.mjs");
+    println!("cargo:rerun-if-changed=../../../scripts/toolchain-summary.mjs");
+    println!("cargo:rerun-if-changed=../../../packaging/toolchain.lock.json");
     println!("cargo:rerun-if-env-changed=AV1ATION_PYTHON_LSP_ZIP");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("cargo sets OUT_DIR"));
+    let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("cargo sets it"));
+    let target = env::var("TARGET").expect("cargo sets TARGET");
+    let summary = out_dir.join("toolchain-summary.json");
+    let status = Command::new("node")
+        .arg(manifest.join("../../../scripts/toolchain-summary.mjs"))
+        .arg("--lock")
+        .arg(manifest.join("../../../packaging/toolchain.lock.json"))
+        .arg("--target")
+        .arg(&target)
+        .arg("--out")
+        .arg(&summary)
+        .status();
+    match status {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            panic!("scripts/toolchain-summary.mjs failed ({status}); run it directly to see why")
+        }
+        Err(error) => panic!(
+            "could not start node for scripts/toolchain-summary.mjs: {error}. Node is part of \
+             this repository's toolchain (see .nvmrc)"
+        ),
+    }
+
     let archive = out_dir.join("python-lsp.zip");
     if let Some(provided) = env::var_os("AV1ATION_PYTHON_LSP_ZIP") {
         fs::copy(&provided, &archive)
@@ -25,7 +50,6 @@ fn main() {
         return;
     }
 
-    let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("cargo sets it"));
     let status = Command::new("node")
         .arg(manifest.join("../../../scripts/vendor-python-lsp.mjs"))
         .arg("--lock")

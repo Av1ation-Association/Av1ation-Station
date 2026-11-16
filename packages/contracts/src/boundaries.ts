@@ -33,6 +33,7 @@ import sceneListFixture from "./fixtures/boundary/scene/scene-list.json";
 import scriptCheckFixture from "./fixtures/boundary/script/script-check.json";
 import scriptGuideFixture from "./fixtures/boundary/script/script-guide.json";
 import scriptMaterialisedFixture from "./fixtures/boundary/script/script-materialised.json";
+import toolchainInfoFixture from "./fixtures/boundary/platform/toolchain-info.json";
 import scriptPluginReportFixture from "./fixtures/boundary/script/script-plugin-report.json";
 import storageOverviewFixture from "./fixtures/boundary/platform/storage-overview.json";
 import thumbnailManifestFixture from "./fixtures/boundary/video/thumbnail-manifest.json";
@@ -82,6 +83,7 @@ import {
     ScriptPluginReportSchema,
     StorageOverviewSchema,
     ThumbnailManifestSchema,
+    ToolchainInfoSchema,
     UpdateStatusSchema,
     VideoDetailSchema,
     VideoGeneralSchema,
@@ -118,6 +120,12 @@ export const BOUNDARY_FIXTURES = [
         schema: AppInfoSchema,
         fixturePath: "platform/app-info.json",
         fixture: appInfoFixture,
+    },
+    {
+        name: "ToolchainInfo",
+        schema: ToolchainInfoSchema,
+        fixturePath: "platform/toolchain-info.json",
+        fixture: toolchainInfoFixture,
     },
     {
         name: "AppSettings",

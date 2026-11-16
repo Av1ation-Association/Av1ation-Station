@@ -265,8 +265,8 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 - When certificates are available, every bundled executable and DLL is signed before the
   installer is assembled. Without them, [releases.md](releases.md) governs the explicit
   unsigned/ad-hoc labels; an artifact is never described as signed when it is not.
-- Phase 5 will embed a generated summary of the lock in the service and serve it at
-  `GET /api/toolchain`. It will contain versions, licences, source links and hashes only —
+- Phase 5 embeds a generated summary of the lock in the service and serves it at
+  `GET /api/toolchain`. It contains versions, licences, source links and hashes only —
   never a secret or a user path.
 
 ## 8. Privileges

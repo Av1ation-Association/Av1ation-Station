@@ -18,7 +18,7 @@ use av1ation_contracts::encoder::{
     ParameterKey, PreflightReport, PythonInterpreterUpdate, ToolSourceUpdate,
 };
 use av1ation_contracts::platform::{
-    AppInfo, LanPairing, LanStatus, PairRequest, StorageOverview, UpdateStatus,
+    AppInfo, LanPairing, LanStatus, PairRequest, StorageOverview, ToolchainInfo, UpdateStatus,
 };
 use av1ation_contracts::project::{
     ProjectTemplate, ProjectTemplateCreateRequest, ProjectTemplateDefaultRequest,

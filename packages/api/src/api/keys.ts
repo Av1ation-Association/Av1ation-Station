@@ -7,6 +7,7 @@
  */
 export const queryKeys = {
     health: ["health"] as const,
+    toolchain: ["toolchain"] as const,
     updateCheck: ["update-check"] as const,
     settings: ["settings"] as const,
     encoders: ["encoders"] as const,

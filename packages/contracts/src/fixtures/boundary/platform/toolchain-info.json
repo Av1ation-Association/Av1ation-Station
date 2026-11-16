@@ -1,0 +1,13 @@
+{
+  "target": "x86_64-pc-windows-msvc",
+  "revision": "2026.11.1",
+  "components": [
+    {
+      "id": "ffmpeg",
+      "version": "9.0.2",
+      "license": "LGPL-2.1-or-later",
+      "source_url": "https://github.com/FFmpeg/FFmpeg",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}
