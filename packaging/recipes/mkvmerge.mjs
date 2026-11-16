@@ -41,6 +41,9 @@ export default async function build({ target, workDir, outputDir, component }) {
             "--host=x86_64-w64-mingw32",
             `--with-boost=${prefix}`,
             `--with-boost-libdir=${prefix}/lib`,
+            // MSYS2 names the library `libboost_filesystem-mt`; name the stem explicitly
+            // instead of relying on autoconf's directory probing to discover the suffix.
+            "--with-boost-filesystem=boost_filesystem-mt",
         );
     }
     if (platform(target) === "darwin" && process.env.QMAKE6) {
