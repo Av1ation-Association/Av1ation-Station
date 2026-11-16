@@ -99,6 +99,48 @@ describe("toolchain lock fixtures", () => {
         expect(existsSync(join(root, "packaging", "toolchain.lock.json.tmp"))).toBe(false);
     });
 
+    it("checks one target tree without requiring the other target directories", () => {
+        const root = fixture([
+            { id: "encoder:test", version: "1.0.0", license: "MIT", provides: ["encode:test"] },
+        ]);
+        expect(run(root).status).toBe(0);
+        const target = TARGETS[0];
+        for (const other of TARGETS.slice(1)) {
+            rmSync(join(root, "builds", other), { recursive: true, force: true });
+        }
+
+        const result = runScript(lockScript, root, [
+            "--from",
+            "builds",
+            "--target",
+            target,
+            "--check",
+        ]);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain(`check passed for ${target}`);
+    });
+
+    it("rejects a target whose built tree no longer matches the lock", () => {
+        const root = fixture([
+            { id: "encoder:test", version: "1.0.0", license: "MIT", provides: ["encode:test"] },
+        ]);
+        expect(run(root).status).toBe(0);
+        const target = TARGETS[0];
+        writeFile(join(root, "builds", target, "tools", "bin", "runtime.dll"), "runtime\n");
+
+        const result = runScript(lockScript, root, [
+            "--from",
+            "builds",
+            "--target",
+            target,
+            "--check",
+        ]);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(`lock target ${target} is stale`);
+    });
+
     it("writes no lock when two components claim the same install path", () => {
         const root = fixture([
             { id: "encoder:one", version: "1.0.0", license: "MIT", provides: ["encode:one"] },

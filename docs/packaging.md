@@ -442,9 +442,8 @@ exception.
 
 `toolchain.yml` validates the manifest and recipes on every run, plans the
 component-by-target matrix, builds each component on its native runner, assembles one tree
-per target, and generates the lock from those built trees. It runs on manual dispatch, on
-packaging changes to `main`, and will be reused by the tagged release workflow once the
-lock exists.
+per target, and verifies the committed lock against those built trees. It runs on manual
+dispatch and on packaging changes to `main`, and is reusable by the tagged release workflow.
 
 Every component has its own cache entry. The key is a SHA-256 of the target, the component's
 canonical manifest entry, the recipe bytes, the shared recipe helper and the builder bytes.
@@ -459,8 +458,8 @@ manifest; a stale or partial directory is rebuilt instead of trusted.
 | `plan` | emit the component/target matrix and each component cache key | every run |
 | `component` (matrix over every target and component) | build or restore one component; upload its cache directory | every toolchain run |
 | `assemble` (matrix: `windows-2025`, `macos-15`, `macos-15-intel`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
-| `lock` | run `toolchain:lock` over the four target artifacts and upload the generated lock | after assembly |
-| `package` | stage the target tree into `dist/tools`, build both Tauri variants, upload installers | manual dispatch with `package` only; no tag trigger until a reviewed lock is committed |
+| `lock` | run `toolchain:lock --check` over the four target artifacts; fail on drift from the committed lock | after assembly |
+| `package` | verify the target tree against the committed lock, stage it into `dist/tools`, build both Tauri variants, upload installers | manual dispatch with `package`; the committed lock is the only packaging input |
 
 The component job is a matrix, not one job that builds a whole target on one runner. Each
 leg restores only its own cache directory; the Windows leg runs on `windows-2025`; the macOS
@@ -470,8 +469,10 @@ drift with the runner image. The engine's prebuilt ONNX Runtime requires glibc 2
 Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 
 `toolchain:verify` remains fail-closed: it does not accept a target tree in place of the
-lock. The workflow's generated lock is an artifact for review, not a publication step. A
-release workflow must not be enabled until that lock is committed and the smoke legs pass.
+lock. The workflow never uploads or substitutes a lock generated in the same run; it checks
+the committed lock against every assembled tree, and each package leg checks its own target
+tree with `toolchain:lock --target <triple> --check`. A release workflow consumes the target
+artifacts only after those checks pass.
 
 Certificate-based code signing is **not planned**. The manual package job produces unsigned artifacts on
 Windows and Linux. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`,

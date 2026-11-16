@@ -407,7 +407,7 @@ jobs:
                   retention-days: 7
 
     lock:
-        name: Generate lock from built trees
+        name: Verify committed lock against built trees
         needs: assemble
         runs-on: ubuntu-24.04
         timeout-minutes: 20
@@ -421,7 +421,7 @@ jobs:
                   pattern: toolchain-*
                   path: dist/downloaded-targets
 
-            - name: Arrange target trees
+            - name: Arrange target trees and verify the committed lock
               shell: bash
               run: |
                   mkdir -p dist/toolchain-targets
@@ -430,14 +430,7 @@ jobs:
                     target="${name#toolchain-}"
                     mv "$directory" "dist/toolchain-targets/${target}"
                   done
-                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets
-
-            - name: Upload generated lock
-              uses: actions/upload-artifact@v4
-              with:
-                  name: toolchain-lock
-                  path: packaging/toolchain.lock.json
-                  if-no-files-found: error
+                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets --check
 
     package:
         name: Package ${{ matrix.target }}
@@ -484,16 +477,21 @@ jobs:
                   name: toolchain-${{ matrix.target }}
                   path: dist/toolchain-target
 
-            - uses: actions/download-artifact@v4
-              with:
-                  name: toolchain-lock
-                  path: packaging
+            - name: Verify the target tree against the committed lock
+              shell: bash
+              env:
+                  TARGET: ${{ matrix.target }}
+              run: |
+                  mkdir -p dist/toolchain-targets
+                  rm -rf "dist/toolchain-targets/${TARGET}"
+                  mv dist/toolchain-target "dist/toolchain-targets/${TARGET}"
+                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets --target "$TARGET" --check
 
-            - name: Verify the generated lock before packaging
+            - name: Verify the committed lock metadata
               run: node scripts/toolchain-verify.mjs
 
             - name: Stage bundled tools
-              run: node scripts/stage-tools.mjs --from dist/toolchain-target --out dist/tools
+              run: node scripts/stage-tools.mjs --from dist/toolchain-targets/${{ matrix.target }} --out dist/tools
 
             - run: npm ci
             - name: Build both release variants

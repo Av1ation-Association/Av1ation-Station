@@ -42,7 +42,10 @@ function option(name, fallback) {
 }
 
 for (const argument of args) {
-    if (argument.startsWith("--") && !["--root", "--from", "--check"].includes(argument)) {
+    if (
+        argument.startsWith("--") &&
+        !["--root", "--from", "--check", "--target"].includes(argument)
+    ) {
         fail(`unknown option ${argument}`);
     }
 }
@@ -50,6 +53,13 @@ for (const argument of args) {
 const root = resolve(repoRoot, option("--root", "."));
 const from = resolve(root, option("--from", join("dist", "cargo", "toolchain")));
 const check = args.includes("--check");
+const selectedTarget = option("--target", undefined);
+if (selectedTarget !== undefined && !check) {
+    fail("--target is only valid with --check");
+}
+if (selectedTarget !== undefined && !TARGETS.includes(selectedTarget)) {
+    fail(`unknown target: ${selectedTarget}`);
+}
 const manifestPath = join(root, "packaging", "toolchain.json");
 const lockPath = join(root, "packaging", "toolchain.lock.json");
 
@@ -141,6 +151,19 @@ function sourceUrl(source) {
     return source.url;
 }
 
+function canonical(value) {
+    if (Array.isArray(value)) {
+        return `[${value.map(canonical).join(",")}]`;
+    }
+    if (value !== null && typeof value === "object") {
+        return `{${Object.keys(value)
+            .sort()
+            .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
+            .join(",")}}`;
+    }
+    return JSON.stringify(value);
+}
+
 function targetPath(target, install) {
     const targetRoot = resolve(from, target);
     const artifactPath = resolve(targetRoot, install);
@@ -153,14 +176,14 @@ function targetPath(target, install) {
     return artifactPath;
 }
 
-function buildLock(manifest, manifestBytes) {
+function buildLock(manifest, manifestBytes, targetsToBuild = TARGETS) {
     const validation = validateManifest(manifest);
     if (validation.errors.length > 0) {
         fail(`toolchain manifest is invalid:\n  - ${validation.errors.join("\n  - ")}`);
     }
     const { components, revision } = validation;
     const targets = {};
-    for (const target of TARGETS) {
+    for (const target of targetsToBuild) {
         const targetRoot = resolve(from, target);
         if (!existsSync(targetRoot) || !statSync(targetRoot).isDirectory()) {
             fail(`the built target directory is missing: ${targetRoot}`);
@@ -221,17 +244,37 @@ function buildLock(manifest, manifestBytes) {
 
 const manifest = readJson(manifestPath, "toolchain manifest");
 const manifestText = readFileSync(manifestPath, "utf8");
-const lock = buildLock(manifest, manifestText);
+const targetsToBuild = selectedTarget === undefined ? TARGETS : [selectedTarget];
+const lock = buildLock(manifest, manifestText, targetsToBuild);
 const generated = `${JSON.stringify(lock, null, 4)}\n`;
 
 if (check) {
     if (!existsSync(lockPath)) {
         fail(`lock is missing; run npm run toolchain:lock: ${lockPath}`);
     }
-    if (readFileSync(lockPath, "utf8") !== generated) {
-        fail(`lock is stale; run npm run toolchain:lock: ${lockPath}`);
+    const checkedIn = readJson(lockPath, "toolchain lock");
+    if (selectedTarget !== undefined) {
+        if (
+            checkedIn.revision !== lock.revision ||
+            checkedIn.manifest_sha256 !== lock.manifest_sha256
+        ) {
+            fail(`lock metadata is stale; run npm run toolchain:lock: ${lockPath}`);
+        }
+        const expected = lock.targets[selectedTarget];
+        const actual = checkedIn.targets?.[selectedTarget];
+        if (actual === undefined) {
+            fail(`lock is missing target ${selectedTarget}: ${lockPath}`);
+        }
+        if (canonical(actual) !== canonical(expected)) {
+            fail(`lock target ${selectedTarget} is stale; run npm run toolchain:lock: ${lockPath}`);
+        }
+        console.log(`toolchain:lock check passed for ${selectedTarget}: ${lockPath}`);
+    } else {
+        if (readFileSync(lockPath, "utf8") !== generated) {
+            fail(`lock is stale; run npm run toolchain:lock: ${lockPath}`);
+        }
+        console.log(`toolchain:lock check passed: ${lockPath}`);
     }
-    console.log(`toolchain:lock check passed: ${lockPath}`);
 } else {
     mkdirSync(dirname(lockPath), { recursive: true });
     const temporaryPath = `${lockPath}.tmp`;

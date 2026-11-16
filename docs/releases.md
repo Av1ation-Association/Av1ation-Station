@@ -186,7 +186,9 @@ actual files, and writes the lock. Its default input is `dist/cargo/toolchain/<t
 `--from <directory>` when the trees are elsewhere. It refuses to write unless every target
 directory exists, every claimed artifact is present and non-empty, and every target has at
 least one component without a duplicate install path. A source-built component's URL is its source provenance URL; its SHA-256 is the
-built output. `--check` compares the generated lock with the checked-in file without writing.
+built output. `--check` compares the generated lock with the checked-in file without writing;
+`--target <triple> --check` checks one assembled tree against that target's lock entry,
+which is what each package leg runs.
 
 `npm run toolchain:verify` is the local and CI check after generation. It fails closed when:
 
