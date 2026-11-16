@@ -393,6 +393,7 @@ jobs:
                   done
 
             - name: Assemble target tree
+              shell: bash
               env:
                   TARGET: ${{ matrix.target }}
               run: node scripts/toolchain-build.mjs --target "$TARGET" --assemble-only
