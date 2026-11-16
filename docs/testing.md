@@ -621,8 +621,11 @@ because no engine timing reaches the page.
 
 The CI path builds the app, starts it, drives the UI, and asserts outcomes.
 `.github/workflows/ci.yml` has a `Browser E2E` job that runs the `npm run test:e2e`
-profile. Job-level path filters skip the web, Rust, and browser E2E runners on a docs-only
-pull request, while the changes job runs `npm run check:docs`; the always-running
+profile. Job-level path filters run only the affected language: a package or website change
+skips Rust, a Rust change skips Web unless it touches contract/route sources, and Browser E2E
+runs whenever either changes. A docs-only pull request skips all three runners while the
+changes job runs `npm run check:docs`; a docs change paired with Rust-only work also runs
+that check there because Web is skipped; the always-running
 `Web checks gate`, `Rust checks gate`, and `Browser E2E gate` jobs report the required
 statuses. These three aggregate gates are the only required checks; do not require the
 underlying `web`, `rust`, or `e2e` jobs directly. `.github/workflows/trial-linux.yml` is a

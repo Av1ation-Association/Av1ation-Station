@@ -21,12 +21,15 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 5
         outputs:
-            run: ${{ steps.filter.outputs.run }}
+            web: ${{ steps.filter.outputs.web }}
+            rust: ${{ steps.filter.outputs.rust }}
+            e2e: ${{ steps.filter.outputs.e2e }}
+            docs: ${{ steps.filter.outputs.docs }}
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-            - name: Decide whether code checks are needed
+            - name: Decide which check families are needed
               id: filter
               shell: bash
               env:
@@ -35,30 +38,76 @@ jobs:
                   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
               run: |
                   set -euo pipefail
-                  run=true
+                  web=true
+                  rust=true
+                  e2e=true
+                  docs=false
                   if [ "$EVENT_NAME" = "pull_request" ]; then
                     if merge_base=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null) &&
                        changed=$(git diff --name-only "$merge_base" "$HEAD_SHA") &&
                        [ -n "$changed" ]; then
-                      run=false
+                      web=false
+                      rust=false
+                      e2e=false
                       while IFS= read -r path; do
                         case "$path" in
-                          docs/*|*.md) ;;
-                          *) run=true; break ;;
+                          docs/*|*.md|*.mdx) docs=true ;;
+                          rust/*|Cargo.toml|Cargo.lock|rust-toolchain*|.cargo/*|packaging/*|release/*)
+                            rust=true
+                            e2e=true
+                            ;;
+                          schema/*|scripts/*)
+                            web=true
+                            rust=true
+                            e2e=true
+                            ;;
+                          packages/*|package.json|package-lock.json|.nvmrc|.prettier*|eslint.config.*|tsconfig*|vite.config.*|playwright.config.*)
+                            web=true
+                            e2e=true
+                            ;;
+                          apps/website/*) web=true ;;
+                          apps/*)
+                            web=true
+                            e2e=true
+                            ;;
+                          *)
+                            web=true
+                            rust=true
+                            e2e=true
+                            ;;
+                        esac
+                        # The generated clients, route paths, and contract types live in
+                        # these Rust sources; a change there must run their drift checks.
+                        case "$path" in
+                          rust/crates/contracts/*|rust/crates/service/src/api/*|rust/crates/service/src/bin/*|rust/crates/service/build.rs)
+                            web=true
+                            ;;
                         esac
                       done <<< "$changed"
+                      if [ "$web" = false ] && [ "$rust" = false ] && [ "$docs" = false ]; then
+                        # An unrecognised non-doc path must not slip through both filters.
+                        web=true
+                        rust=true
+                        e2e=true
+                      fi
                     else
-                      echo "::warning::Could not determine a docs-only diff; running the full check set."
+                      echo "::warning::Could not determine the changed paths; running the full check set."
+                      docs=true
                     fi
+                  else
+                    docs=true
                   fi
-                  echo "run=$run" >> "$GITHUB_OUTPUT"
+                  echo "web=$web" >> "$GITHUB_OUTPUT"
+                  echo "rust=$rust" >> "$GITHUB_OUTPUT"
+                  echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+                  echo "docs=$docs" >> "$GITHUB_OUTPUT"
             - uses: actions/setup-node@v4
-              if: steps.filter.outputs.run == 'false'
+              if: steps.filter.outputs.docs == 'true' && steps.filter.outputs.web == 'false'
               with:
                   node-version-file: .nvmrc
                   cache: npm
             - name: Check documentation
-              if: steps.filter.outputs.run == 'false'
+              if: steps.filter.outputs.docs == 'true' && steps.filter.outputs.web == 'false'
               run: |
                   npm ci
                   npm run check:docs
@@ -68,7 +117,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 20
         needs: changes
-        if: needs.changes.outputs.run == 'true'
+        if: needs.changes.outputs.web == 'true'
         steps:
             - uses: actions/checkout@v4
               with:
@@ -107,7 +156,7 @@ jobs:
         runs-on: windows-latest
         timeout-minutes: 30
         needs: changes
-        if: needs.changes.outputs.run == 'true'
+        if: needs.changes.outputs.rust == 'true'
         steps:
             - uses: actions/checkout@v4
               with:
@@ -180,7 +229,7 @@ jobs:
         runs-on: windows-latest
         timeout-minutes: 30
         needs: changes
-        if: needs.changes.outputs.run == 'true'
+        if: needs.changes.outputs.rust == 'true'
         steps:
             - uses: actions/checkout@v4
               with:
@@ -233,7 +282,7 @@ jobs:
         runs-on: windows-latest
         timeout-minutes: 30
         needs: changes
-        if: needs.changes.outputs.run == 'true'
+        if: needs.changes.outputs.e2e == 'true'
         env:
             CI: "true"
         steps:
@@ -270,7 +319,7 @@ jobs:
         runs-on: windows-latest
         timeout-minutes: 30
         needs: changes
-        if: github.event_name == 'push' && needs.changes.outputs.run == 'true'
+        if: github.event_name == 'push' && needs.changes.outputs.e2e == 'true'
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -303,7 +352,7 @@ jobs:
               env:
                   CHANGES_RESULT: ${{ needs.changes.result }}
                   JOB_RESULT: ${{ needs.web.result }}
-                  RUN: ${{ needs.changes.outputs.run }}
+                  WEB_RUN: ${{ needs.changes.outputs.web }}
               run: |
                   if [ "$CHANGES_RESULT" != "success" ]; then
                     echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
@@ -311,8 +360,8 @@ jobs:
                   fi
                   if [ "$JOB_RESULT" = "success" ]; then
                     echo "Web checks passed."
-                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
-                    echo "Web checks skipped for a docs-only change."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$WEB_RUN" = "false" ]; then
+                    echo "Web checks skipped because no web path changed."
                   else
                     echo "Web checks did not pass ($JOB_RESULT)." >&2
                     exit 1
@@ -330,7 +379,7 @@ jobs:
                   CHANGES_RESULT: ${{ needs.changes.result }}
                   JOB_RESULT: ${{ needs.rust.result }}
                   STATIC_RESULT: ${{ needs.rust-static.result }}
-                  RUN: ${{ needs.changes.outputs.run }}
+                  RUST_RUN: ${{ needs.changes.outputs.rust }}
               run: |
                   if [ "$CHANGES_RESULT" != "success" ]; then
                     echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
@@ -338,8 +387,8 @@ jobs:
                   fi
                   if [ "$JOB_RESULT" = "success" ] && [ "$STATIC_RESULT" = "success" ]; then
                     echo "Rust checks passed."
-                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$STATIC_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
-                    echo "Rust checks skipped for a docs-only change."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$STATIC_RESULT" = "skipped" ] && [ "$RUST_RUN" = "false" ]; then
+                    echo "Rust checks skipped because no Rust path changed."
                   else
                     echo "Rust checks did not pass (tests: $JOB_RESULT, static: $STATIC_RESULT)." >&2
                     exit 1
@@ -356,7 +405,7 @@ jobs:
               env:
                   CHANGES_RESULT: ${{ needs.changes.result }}
                   JOB_RESULT: ${{ needs.e2e.result }}
-                  RUN: ${{ needs.changes.outputs.run }}
+                  E2E_RUN: ${{ needs.changes.outputs.e2e }}
               run: |
                   if [ "$CHANGES_RESULT" != "success" ]; then
                     echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
@@ -364,8 +413,8 @@ jobs:
                   fi
                   if [ "$JOB_RESULT" = "success" ]; then
                     echo "Browser E2E passed."
-                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
-                    echo "Browser E2E skipped for a docs-only change."
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$E2E_RUN" = "false" ]; then
+                    echo "Browser E2E skipped because no app, package, or Rust path changed."
                   else
                     echo "Browser E2E did not pass ($JOB_RESULT)." >&2
                     exit 1
