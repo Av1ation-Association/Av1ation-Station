@@ -3,7 +3,7 @@
     "generated_by": "scripts/website-release.mjs",
     "repository": "Av1ation-Association/Av1ation-Station",
     "tag": "v0.1.0-1",
-    "version": "0.1.0",
+    "version": "0.1.0-rc.1",
     "published": "2026-11-11",
     "prerelease": true,
     "checksums": {
