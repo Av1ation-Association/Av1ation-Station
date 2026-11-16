@@ -167,11 +167,11 @@ mod tests {
         let routes = value["routes"]
             .as_array()
             .expect("the route manifest has a routes array");
-        assert_eq!(routes.len(), 91);
+        assert_eq!(routes.len(), 92);
         let methods: usize = routes
             .iter()
             .map(|route| route["methods"].as_array().map_or(0, Vec::len))
             .sum();
-        assert_eq!(methods, 113);
+        assert_eq!(methods, 114);
     }
 }
