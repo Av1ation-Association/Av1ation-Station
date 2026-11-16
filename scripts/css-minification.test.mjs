@@ -44,14 +44,44 @@ describe("production CSS minification", () => {
         expect(missing).toEqual([]);
     });
 
-    it("does not leave the hero wordmark at zero opacity", () => {
+    it("reveals the hero wordmark only after the contrails finish", () => {
         const css = withoutComments(readFileSync(join(projectRoot, STYLESHEETS[0]), "utf8"));
-        const block =
+        const base =
             [...css.matchAll(/\.brand-lockup__word\s*\{([^}]*)\}/gu)]
                 .map((match) => match[1])
                 .find((candidate) => candidate.includes("animation-duration")) ?? "";
-        expect(block).toMatch(/opacity:\s*1\s*;/u);
-        expect(block).toMatch(/animation-duration\s*:/u);
-        expect(block).toMatch(/animation-fill-mode\s*:/u);
+        expect(base).toMatch(/opacity:\s*0\s*;/u);
+        expect(base).toMatch(/animation-duration\s*:/u);
+        expect(base).toMatch(/animation-fill-mode\s*:/u);
+
+        const trailEnds = [
+            ...css.matchAll(/\.brand-lockup__trail--(?:upper|lower)\s*\{([^}]*)\}/gu),
+        ].map((match) => {
+            const values = [...match[1].matchAll(/([\d.]+)ms/gu)].map((value) => Number(value[1]));
+            return values[0] + (values[1] ?? 0);
+        });
+        expect(trailEnds).toHaveLength(2);
+        const trailsEnd = Math.max(...trailEnds);
+
+        for (const [selector, delay] of [
+            [".brand-lockup__word--av1ation", 1050],
+            [".brand-lockup__word--station", 1150],
+        ]) {
+            const pattern = selector.replaceAll(".", "\\.");
+            const block =
+                [...css.matchAll(new RegExp(`${pattern}\\s*\\{([^}]*)\\}`, "gu"))]
+                    .map((match) => match[1])
+                    .find((candidate) => candidate.includes("animation-delay")) ?? "";
+            expect(block).toMatch(/animation-name\s*:/u);
+            expect(block).toMatch(new RegExp(`animation-delay:\\s*${String(delay)}ms`, "u"));
+            expect(Number(delay)).toBeGreaterThanOrEqual(trailsEnd);
+        }
+
+        for (const name of ["brand-word-in-up", "brand-word-in-down"]) {
+            const block =
+                new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?)\\n\\}`, "u").exec(css)?.[1] ?? "";
+            expect(block).toMatch(/from\s*\{[^}]*opacity:\s*0\s*;/u);
+            expect(block).toMatch(/to\s*\{[^}]*opacity:\s*1\s*;/u);
+        }
     });
 });

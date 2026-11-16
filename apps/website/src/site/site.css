@@ -1258,18 +1258,22 @@
 
 @keyframes brand-word-in-up {
     from {
+        opacity: 0;
         transform: translateY(0.18em);
     }
     to {
+        opacity: 1;
         transform: translateY(0);
     }
 }
 
 @keyframes brand-word-in-down {
     from {
+        opacity: 0;
         transform: translateY(-0.18em);
     }
     to {
+        opacity: 1;
         transform: translateY(0);
     }
 }
@@ -1306,13 +1310,10 @@
 }
 
 .brand-lockup__word {
-    /* Keep the word visible even when motion is unavailable. The reveal animates its
-       position only; an opacity start state made the hero text disappear permanently if
-       the animation was disabled or never started. */
-    opacity: 1;
-    /* Longhands, not a name-less shorthand: the production minifier rewrites that
-       shorthand to `animation: none`, which drops the duration and fill mode and leaves
-       the delayed words at their old `opacity: 0` start state. */
+    /* The words stay hidden while the mark and contrails animate, then fade and settle
+       into place. Longhands, not a name-less shorthand: the production minifier rewrites
+       that shorthand to `animation: none`, which would leave the words hidden forever. */
+    opacity: 0;
     animation-duration: 260ms;
     animation-timing-function: ease-out;
     animation-fill-mode: both;
@@ -1320,12 +1321,12 @@
 
 .brand-lockup__word--av1ation {
     animation-name: brand-word-in-up;
-    animation-delay: 720ms;
+    animation-delay: 1050ms;
 }
 
 .brand-lockup__word--station {
     animation-name: brand-word-in-down;
-    animation-delay: 830ms;
+    animation-delay: 1150ms;
 }
 
 .hero__grid {

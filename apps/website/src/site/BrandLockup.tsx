@@ -6,7 +6,7 @@ import { LogoMark } from "@av1ation/ui/logo-mark";
  * The mark sits at the right, the contrails run left through the gap between the two
  * wordmark lines, and the mark keeps its 153:180 planform. The animation is CSS-only: the
  * mark starts at the page centre and slides into place, then the trails grow out of its
- * engines and the words converge on the gap.
+ * engines, and only after both trails finish do the words fade and settle into place.
  */
 export function BrandLockup() {
     return (
