@@ -463,9 +463,9 @@ jobs:
     package:
         name: Package ${{ matrix.target }}
         needs: assemble
-        if: |
-            (github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true') ||
-            (github.event_name == 'workflow_call' && inputs.package)
+        # A reusable workflow called from a tag push still reports event_name=push, so the
+        # package switch must be read from the unified inputs context.
+        if: inputs.package
         strategy:
             fail-fast: false
             matrix:
