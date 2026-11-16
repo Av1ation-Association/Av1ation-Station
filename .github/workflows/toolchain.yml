@@ -18,6 +18,7 @@ on:
         paths:
             - "packaging/**"
             - "scripts/toolchain-build.mjs"
+            - "scripts/toolchain-cache-check.mjs"
             - "scripts/toolchain-lock.mjs"
             - "scripts/toolchain-manifest.mjs"
             - "scripts/toolchain-verify.mjs"
@@ -28,7 +29,9 @@ permissions:
 
 concurrency:
     group: toolchain-${{ github.ref }}
-    cancel-in-progress: false
+    # A push supersedes an earlier toolchain build for the same branch; manual and reusable
+    # runs keep their turn so a release package is never cancelled by a later push.
+    cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
     validate:
@@ -43,7 +46,7 @@ jobs:
             - name: Validate manifest and recipe syntax
               run: |
                   node scripts/toolchain-verify.mjs --manifest-only
-                  for file in scripts/toolchain-build.mjs packaging/recipes/*.mjs; do
+                  for file in scripts/toolchain-build.mjs scripts/toolchain-cache-check.mjs packaging/recipes/*.mjs; do
                     node --check "$file"
                   done
             - name: Require an explicit release tag for packaging
@@ -79,7 +82,7 @@ jobs:
         needs: plan
         strategy:
             fail-fast: false
-            max-parallel: 8
+            max-parallel: 20
             matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
         runs-on: ${{ matrix.runner }}
         timeout-minutes: 360
@@ -90,8 +93,29 @@ jobs:
               with:
                   node-version: "26"
 
+            - name: Restore component cache
+              id: cache
+              uses: actions/cache@v4
+              with:
+                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
+                  key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
+
+            # A warm cache needs only Node and the checkout. Verify the marker and claimed
+            # artifact before skipping the package-manager setup that a rebuild needs.
+            - name: Check restored component cache
+              id: cache-check
+              if: steps.cache.outputs.cache-hit == 'true'
+              continue-on-error: true
+              shell: bash
+              env:
+                  TARGET: ${{ matrix.target }}
+                  COMPONENT: ${{ matrix.id }}
+              run: |
+                  key="$(node scripts/toolchain-build.mjs --target "$TARGET" --component "$COMPONENT" --print-cache-key)"
+                  EXPECTED_CACHE_KEY="$key" node scripts/toolchain-cache-check.mjs
+
             - name: Install Linux build tools
-              if: runner.os == 'Linux'
+              if: runner.os == 'Linux' && steps.cache-check.outcome != 'success'
               run: |
                   sudo apt-get update
                   sudo apt-get install -y --no-install-recommends \
@@ -105,7 +129,7 @@ jobs:
                     glslang-tools spirv-tools docbook-xsl docbook-xml xsltproc
 
             - name: Install macOS build tools
-              if: runner.os == 'macOS'
+              if: runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               run: |
                   brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
                     libogg libvorbis flac
@@ -118,17 +142,17 @@ jobs:
                   brew install vulkan-headers
 
             - name: Install macOS Vship Vulkan tooling
-              if: matrix.id == 'metric:libvship' && runner.os == 'macOS'
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               run: brew install vulkan-loader glslang shaderc molten-vk || true
 
             - name: Install macOS VapourSynth Vulkan tooling
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               run: brew install vulkan-loader
 
             # MKVToolNix probes libogg with a raw -logg link rather than pkg-config, so
             # Homebrew's prefix has to be on the compiler's search paths explicitly.
             - name: Point macOS builds at Homebrew
-              if: runner.os == 'macOS'
+              if: runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               shell: bash
               run: |
                   prefix="$(brew --prefix)"
@@ -140,13 +164,13 @@ jobs:
                   } >> "$GITHUB_ENV"
 
             - name: Point mac Vship at Homebrew's Vulkan SDK
-              if: matrix.id == 'metric:libvship' && runner.os == 'macOS'
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               shell: bash
               run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
 
             # Homebrew's Qt installs qmake, while MKVToolNix looks for qmake6.
             - name: Point mac MKVToolNix at Homebrew's Qt
-              if: matrix.id == 'mkvmerge' && runner.os == 'macOS'
+              if: matrix.id == 'mkvmerge' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               shell: bash
               run: |
                   echo "QMAKE6=$(brew --prefix qtbase)/bin/qmake" >> "$GITHUB_ENV"
@@ -155,7 +179,7 @@ jobs:
                   echo "XML_CATALOG_FILES=$(brew --prefix)/etc/xml/catalog" >> "$GITHUB_ENV"
 
             - name: Point mac VapourSynth x64 at Homebrew's OpenMP
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               shell: bash
               run: |
                   libomp="$(brew --prefix libomp)"
@@ -164,13 +188,13 @@ jobs:
                   echo "LDFLAGS=${LDFLAGS} -L${libomp}/lib" >> "$GITHUB_ENV"
 
             - name: Point mac VapourSynth at Homebrew's Vulkan SDK
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               shell: bash
               run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
 
             - uses: msys2/setup-msys2@v2
               id: msys2
-              if: runner.os == 'Windows'
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               with:
                   msystem: UCRT64
                   update: true
@@ -201,7 +225,7 @@ jobs:
             # action's UCRT64 path is restored, because setup-ruby prepends its own
             # MSYS2 tree to PATH.
             - uses: ruby/setup-ruby@v1
-              if: matrix.id == 'mkvmerge' && runner.os == 'Windows'
+              if: matrix.id == 'mkvmerge' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               with:
                   ruby-version: "3.3"
 
@@ -209,7 +233,7 @@ jobs:
             # action's installation, or pkg-config sees the image's libraries instead of
             # the ones installed above.
             - name: Put the action's MSYS2 UCRT64 tree on PATH
-              if: runner.os == 'Windows'
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               shell: bash
               env:
                   MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
@@ -220,13 +244,13 @@ jobs:
                   echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
 
             - uses: ilammy/msvc-dev-cmd@v1
-              if: runner.os == 'Windows'
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
 
             # MSYS2's /usr/bin contains a GNU link.exe. Cargo resolves the linker by
             # name, so pin the Visual Studio one instead of letting that GNU link.exe
             # receive MSVC arguments.
             - name: Pin the MSVC linker for Cargo
-              if: runner.os == 'Windows'
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               shell: pwsh
               run: |
                   $linker = Join-Path $env:VCToolsInstallDir 'bin\HostX64\x64\link.exe'
@@ -238,16 +262,16 @@ jobs:
             # rav1e is the only component that invokes Cargo. Pin the workspace's Rust
             # channel instead of relying on the runner image's ambient toolchain.
             - uses: dtolnay/rust-toolchain@stable
-              if: matrix.id == 'encoder:rav1e' && runner.os == 'Windows'
+              if: matrix.id == 'encoder:rav1e' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               with:
                   toolchain: "1.97"
 
             - name: Install Vulkan SDK for Vship
-              if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               run: choco install vulkan-sdk -y --no-progress
 
             - name: Point Windows Vship at the Vulkan SDK
-              if: matrix.id == 'metric:libvship' && runner.os == 'Windows'
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               shell: pwsh
               run: |
                   $sdk = [Environment]::GetEnvironmentVariable('VULKAN_SDK', 'Machine')
@@ -261,21 +285,14 @@ jobs:
                   "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
 
             - uses: mlugg/setup-zig@v2
-              if: matrix.id == 'metric:fmetrics'
+              if: matrix.id == 'metric:fmetrics' && steps.cache-check.outcome != 'success'
               with:
                   version: "0.16.0"
-
-            - name: Restore component cache
-              id: cache
-              uses: actions/cache@v4
-              with:
-                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
-                  key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
 
             # Surface PATH-resolution drift before a component fails deep in configure
             # or CMake. `link` may expose the GNU shim; Cargo uses the pin above.
             - name: Report resolved Windows build tools
-              if: runner.os == 'Windows'
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
               shell: bash
               run: |
                   set -u

@@ -103,7 +103,7 @@ jobs:
                   if-no-files-found: warn
 
     rust:
-        name: Rust checks
+        name: Rust tests and coverage
         runs-on: windows-latest
         timeout-minutes: 30
         needs: changes
@@ -163,8 +163,6 @@ jobs:
               uses: ./.github/actions/install-ffms2
             - name: Audit Rust dependencies
               run: cargo audit --file rust/Cargo.lock
-            - name: Run Rust static profile
-              run: npm run check:rust
             - name: Run Rust verification profile
               run: npm run verify:rust
             - run: npm run coverage:check:changed -- --rust
@@ -176,6 +174,59 @@ jobs:
                   name: rust-coverage
                   path: dist/coverage/rust/
                   if-no-files-found: warn
+
+    rust-static:
+        name: Rust static checks
+        runs-on: windows-latest
+        timeout-minutes: 30
+        needs: changes
+        if: needs.changes.outputs.run == 'true'
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97"
+                  components: rustfmt, clippy
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
+            - name: Assert Visual Studio linker
+              shell: pwsh
+              run: |
+                  $link = (Get-Command link.exe -CommandType Application -ErrorAction Stop |
+                    Select-Object -First 1).Source
+                  $visualStudioRoots = @(
+                    $env:VCToolsInstallDir,
+                    $env:VCINSTALLDIR,
+                    $env:VSINSTALLDIR
+                  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                  $underVisualStudio = $link -match '\\Microsoft Visual Studio\\'
+                  if (-not $underVisualStudio) {
+                    $underVisualStudio = $visualStudioRoots | Where-Object {
+                      $link.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                  }
+                  if (-not $underVisualStudio) {
+                    throw "link.exe does not resolve under Visual Studio: $link"
+                  }
+                  Write-Host "link.exe resolves under Visual Studio: $link"
+            - run: npm ci
+            - name: Prepare compile-only resource directory
+              shell: bash
+              run: mkdir -p dist/apps/desktop
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
+            - name: Run Rust static profile
+              run: npm run check:rust
 
     e2e:
         name: Browser E2E
@@ -269,7 +320,7 @@ jobs:
 
     rust-gate:
         name: Rust checks gate
-        needs: [changes, rust]
+        needs: [changes, rust, rust-static]
         if: always()
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -278,18 +329,19 @@ jobs:
               env:
                   CHANGES_RESULT: ${{ needs.changes.result }}
                   JOB_RESULT: ${{ needs.rust.result }}
+                  STATIC_RESULT: ${{ needs.rust-static.result }}
                   RUN: ${{ needs.changes.outputs.run }}
               run: |
                   if [ "$CHANGES_RESULT" != "success" ]; then
                     echo "Change detection did not succeed ($CHANGES_RESULT)." >&2
                     exit 1
                   fi
-                  if [ "$JOB_RESULT" = "success" ]; then
+                  if [ "$JOB_RESULT" = "success" ] && [ "$STATIC_RESULT" = "success" ]; then
                     echo "Rust checks passed."
-                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
+                  elif [ "$JOB_RESULT" = "skipped" ] && [ "$STATIC_RESULT" = "skipped" ] && [ "$RUN" = "false" ]; then
                     echo "Rust checks skipped for a docs-only change."
                   else
-                    echo "Rust checks did not pass ($JOB_RESULT)." >&2
+                    echo "Rust checks did not pass (tests: $JOB_RESULT, static: $STATIC_RESULT)." >&2
                     exit 1
                   fi
 
