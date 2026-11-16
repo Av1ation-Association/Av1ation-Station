@@ -423,4 +423,24 @@ mod tests {
             folder.join("source.av1.mkv").as_path()
         );
     }
+
+    #[test]
+    fn a_queue_destination_cannot_alias_its_source() {
+        let directory =
+            std::env::temp_dir().join(format!("av1ation-queue-paths-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("a temporary directory");
+        let source = directory.join("source.mkv");
+        let output = directory.join("source.av1.mkv");
+        std::fs::write(&source, b"source").expect("a temporary source");
+        let source = source.to_string_lossy();
+        let output = output.to_string_lossy();
+
+        assert!(validate_paths(&source, &output).is_none());
+        assert!(
+            validate_paths(&source, &source).is_some(),
+            "writing over the source is refused before a long encode"
+        );
+
+        std::fs::remove_dir_all(&directory).expect("temporary files are removed");
+    }
 }

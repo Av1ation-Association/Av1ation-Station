@@ -174,3 +174,71 @@ impl SpeedScalerConfigHandler for RunnerConfig {
         Ok(&mut self.speed_scaler)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn video(path: &str) -> Input {
+        serde_json::from_value(json!({
+            "Video": {
+                "path": path,
+                "filters": [],
+                "import_method": { "FFMS2": { "cache_path": null, "index": null } }
+            }
+        }))
+        .expect("a native video input")
+    }
+
+    #[test]
+    fn the_adapter_exposes_every_handler_and_protects_every_sequence_source() {
+        let mut config = RunnerConfig::from(DefaultSequenceConfig::default());
+        config.scene_detector.input = Some(video("scene.mkv"));
+        config.parallel_encoder.input = Some(video("encode.mkv"));
+        config.noise_detector = Some(NoiseDetectorConfig {
+            input: Some(video("noise.mkv")),
+            ..NoiseDetectorConfig::default()
+        });
+        config.target_quality = Some(TargetQualityConfig {
+            input: Some(video("quality.mkv")),
+            metric_input: Some(video("metric.mkv")),
+            ..TargetQualityConfig::default()
+        });
+        config.quality_check = Some(QualityCheckConfig {
+            input: Some(video("check.mkv")),
+            ..QualityCheckConfig::default()
+        });
+
+        assert!(config.noise_detector().expect("read").is_some());
+        assert!(config.noise_detector_mut().expect("write").is_some());
+        assert!(config.noise_scaler().expect("read").is_none());
+        assert!(config.noise_scaler_mut().expect("write").is_none());
+        assert!(config.target_quality().expect("read").is_some());
+        assert!(config.target_quality_mut().expect("write").is_some());
+        assert!(config.quality_check().expect("read").is_some());
+        assert!(config.quality_check_mut().expect("write").is_some());
+        assert!(config.bitrate_optimizer().is_ok());
+        assert!(config.bitrate_optimizer_mut().is_ok());
+        assert!(config.parallel_encoder().is_ok());
+        assert!(config.parallel_encoder_mut().is_ok());
+        assert!(config.scene_concatenator().is_ok());
+        assert!(config.scene_concatenator_mut().is_ok());
+        assert!(config.benchmarker().is_ok());
+        assert!(config.benchmarker_mut().is_ok());
+        assert!(config.speed_scaler().is_ok());
+        assert!(config.speed_scaler_mut().is_ok());
+
+        assert_eq!(
+            config.protected_sources(),
+            [
+                PathBuf::from("scene.mkv"),
+                PathBuf::from("encode.mkv"),
+                PathBuf::from("noise.mkv"),
+                PathBuf::from("quality.mkv"),
+                PathBuf::from("metric.mkv"),
+                PathBuf::from("check.mkv"),
+            ]
+        );
+    }
+}
