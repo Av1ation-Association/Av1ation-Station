@@ -1,0 +1,20 @@
+# Reviewed secret-scanning policy for the repository snapshot.
+#
+# The built-in gitleaks rules scan source, docs, fixtures and workflow files. Generated
+# build output, dependency trees and local tool downloads are not repository content and
+# are excluded here rather than by a scanner invocation flag, so local and CI scans agree.
+
+title = "Av1ation Station secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated and dependency output is not committed repository content."
+paths = [
+    '''(?:^|/)dist(?:/.*)?$''',
+    '''(?:^|/)node_modules(?:/.*)?$''',
+    '''(?:^|/)target(?:/.*)?$''',
+    '''(?:^|/)\.git(?:/.*)?$''',
+    '''(?:^|/)\.cargo(?:/.*)?$''',
+]

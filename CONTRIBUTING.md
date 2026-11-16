@@ -162,6 +162,8 @@ on an ephemeral port.
 | `npm run test:real-encode` | Run the 12 ignored real-encode tests with the real toolchain. |
 | `npm audit --audit-level=high` | Audit JavaScript dependencies; high and critical advisories fail. |
 | `cargo audit --file rust/Cargo.lock` | Audit Rust dependencies; install `cargo-audit` once with `cargo install cargo-audit --locked`. |
+| `cargo deny --manifest-path rust/Cargo.toml check licenses bans sources` | Release-time licence, ban, and source policy; use cargo-deny 0.20.2 and the reviewed `deny.toml`. |
+| `gitleaks dir . --config .gitleaks.toml --redact --verbose --exit-code 1` | Release-time repository secret scan; use gitleaks 8.30.1 and the reviewed allowlist. |
 | `npm run tauri -- build --no-bundle` | Compile the Tauri shell without producing installers. |
 
 `npm run verify` is the full local gate: it runs `check:web` and `check:rust`, then

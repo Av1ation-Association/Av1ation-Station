@@ -158,6 +158,7 @@ Pull-request CI runs the same named profiles as local verification:
 | CI web job | `check:web`, then `verify:web`, then `build:ci` |
 | CI Rust job | `check:rust`, then `verify:rust` |
 | CI browser job | `test:e2e` |
+| Release-security workflow | `cargo-deny check licenses bans sources` and `gitleaks dir` with the reviewed policies |
 | Weekly real-encode job | `test:real-encode` |
 
 `check:static` is `check:web` followed by `check:rust`. `check:web` includes
@@ -173,3 +174,7 @@ Intentional differences:
   with the same `test:e2e` and `test:real-encode` profile names.
 - The weekly coverage-trend job measures coverage reports without running the full verify
   gates. Screenshot and gallery checks remain advisory and are not part of either gate.
+- Release security is a release-time gate, not a pull-request gate. The reusable
+  `release-security.yml` installs the pinned cargo-deny and gitleaks binaries, verifies their
+  SHA-256 checksums, runs `cargo-deny` against `deny.toml`, and scans the tree with
+  `.gitleaks.toml`. It is dispatched manually until the release workflow calls it.
