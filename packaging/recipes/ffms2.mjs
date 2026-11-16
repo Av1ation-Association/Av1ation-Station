@@ -26,7 +26,9 @@ export default async function build({ target, workDir, outputDir, component }) {
         args.push("--host=x86_64-w64-mingw32");
     }
     shellScript("./configure", args, { cwd: source });
-    makeConfigured(source);
+    // ffmsindex uses wmain on Windows without adding -municode to its link flags;
+    // only the shared library is bundled, so skip the indexer target there.
+    makeConfigured(source, null, platform(target) === "win32" ? "src/core/libffms2.la" : null);
     const name = library(target, "ffms2");
     const binary = requireFile(
         source,

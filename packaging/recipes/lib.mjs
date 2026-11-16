@@ -236,18 +236,24 @@ export function make(source, jobs = null) {
     run("make", args);
 }
 
-export function makeConfigured(source, jobs = null) {
+export function makeConfigured(source, jobs = null, target = null) {
     // A bare `-j` is unlimited, which exhausts the macOS runner's process limit during
     // FFmpeg's many small compiles. Keep the default bounded unless a recipe is explicit.
     const parallel = jobs ?? Math.max(1, Math.min(8, availableParallelism()));
-    run("make", ["-j", String(parallel)], { cwd: source });
+    run("make", ["-j", String(parallel), ...(target === null ? [] : [target])], { cwd: source });
 }
 
-export function mesonBuild({ source, buildDir, prefix, args = [], target = null }) {
+export function mesonBuild({ source, buildDir, prefix, args = [], target = null, env = {} }) {
     rmSync(buildDir, { recursive: true, force: true });
-    run("meson", ["setup", buildDir, source, "--buildtype=release", `--prefix=${prefix}`, ...args]);
-    run("ninja", ["-C", buildDir, ...(target === null ? [] : [target])]);
-    run("meson", ["install", "-C", buildDir]);
+    run(
+        "meson",
+        ["setup", buildDir, source, "--buildtype=release", `--prefix=${prefix}`, ...args],
+        {
+            env,
+        },
+    );
+    run("ninja", ["-C", buildDir, ...(target === null ? [] : [target])], { env });
+    run("meson", ["install", "-C", buildDir], { env });
     return buildDir;
 }
 

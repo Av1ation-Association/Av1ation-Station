@@ -31,7 +31,33 @@ export default async function build({ target, workDir, outputDir, component }) {
     if (platform(target) === "darwin" && process.env.QMAKE6) {
         args.push(`--with-qmake6=${process.env.QMAKE6}`);
     }
-    shellScript("./configure", args, { cwd: source });
+    if (platform(target) === "darwin" && process.env.BOOST_ROOT) {
+        args.push(`--with-boost=${process.env.BOOST_ROOT}`);
+    }
+    if (platform(target) === "darwin" && process.env.DOCBOOK_ROOT) {
+        args.push(`--with-docbook-xsl-root=${process.env.DOCBOOK_ROOT}`);
+    }
+    const env = {};
+    if (platform(target) === "win32") {
+        // MKVToolNix's Qt check assumes qmake emits POSIX include paths. MSYS2's
+        // qmake emits drive-letter paths, which its cleanup strips as if relative;
+        // supplying the UCRT64 headers through CPPFLAGS fixes both the check and
+        // the resulting USER_CPPFLAGS used by rake.
+        const prefix = process.env.MINGW_PREFIX ?? "/ucrt64";
+        const location = process.env.MSYS2_LOCATION;
+        const root =
+            location && prefix.startsWith("/")
+                ? `${location.replaceAll("\\", "/")}${prefix}`
+                : prefix;
+        env.CPPFLAGS = [
+            process.env.CPPFLAGS,
+            `-I${root}/include/qt6`,
+            `-I${root}/include/qt6/QtCore`,
+        ]
+            .filter(Boolean)
+            .join(" ");
+    }
+    shellScript("./configure", args, { cwd: source, env });
     // RubyInstaller exposes rake as a .bat wrapper, which CreateProcess cannot execute
     // directly; let cmd resolve it through PATHEXT on Windows.
     if (platform(target) === "win32") {

@@ -102,7 +102,7 @@ jobs:
                     libboost-filesystem-dev libboost-system-dev libgmp-dev \
                     libboost-dev libebml-dev libmatroska-dev libpugixml-dev libfmt-dev \
                     nlohmann-json3-dev qt6-base-dev qmake6 libvulkan-dev libshaderc-dev \
-                    glslang-tools spirv-tools
+                    glslang-tools spirv-tools docbook-xsl docbook-xml xsltproc
 
             - name: Install macOS build tools
               if: runner.os == 'macOS'
@@ -110,10 +110,10 @@ jobs:
                   brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
                     libogg libvorbis flac
                   if [[ "${{ matrix.id }}" == "mkvmerge" ]]; then
-                    brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase
+                    brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase docbook-xsl
                   fi
                   if [[ "${{ matrix.id }}" == "vapoursynth" && "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
-                    brew install ncnn protobuf onnx
+                    brew install ncnn protobuf onnx libomp
                   fi
                   brew install vulkan-headers
 
@@ -148,7 +148,20 @@ jobs:
             - name: Point mac MKVToolNix at Homebrew's Qt
               if: matrix.id == 'mkvmerge' && runner.os == 'macOS'
               shell: bash
-              run: echo "QMAKE6=$(brew --prefix qtbase)/bin/qmake" >> "$GITHUB_ENV"
+              run: |
+                  echo "QMAKE6=$(brew --prefix qtbase)/bin/qmake" >> "$GITHUB_ENV"
+                  echo "BOOST_ROOT=$(brew --prefix boost)" >> "$GITHUB_ENV"
+                  echo "DOCBOOK_ROOT=$(brew --prefix docbook-xsl)/docbook-xsl" >> "$GITHUB_ENV"
+                  echo "XML_CATALOG_FILES=$(brew --prefix)/etc/xml/catalog" >> "$GITHUB_ENV"
+
+            - name: Point mac VapourSynth x64 at Homebrew's OpenMP
+              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
+              shell: bash
+              run: |
+                  libomp="$(brew --prefix libomp)"
+                  echo "OpenMP_ROOT=${libomp}" >> "$GITHUB_ENV"
+                  echo "CPATH=${libomp}/include${CPATH:+:${CPATH}}" >> "$GITHUB_ENV"
+                  echo "LDFLAGS=${LDFLAGS} -L${libomp}/lib" >> "$GITHUB_ENV"
 
             - name: Point mac VapourSynth at Homebrew's Vulkan SDK
               if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS'
