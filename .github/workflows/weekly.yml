@@ -86,6 +86,37 @@ jobs:
               with:
                   workspaces: rust -> ../dist/cargo
             - run: npm ci
+            - name: Configure Visual Studio
+              uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
+            - name: Assert Visual Studio linker
+              shell: pwsh
+              run: |
+                  $link = (Get-Command link.exe -CommandType Application -ErrorAction Stop |
+                    Select-Object -First 1).Source
+                  $visualStudioRoots = @(
+                    $env:VCToolsInstallDir,
+                    $env:VCINSTALLDIR,
+                    $env:VSINSTALLDIR
+                  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                  $underVisualStudio = $link -match '\\Microsoft Visual Studio\\'
+                  if (-not $underVisualStudio) {
+                    $underVisualStudio = $visualStudioRoots | Where-Object {
+                      $link.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                  }
+                  if (-not $underVisualStudio) {
+                    throw "link.exe does not resolve under Visual Studio: $link"
+                  }
+                  Write-Host "link.exe resolves under Visual Studio: $link"
+            # The Tauri build script requires its resource directory to exist even when
+            # `cargo test --workspace` does not bundle a frontend.
+            - name: Prepare compile-only resource directory
+              shell: bash
+              run: mkdir -p dist/apps/desktop
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
 
             - name: Install FFmpeg and MKVToolNix
               shell: pwsh
@@ -96,6 +127,15 @@ jobs:
                   $chocoBin = Join-Path $env:ProgramData "chocolatey\bin"
                   $chocoBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
                   $env:Path = "$chocoBin;$env:Path"
+                  # MKVToolNix is installed outside the Chocolatey bin directory and has no
+                  # shim, so its directory must be added explicitly for this and later steps.
+                  $mkvToolNix = Join-Path $env:ProgramFiles "MKVToolNix"
+                  $mkvmerge = Join-Path $mkvToolNix "mkvmerge.exe"
+                  if (-not (Test-Path -LiteralPath $mkvmerge)) {
+                      throw "MKVToolNix did not install mkvmerge at $mkvmerge"
+                  }
+                  $mkvToolNix | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  $env:Path = "$mkvToolNix;$env:Path"
                   $ffmpeg = (Get-Command ffmpeg).Source
                   "AV1ATION_FFMPEG=$ffmpeg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -238,6 +278,8 @@ jobs:
                   }
                   Write-Host "link.exe resolves under Visual Studio: $link"
             - run: npm ci
+            - name: Install FFMS2 development files
+              uses: ./.github/actions/install-ffms2
 
             - name: Measure frontend coverage
               run: npm run test:web:coverage
