@@ -137,4 +137,34 @@ mod tests {
         assert!(write(&path, b"{}").await.is_err());
         assert!(!tokio::fs::try_exists(&dir).await.expect("probe"));
     }
+
+    #[tokio::test]
+    async fn a_path_without_a_parent_is_rejected() {
+        let error = write(std::path::Path::new(""), b"{}")
+            .await
+            .expect_err("empty path");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn a_blocking_replace_leaves_one_file_and_no_temp_files() {
+        let dir = std::env::temp_dir().join(format!("av1ation-atomic-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("document.json");
+
+        write_blocking(&path, b"{\"a\":1}").expect("first write");
+        write_blocking(&path, b"{\"a\":2}").expect("replace");
+
+        assert_eq!(std::fs::read_to_string(&path).expect("read"), "{\"a\":2}");
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .expect("list")
+            .map(|entry| entry.expect("entry").file_name())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("document.json")]);
+
+        let missing = dir.join("missing").join("document.json");
+        assert!(write_blocking(&missing, b"{}").is_err());
+
+        std::fs::remove_dir_all(dir).expect("cleanup");
+    }
 }

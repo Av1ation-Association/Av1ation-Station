@@ -165,4 +165,42 @@ mod tests {
 
         tokio::fs::remove_dir_all(&dir).await.expect("cleanup");
     }
+
+    #[tokio::test]
+    async fn path_size_counts_files_and_directories() {
+        let dir = std::env::temp_dir().join(format!("av1ation-storage-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir_all(dir.join("logs"))
+            .await
+            .expect("logs");
+        tokio::fs::write(dir.join("config.json"), b"12345")
+            .await
+            .expect("config");
+        tokio::fs::write(dir.join("logs").join("run.log"), b"1234567")
+            .await
+            .expect("log");
+
+        assert_eq!(path_size(&dir.join("config.json")).await, 5);
+        assert_eq!(path_size(&dir).await, 12);
+        assert_eq!(path_size(&dir.join("missing")).await, 0);
+
+        tokio::fs::remove_dir_all(&dir).await.expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn app_data_size_includes_nested_files() {
+        let dir = std::env::temp_dir().join(format!("av1ation-storage-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir_all(dir.join("logs"))
+            .await
+            .expect("logs");
+        tokio::fs::write(dir.join("config.json"), b"12345")
+            .await
+            .expect("config");
+        tokio::fs::write(dir.join("logs").join("run.log"), b"1234567")
+            .await
+            .expect("log");
+
+        assert_eq!(app_data_size(&dir, &dir.join("scratch")).await, 12);
+
+        tokio::fs::remove_dir_all(&dir).await.expect("cleanup");
+    }
 }
