@@ -219,6 +219,9 @@ jobs:
                       mingw-w64-ucrt-x86_64-nlohmann-json
                       mingw-w64-ucrt-x86_64-utf8cpp
                       mingw-w64-ucrt-x86_64-qt6-base
+                      mingw-w64-ucrt-x86_64-docbook-xsl
+                      mingw-w64-ucrt-x86_64-docbook-xml
+                      mingw-w64-ucrt-x86_64-libxslt
                       make
 
             # Ruby is only needed by MKVToolNix's rake build. Install it before the
@@ -242,6 +245,18 @@ jobs:
                   # first to keep the native UCRT64 toolchain ahead of /usr/bin.
                   echo "${MSYS2_LOCATION}\\usr\\bin" >> "$GITHUB_PATH"
                   echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+
+            # xsltproc has no default catalog location on Windows. Point it at the
+            # catalog that the UCRT64 docbook packages installed, so the configure
+            # smoke test and the man-page build can resolve DocBook's DTD offline.
+            - name: Point Windows XML tools at the MSYS2 catalog
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  catalog="$(cygpath -m "$MSYS2_LOCATION")/ucrt64/etc/xml/catalog"
+                  echo "XML_CATALOG_FILES=${catalog}" >> "$GITHUB_ENV"
 
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
