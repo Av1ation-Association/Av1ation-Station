@@ -222,6 +222,9 @@ jobs:
                       mingw-w64-ucrt-x86_64-docbook-xsl
                       mingw-w64-ucrt-x86_64-docbook-xml
                       mingw-w64-ucrt-x86_64-libxslt
+                      mingw-w64-ucrt-x86_64-inkscape
+                      mingw-w64-ucrt-x86_64-imagemagick
+                      zsh
                       make
 
             # Ruby is only needed by MKVToolNix's rake build. Install it before the

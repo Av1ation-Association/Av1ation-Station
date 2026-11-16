@@ -71,9 +71,14 @@ export default async function build({ target, workDir, outputDir, component }) {
     }
     shellScript("./configure", args, { cwd: source, env });
     // RubyInstaller exposes rake as a .bat wrapper, which CreateProcess cannot execute
-    // directly; let cmd resolve it through PATHEXT on Windows.
+    // directly; let cmd resolve it through PATHEXT on Windows. The Windows MSIX asset
+    // generator is a zsh script (it uses `setopt`), so make rake's child shell zsh as
+    // well; plain sh would fail halfway through the default target.
     if (windows) {
-        run("cmd", ["/c", "rake", "-j", "4"], { cwd: source });
+        run("cmd", ["/c", "rake", "-j", "4"], {
+            cwd: source,
+            env: { RUBYSHELL: "zsh" },
+        });
     } else {
         run("rake", ["-j", "4"], { cwd: source });
     }

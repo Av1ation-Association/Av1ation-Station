@@ -69,6 +69,10 @@ export function gitCheckout({ url, commit, destination }) {
     rmSync(destination, { recursive: true, force: true });
     mkdirSync(destination, { recursive: true });
     run("git", ["init", "--quiet", destination]);
+    // Keep upstream shell scripts LF on Windows. The Git for Windows default checkout
+    // conversion turns them into CRLF, and MSYS2 shells then try to execute `\r` as part
+    // of commands. The MKVToolNix build runs several upstream scripts.
+    run("git", ["-C", destination, "config", "core.autocrlf", "false"]);
     run("git", ["-C", destination, "remote", "add", "origin", url]);
     run("git", ["-C", destination, "fetch", "--quiet", "--depth", "1", "origin", commit]);
     run("git", ["-C", destination, "checkout", "--quiet", "FETCH_HEAD"]);
