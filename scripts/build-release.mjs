@@ -10,7 +10,12 @@ import { join } from "node:path";
 
 import { projectRoot, releaseDir, releasePlatform, stagedTools } from "./build-paths.mjs";
 import { writeChecksums } from "./collect-release.mjs";
-import { parseReleaseTag, parseTagArgument, writeReleaseManifest } from "./release-manifest.mjs";
+import {
+    parseBranchArgument,
+    parseReleaseTag,
+    parseTagArgument,
+    writeReleaseManifest,
+} from "./release-manifest.mjs";
 
 const args = process.argv.slice(2);
 let tag;
@@ -32,6 +37,7 @@ try {
     process.exit(1);
 }
 
+const branch = parseBranchArgument(args);
 const skipBundled = args.includes("--skip-bundled");
 const skipSystem = args.includes("--skip-system");
 
@@ -81,7 +87,7 @@ if (!existsSync(releaseDir)) {
     process.exit(1);
 }
 writeChecksums(releaseDir, { recursive: true });
-writeReleaseManifest({ tag });
+writeReleaseManifest({ tag, branch });
 console.log("");
 console.log(`Host artifacts: ${hostReleaseDir}`);
 console.log(`All release artifacts: ${releaseDir}`);

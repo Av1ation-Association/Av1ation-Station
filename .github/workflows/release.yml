@@ -1,0 +1,215 @@
+name: Release
+
+# A tag is a release request, not a permission to publish: the tag must be reachable from
+# main, its three required CI gates must be green, its package version must be valid for the
+# channel, the committed lock must match the assembled trees, the audit bundle must pass
+# preflight, and the release-security gates must pass before anything is uploaded.
+#
+# Unsigned Windows/Linux artifacts and ad-hoc macOS artifacts are the permanent policy. The
+# workflow never passes code-signing or notarisation flags, and it never enables the updater;
+# a stable release without the minisign key is published as a draft with no latest.json.
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: Existing release tag to build
+                required: true
+                type: string
+
+permissions:
+    contents: read
+    checks: read
+    actions: read
+
+concurrency:
+    group: release-${{ github.event.inputs.tag || github.ref_name }}
+    cancel-in-progress: false
+
+jobs:
+    verify:
+        name: Verify release tag
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        outputs:
+            tag: ${{ steps.resolve.outputs.tag }}
+            channel: ${{ steps.resolve.outputs.channel }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - name: Resolve the tag and validate its version
+              id: resolve
+              shell: bash
+              env:
+                  INPUT_TAG: ${{ github.event.inputs.tag }}
+                  REF_TAG: ${{ github.ref_name }}
+              run: |
+                  set -euo pipefail
+                  tag="${INPUT_TAG:-$REF_TAG}"
+                  if [ -z "$tag" ]; then
+                    echo "A release tag is required." >&2
+                    exit 1
+                  fi
+                  git fetch --force --no-tags origin "refs/tags/$tag:refs/tags/$tag"
+                  git checkout --detach "refs/tags/$tag"
+                  git fetch --force --no-tags origin main:refs/remotes/origin/main
+                  if ! git merge-base --is-ancestor HEAD origin/main; then
+                    echo "The release tag must point at a commit reachable from main." >&2
+                    exit 1
+                  fi
+                  node scripts/stamp-release-version.mjs --check --tag "$tag" --sha "$(git rev-parse HEAD)"
+                  channel="$(TAG="$tag" node --input-type=module -e 'import { parseReleaseTag } from "./scripts/release-manifest.mjs"; console.log(parseReleaseTag(process.env.TAG).channel);')"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+                  echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+            # The tag is expected to be created after the required checks pass. A missing or
+            # failed context is a release blocker, never a warning.
+            - name: Require green CI on the tag commit
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  sha="$(git rev-parse HEAD)"
+                  checks="$(mktemp)"
+                  gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?per_page=100" \
+                    --paginate \
+                    --jq '.check_runs[] | [.name, (.conclusion // ""), (.started_at // "")] | @tsv' \
+                    > "$checks"
+                  node scripts/release-ci-gate.mjs "$checks"
+
+    toolchain:
+        name: Build and package installers
+        needs: verify
+        permissions:
+            contents: read
+        uses: ./.github/workflows/toolchain.yml
+        with:
+            package: true
+            release_tag: ${{ needs.verify.outputs.tag }}
+            ref: refs/tags/${{ needs.verify.outputs.tag }}
+
+    security:
+        name: Release security gates
+        needs: verify
+        permissions:
+            contents: read
+        uses: ./.github/workflows/release-security.yml
+        with:
+            ref: refs/tags/${{ needs.verify.outputs.tag }}
+
+    publish:
+        name: Assemble and publish
+        needs: [verify, toolchain, security]
+        runs-on: ubuntu-24.04
+        timeout-minutes: 45
+        permissions:
+            contents: write
+            actions: read
+            checks: read
+            id-token: write
+            attestations: write
+        env:
+            TAG: ${{ needs.verify.outputs.tag }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - name: Check out the release tag
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  git fetch --force --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+                  git checkout --detach "refs/tags/$TAG"
+
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: release-*
+                  path: dist/release
+                  merge-multiple: true
+
+            - name: Remove per-host release metadata
+              run: |
+                  rm -f dist/release/SHA256SUMS.txt dist/release/SHA256SUMS-github.txt \
+                    dist/release/RELEASE-NOTES.md dist/release/release-manifest.json
+                  rm -rf dist/release/assets
+
+            - run: npm ci
+            - name: Stamp the release version
+              shell: bash
+              run: node scripts/stamp-release-version.mjs --write --no-sync --tag "$TAG" --sha "$(git rev-parse HEAD)"
+
+            - name: Build the combined checksums
+              run: |
+                  node --input-type=module -e "import { writeChecksums } from './scripts/collect-release.mjs'; writeChecksums('dist/release', { recursive: true });"
+
+            - name: Generate the per-target audit bundle
+              run: npm run release:audit -- --tag "$TAG" --out dist/release/audit
+
+            - name: Generate the release manifest
+              run: npm run release:manifest -- --tag "$TAG" --branch main
+
+            # No --code-signed, --notarized, or --updater flag is passed. The preflight
+            # compares the manifest's labels with those false defaults and fails on drift.
+            - name: Release preflight
+              run: npm run release:preflight -- --tag "$TAG" --artifacts dist/release --audit-bundle dist/release/audit
+
+            - name: Reject updater artifacts
+              shell: bash
+              run: |
+                  if find dist/release -type f -name latest.json -print -quit | grep -q .; then
+                    echo "Updater artifacts are not enabled for this release." >&2
+                    exit 1
+                  fi
+
+            - name: Attach per-target audit files
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu; do
+                    for file in toolchain.lock.json THIRD_PARTY_NOTICES.md sbom.spdx.json SOURCE-OFFER.md; do
+                      cp "dist/release/audit/$target/$file" "dist/release/assets/$target-$file"
+                    done
+                  done
+                  (cd dist/release/assets && sha256sum -- *-toolchain.lock.json *-THIRD_PARTY_NOTICES.md *-sbom.spdx.json *-SOURCE-OFFER.md > AUDIT-SHA256SUMS.txt)
+
+            - uses: actions/attest-build-provenance@v2
+              with:
+                  subject-path: dist/release/assets/*
+
+            - name: Create the GitHub release
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  channel="$(node -e "process.stdout.write(require('./dist/release/preflight.json').channel)")"
+                  title="$(node -e "process.stdout.write(require('./dist/release/release-manifest.json').release.name)")"
+                  args=(--title "$title" --notes-file dist/release/RELEASE-NOTES.md --verify-tag)
+                  case "$channel" in
+                    weekly)
+                      args+=(--prerelease)
+                      ;;
+                    rc)
+                      args+=(--prerelease --draft)
+                      ;;
+                    stable)
+                      args+=(--draft)
+                      ;;
+                    *)
+                      echo "Unexpected release channel: $channel" >&2
+                      exit 1
+                      ;;
+                  esac
+                  gh release create "$TAG" "${args[@]}" dist/release/assets/*

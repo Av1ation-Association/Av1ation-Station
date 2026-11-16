@@ -4,6 +4,12 @@ name: Release security
 # dispatched to verify the policies without publishing anything.
 on:
     workflow_call:
+        inputs:
+            ref:
+                description: Git ref to scan; defaults to the caller's ref
+                required: false
+                type: string
+                default: ""
     workflow_dispatch:
 
 permissions:
@@ -16,6 +22,8 @@ jobs:
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: dtolnay/rust-toolchain@stable
               with:
                   toolchain: "1.97"
@@ -41,6 +49,8 @@ jobs:
         timeout-minutes: 10
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - name: Install gitleaks 8.30.1
               shell: bash
               env:

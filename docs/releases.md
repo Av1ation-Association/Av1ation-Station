@@ -6,9 +6,10 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 [packaging.md](packaging.md).
 
 The release gate is **closed** until the remaining packaging checks pass. The reviewed
-manifest, recipes, four-target lock and component build workflow are present; `release.yml`
-and the publication gates are still to be added. The local artifacts under `dist/release/`
-are development evidence, not release candidates.
+manifest, recipes, four-target lock, reusable toolchain and security workflows, and the
+tag-driven `release.yml` are present. No release tag has exercised them, and the macOS,
+updater, clean-VM and audit gates below still block publication. The local artifacts under
+`dist/release/` are development evidence, not release candidates.
 
 ## Contents
 
@@ -22,6 +23,7 @@ are development evidence, not release candidates.
 - [Toolchain lock gate](#toolchain-lock-gate)
 - [Update policy](#update-policy)
 - [Transparency](#transparency)
+- [Tag-driven workflow](#tag-driven-workflow)
 - [Publication and retention](#publication-and-retention)
 - [Current gate](#current-gate)
 
@@ -29,14 +31,16 @@ are development evidence, not release candidates.
 
 | Channel | Trigger | Tag | Publication | Updater |
 | --- | --- | --- | --- | --- |
-| Weekly tagged prerelease | Scheduled, from a clean `main` checkout | `v<base>-weekly.YYYYMMDD` | Automatic GitHub pre-release | Never |
+| Weekly tagged prerelease | Weekly tag push, from a clean `main` checkout | `v<base>-weekly.YYYYMMDD` | Automatic GitHub pre-release | Never |
 | Release candidate | Manual tag | `v<base>-rc.<n>` | Draft GitHub release, manually published | Never |
 | Stable | Manual tag | `v<base>` | Draft GitHub release, manually published | Stable only |
 | Weekly tests | Weekly schedule | No release tag | No release artifacts | Not applicable |
 
 The existing `.github/workflows/weekly.yml` remains a **test** workflow. It may run real
 encodes and coverage, but it is not a release channel and its system packages are not
-release inputs.
+release inputs. The schedule that creates a weekly release tag is not wired yet; create the
+tag from a clean `main` checkout after the weekly test run. `release.yml` only consumes an
+existing tag.
 
 ### Historical 0.1.0 preview
 
@@ -59,8 +63,13 @@ tag per date; rerunning a failed workflow does not move an existing tag.
 - A release build starts from a clean checkout. A dirty worktree is never a release input.
 - Every release build names its tag with `--tag`. `npm run release:build` and
   `npm run release:manifest` fail when it is absent; there is no implicit stable
-  `v<package version>` default. The planned release workflow will pass `github.ref_name` for
-  a tag build and the `release_tag` input for a manual dispatch.
+  `v<package version>` default. `release.yml` builds from the tag ref, not the dispatching
+  branch: it passes `refs/tags/<tag>` to the reusable toolchain and security workflows. A
+  manual dispatch must name an existing tag; it does not build the default branch.
+- The tag workflow requires the tag commit to be reachable from `main`, the package version
+  to match the tag (the weekly base is allowed before CI stamps the commit suffix), and
+  `Web checks gate`, `Rust checks gate`, and `Browser E2E gate` to be successful. A missing
+  or failed context fails the run.
 - Before creating a tag, run `npm run release:preflight -- --tag <tag> --artifacts <candidate>`.
   It checks the lock through `toolchain:verify`, tag/version agreement through
   `releaseShape`, required artifacts, updater key, signing labels, and the audit bundle. It
@@ -70,9 +79,9 @@ tag per date; rerunning a failed workflow does not move an existing tag.
   policy being claimed.
 - Tags are immutable. Do not force-push, move, or reuse a release tag; a bad build gets a
   new patch or release-candidate number.
-- The release manifest records the full source commit, the tag, the branch, the lock hash,
-  and the workflow run. A tag build checks out a detached HEAD, so it passes
-  `--branch <name>`; an unresolved branch fails the manifest instead of guessing one.
+- The release manifest records the full source commit, the tag, and the branch; each
+  target's audit bundle records the lock. A tag build checks out a detached HEAD, so it
+  passes `--branch <name>`; an unresolved branch fails the manifest instead of guessing one.
 
 ## Versions
 
@@ -241,13 +250,14 @@ pair when the release owner is ready to provision it.
 
 Every published target/variant release carries:
 
-- `SHA256SUMS` for its installers, portable artifacts, toolchain lock, notices, SBOM, and
-  source offer;
-- that target's `toolchain.lock.json`;
-- `THIRD_PARTY_NOTICES.md` generated from the resolved component set;
-- `sbom.spdx.json` with the bundle revision and target triple;
-- `SOURCE-OFFER.md` naming the exact source revision, recipe, patches, and publication
-  location for every GPL/LGPL component;
+- `SHA256SUMS` for its installers and portable artifacts;
+- that target's `toolchain.lock.json` as `<target>-toolchain.lock.json`;
+- `THIRD_PARTY_NOTICES.md` as `<target>-THIRD_PARTY_NOTICES.md`, generated from the resolved
+  component set;
+- `sbom.spdx.json` as `<target>-sbom.spdx.json`, with the bundle revision and target triple;
+- `SOURCE-OFFER.md` as `<target>-SOURCE-OFFER.md`, naming the exact source revision, recipe,
+  patches, and publication location for every GPL/LGPL component;
+- `AUDIT-SHA256SUMS.txt` over that per-target audit upload set;
 - a GitHub build-provenance attestation for each artifact's digest.
 
 `npm run release:audit -- --tag <tag>` writes this bundle per target under
@@ -260,13 +270,29 @@ repository, commit, workflow, and builder, but it does not make Windows SmartScr
 Gatekeeper trust the file. The release notes state that distinction.
 
 A target's lock, notices, SBOM, and source offer never stand in for another target's. The
-release manifest records the audit file names and hashes. The planned `GET /api/toolchain`
-summary and the About screen are not implemented yet; no release may claim they are.
+release workflow attaches them as `<target>-<file>` and writes `AUDIT-SHA256SUMS.txt` over
+that upload set; `release:preflight` checks the bundle before the release is created. The
+planned `GET /api/toolchain` summary and the About screen are not implemented yet; no
+release may claim they are.
+
+## Tag-driven workflow
+
+`release.yml` runs on `v*` tag pushes and on manual dispatch of an existing tag. The verify
+job checks tag reachability, the version, and the three required CI contexts, then calls
+`toolchain.yml` with the tag ref and `release-security.yml`. The publish job downloads only
+`release-*` artifacts, rebuilds the combined checksums, generates the per-target audit
+bundle, writes the manifest, and runs `release:preflight` without `--code-signed`,
+`--notarized`, or `--updater`; it rejects `latest.json` before upload. It attaches each
+target's lock, notices, SPDX SBOM and source offer as `<target>-<file>` plus
+`AUDIT-SHA256SUMS.txt`, attests the upload set, and creates weekly (prerelease), RC (draft
+prerelease), or stable (draft) releases. The workflow does not pass a signing flag, does not
+notarise, and does not publish an updater claim.
 
 ## Publication and retention
 
-- A weekly run that finds non-documentation changes creates its tag and publishes a GitHub
-  pre-release automatically. It is explicitly unsigned and has no updater.
+- A weekly tag publishes a GitHub pre-release automatically. Creating that tag from a clean
+  `main` checkout is still a manual step until the scheduled tag creator is wired. It is
+  explicitly unsigned and has no updater.
 - RC and stable tags create a **draft** GitHub release. A release owner checks the lock,
   checksums, unsigned labels, audit bundle, and source offer before publishing.
 - The release manifest derives `channel` and `prerelease` from the tag and records
@@ -280,16 +306,17 @@ summary and the About screen are not implemented yet; no release may claim they 
   audit.
 - A bad stable release is unpublished or superseded, and `latest.json` is repointed to the
   previous stable artifact. A bad weekly is superseded by the next weekly release.
-- All artifacts are built from the tagged commit and retain the workflow run and lock hash
-  in the manifest.
+- All artifacts are built from the tagged commit; the manifest records that commit, and the
+  audit bundle carries each target's lock.
 
 ## Current gate
 
-The following are unresolved and block the first workflow:
+The following are unresolved and block publication:
 
-1. **Release workflow absent.** Run 43808022233 generated
+1. **No hosted tag run.** `release.yml` and its audit and security gates are present,
+   but no tag has been created or exercised. Weekly tag scheduling is also absent: the
+   workflow accepts a weekly tag, it does not create one. Run 43808022233 generated
    `packaging/toolchain.lock.json` for all four targets, and it passes `toolchain:verify`.
-   `release.yml` and the weekly release channel are still to be added.
 2. **macOS relocation not proven.** The recipes stage the full macOS provider set, but the
    relocation, nested ad-hoc signing, and clean-install gate has not been run. Until it passes,
    macOS bundled variants must not claim to be verified.
@@ -303,5 +330,5 @@ The following are unresolved and block the first workflow:
 
 Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
 generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,
-provision the updater key, pass the clean-VM, size and attestation gates, then add the
-weekly and tagged workflows with the fail-closed gate.
+provision the updater key, pass the clean-VM, size and attestation gates, then create a tag
+and exercise the tag-driven workflow, including the weekly tag schedule.

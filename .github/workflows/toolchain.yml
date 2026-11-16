@@ -11,6 +11,22 @@ on:
                 description: Release tag for package builds; required when package is true
                 type: string
     workflow_call:
+        inputs:
+            package:
+                description: Build installers from the assembled toolchain
+                required: false
+                type: boolean
+                default: false
+            release_tag:
+                description: Release tag for package builds; required when package is true
+                required: false
+                type: string
+                default: ""
+            ref:
+                description: Git ref to build; defaults to the caller's ref
+                required: false
+                type: string
+                default: ""
     # Tagged builds belong in the release workflow; packaging from a lock generated in this
     # run would bypass the reviewed release gate.
     push:
@@ -40,6 +56,8 @@ jobs:
         timeout-minutes: 10
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: actions/setup-node@v4
               with:
                   node-version: "26"
@@ -50,10 +68,12 @@ jobs:
                     node --check "$file"
                   done
             - name: Require an explicit release tag for packaging
-              if: github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true'
+              if: |
+                  (github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true') ||
+                  (github.event_name == 'workflow_call' && inputs.package)
               shell: bash
               env:
-                  RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+                  RELEASE_TAG: ${{ (github.event_name == 'workflow_call' && inputs.release_tag) || github.event.inputs.release_tag }}
               run: |
                   if [ -z "$RELEASE_TAG" ]; then
                     echo "The release_tag input is required when package is true." >&2
@@ -70,6 +90,8 @@ jobs:
             matrix: ${{ steps.matrix.outputs.matrix }}
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: actions/setup-node@v4
               with:
                   node-version: "26"
@@ -88,6 +110,8 @@ jobs:
         timeout-minutes: 360
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
 
             - uses: actions/setup-node@v4
               with:
@@ -370,6 +394,8 @@ jobs:
         timeout-minutes: 30
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: actions/setup-node@v4
               with:
                   node-version: "26"
@@ -413,6 +439,8 @@ jobs:
         timeout-minutes: 20
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: actions/setup-node@v4
               with:
                   node-version: "26"
@@ -435,7 +463,9 @@ jobs:
     package:
         name: Package ${{ matrix.target }}
         needs: assemble
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true'
+        if: |
+            (github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'true') ||
+            (github.event_name == 'workflow_call' && inputs.package)
         strategy:
             fail-fast: false
             matrix:
@@ -456,6 +486,8 @@ jobs:
         timeout-minutes: 120
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
             - uses: actions/setup-node@v4
               with:
                   node-version: "26"
@@ -494,12 +526,24 @@ jobs:
               run: node scripts/stage-tools.mjs --from dist/toolchain-targets/${{ matrix.target }} --out dist/tools
 
             - run: npm ci
+            - name: Stamp the release version
+              shell: bash
+              env:
+                  RELEASE_TAG: ${{ github.event_name == 'workflow_call' && inputs.release_tag || github.event.inputs.release_tag || github.ref_name }}
+              run: node scripts/stamp-release-version.mjs --write --tag "$RELEASE_TAG" --sha "$(git rev-parse HEAD)"
+
             - name: Build both release variants
               shell: bash
               env:
-                  AV1ATION_BUNDLES: ${{ matrix.bundles }}
-                  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref_name }}
-              run: npm run release:build -- --tag "$RELEASE_TAG"
+                  MATRIX_BUNDLES: ${{ matrix.bundles }}
+                  RELEASE_TAG: ${{ github.event_name == 'workflow_call' && inputs.release_tag || github.event.inputs.release_tag || github.ref_name }}
+              run: |
+                  set -euo pipefail
+                  export AV1ATION_BUNDLES="$MATRIX_BUNDLES"
+                  if [ "$RUNNER_OS" = "Windows" ] && [[ "$RELEASE_TAG" == *-* ]]; then
+                    export AV1ATION_BUNDLES=nsis
+                  fi
+                  npm run release:build -- --tag "$RELEASE_TAG" --branch main
 
             - uses: actions/upload-artifact@v4
               with:

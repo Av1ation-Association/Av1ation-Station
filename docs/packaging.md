@@ -443,7 +443,9 @@ exception.
 `toolchain.yml` validates the manifest and recipes on every run, plans the
 component-by-target matrix, builds each component on its native runner, assembles one tree
 per target, and verifies the committed lock against those built trees. It runs on manual
-dispatch and on packaging changes to `main`, and is reusable by the tagged release workflow.
+dispatch, on packaging changes to `main`, and when `release.yml` calls it for a tag. The
+release call passes the tag ref, so the reusable jobs check out the tag rather than the
+dispatching branch.
 
 Every component has its own cache entry. The key is a SHA-256 of the target, the component's
 canonical manifest entry, the recipe bytes, the shared recipe helper and the builder bytes.
@@ -459,7 +461,7 @@ manifest; a stale or partial directory is rebuilt instead of trusted.
 | `component` (matrix over every target and component) | build or restore one component; upload its cache directory | every toolchain run |
 | `assemble` (matrix: `windows-2025`, `macos-15`, `macos-15-intel`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
 | `lock` | run `toolchain:lock --check` over the four target artifacts; fail on drift from the committed lock | after assembly |
-| `package` | verify the target tree against the committed lock, stage it into `dist/tools`, build both Tauri variants, upload installers | manual dispatch with `package`; the committed lock is the only packaging input |
+| `package` | verify the target tree against the committed lock, stage it into `dist/tools`, build the channel's Tauri variants, upload installers | manual dispatch with `package`, or a tag-driven `release.yml` call; the committed lock is the only packaging input |
 
 The component job is a matrix, not one job that builds a whole target on one runner. Each
 leg restores only its own cache directory; the Windows leg runs on `windows-2025`; the macOS
@@ -471,8 +473,10 @@ Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 `toolchain:verify` remains fail-closed: it does not accept a target tree in place of the
 lock. The workflow never uploads or substitutes a lock generated in the same run; it checks
 the committed lock against every assembled tree, and each package leg checks its own target
-tree with `toolchain:lock --target <triple> --check`. A release workflow consumes the target
-artifacts only after those checks pass.
+tree with `toolchain:lock --target <triple> --check`. `release.yml` downloads the
+`release-*` artifacts only after the package jobs and the release-security gates pass, then
+rechecks the audit bundle and writes the manifest before creating a release. Stable Windows
+legs build MSI, NSIS and the portable; weekly and RC legs build NSIS and the portable only.
 
 Certificate-based code signing is **not planned**. The manual package job produces unsigned artifacts on
 Windows and Linux. On macOS, every nested Mach-O — `python3`, `libpython`, `libvsscript`,
@@ -514,7 +518,8 @@ publishes, beside that target's installer:
 - `SOURCE-OFFER.md` — for every GPL/LGPL component, the exact source revision, the recipe,
   the patches and where the corresponding source archive is published. For `fmetrics` it
   also names the fork commit, the upstream base and, on Windows, the portability patch.
-- `SHA256SUMS` — for the installers, the target's toolchain archive and the notices.
+- `SHA256SUMS` — for the installers and portable artifacts; `AUDIT-SHA256SUMS.txt` covers
+  the attached per-target lock, notices, SBOM and source offer.
 
 `npm run release:audit -- --tag <tag>` generates the per-target audit directory from the
 reviewed manifest and lock. It copies the target's lock unchanged and writes the notices,

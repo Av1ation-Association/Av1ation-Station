@@ -177,4 +177,5 @@ Intentional differences:
 - Release security is a release-time gate, not a pull-request gate. The reusable
   `release-security.yml` installs the pinned cargo-deny and gitleaks binaries, verifies their
   SHA-256 checksums, runs `cargo-deny` against `deny.toml`, and scans the tree with
-  `.gitleaks.toml`. It is dispatched manually until the release workflow calls it.
+  `.gitleaks.toml`. The tag-driven release workflow calls it with the tag ref and blocks
+  publication on its result; it can also be dispatched manually.

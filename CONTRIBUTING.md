@@ -232,8 +232,8 @@ macOS, and `deb`/`rpm`/`appimage` on Linux. Set `AV1ATION_BUNDLES` for another s
 
 Linux release builds target Debian 13 or Ubuntu 24.04; the engine's prebuilt ONNX Runtime
 needs glibc 2.38, and current artifacts emit GLIBC_2.39. These are local, unsigned artifacts;
-signing and the release workflow are Phase 5 work. See [docs/packaging.md](docs/packaging.md)
-for the packaging contract.
+the tag-driven release workflow packages and publishes them only through the Phase 5 gates.
+See [docs/packaging.md](docs/packaging.md) for the packaging contract.
 
 After changing generated inputs, run the matching generator:
 
