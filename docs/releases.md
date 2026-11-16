@@ -303,7 +303,8 @@ A target's lock, notices, SBOM, and source offer never stand in for another targ
 release workflow attaches them as `<target>-<file>` and writes `AUDIT-SHA256SUMS.txt` over
 that upload set; `release:preflight` checks the bundle before the release is created.
 `GET /api/toolchain` serves the target summary from the embedded lock. About lists the same
-components with source links; its layout is provisional pending live Penpot board review.
+components with source links; its layout is accepted provisionally for v0.1 because the live
+Penpot board is unavailable, and the live comparison is deferred.
 
 ## Tag-driven workflow
 

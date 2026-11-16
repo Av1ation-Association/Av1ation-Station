@@ -539,8 +539,8 @@ source offer.
 The release bundle embeds a generated summary of the target's lock (id, version, licence,
 source URL, artefact hash). `GET /api/toolchain` returns that summary without touching the
 filesystem; the service's build script projects only the lock entry for its target. Settings →
-About lists the same components with source links; its layout is provisional pending live
-Penpot board review. The public documentation site can serve the same JSON per target without
+About lists the same components with source links; its layout is accepted provisionally for
+v0.1 because the live Penpot board is unavailable. The public documentation site can serve the same JSON per target without
 a live service. Settings → Dependencies already shows the selected source and version per
 capability. One target's notices and SBOM do not stand in for another's.
 

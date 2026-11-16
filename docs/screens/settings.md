@@ -566,7 +566,8 @@ asks save / discard / stay before the panel changes.
 4. **Inspect the bundle.** The toolchain card reads `GET /api/toolchain` and renders the
    target's components from the lock embedded in the running binary. A component's **Source**
    link opens its provenance page; the hash is the reviewed artifact digest. The layout is
-   provisional pending live Penpot review.
+   accepted provisionally for v0.1 because the live Penpot board is unavailable; the live
+   comparison is deferred.
 5. **Link from elsewhere.** Home's footer links to `/settings#about`; the palette's About
    entry does the same.
 

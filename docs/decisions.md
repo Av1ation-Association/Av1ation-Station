@@ -22,19 +22,19 @@ its build, and its budget; publication is still a release task.
 
 ### 2. About toolchain list built without the live board
 
-**Status:** accepted, provisional until live Penpot review.
+**Status:** accepted for v0.1; live Penpot comparison unavailable and deferred.
 
 **Context.** The About board exists only in the live Penpot `04 Settings` page; there is no
 checked-in generator for it. On 2026-11-16 the live service was unavailable, and the owner
-authorised implementation to continue.
+directed that it must not block delivery.
 
 **Decision.** The **Bundled toolchain** list is added to the existing About panel using that
-panel's card and token patterns. It does not introduce a new screen layout. It must be
-compared with the live `04 Settings / About` board and corrected before release.
+panel's card and token patterns. It does not introduce a new screen layout. The owner accepts
+the checked-in layout provisionally for v0.1; the live `04 Settings / About` comparison is a
+post-release design check, not a release gate.
 
-**Consequences.** `docs/screens/settings.md` records the provisional surface, and
-`docs/progress.md` tracks the reconciliation. This entry is removed once the live review is
-recorded.
+**Consequences.** `docs/screens/settings.md` and `docs/progress.md` record the provisional
+surface. This entry remains until the live comparison is recorded.
 
 ### 3. macOS ships best-effort; Windows/Linux are the validated targets
 
