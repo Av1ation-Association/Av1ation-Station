@@ -502,7 +502,8 @@ jobs:
               run: |
                   sudo apt-get update
                   sudo apt-get install -y --no-install-recommends \
-                    libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+                    libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 \
+                    libffms2-dev libboost-filesystem1.83.0 libpugixml1v5 libfmt9 libqt6core6t64
 
             - uses: actions/download-artifact@v4
               with:
@@ -526,6 +527,18 @@ jobs:
               run: node scripts/stage-tools.mjs --from dist/toolchain-targets/${{ matrix.target }} --out dist/tools
 
             - run: npm ci
+            - name: Install FFMS2 development files
+              if: runner.os == 'Windows'
+              uses: ./.github/actions/install-ffms2
+
+            - name: Install FFMS2
+              if: runner.os == 'macOS'
+              shell: bash
+              run: |
+                  brew install ffms2
+                  prefix="$(brew --prefix ffms2)"
+                  echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+
             - name: Stamp the release version
               shell: bash
               env:
