@@ -60,8 +60,9 @@ function shellQuote(value) {
 
 /** Run a configure-style script through bash, including on Windows runners. */
 export function shellScript(script, args = [], options = {}) {
+    const { login = true, ...runOptions } = options;
     const command = [script, ...args.map(shellQuote)].join(" ");
-    run("bash", ["-lc", command], options);
+    run("bash", [login ? "-lc" : "-c", command], runOptions);
 }
 
 export function gitCheckout({ url, commit, destination }) {

@@ -25,8 +25,21 @@ export default async function build({ target, workDir, outputDir, component }) {
         shellScript("./autogen.sh", [], { cwd: source });
     }
     const args = ["--disable-gui", "--disable-update-check"];
-    if (platform(target) === "win32") {
-        args.push("--host=x86_64-w64-mingw32");
+    const windows = platform(target) === "win32";
+    const prefix = process.env.MINGW_PREFIX ?? "/ucrt64";
+    const location = process.env.MSYS2_LOCATION;
+    const root =
+        windows && location && prefix.startsWith("/")
+            ? `${location.replaceAll("\\", "/")}${prefix}`
+            : prefix;
+    if (windows) {
+        // AX_BOOST_BASE searches /usr, /usr/local, /opt, and /opt/local; it does not
+        // discover MSYS2's UCRT64 prefix from the compiler's default include path.
+        args.push(
+            "--host=x86_64-w64-mingw32",
+            `--with-boost=${root}`,
+            `--with-boost-libdir=${root}/lib`,
+        );
     }
     if (platform(target) === "darwin" && process.env.QMAKE6) {
         args.push(`--with-qmake6=${process.env.QMAKE6}`);
@@ -38,17 +51,11 @@ export default async function build({ target, workDir, outputDir, component }) {
         args.push(`--with-docbook-xsl-root=${process.env.DOCBOOK_ROOT}`);
     }
     const env = {};
-    if (platform(target) === "win32") {
+    if (windows) {
         // MKVToolNix's Qt check assumes qmake emits POSIX include paths. MSYS2's
         // qmake emits drive-letter paths, which its cleanup strips as if relative;
         // supplying the UCRT64 headers through CPPFLAGS fixes both the check and
         // the resulting USER_CPPFLAGS used by rake.
-        const prefix = process.env.MINGW_PREFIX ?? "/ucrt64";
-        const location = process.env.MSYS2_LOCATION;
-        const root =
-            location && prefix.startsWith("/")
-                ? `${location.replaceAll("\\", "/")}${prefix}`
-                : prefix;
         env.CPPFLAGS = [
             process.env.CPPFLAGS,
             `-I${root}/include/qt6`,
@@ -60,7 +67,7 @@ export default async function build({ target, workDir, outputDir, component }) {
     shellScript("./configure", args, { cwd: source, env });
     // RubyInstaller exposes rake as a .bat wrapper, which CreateProcess cannot execute
     // directly; let cmd resolve it through PATHEXT on Windows.
-    if (platform(target) === "win32") {
+    if (windows) {
         run("cmd", ["/c", "rake", "-j", "4"], { cwd: source });
     } else {
         run("rake", ["-j", "4"], { cwd: source });

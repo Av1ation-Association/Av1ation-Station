@@ -37,7 +37,10 @@ export default async function build({ target, workDir, outputDir, component }) {
     } else {
         args.push("--arch=x86_64");
     }
-    shellScript("./configure", args, { cwd: source });
+    // MSYS2's login profile rebuilds PATH from the MSYS2 environment, which hides the
+    // Visual Studio compiler that --toolchain=msvc needs. Keep the inherited runner PATH
+    // for this configure step; make still runs with the same environment.
+    shellScript("./configure", args, { cwd: source, login: platform(target) !== "win32" });
     makeConfigured(source);
     const name = executable(target, "ffmpeg");
     const binary = requireFile(
