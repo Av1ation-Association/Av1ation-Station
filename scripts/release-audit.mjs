@@ -10,6 +10,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { projectRoot } from "./build-paths.mjs";
+import { writePythonNotices } from "./python-notices.mjs";
 import { parseReleaseTag } from "./release-manifest.mjs";
 import { TARGETS } from "./toolchain-manifest.mjs";
 
@@ -151,8 +152,9 @@ Av1ation Station ${tag} for ${target}. Toolchain revision ${manifest.revision}; 
 
 This index covers the top-level components recorded in \`packaging/toolchain.lock.json\`; each
 row's licence identifier is the reviewed expression in \`packaging/toolchain.json\`. The
-VapourSynth row carries a CPython runtime and third-party plugin wheels whose transitive
-notices remain a publication gate; their package metadata is inside the staged Python tree.
+VapourSynth row carries a CPython runtime and third-party plugin wheels; their package
+metadata and licence texts are enumerated in \`PYTHON_NOTICES.md\` and
+\`PYTHON-LICENSES.txt\`.
 
 | Component | Version | Licence | Provides | Installed at |
 | --- | --- | --- | --- | --- |
@@ -199,10 +201,10 @@ This target is ${target}; toolchain revision ${manifest.revision}; lock ${lock.m
 The recipes apply only patches committed beside them in the tagged source tree.
 
 This offer covers the top-level components in \`packaging/toolchain.json\`. The VapourSynth
-row bundles CPython, VapourSynth, vsjetpack, and their wheels; their transitive package
-notices and licence texts remain a publication gate. The fmetrics fork commit and upstream
-base are listed below, and its Windows portability patch is applied by
-\`packaging/recipes/fmetrics.mjs\`; the recipe digest pins the patch set.
+row bundles CPython, VapourSynth, vsjetpack, and their wheels; the Python package notices and
+licence texts are enumerated in \`PYTHON_NOTICES.md\` and \`PYTHON-LICENSES.txt\`. The fmetrics
+fork commit and upstream base are listed below, and its Windows portability patch is applied
+by \`packaging/recipes/fmetrics.mjs\`; the recipe digest pins the patch set.
 
 ## GPL and LGPL components
 
@@ -260,7 +262,7 @@ function sbomFor({ tag, target, manifest, lock, components, repository }) {
             creators: ["Tool: av1ation-release-audit"],
         },
         comment:
-            "Top-level components from packaging/toolchain.json; transitive Python and plugin packages are not enumerated in this revision.",
+            "Top-level components from packaging/toolchain.json; Python and plugin packages are enumerated in the companion PYTHON_NOTICES.md and PYTHON-LICENSES.txt files.",
         documentDescribes: packages.map((pkg) => pkg.SPDXID),
         packages,
         relationships: packages.map((pkg) => ({
@@ -282,9 +284,12 @@ export function generateAuditBundle({
     root = projectRoot,
     tag,
     outDir = DEFAULT_OUTPUT,
+    toolsRoot = undefined,
     repository = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPOSITORY,
 } = {}) {
     const resolvedRoot = resolve(root);
+    const resolvedToolsRoot =
+        toolsRoot === undefined ? undefined : resolve(resolvedRoot, toolsRoot);
     let release;
     try {
         release = parseReleaseTag(tag);
@@ -338,6 +343,20 @@ export function generateAuditBundle({
         if (components.length === 0) {
             fail(`toolchain lock target ${target} has no components`);
         }
+        let python = null;
+        if (resolvedToolsRoot !== undefined) {
+            const targetRoot = join(resolvedToolsRoot, target);
+            if (!existsSync(targetRoot)) {
+                fail(`staged toolchain target is missing: ${targetRoot}`);
+            }
+            python = writePythonNotices({
+                targetRoot,
+                target,
+                tag: release.tag,
+                outputDirectory: targetDirectory,
+                root: resolvedRoot,
+            });
+        }
         writeFileSync(
             join(targetDirectory, "THIRD_PARTY_NOTICES.md"),
             noticesFor({ tag: release.tag, target, manifest, lock, components, repository }),
@@ -354,7 +373,12 @@ export function generateAuditBundle({
                 2,
             )}\n`,
         );
-        generated.push({ target, components: components.length, directory: targetDirectory });
+        generated.push({
+            target,
+            components: components.length,
+            directory: targetDirectory,
+            python,
+        });
     }
     return { outputRoot, tag: release.tag, targets: generated };
 }
@@ -368,7 +392,13 @@ function requiredValue(argv, index, option) {
 }
 
 function parseCli(argv) {
-    const options = { tag: undefined, outDir: DEFAULT_OUTPUT, root: projectRoot, help: false };
+    const options = {
+        tag: undefined,
+        outDir: DEFAULT_OUTPUT,
+        root: projectRoot,
+        toolsRoot: undefined,
+        help: false,
+    };
     for (let index = 0; index < argv.length; index += 1) {
         switch (argv[index]) {
             case "--tag":
@@ -381,6 +411,10 @@ function parseCli(argv) {
                 break;
             case "--root":
                 options.root = requiredValue(argv, index, "--root");
+                index += 1;
+                break;
+            case "--tools":
+                options.toolsRoot = requiredValue(argv, index, "--tools");
                 index += 1;
                 break;
             case "--help":
@@ -401,19 +435,22 @@ function main() {
     if (options.help) {
         console.log(`Usage: npm run release:audit -- --tag <tag> [options]
 
-Write each target's lock copy, third-party notices, SPDX 2.3 SBOM, and source offer.
+Write each target's lock copy, third-party notices, SPDX 2.3 SBOM, and source offer. When
+--tools names an arranged staged-target root, also write the Python/plugin notices and
+licence texts.
 
 Options:
   --tag <tag>    v<semver>, v<semver>-rc.<n>, or v<semver>-weekly.YYYYMMDD
   --out <dir>    Output root (default: ${DEFAULT_OUTPUT})
   --root <dir>   Repository root (default: ${projectRoot})
+  --tools <dir>  Staged targets arranged as <dir>/<target> (release builds must pass this)
   --help         Show this help`);
         return;
     }
     const result = generateAuditBundle(options);
     for (const target of result.targets) {
         console.log(
-            `audit: ${target.target} (${String(target.components)} components) -> ${target.directory}`,
+            `audit: ${target.target} (${String(target.components)} components, ${String(target.python?.packages ?? 0)} Python packages) -> ${target.directory}`,
         );
     }
     console.log(`Audit bundle: ${result.outputRoot}`);

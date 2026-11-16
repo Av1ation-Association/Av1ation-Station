@@ -514,6 +514,10 @@ publishes, beside that target's installer:
 - `toolchain.lock.json` — exactly what was built/downloaded for that target, with hashes.
 - `THIRD_PARTY_NOTICES.md` — generated from the target's resolved component set, naming each
   component's licence identifier and source.
+- `PYTHON_NOTICES.md` — every Python/plugin distribution in the staged tree, with its version,
+  licence expression, source and licence-text count.
+- `PYTHON-LICENSES.txt` — the bundled and reviewed-override licence texts, each with its
+  source path and SHA-256.
 - `sbom.spdx.json` — the same components as an SPDX document, with the bundle revision and
   target triple.
 - `SOURCE-OFFER.md` — for every GPL/LGPL component, the exact source revision, the recipe,
@@ -522,13 +526,14 @@ publishes, beside that target's installer:
 - `SHA256SUMS` — for the installers and portable artifacts; `AUDIT-SHA256SUMS.txt` covers
   the attached per-target lock, notices, SBOM and source offer.
 
-`npm run release:audit -- --tag <tag>` generates the per-target audit directory from the
-reviewed manifest and lock. It copies the target's lock unchanged and writes the notices,
-SBOM and source offer; `release:preflight --audit-bundle` verifies it. The command refuses a
-target that the lock does not resolve. Its notices and source offer cover the top-level
-manifest components; the VapourSynth row's transitive Python/plugin notices remain a
-publication gate, while the fmetrics fork commit, upstream base and recipe digest are
-included in the source offer.
+`npm run release:audit -- --tag <tag> --tools <trees>` generates the per-target audit
+directory from the reviewed manifest, lock and staged target trees. It copies the target's
+lock unchanged and writes the top-level notices, Python/plugin notices, licence texts, SBOM
+and source offer; `release:preflight --audit-bundle` verifies it. The command refuses a target
+that the lock does not resolve. Its top-level notices and source offer cover the manifest
+components; the Python/plugin notices cover the distributions actually staged for that
+target, and the fmetrics fork commit, upstream base and recipe digest are included in the
+source offer.
 
 The planned release bundle will embed a generated summary of the target's lock (id, version,
 licence, source URL, artefact hash). **Not implemented yet:** `GET /api/toolchain` does not

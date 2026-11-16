@@ -148,6 +148,32 @@ jobs:
                   path: dist/release
                   merge-multiple: true
 
+            # The audit reads the exact staged Python tree that each package job received, so
+            # the transitive notice list comes from the install payload rather than a second
+            # dependency declaration.
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: toolchain-*
+                  path: dist/toolchain-targets-download
+
+            - name: Arrange staged toolchain targets
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p dist/toolchain-targets
+                  for directory in dist/toolchain-targets-download/toolchain-*; do
+                    name="${directory##*/}"
+                    target="${name#toolchain-}"
+                    rm -rf "dist/toolchain-targets/${target}"
+                    mv "$directory" "dist/toolchain-targets/${target}"
+                  done
+                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu; do
+                    test -d "dist/toolchain-targets/${target}/tools/python" || {
+                      echo "missing staged Python tree for ${target}" >&2
+                      exit 1
+                    }
+                  done
+
             - name: Remove per-host release metadata
               run: |
                   rm -f dist/release/SHA256SUMS.txt dist/release/SHA256SUMS-github.txt \
@@ -164,7 +190,7 @@ jobs:
                   node --input-type=module -e "import { writeChecksums } from './scripts/collect-release.mjs'; writeChecksums('dist/release', { recursive: true });"
 
             - name: Generate the per-target audit bundle
-              run: npm run release:audit -- --tag "$TAG" --out dist/release/audit
+              run: npm run release:audit -- --tag "$TAG" --out dist/release/audit --tools dist/toolchain-targets
 
             - name: Generate the release manifest
               run: npm run release:manifest -- --tag "$TAG" --branch main
@@ -187,11 +213,11 @@ jobs:
               run: |
                   set -euo pipefail
                   for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu; do
-                    for file in toolchain.lock.json THIRD_PARTY_NOTICES.md sbom.spdx.json SOURCE-OFFER.md; do
+                    for file in toolchain.lock.json THIRD_PARTY_NOTICES.md PYTHON_NOTICES.md PYTHON-LICENSES.txt sbom.spdx.json SOURCE-OFFER.md; do
                       cp "dist/release/audit/$target/$file" "dist/release/assets/$target-$file"
                     done
                   done
-                  (cd dist/release/assets && sha256sum -- *-toolchain.lock.json *-THIRD_PARTY_NOTICES.md *-sbom.spdx.json *-SOURCE-OFFER.md > AUDIT-SHA256SUMS.txt)
+                  (cd dist/release/assets && sha256sum -- *-toolchain.lock.json *-THIRD_PARTY_NOTICES.md *-PYTHON_NOTICES.md *-PYTHON-LICENSES.txt *-sbom.spdx.json *-SOURCE-OFFER.md > AUDIT-SHA256SUMS.txt)
 
             - uses: actions/attest-build-provenance@v2
               with:

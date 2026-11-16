@@ -167,4 +167,52 @@ describe("release audit bundle", () => {
 
         expect(() => generateAuditBundle({ root, tag: "0.1.0" })).toThrow(/release tag/iu);
     });
+
+    it("includes the staged Python packages when a toolchain root is provided", () => {
+        const { root } = fixture();
+        for (const target of TARGETS) {
+            const sitePackages = join(
+                root,
+                "dist",
+                "toolchain-targets",
+                target,
+                "tools",
+                "python",
+                "Lib",
+                "site-packages",
+            );
+            writeFile(
+                join(sitePackages, "demo-1.0.dist-info", "METADATA"),
+                "Metadata-Version: 2.4\nName: demo\nVersion: 1.0\nLicense-Expression: MIT\n\nDemo\n",
+            );
+            writeFile(join(sitePackages, "demo-1.0.dist-info", "LICENSE"), "MIT text\n");
+        }
+
+        const result = generateAuditBundle({
+            root,
+            tag: "v0.1.0",
+            toolsRoot: join(root, "dist", "toolchain-targets"),
+        });
+
+        for (const target of result.targets) {
+            expect(target.python).toEqual({ packages: 1, licenseTexts: 1 });
+            const directory = join(root, "dist", "release", "audit", target.target);
+            expect(readFileSync(join(directory, "PYTHON_NOTICES.md"), "utf8")).toContain("demo");
+            expect(readFileSync(join(directory, "PYTHON-LICENSES.txt"), "utf8")).toContain(
+                "MIT text",
+            );
+        }
+    });
+
+    it("rejects a toolchain root that omits a release target", () => {
+        const { root } = fixture();
+
+        expect(() =>
+            generateAuditBundle({
+                root,
+                tag: "v0.1.0",
+                toolsRoot: join(root, "dist", "toolchain-targets"),
+            }),
+        ).toThrow(new RegExp(`staged toolchain target is missing`, "u"));
+    });
 });

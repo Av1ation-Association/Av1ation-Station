@@ -27,10 +27,9 @@
             "note": "Needs an uninstall check confirming no orphaned helper processes or undocumented user data."
         },
         "transitive-notices": {
-            "status": "pending",
-            "evidence": "",
-            "verified_at": null,
-            "note": "Needs the staged Python/plugin package metadata and licence texts, plus the fmetrics fork provenance reviewed in the audit bundle."
+            "status": "pass",
+            "evidence": "Hosted runs 43808022233 and 43822686084 assembled all four target trees against the committed lock. release:audit --tools read each staged tree: 73 Python/plugin packages on Windows and Linux and 74 on each macOS target, with 98 licence texts per target; PYTHON_NOTICES.md and PYTHON-LICENSES.txt were generated for all four targets. The fmetrics fork commit ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac, upstream base e8bf3cfe06fb78f51864804b2f7003667d4c5a71 and recipe digest 5b7b7a8d928a398ff0fbf8856143982b154b56fbffae634b496190fea544fa12 are present in each SOURCE-OFFER.md. The audit checks pass; installer and other readiness gates remain pending.",
+            "verified_at": "2026-11-16"
         },
         "manual-release-plan": {
             "status": "pending",

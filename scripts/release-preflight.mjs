@@ -17,6 +17,8 @@ const DEFAULT_ARTIFACTS = join("dist", "release");
 const AUDIT_FILES = [
     ["lock", "toolchain.lock.json"],
     ["notices", "THIRD_PARTY_NOTICES.md"],
+    ["python-notices", "PYTHON_NOTICES.md"],
+    ["python-licenses", "PYTHON-LICENSES.txt"],
     ["sbom", "sbom.spdx.json"],
     ["source-offer", "SOURCE-OFFER.md"],
 ];

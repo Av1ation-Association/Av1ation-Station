@@ -8,7 +8,7 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 The release gate is **closed** until the remaining packaging checks pass. The reviewed
 manifest, recipes, four-target lock, reusable toolchain and security workflows, the
 tag-driven `release.yml`, and the reviewed readiness record are present. No release tag has
-exercised them, and the macOS, updater, clean-VM and audit gates below still block
+exercised them, and the macOS, updater, clean-VM, size and uninstall gates below still block
 publication. The local artifacts under `dist/release/` are development evidence, not release
 candidates.
 
@@ -275,16 +275,18 @@ Every published target/variant release carries:
 - that target's `toolchain.lock.json` as `<target>-toolchain.lock.json`;
 - `THIRD_PARTY_NOTICES.md` as `<target>-THIRD_PARTY_NOTICES.md`, generated from the resolved
   component set;
+- `PYTHON_NOTICES.md` as `<target>-PYTHON_NOTICES.md` and `PYTHON-LICENSES.txt` as
+  `<target>-PYTHON-LICENSES.txt`, generated from the staged Python/plugin tree;
 - `sbom.spdx.json` as `<target>-sbom.spdx.json`, with the bundle revision and target triple;
 - `SOURCE-OFFER.md` as `<target>-SOURCE-OFFER.md`, naming the exact source revision, recipe,
   patches, and publication location for every GPL/LGPL component;
 - `AUDIT-SHA256SUMS.txt` over that per-target audit upload set;
 - a GitHub build-provenance attestation for each artifact's digest.
 
-`npm run release:audit -- --tag <tag>` writes this bundle per target under
-`dist/release/audit/` from the reviewed manifest and lock. It copies the lock unchanged and
-generates the notices, SPDX SBOM and source offer; `release:preflight` consumes the directory
-with `--audit-bundle`.
+`npm run release:audit -- --tag <tag> --tools <trees>` writes this bundle per target under
+`dist/release/audit/` from the reviewed manifest, lock and staged target trees. It copies the
+lock unchanged and generates the top-level notices, Python/plugin notices and licence texts,
+SPDX SBOM and source offer; `release:preflight` consumes the directory with `--audit-bundle`.
 
 The attestation is keyless and is not a code signature. It binds the artifact to the
 repository, commit, workflow, and builder, but it does not make Windows SmartScreen or
@@ -300,11 +302,12 @@ release may claim they are.
 
 `release.yml` runs on `v*` tag pushes and on manual dispatch of an existing tag. The verify
 job checks tag reachability, the version, and the three required CI contexts, then calls
-`toolchain.yml` with the tag ref and `release-security.yml`. The publish job downloads only
-`release-*` artifacts, rebuilds the combined checksums, generates the per-target audit
-bundle, writes the manifest, and runs `release:preflight` without `--code-signed`,
-`--notarized`, or `--updater`; it rejects `latest.json` before upload. It attaches each
-target's lock, notices, SPDX SBOM and source offer as `<target>-<file>` plus
+`toolchain.yml` with the tag ref and `release-security.yml`. The publish job downloads
+`release-*` and `toolchain-*` artifacts, rebuilds the combined checksums, generates the
+per-target audit bundle from the staged trees, writes the manifest, and runs
+`release:preflight` without `--code-signed`, `--notarized`, or `--updater`; it rejects
+`latest.json` before upload. It attaches each target's lock, notices, Python notices and
+licence texts, SPDX SBOM and source offer as `<target>-<file>` plus
 `AUDIT-SHA256SUMS.txt`, attests the upload set, and creates weekly (prerelease), RC (draft
 prerelease), or stable (draft) releases. The workflow does not pass a signing flag, does not
 notarise, and does not publish an updater claim.
@@ -349,10 +352,10 @@ The following are unresolved and block publication:
    is in CI, so stable publication cannot claim an updater yet.
 4. **Clean-VM, size and attestation gates not run.** No clean Windows, macOS or Ubuntu
    install has exercised the bundled trees; compressed and installed sizes and build-provenance
-   attestations remain unmeasured. The audit generator produces the lock copy, notices, SPDX
-   SBOM and source offer; the fmetrics fork commit, upstream base and recipe digest are now
-   recorded, but transitive Python/plugin notices still need review. The weekly tag job
-   creates nothing while these gates are pending.
+   attestations remain unmeasured. The audit generator produces the lock copy, top-level
+   notices, Python/plugin notices, licence texts, SPDX SBOM and source offer; the fmetrics fork
+   commit, upstream base and recipe digest are recorded, and the transitive-notices readiness
+   gate is passed. The weekly tag job creates nothing while the other gates are pending.
 
 Unsigned and ad-hoc distribution is the permanent policy, not a gate. The lock is
 generated and verified. The remaining order is: prove macOS relocation and ad-hoc signing,

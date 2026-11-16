@@ -109,6 +109,8 @@ function fixture({
         const audit = join(artifacts, "audit", target);
         writeFile(join(audit, "toolchain.lock.json"), "lock-file\n");
         writeFile(join(audit, "THIRD_PARTY_NOTICES.md"), "notices\n");
+        writeFile(join(audit, "PYTHON_NOTICES.md"), "python notices\n");
+        writeFile(join(audit, "PYTHON-LICENSES.txt"), "python licences\n");
         writeFile(join(audit, "SOURCE-OFFER.md"), `source offer for ${tag}\n`);
         writeFile(
             join(audit, "sbom.spdx.json"),
