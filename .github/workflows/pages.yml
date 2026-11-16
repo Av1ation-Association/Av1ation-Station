@@ -1,0 +1,69 @@
+name: Website
+
+# GitHub project Pages serves under /Av1ation-Station/, not the domain root. The build
+# uses that prefix and the deployment entry is copied to 404.html so direct docs loads
+# reach the client-side router.
+on:
+    workflow_dispatch:
+    push:
+        branches: [main]
+        paths:
+            - "apps/website/**"
+            - "packages/**"
+            - "docs/**"
+            - "e2e/screenshots/**"
+            - "playwright.screenshots.config.ts"
+            - "package.json"
+            - "package-lock.json"
+            - ".nvmrc"
+            - ".github/workflows/pages.yml"
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+jobs:
+    build:
+        name: Build website
+        runs-on: windows-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - run: npm ci
+            - run: npx playwright install chromium
+            - run: choco install ffmpeg -y --no-progress
+            # The docs captures and mobile tour are generated, not committed. The
+            # screenshot command builds the gallery variant before capturing it.
+            - run: npm run screenshots
+            - run: npm run build:docs-shots
+            - name: Build the site for project Pages
+              run: npm run build:website
+              env:
+                  WEBSITE_PAGES: "1"
+            - name: Add the Pages fallback entry
+              run: |
+                  node -e "const fs=require('node:fs'); fs.copyFileSync('dist/apps/website/index.html','dist/apps/website/404.html'); fs.writeFileSync('dist/apps/website/.nojekyll','');"
+            - uses: actions/configure-pages@v5
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: dist/apps/website
+
+    deploy:
+        name: Deploy website
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@v4

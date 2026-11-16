@@ -1,3 +1,4 @@
+import { withBase } from "../base-path";
 import { BrandLockup } from "./BrandLockup";
 
 const REPOSITORY_URL = "https://github.com/Av1ation-Association/Av1ation-Station";
@@ -30,7 +31,7 @@ export function Hero() {
                         >
                             Free and Open-Source
                         </a>
-                        <a className="site-button site-button--secondary" href="/docs/">
+                        <a className="site-button site-button--secondary" href={withBase("/docs/")}>
                             Documentation
                         </a>
                     </div>

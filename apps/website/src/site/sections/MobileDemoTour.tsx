@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { withBase } from "../../base-path";
 import { DEMO_URL } from "../demoUrl";
 import { useSiteTheme } from "../useSiteTheme";
 
@@ -55,7 +56,7 @@ export function MobileDemoTour() {
             <div className="mobile-tour__stage">
                 <img
                     className="mobile-tour__image"
-                    src={`/demo-tour/${step.id}-${theme}.avif`}
+                    src={withBase(`/demo-tour/${step.id}-${theme}.avif`)}
                     width={400}
                     height={300}
                     alt={step.alt}

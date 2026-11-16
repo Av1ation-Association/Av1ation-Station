@@ -6,6 +6,7 @@ import "@av1ation/ui/styles.css";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 
+import { withoutBase } from "./base-path";
 import { DocsApp } from "./site/docs/DocsApp";
 import { Home } from "./site/Home";
 import { NotFound } from "./site/NotFound";
@@ -13,7 +14,9 @@ import "./site/site.css";
 
 /** Strip a trailing slash and an emitted `index.html` so one route table serves dev and build. */
 function currentPath(): string {
-    const path = window.location.pathname.replace(/\/index\.html$/u, "/").replace(/\/+$/u, "");
+    const path = withoutBase(window.location.pathname)
+        .replace(/\/index\.html$/u, "/")
+        .replace(/\/+$/u, "");
     return path === "" ? "/" : path;
 }
 

@@ -9,6 +9,7 @@ import {
     type LazyExoticComponent,
 } from "react";
 
+import { withBase, withoutBase } from "../../base-path";
 import { SiteFooter } from "../SiteFooter";
 import { SiteHeader } from "../SiteHeader";
 import { DOCS_COMPONENTS } from "./components";
@@ -114,7 +115,7 @@ function DocsSidebar({
                                     className="docs-sidebar__entry"
                                 >
                                     <a
-                                        href={entry.path}
+                                        href={withBase(entry.path)}
                                         aria-current={page?.id === entry.id ? "page" : undefined}
                                         onClick={(event) => {
                                             event.preventDefault();
@@ -242,10 +243,15 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
         const [target, hash] = href.split("#");
         const normalized = normalizeDocsPath(target ?? href);
         if (!isDocsPath(normalized)) {
-            window.location.assign(href);
+            window.location.assign(href.startsWith("/") ? withBase(href) : href);
             return;
         }
-        window.history.pushState({ docs: normalized }, "", hash === undefined ? normalized : `${normalized}#${hash}`);
+        const targetPath = withBase(normalized);
+        window.history.pushState(
+            { docs: normalized },
+            "",
+            hash === undefined ? targetPath : `${targetPath}#${hash}`,
+        );
         setPath(normalized);
         setDrawerOpen(false);
         setSearchOpen(false);
@@ -258,7 +264,7 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
 
     useEffect(() => {
         const onPopState = (): void => {
-            setPath(normalizeDocsPath(window.location.pathname));
+            setPath(normalizeDocsPath(withoutBase(window.location.pathname)));
         };
         window.addEventListener("popstate", onPopState);
         return () => window.removeEventListener("popstate", onPopState);
@@ -353,7 +359,7 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
                     <h1 id="docs-title">That page is not in the manual.</h1>
                     <p>
                         The documentation index lists every page that ships.{" "}
-                        <a href="/docs/">Go to the documentation home</a>.
+                        <a href={withBase("/docs/")}>Go to the documentation home</a>.
                     </p>
                 </main>
                 <SiteFooter />
@@ -394,7 +400,7 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
                     <main id="site-main" className="docs-main">
                         <nav className="docs-breadcrumb" aria-label="Breadcrumb">
                             <a
-                                href="/docs/"
+                                href={withBase("/docs/")}
                                 onClick={(event) => {
                                     event.preventDefault();
                                     navigate("/docs");
@@ -432,7 +438,7 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
                                 <span />
                             ) : (
                                 <a
-                                    href={neighbours.previous.path}
+                                    href={withBase(neighbours.previous.path)}
                                     onClick={(event) => {
                                         event.preventDefault();
                                         navigate(neighbours.previous?.path ?? "/docs");
@@ -447,7 +453,7 @@ export function DocsApp({ initialPath }: { initialPath: string }) {
                             ) : (
                                 <a
                                     className="docs-adjacent__next"
-                                    href={neighbours.next.path}
+                                    href={withBase(neighbours.next.path)}
                                     onClick={(event) => {
                                         event.preventDefault();
                                         navigate(neighbours.next?.path ?? "/docs");

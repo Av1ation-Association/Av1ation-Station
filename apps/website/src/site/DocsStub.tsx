@@ -1,3 +1,4 @@
+import { withBase } from "../base-path";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -25,7 +26,9 @@ export function DocsStub() {
                     </a>
                     <a
                         className="site-button site-button--secondary"
-                        href="/demo/?gallery=populated#/projects/demo-project/videos/demo-video"
+                        href={withBase(
+                            "/demo/?gallery=populated#/projects/demo-project/videos/demo-video",
+                        )}
                     >
                         Open the demo
                     </a>
@@ -37,7 +40,7 @@ export function DocsStub() {
                     The homepage has the download links and the current platform support.
                 </p>
                 <p>
-                    <a className="site-text-link" href="/#downloads">
+                    <a className="site-text-link" href={withBase("/#downloads")}>
                         Go to downloads
                     </a>
                 </p>

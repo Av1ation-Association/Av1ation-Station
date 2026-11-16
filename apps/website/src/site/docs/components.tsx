@@ -21,6 +21,7 @@ import {
 import { useSiteTheme } from "../useSiteTheme";
 import { isDocsCapture } from "./captures";
 import { PlatformInstall } from "./install";
+import { withBase } from "../../base-path";
 import { useDocsNavigate } from "./navigation";
 import { slugifyHeading, type DocsPage } from "./manifest";
 
@@ -173,7 +174,7 @@ export function Figure({
     if (!isDocsCapture(capture)) {
         throw new Error(`The docs figure "${capture}" is not a gallery capture.`);
     }
-    const source = `/docs-shots/${capture}-${theme}.avif`;
+    const source = withBase(`/docs-shots/${capture}-${theme}.avif`);
     return (
         <figure className="docs-figure" data-capture={capture}>
             <a
@@ -295,6 +296,7 @@ export function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<"pre"
 export function MdxLink({ href = "", children, ...props }: ComponentPropsWithoutRef<"a">) {
     const navigate = useDocsNavigate();
     const internal = href.startsWith("/docs") && !href.startsWith("/docs-shots/");
+    const resolved = internal ? withBase(href) : href;
     const onClick = (event: MouseEvent<HTMLAnchorElement>): void => {
         if (!internal) {
             return;
@@ -309,7 +311,7 @@ export function MdxLink({ href = "", children, ...props }: ComponentPropsWithout
         navigate(href);
     };
     return (
-        <a href={href} onClick={onClick} {...props}>
+        <a href={resolved} onClick={onClick} {...props}>
             {children}
         </a>
     );

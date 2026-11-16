@@ -1,5 +1,7 @@
 import { LogoMark } from "@av1ation/ui/logo-mark";
 
+import { withBase } from "../base-path";
+
 export function SiteFooter() {
     return (
         <footer className="site-footer">
@@ -19,9 +21,9 @@ export function SiteFooter() {
                     <a href="https://github.com/Av1ation-Association/Av1ation-Station/releases">
                         Releases
                     </a>
-                    <a href="/docs/">Documentation</a>
-                    <a href="/demo/">Demo</a>
-                    <a href="/#downloads">Download</a>
+                    <a href={withBase("/docs/")}>Documentation</a>
+                    <a href={withBase("/demo/")}>Demo</a>
+                    <a href={withBase("/#downloads")}>Download</a>
                 </nav>
                 <p className="site-footer__legal">
                     GPL-3.0. Pre-release software; installers are unsigned.{" "}

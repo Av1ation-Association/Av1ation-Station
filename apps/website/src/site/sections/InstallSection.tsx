@@ -1,3 +1,5 @@
+import { withBase } from "../../base-path";
+
 export function InstallSection() {
     return (
         <section
@@ -48,7 +50,7 @@ export function InstallSection() {
                             alternatives. Rejected paths stay transient; accepted ones are
                             remembered and probed again at startup.
                         </p>
-                        <a className="site-text-link" href="/docs/">
+                        <a className="site-text-link" href={withBase("/docs/")}>
                             Read the dependency documentation
                         </a>
                     </div>

@@ -166,8 +166,12 @@ export default defineConfig(({ command, mode }) => {
     // The screenshot pipeline builds the demo before it can capture and crop the tour.
     // Its gallery variant therefore cannot require the captures it is about to produce.
     const galleryBuild = mode === "gallery";
+    // GitHub project Pages serves this build under the repository path. The flag keeps
+    // the Pages base out of shell path conversion while the explicit override remains
+    // available for another hosting prefix.
+    const pagesBuild = process.env.WEBSITE_PAGES === "1";
     return {
-        base: "./",
+        base: process.env.WEBSITE_BASE_PATH ?? (pagesBuild ? "/Av1ation-Station/" : "/"),
         plugins: [
             docsMdx(),
             react(),

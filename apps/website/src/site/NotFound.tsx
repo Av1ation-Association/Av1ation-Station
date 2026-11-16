@@ -1,3 +1,4 @@
+import { withBase } from "../base-path";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -16,7 +17,7 @@ export function NotFound() {
                     and the demo are both available.
                 </p>
                 <p>
-                    <a className="site-button site-button--primary" href="/">
+                    <a className="site-button site-button--primary" href={withBase("/")}>
                         Back to the homepage
                     </a>
                 </p>
