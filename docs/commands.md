@@ -10,7 +10,7 @@ are below; the sections after them list every script in `package.json` by purpos
 | `npm run check` | Fast local gate: all static checks plus the plain web and Rust test suites. No coverage. |
 | `npm run verify` | Full local gate: static checks once, then the web and Rust coverage gates in parallel. |
 | `npm run test:e2e` | Build the headless service and desktop SPA, then run the Playwright browser journeys. |
-| `npm run test:real-encode` | Run all 12 ignored real-encode tests with the real toolchain; fails on a skipped test or a changed test count. |
+| `npm run test:real-encode` | Run the environment-gated real-encode suite with the real toolchain; fails on a skipped test or an empty run. |
 
 The shared static profiles are `check:web`, `check:rust`, and `check:evidence`; `check:web`
 runs the evidence profile. The matching test profiles are `verify:web` and `verify:rust`.
@@ -47,7 +47,7 @@ test profiles.
 | `npm run coverage:check:changed` | Check changed-line coverage against `BASE_SHA`. |
 | `npm run coverage:report` | Write the weekly coverage trend report. |
 | `npm run test:rust` | Run the full Rust workspace suite with `--locked`. |
-| `npm run test:real-encode` | Run the ignored real-encode suite and reject skipped tests or a changed count. |
+| `npm run test:real-encode` | Run the environment-gated real-encode suite and reject skipped tests or an empty run. |
 | `npm run audit:dependencies` | Run the npm and Cargo audits, write `dist/audits/`, and render the weekly report and issue body; findings are advisory. |
 | `npm run check:disk-space` | Fail when free space is below the configured floor. |
 | `npm run test:rust:coverage` | Run `llvm-cov` for the engine and service and write the Rust lcov report. |
@@ -148,7 +148,7 @@ requirements for those commands into failures.
 `npm run test:e2e` needs Chromium installed once with `npx playwright install chromium`.
 `npm run test:real-encode` needs the full real-encode toolchain described in
 [CONTRIBUTING.md](../CONTRIBUTING.md#checks-and-tests) and
-[testing.md](testing.md#weekly-real-encode-gate).
+[testing.md](testing.md#weekly-environment-gated-real-encode-gate).
 
 ## CI and local verification
 

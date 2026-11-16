@@ -159,7 +159,7 @@ on an ephemeral port.
 | `npm run check` | Fast pass: static checks plus the plain web and Rust test suites. |
 | `npm run verify` | Full pass: static checks once, then web and Rust coverage gates in parallel. |
 | `npm run test:e2e` | Build the headless service and SPA, then run the Playwright browser journeys. |
-| `npm run test:real-encode` | Run the 12 ignored real-encode tests with the real toolchain. |
+| `npm run test:real-encode` | Run the environment-gated real-encode suite with the real toolchain. |
 | `npm audit --audit-level=high` | Audit JavaScript dependencies; high and critical advisories fail. |
 | `cargo audit --file rust/Cargo.lock` | Audit Rust dependencies; install `cargo-audit` once with `cargo install cargo-audit --locked`. |
 | `cargo deny --manifest-path rust/Cargo.toml check licenses bans sources` | Release-time licence, ban, and source policy; use cargo-deny 0.20.2 and the reviewed `deny.toml`. |

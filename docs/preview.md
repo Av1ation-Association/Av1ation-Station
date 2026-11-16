@@ -418,9 +418,11 @@ to finish, so the element starts on the first fragment. The encoder's stdout is 
 through by the engine rather than handed to FFmpeg as a raw handle: an IVF encoder writing
 to a pipe repeats its file header at the end instead of rewinding to fill in the count, and
 the pump rewrites the count and stops at that trailer so FFmpeg never sees a zero-length
-final sample. The container is the only option the preview changes; an SVT-AV1 build with
-WebM IO enabled is pinned to IVF with `--webm 0` because a run reads IVF chunks back.A request whose byte range starts past zero waits for the finished cache file and then uses
-ordinary range delivery, and a second request for the same proxy follows the running build
+final sample. The container is the only option the preview changes. An SVT-AV1 build that exposes
+`--webm` is pinned to IVF with `--webm 0` because a run reads IVF chunks back; mainline
+builds without that switch already write IVF, so the preview does not send an argument they
+would reject. A request whose byte range starts past zero waits for the finished cache file
+and then uses ordinary range delivery, and a second request for the same proxy follows the running build
 rather than starting a duplicate. The next scene's chunk is warmed as soon as the current
 one is partly buffered or playable, and is appended at its own offset once the current chunk
 is fully in the session, so a cut is an append rather than an element swap. The cursor is

@@ -188,7 +188,11 @@ pub(super) fn encode(
         // detected scenes before Noise Detector, noise results before Target Quality, and
         // so on. The first sequence uses the graph opened above.
         let built = (|| -> Result<Box<dyn Sequence<DefaultSequenceData, RunnerConfig>>, String> {
-            let reopened = if position > 0 {
+            // Scene Concatenator reads the chunk files, not decoded frames. Reopening a
+            // script for it changes the input document after the chunks were written and
+            // makes their saved source context look stale. Keep the graph that produced the
+            // chunks; the concatenator never opens it.
+            let reopened = if position > 0 && id != "SceneConcatenator" {
                 with_scene_data(
                     &base_input,
                     &app.condor.scenes,

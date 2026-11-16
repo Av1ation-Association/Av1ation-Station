@@ -1,7 +1,7 @@
 name: Weekly checks
 
 # The real engine paths are environment-gated and too slow for pull requests. A weekly run
-# replays every ignored Rust test on a generated clip, records the coverage trend, and files
+# runs the environment-gated Rust suite on generated clips, records the coverage trend, and files
 # one dependency-audit issue. It is scheduled/manual only: it never runs on a pull request and
 # none of its jobs is a required merge status. A scheduled run is skipped when nothing outside
 # documentation changed since the last scheduled run that succeeded, so an idle week costs one
@@ -66,13 +66,11 @@ jobs:
                   fi
 
     real-encode:
-        name: Real-encode tests
+        name: Environment-gated real-encode tests
         needs: changes
         if: needs.changes.outputs.run == 'true'
         runs-on: windows-latest
         timeout-minutes: 45
-        env:
-            AV1ATION_REAL_ENCODE_TESTS: "12"
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -220,7 +218,7 @@ jobs:
                   ) | Set-Content -LiteralPath $log -Encoding utf8
                   Get-Content -LiteralPath $log
 
-            - name: Run the 12 ignored real-encode tests
+            - name: Run the environment-gated real-encode suite
               run: npm run test:real-encode
 
             - uses: actions/upload-artifact@v4

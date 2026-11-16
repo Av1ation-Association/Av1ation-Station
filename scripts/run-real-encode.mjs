@@ -1,4 +1,4 @@
-// Run the environment-gated real-encode tests the same way locally and in weekly CI.
+// Run the environment-gated real-encode suite the same way locally and in weekly CI.
 //
 // The tests generate their own clips through `av1ation-test-support`; nothing here reads a
 // committed media file. VSScript keeps one Python runtime per process, so the suite is run
@@ -15,7 +15,6 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rustRoot = resolve(root, "rust");
 const logDirectory = resolve(root, "dist/real-encode");
 const logPath = resolve(logDirectory, "real-encode.log");
-const expected = Number(process.env.AV1ATION_REAL_ENCODE_TESTS ?? 12);
 const args = [
     "test",
     "--workspace",
@@ -26,11 +25,6 @@ const args = [
     "--test-threads=1",
     "--nocapture",
 ];
-
-if (!Number.isInteger(expected) || expected <= 0) {
-    console.error("AV1ATION_REAL_ENCODE_TESTS must be a positive integer");
-    process.exit(1);
-}
 
 mkdirSync(logDirectory, { recursive: true });
 const log = createWriteStream(logPath, { encoding: "utf8" });
@@ -77,15 +71,12 @@ const finish = (code) => {
             process.exitCode = 1;
             return;
         }
-        if (passed !== expected) {
-            console.error(
-                `[real-encode] expected ${expected} ignored tests, found ${passed}; ` +
-                    `update the expected count when adding a gated test. See ${logPath}`,
-            );
+        if (passed === 0) {
+            console.error(`[real-encode] no environment-gated tests ran; see ${logPath}`);
             process.exitCode = 1;
             return;
         }
-        console.log(`[real-encode] ${passed} ignored tests passed; log: ${logPath}`);
+        console.log(`[real-encode] ${passed} environment-gated tests passed; log: ${logPath}`);
     });
 };
 

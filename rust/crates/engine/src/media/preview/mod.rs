@@ -313,6 +313,10 @@ fn scene_arguments(
 ) -> Result<Vec<String>, String> {
     let mut arguments = Vec::new();
     let svt = matches!(encoder.base(), EncoderBase::SVTAV1);
+    // Mainline SVT-AV1 writes IVF by default and recent releases no longer expose
+    // `--webm`. A WebM-enabled fork must still be pinned to IVF for the run's chunk
+    // reader, but only that fork has the switch to pin.
+    let pins_webm = svt && encoder.parameters().contains_key("--webm");
     let mut pending = encoder
         .parameters_with_output(passes, sentinel, info)
         .map_err(|error| error.to_string())?
@@ -322,7 +326,7 @@ fn scene_arguments(
             arguments.push("-".to_owned());
             continue;
         }
-        if svt && (argument == "--webm" || argument.starts_with("--webm=")) {
+        if pins_webm && (argument == "--webm" || argument.starts_with("--webm=")) {
             // A build that defaults to WebM would write Matroska to the pipe, which the
             // player cannot parse as the run's chunk. Drop the configured value; the
             // explicit one below replaces it.
@@ -333,7 +337,7 @@ fn scene_arguments(
         }
         arguments.push(argument);
     }
-    if svt {
+    if pins_webm {
         arguments.push("--webm".to_owned());
         arguments.push("0".to_owned());
     }

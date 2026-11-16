@@ -676,11 +676,13 @@ rate control and keyframe placement depend on them; the player waits until the r
 frame is seekable before leaving its loading stage. The finished concatenated file is not a
 substitute for a scene chunk.
 
-The container is the one parameter the preview may pin. An SVT-AV1 build with WebM IO
-enabled defaults to Matroska even though a run reads IVF chunks back, so the scene preview
-passes `--webm 0`; every rate-control, filter, and colour option stays exactly as the run
-configured it. A run's `--keyint 0` means one keyframe per chunk, which would hold all
-fragments to the end, so the muxer also caps fragment length at half a second and the
+The container is the one parameter the preview may pin. An SVT-AV1 build that exposes
+`--webm` may default to Matroska even though a run reads IVF chunks back; the scene preview
+then passes `--webm 0`. Mainline builds without that switch already write IVF, so the
+preview leaves their output format alone. Every rate-control, filter, and colour option
+stays exactly as the run configured it. A run's `--keyint 0` means one keyframe per chunk,
+which would hold all fragments to the end, so the muxer also caps fragment length at half a
+second and the
 player can start while the scene is still encoding. A 10-bit-only encoder given 8-bit
 decoded frames exits with a diagnostic; its stderr is read while frames are still being
 fed, so the route fails with that line in about a second instead of consuming the scene

@@ -385,9 +385,9 @@ source and position unchanged, and the validation strip blocking only run errors
 covers the scene encoder sheet writing one per-scene override, and a not-yet-run sequence
 rendering `—` rather than a fabricated value.
 
-The real-encode tests are marked `#[ignore]` and are expected to run locally and on the
-weekly CI job only, with `cargo test -- --ignored`. They generate their clips with FFmpeg
-into a per-test `tempfile` directory: native FFMS2 with x264, the VapourSynth BestSource
+The environment-gated real-encode tests are marked `#[ignore]` and are expected to run
+locally and on the weekly CI job only, with `cargo test -- --ignored`. They generate their
+clips with FFmpeg into a per-test `tempfile` directory: native FFMS2 with x264, the VapourSynth BestSource
 default, a script that modifies one detected scene, and a live Noise Detector → Parallel
 Encoder run. Generation uses FFV1 (lossless) except where the test needs a keyframe
 interval, which uses the native `mpeg4` encoder; clip generation never requires `libx264`.
@@ -397,7 +397,7 @@ create→encode→concatenate over HTTP and checks the persisted chunks, derived
 timeline, and log. No test reads a committed clip: `AV1ATION_FFMPEG` selects a specific
 binary, and `PATH` is the fallback.
 
-#### Weekly real-encode gate
+#### Weekly environment-gated real-encode gate
 
 `.github/workflows/weekly.yml` runs Mondays at 03:17 UTC and on `workflow_dispatch`, and skips
 a scheduled run when nothing outside documentation changed since the previous successful
@@ -409,11 +409,13 @@ it executes `cargo test --workspace --locked --no-fail-fast -- --ignored --test-
 `av1ation-test-support`; no media file is committed. `--test-threads=1` avoids interleaving
 VSScript's process-wide Python runtime.
 
-The command writes `dist/real-encode/real-encode.log` and treats any `skipped:` line or a pass
-count other than 12 as a failure, because a missing optional dependency must not turn the
-weekly run green. The workflow uploads that log and `dist/real-encode/toolchain.txt` even when the
-job fails. The generated clips themselves live in per-test `tempfile` directories and are
-removed when each test finishes.
+The command writes `dist/real-encode/real-encode.log` and treats any `skipped:` line or an
+empty test run as a failure, because a missing optional dependency must not turn the weekly
+run green. The suite's size comes from the `#[ignore]` attributes in the workspace; no
+workflow constant or documentation list needs updating when a test is added. The workflow
+uploads that log and `dist/real-encode/toolchain.txt` even when the job fails. The generated
+clips themselves live in per-test `tempfile` directories and are removed when each test
+finishes.
 
 Run the same gate locally with:
 
@@ -481,9 +483,9 @@ Vitest test-result JSON, and `npm run test:inventory` reads it and writes
 [test-inventory.md](test-inventory.md) without rerunning the suite. Pass
 `-- --rerun` to `test:inventory` only when a standalone inventory run is needed. The
 Rust rows report the harness's own wall clock from the last recorded full
-`cargo test --workspace --locked` run: 496 passed, 0 failed, and 12 ignored. The ignored
-rows need FFmpeg, VapourSynth, an encoder, or MKVToolNix and return immediately without
-them. The service unit and route binaries dominate the wall time.
+`cargo test --workspace --locked` run: 496 passed, 0 failed, with the environment-gated
+suite excluded. Those rows need FFmpeg, VapourSynth, an encoder, or MKVToolNix and return
+immediately without them. The service unit and route binaries dominate the wall time.
 
 #### 3.4.1 PR CI workflow timings
 
@@ -674,7 +676,7 @@ paths. These IDs are transient row identities, never credentials.
 **The real-encode tests** run in `.github/workflows/weekly.yml`, not per-PR: they need
 VapourSynth, an encoder, FFmpeg, and MKVToolNix installed on the runner, take minutes, and
 most changes are already covered by the fake-engine suite. The native FFMS2 case can run
-without VapourSynth, but the weekly gate fails if any of the 12 tests skips.
+without VapourSynth, but the weekly gate fails if any environment-gated test skips.
 
 ### 3.7 Playback benchmark
 
@@ -883,7 +885,8 @@ On Windows, run the coverage command from a Visual Studio Developer Command Prom
 (`vcvars64.bat`) with the MSVC tool directory ahead of Git's `usr\bin`. The default Git Bash
 PATH resolves Git's `link.exe`; coverage attempts there failed while linking instrumented test
 binaries with `0xc0000142` (`STATUS_DLL_INIT_FAILED`). The clean-environment run on
-2026-11-14 passed 490 tests (12 ignored) and wrote a 1.4 MB lcov report;
+2026-11-14 passed 490 tests, with the environment-gated suite excluded, and wrote a 1.4 MB
+lcov report;
 `npm run coverage:check:rust` then passed with engine 73.68% and service 79.98%. The clean
 rerun does not by itself prove linker ordering was the only cause, but it is the reproducible
 local prerequisite. CI performs the same setup explicitly: the PR Rust job and the weekly

@@ -124,7 +124,7 @@ section screens; the remaining routed screens still need the same behaviour trea
 | 4.3.7 LAN token and second browser context | done | `lan-pairing.spec.ts` uses the advertised network origin and creates project/video there. |
 | 4.3.8 scene multi-select, bulk config, one undo | done | `scene-bulk-config.spec.ts` proves one request and one undo for two rows. |
 | 4.3.9 every-route `axe` | partial | Browser axe runs at 12 checkpoints across six route families, not all 17. The jsdom pass covers all routes but without contrast or target-size. The table below maps every family. |
-| 4.3.10 nightly real-encode gate | done | `.github/workflows/nightly.yml` runs all 12 environment-gated Rust tests on generated clips and uploads their log and toolchain diagnostics. |
+| 4.3.10 weekly environment-gated real-encode gate | done | `.github/workflows/weekly.yml` runs the environment-gated Rust suite on generated clips and uploads its log and toolchain diagnostics. |
 
 The 12 browser axe checkpoints are distributed across six of the 17 route families. The
 unpaired LAN gate is exercised at `/` before pairing, so it is counted with the Home family;
@@ -153,8 +153,8 @@ History, and Logs.
 | **Total** | **6 of 17** | **12** | **11 families have no real-browser axe pass** |
 
 **4.3 verdict:** **B**. Six meaningful journeys with real service routing, a request guard,
-and typed helpers. The missing nightly real-engine path and incomplete browser a11y sweep
-are the material gaps.
+and typed helpers. The environment-gated real-engine path is covered by the weekly run; the
+incomplete browser a11y sweep remains the material gap.
 
 #### 4.4 Screenshots
 
@@ -243,11 +243,11 @@ Rubric: **A** 90–100 complete and enforced; **B** 80–89 strong with containe
 | Strategy and test architecture | 10% | A− | 90 | Contract-first, fake-engine determinism, real router, isolated data, explicit non-goals. |
 | Rust unit/route/persistence | 20% | B | 83 | 409/423/507, panic, silent death, disk full, corruption, property tests; route-method inventory and future migrations missing. |
 | Frontend unit/component | 25% | C+ | 68 | Good harness and state tests, but 0% primary screens and only five of 17 routed screens with same-named tests. |
-| E2E and system | 10% | B | 82 | Seven browser specs including six feature journeys, three hosts, LAN, lock scope, export, undo; no nightly real encode, 12 browser a11y checkpoints across six route families. |
+| E2E and system | 10% | B | 82 | Seven browser specs including six feature journeys, three hosts, LAN, lock scope, export, undo; real encode only in the weekly run, 12 browser a11y checkpoints across six route families. |
 | Contract tests | 10% | A− | 91 | 47 boundaries, AST enumeration, missing/orphan rejection, generated paths. |
 | Coverage policy | 10% | C− | 60 | Measured, but line-only, aggregate, targets advisory, 2-point drop allows erosion. |
 | Determinism and isolation | 5% | A− | 88 | TZ/locale/viewport fixed, no test sleeps, external request guard, temp data; CI retry 1. |
-| CI enforcement | 5% | D+ | 58 | Three PR jobs and coverage checks exist; nightly, branch protection, full matrix, path filters absent. |
+| CI enforcement | 5% | D+ | 58 | Three PR jobs and coverage checks exist; scheduled real encode, branch protection, full matrix, and path filters were absent at audit time. |
 | Measurement and docs | 5% | C+ | 70 | Excellent prose, stale counts and timings, route matrix naming overstates behaviour. |
 | **Weighted total** | **100%** | **B−** | **77** | |
 
@@ -261,7 +261,7 @@ desktops. The score says the project should not use “green” as synonymous wi
 | F1 | high | Aggregate coverage hides untested primary modules. | A 0% encoder editor or settings panel can ship behind a 62.6% UI number. |
 | F2 | high | The 68-cell matrix certifies loading/error/populated rendering, not user behaviour. 12 “empty” cells are N/A prose assertions. | “Every screen has four states” is not evidence that editing, saving, retries, or validation work. |
 | F3 | high | The only enforceable coverage rule is a 2-point absolute line drop. Targets are advisory; functions and branches have no gate. | Coverage can slowly erode by up to 2 points per change, and low-value lines can mask missing branches. |
-| F4 | high | 12 Rust tests are `#[ignore]`d and no nightly job runs them. | The real engine, VapourSynth, FFmpeg, and MKVToolNix paths are outside every automated gate. |
+| F4 | high | The environment-gated Rust tests run only in the weekly job, not in pull-request CI. | The real engine, VapourSynth, FFmpeg, and MKVToolNix paths are covered only after merge. |
 | F5 | medium | Browser axe checks 12 points across six of the 17 route families; jsdom disables contrast and target-size. | 11 route families lack a real-layout accessibility pass. |
 | F6 | medium | `npm test` and `npm run check` do not run coverage checks. | A developer can pass the documented local aggregate while CI fails the coverage job. |
 | F7 | medium | The 4.6 matrix mixes automated tests and a manual release check under “10/10”. | A reader cannot tell which rows are enforced; plan/implementation semantics drift. |
@@ -301,7 +301,7 @@ a commitment. Effort is S (under a day), M (1–3 days), L (more than 3 days).
 | R3 | Expand persistence fault injection: torn write, permission failure, corrupt index, newer schema, and recovery after restart. | 4.1.6 | M | P1 |
 | R4 | Add a schema-version fixture directory and migration-chain test harness now, with v1 as the only row; use it when v2 lands. | 4.1.7 | S | P2 |
 | R5 | Add property tests for scene validation, log anonymisation, timeline ordering, and config materialisation. | F12 | S | P1 |
-| R6 | Run the 12 environment-gated Rust targets on a scheduled nightly with generated media and retained logs. | F4 | L | P1 |
+| R6 | Run the environment-gated Rust suite on a scheduled weekly job with generated media and retained logs. | F4 | L | P1 |
 | R7 | Add a single-instance automation seam or keep the native check as an explicit release gate with its command and evidence in the matrix. | 4.6 row 8 | L | P2 |
 | R8 | Use `cargo nextest` or a small concurrent runner for the gated targets; keep it out of PR CI. | F14 | S | P2 |
 
@@ -324,7 +324,7 @@ a commitment. Effort is S (under a day), M (1–3 days), L (more than 3 days).
 | ID | Solution | Addresses | Effort | Priority |
 | --- | --- | --- | --- | --- |
 | E1 | Add journeys for project/video configuration edit-save, template editing, encoder parameter editing, Settings, and script save; keep them focused and route-typed. | F2, F9 | L | P1 |
-| E2 | Add a nightly real-encode 1 s clip smoke: create → run → progress → output → reload, with failure artifacts. | F4 | L | P1 |
+| E2 | Add a weekly real-encode 1 s clip smoke: create → run → progress → output → reload, with failure artifacts. | F4 | L | P1 |
 | E3 | Replace the prose-only error matrix with a typed evidence registry: each row names a test id or an explicit manual release check. | F7 | S | P0 |
 | E4 | Add a browser route sweep rather than more one-off axe calls; reuse `ROUTE_META` and a populated fixture transport. | F5 | M | P0 |
 | E5 | Add a WebKit/WebView2 release smoke and a second-device LAN check; keep them out of PR CI. | platform gaps | L | P2 |
@@ -337,7 +337,7 @@ a commitment. Effort is S (under a day), M (1–3 days), L (more than 3 days).
 | ID | Solution | Addresses | Effort | Priority |
 | --- | --- | --- | --- | --- |
 | C1 | Add branch protection for the required checks and a merge queue; the repository has no such configuration. | F6, Phase 5 | M | P1 |
-| C2 | Add `nightly.yml`: real encode, coverage trend, dependency audits, screenshot artifact, and issue creation on failure. | F4, Phase 5 | M | P1 |
+| C2 | Add `weekly.yml`: real encode, coverage trend, dependency audits, screenshot artifact, and issue creation on failure. | F4, Phase 5 | M | P1 |
 | C3 | Add path filters and required gate jobs so a docs-only PR skips Rust without blocking merges. | Phase 5 | M | P1 |
 | C4 | Run Vitest alongside Rust jobs; shard Playwright or use a matrix when the suite grows. | F14 | M | P2 |
 | C5 | Add a CI assertion that the test inventory, coverage baseline, and docs counts match the run. | F8 | S | P1 |
@@ -423,7 +423,7 @@ Replace “the pyramid is green” with a checklist that cannot be satisfied by 
       applicable.
 - [ ] Every error-matrix row names an automated test or an explicit release check; the
       manual row is not counted as an automated test.
-- [x] The 12 environment-gated Rust tests run on a nightly workflow.
+- [x] The environment-gated Rust suite runs on the weekly workflow.
 - [ ] `npm test` (or `npm run verify`) runs the coverage policy locally.
 - [ ] The test inventory, coverage baseline, and test counts are generated, not manually
       transcribed.
@@ -452,11 +452,11 @@ Choose one of these outcomes:
 
 1. **Adopt P0 only** and keep Phase 4b open until the checklist in §7 passes. This is the
    recommended path for a v0.1 release candidate.
-2. **Adopt P0 and P1** and close 4b when Phase 5 wires branch protection and nightly. This
+2. **Adopt P0 and P1** and close 4b when Phase 5 wires branch protection and weekly. This
    is the strongest path but delays the Phase 5 entry gate.
 3. **Keep the current policy** and record the residual risks explicitly: untested primary
-   screens, advisory targets, no nightly real encode, and no real-browser axe on 11 route
-   families. This is acceptable only if the release notes and progress tracker say so.
+   screens, advisory targets, real encode only in the weekly run, and no real-browser axe on
+   11 route families. This is acceptable only if the release notes and progress tracker say so.
 
 The recommendation is **option 1 now, then option 2 as Phase 5 starts**. It preserves the
 current deterministic suite and fixes the places where a green aggregate currently tells a
