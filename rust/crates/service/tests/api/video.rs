@@ -473,7 +473,7 @@ async fn a_cached_thumbnail_is_served_as_a_jpeg() {
         "jpeg"
     );
 
-    std::fs::remove_dir_all(dir).expect("cleanup");
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]

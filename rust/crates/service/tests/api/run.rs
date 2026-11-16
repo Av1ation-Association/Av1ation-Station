@@ -33,7 +33,7 @@ async fn a_second_encode_is_rejected_and_config_is_locked() {
     let (status, _) = send(app, cancel).await;
     assert_eq!(status, StatusCode::ACCEPTED);
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]
@@ -202,7 +202,7 @@ async fn cancelling_a_run_releases_the_singleton() {
     let (status, _) = send(app, cancel).await;
     assert_eq!(status, StatusCode::ACCEPTED);
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 /// The first measurements of a noise run are gone from the event stream by the time a page
@@ -456,7 +456,7 @@ async fn a_closed_event_stream_releases_the_singleton() {
     assert_eq!(entry["outcome"], "failed");
     assert_eq!(entry["message"], "The run ended without a terminal event.");
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]
@@ -509,7 +509,7 @@ async fn an_engine_panic_leaves_a_terminal_message_log_and_partial_output() {
     assert!(text.contains("panicked"), "{text}");
     assert!(text.contains("lost its state"), "{text}");
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]
@@ -549,7 +549,7 @@ async fn a_mid_write_disk_full_keeps_the_partial_file_and_releases_the_lock() {
         "a failed write must not delete what reached the disk"
     );
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]
@@ -917,7 +917,7 @@ async fn the_current_runs_events_can_be_replayed() {
     let (status, _) = send(app, cancel).await;
     assert_eq!(status, StatusCode::ACCEPTED);
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]
@@ -955,7 +955,7 @@ async fn cancelling_the_encode_of_another_video_is_not_found() {
         .unwrap();
     let _ = send(app, cancel).await;
 
-    cleanup_after_cancel(&dir);
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]

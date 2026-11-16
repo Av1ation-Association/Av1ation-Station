@@ -498,21 +498,22 @@ pub(crate) fn project_dir() -> PathBuf {
     std::env::temp_dir().join(format!("av1ation-api-projects-{}", uuid::Uuid::new_v4()))
 }
 
-/// Removes a test root once a cancelled run's forwarder has stopped writing.
+/// Removes a test root once its background writers have stopped.
 ///
 /// A cancel is acknowledged before the event thread appends the run's terminal timeline
-/// record, so removing the tree straight away can race one last write and fail with
+/// record, and a thumbnail build can still be writing when its manifest response returns.
+/// Removing the tree straight away can then race one last write and fail with
 /// `DirectoryNotEmpty` on Windows. Retry the delete while the writer settles; every
-/// assertion about the cancellation has already run by then.
-pub(crate) fn cleanup_after_cancel(directory: &Path) {
-    let deadline = Instant::now() + Duration::from_secs(2);
+/// assertion has already run by then.
+pub(crate) fn cleanup_after_writers(directory: &Path) {
+    let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         match std::fs::remove_dir_all(directory) {
             Ok(()) => return,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
             Err(error) => {
-                assert!(Instant::now() < deadline, "cleanup after cancel: {error}");
-                std::thread::yield_now();
+                assert!(Instant::now() < deadline, "cleanup after writers: {error}");
+                std::thread::sleep(Duration::from_millis(25));
             }
         }
     }
