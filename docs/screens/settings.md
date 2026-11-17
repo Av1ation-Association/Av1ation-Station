@@ -262,8 +262,10 @@ asks save / discard / stay before the panel changes.
     the only way back to the encoder's own default. A choice never degrades into a text field
     when the sheet reopens.
 12. **Read the preview.** The preview carries the same info icon as a rendered parameter field
-    (`01 Components / Parameter info`): click or keyboard focus opens the CLI key, description,
-    and documentation link; Escape closes it and returns focus to the icon.
+    (`01 Components / Parameter info`): click or keyboard focus opens the CLI key, the
+    separator as a visible glyph and name (`␠ Space`, `⇥ Tab`, `⏎ Return`, or `=` for a joined
+    delimiter) with its argv shape, the description, and the documentation link; Escape closes
+    it and returns focus to the icon.
 13. **Refuse invalid descriptors.** Keys are unique by prefix and name; a duplicate, an empty
     label, a non-numeric number default, an inverted range, or a relation that names the
     parameter itself is refused in the sheet and again by the service.

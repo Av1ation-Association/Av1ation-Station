@@ -326,7 +326,9 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
   read-only view of the same layout.
 - The virtualized scene rail is the left edge. The selection's details and editor sit
   immediately right of it behind a resizable split; the single player fills the rest of that
-  row; one full-width proportional timeline spans the bottom.
+  row; one full-width proportional timeline spans the bottom. A timeline block draws its still
+  at the source aspect and anchors it at the block's start; a narrow block clips that still
+  rather than stretching it, while the rail keeps its compact crop.
 - The details pane takes the width the letterboxed frame does not need — a 16:9 frame is
   pillarboxed in a wide column — and dragging the split trades pane width for video width.
   The player letterboxes the frame inside the row's remaining height instead of growing to
@@ -356,8 +358,11 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
   few letters. The encoder field shows the inherited or overridden encoder with its
   provenance (`Inherited · SVT-AV1` or `Custom · SVT-AV1`); the expand affordance beside the
   `Encoder` label opens the **scene encoder sheet**.
-- **Engine data.** Read-only values the selected scene's sequences produced: quantizer, score,
-  retained bytes, and chunk count. A field that has not run shows `—` and its reason.
+- **Engine data.** Read-only rows for the selected scene's sequences: Target quality
+  (quantizer and probe score), Quality check mean score, Noise Detector value and scale, and
+  Chunk bytes with the retained count. A multiple selection shows each row's range and how
+  many scenes contributed. A field that has not run shows `—` and its reason; the encoder
+  remains the separate section above and custom sequence data stays below.
 - **Sequence data.** The selected scene's custom map, read by a VapourSynth script as
   `condor_data.scenes[i].sequence_data.<key>`. Rows are typed string, number, or boolean; a
   legacy array or object stays editable as JSON. The whole map is saved from one edit.
@@ -390,7 +395,9 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
    frames.
 7. **Edit the encoder.** The scene encoder sheet is the same encoder-parameter editor
    Configuration uses — same catalogue, descriptors, widgets, and constraints — scoped to the
-   selection. It opens on the scene's current scope: **Inherited** shows the video encoder's
+   selection. The parameter info popover prints the CLI separator as a glyph and name (`␠ Space`,
+   `⇥ Tab`, `⏎ Return`, or `=` for a joined delimiter), so a joined flag is not mistaken for two
+   arguments. It opens on the scene's current scope: **Inherited** shows the video encoder's
    resolved values read-only, **Custom for scene** makes them editable, and **Apply to scene**
    writes the override. **Reset to inherited** deletes it. It is not a second encoding
    configuration.
