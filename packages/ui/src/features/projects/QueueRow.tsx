@@ -385,6 +385,12 @@ export function QueueRow({
                             <button
                                 type="button"
                                 aria-label={`Actions for ${video.name}`}
+                                onClick={(event) => {
+                                    // The row is a whole-card pointer target. Radix opens the
+                                    // menu from pointerdown, but the later click still bubbles
+                                    // to the row, so opening actions used to navigate as well.
+                                    event.stopPropagation();
+                                }}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-hover hover:text-ink"
                             >
                                 <MoreHorizontal aria-hidden="true" className="h-4 w-4" />

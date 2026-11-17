@@ -28,7 +28,7 @@ async function seedQueue(transport: MockTransport): Promise<string> {
 }
 
 function renderProject(transport: MockTransport, projectId: string) {
-    renderRoute(<ProjectScreen />, {
+    return renderRoute(<ProjectScreen />, {
         route: "/projects/$projectId",
         initialEntry: `/projects/${projectId}`,
         // The screen links to the sections and the queue's videos; the stubs keep those
@@ -91,6 +91,23 @@ it("runs the one selected video from the run chord", async () => {
         expect(post.mock.calls.some(([path]) => String(path).endsWith("/encode"))).toBe(true),
     );
     expect(event.defaultPrevented).toBe(true);
+});
+
+it("opens a row's actions without navigating to the video", async () => {
+    const transport = new MockTransport();
+    const projectId = await seedQueue(transport);
+    const { router } = renderProject(transport, projectId);
+
+    const trigger = await screen.findByRole("button", { name: "Actions for One" });
+    const before = router.state.location.pathname;
+
+    // Radix opens on pointerdown; the later click is the one that used to bubble to the
+    // row and navigate after the menu had already opened.
+    fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+    fireEvent.click(trigger);
+
+    expect(await screen.findByRole("menu")).toBeDefined();
+    expect(router.state.location.pathname).toBe(before);
 });
 
 it("shows a refused row start in that row, not at the top of the queue", async () => {
