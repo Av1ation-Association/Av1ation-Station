@@ -67,7 +67,7 @@ export function MenuTrigger({ className, ...props }: MenuTriggerProps) {
 }
 
 const contentClass =
-    "z-50 min-w-[10rem] overflow-hidden rounded-md border border-line-strong bg-overlay p-1 text-ink shadow-elevation-3 outline-none";
+    "z-50 max-h-[70dvh] min-w-[10rem] overflow-x-hidden overflow-y-auto rounded-md border border-line-strong bg-overlay p-1 text-ink shadow-elevation-3 outline-none";
 
 type MenuContentProps = {
     children: ReactNode;
@@ -75,6 +75,8 @@ type MenuContentProps = {
     align?: "start" | "center" | "end";
     side?: "top" | "right" | "bottom" | "left";
     sideOffset?: number;
+    /** Keep the portalled surface inside the viewport rather than past its edge. */
+    collisionPadding?: number;
     "aria-label"?: string;
     onCloseAutoFocus?: (event: Event) => void;
     onEscapeKeyDown?: (event: KeyboardEvent) => void;
@@ -87,6 +89,7 @@ export function MenuContent({
     align,
     side,
     sideOffset = 4,
+    collisionPadding = 8,
     ...props
 }: MenuContentProps) {
     const mode = useContext(MenuModeContext);
@@ -103,6 +106,7 @@ export function MenuContent({
                     className={classes}
                     side={side}
                     sideOffset={sideOffset}
+                    collisionPadding={collisionPadding}
                     {...props}
                 >
                     {children}
@@ -117,6 +121,7 @@ export function MenuContent({
                 align={align}
                 side={side}
                 sideOffset={sideOffset}
+                collisionPadding={collisionPadding}
                 {...props}
             >
                 {children}
