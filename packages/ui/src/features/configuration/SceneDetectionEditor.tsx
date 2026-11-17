@@ -138,13 +138,15 @@ function BoundField({
                     disabled={disabled}
                     onChange={(event) => {
                         const next = event.target.value;
-                        setText(next);
                         // Commit while typing as well, so a keyboard save cannot miss the
-                        // edit; the local text still allows a decimal to be completed.
+                        // edit. A complete value reads back from the draft, so a discard or
+                        // undo cannot leave stale text in the field; only a partial decimal
+                        // stays local until it can be parsed.
                         const frames = parse(next);
                         if (frames !== null) {
                             onFrames(frames);
                         }
+                        setText(frames === null || next === "" || next.endsWith(".") ? next : null);
                     }}
                     onBlur={commit}
                     onKeyDown={(event) => {
