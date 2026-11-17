@@ -146,6 +146,9 @@ async function validateWindowsVariant(variant) {
         if (!installed) {
             throw new Error(`install ${variant} did not create uninstall.exe`);
         }
+        if (variant === "bundled" && !existsSync(join(installDir, "ffms2.dll"))) {
+            throw new Error(`install ${variant} did not place ffms2.dll beside the executable`);
+        }
         const installedBytes = sizeOf(installDir);
         const installedFiles = fileCount(installDir);
         requireSuccess(

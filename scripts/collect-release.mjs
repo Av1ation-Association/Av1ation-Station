@@ -224,6 +224,14 @@ function createWindowsPortable({ destination, productName, version, variant }) {
     cpSync(desktopBuild, join(appRoot, "web"), { recursive: true });
     if (variant === "bundled") {
         cpSync(stagedTools, join(appRoot, "tools"), { recursive: true });
+        if (process.platform === "win32") {
+            const nativeFfms2 = join(stagedTools, "lib", "ffms2.dll");
+            if (!existsSync(nativeFfms2)) {
+                throw new Error(`the staged FFMS2 runtime is missing: ${nativeFfms2}`);
+            }
+            // The desktop import is loaded before the service selects its tools tree.
+            cpSync(nativeFfms2, join(appRoot, "ffms2.dll"));
+        }
     }
     writeFileSync(join(appRoot, "PORTABLE.txt"), portableReadme(productName, version, variant));
 

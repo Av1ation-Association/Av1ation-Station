@@ -65,6 +65,13 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
         resources: {
             "../../dist/apps/desktop/": "web/",
             "../../dist/tools/": "tools/",
+            // The Windows loader resolves the linked FFMS2 import before the app can
+            // choose a tools directory, so this copy has to sit beside the executable.
+            // The staged tree keeps the library under tools/lib for the Linux rpath and
+            // macOS loader path; Windows needs the root copy as well.
+            ...(process.platform === "win32"
+                ? { "../../dist/tools/lib/ffms2.dll": "ffms2.dll" }
+                : {}),
         },
     };
     writeFileSync(generatedReleaseConfig, `${JSON.stringify(config, null, 2)}\n`);
