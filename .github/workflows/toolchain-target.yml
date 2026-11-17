@@ -379,6 +379,8 @@ jobs:
               with:
                   toolchain: "1.97.0"
             - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: rust -> ../dist/cargo
 
             - name: Install Linux Tauri dependencies
               if: runner.os == 'Linux'
