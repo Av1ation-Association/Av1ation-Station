@@ -58,6 +58,25 @@ const DEFINITIONS = {
         label: "Command palette",
         scope: "global",
     },
+    // Plus needs Shift on most layouts; `=` is the unshifted key on the same physical key.
+    zoomIn: {
+        chords: [
+            { key: "+", shift: true },
+            { key: "=", shift: false },
+        ],
+        label: "Zoom in",
+        scope: "global",
+    },
+    zoomOut: {
+        chords: [{ key: "-", shift: false }],
+        label: "Zoom out",
+        scope: "global",
+    },
+    zoomReset: {
+        chords: [{ key: "0", shift: false }],
+        label: "Reset window zoom",
+        scope: "global",
+    },
     run: {
         chords: [{ key: "enter", shift: false }],
         label: "Run selected video",
@@ -153,6 +172,9 @@ export const SHORTCUT_IDS: readonly ShortcutId[] = [
     "undo",
     "redo",
     "palette",
+    "zoomIn",
+    "zoomOut",
+    "zoomReset",
     "run",
     "playerPlay",
     "playerPreviousScene",
@@ -167,6 +189,9 @@ export const SHORTCUT_IDS: readonly ShortcutId[] = [
 const KEY_LABELS: Record<string, string> = {
     enter: "Enter",
     " ": "Space",
+    "+": "+",
+    "-": "-",
+    "0": "0",
     arrowup: "↑",
     arrowdown: "↓",
     arrowleft: "←",

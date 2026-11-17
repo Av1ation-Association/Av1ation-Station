@@ -38,6 +38,15 @@ it("matches one exact chord, so Save never becomes Save As", () => {
     expect(matchesShortcut(chord("s"), "save")).toBe(false);
 });
 
+it("answers both plus keys and keeps minus and zero separate", () => {
+    expect(matchesShortcut(chord("+", { ctrlKey: true, shiftKey: true }), "zoomIn")).toBe(true);
+    expect(matchesShortcut(chord("=", { ctrlKey: true }), "zoomIn")).toBe(true);
+    expect(matchesShortcut(chord("+", { ctrlKey: true }), "zoomIn")).toBe(false);
+    expect(matchesShortcut(chord("-", { ctrlKey: true }), "zoomOut")).toBe(true);
+    expect(matchesShortcut(chord("0", { metaKey: true }), "zoomReset")).toBe(true);
+    expect(matchesShortcut(chord("0"), "zoomReset")).toBe(false);
+});
+
 it("answers both redo conventions", () => {
     expect(matchesShortcut(chord("z", { ctrlKey: true, shiftKey: true }), "redo")).toBe(true);
     expect(matchesShortcut(chord("y", { ctrlKey: true }), "redo")).toBe(true);
@@ -50,6 +59,8 @@ it("prints the platform's own modifier and a readable key", () => {
     expect(shortcutHint("save")).toBe(`${modifier} S`);
     expect(shortcutHint("discard")).toBe(`${modifier} Shift D`);
     expect(shortcutHint("run")).toBe(`${modifier} Enter`);
+    expect(shortcutHint("zoomIn")).toBe(`${modifier} Shift +`);
+    expect(shortcutHint("zoomReset")).toBe(`${modifier} 0`);
 });
 
 it("tells typing apart from a checkbox the user selected a row with", () => {

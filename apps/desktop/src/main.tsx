@@ -172,6 +172,9 @@ const host: HttpTransportOptions =
               quit: async () => {
                   await invoke("quit_app");
               },
+              setZoom: async (factor) => {
+                  await invoke("set_webview_zoom", { factor });
+              },
           };
 
 if (!origin) {

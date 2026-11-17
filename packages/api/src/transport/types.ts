@@ -114,6 +114,11 @@ export interface Transport {
     /** Quit the desktop host after the user confirms; absent in a browser. */
     readonly quit?: (() => Promise<void>) | undefined;
     /**
+     * Set the desktop webview's own zoom factor, `undefined` in a browser where the host
+     * cannot change the page scale.
+     */
+    readonly setZoom?: ((factor: number) => Promise<void>) | undefined;
+    /**
      * Open the language-server bridge, `undefined` on hosts that cannot own a process. The
      * editor keeps its bundled completion when this is absent or the service refuses.
      */

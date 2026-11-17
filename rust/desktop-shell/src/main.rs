@@ -18,6 +18,29 @@ fn write_text_file(path: String, text: String) -> Result<(), String> {
     std::fs::write(&path, text).map_err(|error| format!("could not write {path}: {error}"))
 }
 
+/// Bound a requested webview zoom and reject a value JSON cannot carry reliably.
+///
+/// The frontend steps in tenths, but the command is the authority: a malformed invoke must
+/// not leave the window at an unusable scale.
+fn zoom_factor(factor: f64) -> Result<f64, String> {
+    if !factor.is_finite() {
+        return Err("The zoom factor must be a finite number.".to_owned());
+    }
+    Ok(factor.clamp(0.5, 2.0))
+}
+
+/// Set the webview's own zoom, not a CSS transform.
+///
+/// Scaling the webview keeps fixed pixel chrome, Monaco, and the preview consistent; a CSS
+/// page zoom would leave native-sized surfaces behind.
+#[tauri::command]
+fn set_webview_zoom(window: tauri::WebviewWindow, factor: f64) -> Result<(), String> {
+    let factor = zoom_factor(factor)?;
+    window
+        .set_zoom(factor)
+        .map_err(|error| format!("could not set the webview zoom: {error}"))
+}
+
 /// Restart the process so a provider choice that initialises once takes effect.
 ///
 /// The command is reachable only through the transport facade, so a LAN browser cannot
@@ -74,6 +97,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         .invoke_handler(tauri::generate_handler![
             write_text_file,
             restart_app,
+            set_webview_zoom,
             quit_app
         ])
         .setup(|app| {
@@ -170,6 +194,17 @@ fn run() -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use tauri::{Url, utils::acl::RemoteUrlPattern};
+
+    use super::zoom_factor;
+
+    #[test]
+    fn zoom_is_bounded_and_finite() {
+        assert_eq!(zoom_factor(1.0).expect("valid"), 1.0);
+        assert_eq!(zoom_factor(0.1).expect("clamped"), 0.5);
+        assert_eq!(zoom_factor(4.0).expect("clamped"), 2.0);
+        assert!(zoom_factor(f64::NAN).is_err());
+        assert!(zoom_factor(f64::INFINITY).is_err());
+    }
 
     /// The packaged window loads the embedded service on an ephemeral loopback port, so the
     /// capability's remote pattern must accept any port. A pattern without the wildcard

@@ -51,6 +51,8 @@ export interface HttpTransportOptions {
     onQuitRequest?: (handler: () => void) => () => void;
     /** Host-supplied process quit after confirmation. Omitted in a plain browser. */
     quit?: () => Promise<void>;
+    /** Host-supplied webview zoom. Omitted in a plain browser. */
+    setZoom?: (factor: number) => Promise<void>;
     /** LAN bearer token. The desktop loopback host leaves it absent. */
     token?: string;
     /**
@@ -84,6 +86,7 @@ export class HttpTransport implements Transport {
     readonly restartApp: (() => Promise<void>) | undefined;
     readonly onQuitRequest: ((handler: () => void) => () => void) | undefined;
     readonly quit: (() => Promise<void>) | undefined;
+    readonly setZoom: ((factor: number) => Promise<void>) | undefined;
     readonly mediaUrl: ((path: string) => string) | undefined;
     readonly openLanguageServer: (() => Promise<LanguageServerChannel | null>) | undefined;
 
@@ -107,6 +110,7 @@ export class HttpTransport implements Transport {
         this.restartApp = options.restartApp;
         this.onQuitRequest = options.onQuitRequest;
         this.quit = options.quit;
+        this.setZoom = options.setZoom;
         // The embedded loopback listener needs no credential, so a media element can address
         // it directly. A paired LAN browser appends the media ticket it minted at startup:
         // that credential reads a source or a frame and nothing else, which is why the URL

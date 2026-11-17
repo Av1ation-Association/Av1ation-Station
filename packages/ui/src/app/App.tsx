@@ -3,6 +3,7 @@ import { RouterProvider } from "@tanstack/react-router";
 
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Toaster } from "./Toaster";
+import { WebviewZoom } from "./WebviewZoom";
 import type { AppRouter } from "./router";
 import { ThemeSync } from "../shared/theme";
 
@@ -14,6 +15,7 @@ export function App({ router }: { router: AppRouter }) {
     return (
         <ErrorBoundary>
             <ThemeSync />
+            <WebviewZoom />
             <RouterProvider router={router} />
             <Toaster />
         </ErrorBoundary>
