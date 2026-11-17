@@ -10,7 +10,7 @@
 // target directory produced by `toolchain:build`, which contains `tools/`.
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -176,14 +176,19 @@ function bundleLinuxRuntime() {
         if (existsSync(destination)) {
             continue;
         }
-        cpSync(library, destination);
+        // ldd can report a symlink to a root-owned system library. Copy the target
+        // contents so patchelf edits a writable file owned by the runner instead.
+        cpSync(library, destination, { dereference: true });
         copied += 1;
     }
     for (const binary of binaries) {
+        chmodSync(binary, 0o755);
         execFileSync("patchelf", ["--set-rpath", "$ORIGIN/../lib", binary]);
     }
     for (const name of readdirSync(libDir)) {
-        execFileSync("patchelf", ["--set-rpath", "$ORIGIN", join(libDir, name)]);
+        const library = join(libDir, name);
+        chmodSync(library, 0o755);
+        execFileSync("patchelf", ["--set-rpath", "$ORIGIN", library]);
     }
     console.log(`  lib: ${copied} runtime libraries staged with \$ORIGIN rpaths`);
 }
