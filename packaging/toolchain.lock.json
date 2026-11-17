@@ -35813,8 +35813,8 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "b988960d7a09717e13e9b6125db61c7a64f02e72538b02646cf40b2462bff7cb",
-                        "size": 1408151421,
+                        "sha256": "e96d5f733b75b37ffd46ce44453cb2267ce0e215825825d37cd8c8651f5cd224",
+                        "size": 1409166110,
                         "install": "tools/python",
                         "files": [
                             "bin/cyclopts",
@@ -40035,6 +40035,7 @@
                             "lib/python3.14/site-packages/pyopencl/_cluda.py",
                             "lib/python3.14/site-packages/pyopencl/_monkeypatch.py",
                             "lib/python3.14/site-packages/pyopencl/_mymako.py",
+                            "lib/python3.14/site-packages/pyopencl/.libs/libOpenCL-a5a9c2e2.so.1.0.0",
                             "lib/python3.14/site-packages/pyopencl/algorithm.py",
                             "lib/python3.14/site-packages/pyopencl/array.py",
                             "lib/python3.14/site-packages/pyopencl/bitonic_sort_templates.py",
@@ -47876,8 +47877,8 @@
                 }
             },
             "tree": {
-                "sha256": "d1b786c8559b75fe3a6cfa318532890355a9628ac9b7bbc19c414aac845ec464",
-                "size": 1587143686,
+                "sha256": "8cd005e9481ce54754ee7b69ce1ea7da1d09e243f3ab0f9b3610b9b8f5e7a355",
+                "size": 1588158375,
                 "files": [
                     "tools/bin/aomenc",
                     "tools/bin/avmenc",
@@ -52112,6 +52113,7 @@
                     "tools/python/lib/python3.14/site-packages/pyopencl/_cluda.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/_monkeypatch.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/_mymako.py",
+                    "tools/python/lib/python3.14/site-packages/pyopencl/.libs/libOpenCL-a5a9c2e2.so.1.0.0",
                     "tools/python/lib/python3.14/site-packages/pyopencl/algorithm.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/array.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/bitonic_sort_templates.py",

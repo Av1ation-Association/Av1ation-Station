@@ -314,6 +314,9 @@ jobs:
                   name: component-${{ matrix.target }}-${{ matrix.cache_dir }}
                   path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
                   if-no-files-found: error
+                  # Python wheels keep their renamed loaders under .libs; without this the
+                  # assembled toolchain loses pyopencl's OpenCL loader and linuxdeploy fails.
+                  include-hidden-files: true
                   retention-days: 7
 
     assemble:
@@ -359,6 +362,7 @@ jobs:
                   name: toolchain-${{ inputs.target }}
                   path: dist/cargo/toolchain/${{ inputs.target }}
                   if-no-files-found: error
+                  include-hidden-files: true
                   retention-days: 7
 
     package:

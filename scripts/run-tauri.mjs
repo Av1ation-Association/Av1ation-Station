@@ -8,7 +8,15 @@
 // The staged tree lives in `dist/dev-tools/` because `cargo clean` owns `dist/cargo/`.
 // Keeping the cache beside the target, rather than inside it, means a clean costs no tools.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+    cpSync,
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,8 +61,30 @@ if (args[0] === "dev") {
 // the Cargo target. Generate it from the base config rather than checking in a duplicate
 // that would need its own version synchronization.
 let releaseConfig = null;
+let windowsFfms2Root = null;
 if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args.includes("-c")) {
     const config = JSON.parse(readFileSync(baseConfig, "utf8"));
+    const resources = {
+        "../../dist/apps/desktop/": "web/",
+        "../../dist/tools/": "tools/",
+    };
+    if (process.platform === "win32") {
+        const nativeFfms2 = join(stagedTools, "lib", "ffms2.dll");
+        if (!existsSync(nativeFfms2)) {
+            console.error(`The staged FFMS2 runtime is missing: ${nativeFfms2}`);
+            process.exit(1);
+        }
+        // The Windows loader resolves the linked FFMS2 import before the app can choose a
+        // tools directory, so this copy has to sit beside the executable. Tauri skips a
+        // resource whose source already appears in another mapping; mapping the staged
+        // tools tree above includes tools/lib/ffms2.dll, so the root copy needs its own
+        // source path to survive that duplicate check.
+        windowsFfms2Root = join(cargoTarget, "nsis-resources");
+        rmSync(windowsFfms2Root, { recursive: true, force: true });
+        mkdirSync(windowsFfms2Root, { recursive: true });
+        cpSync(nativeFfms2, join(windowsFfms2Root, "ffms2.dll"));
+        resources["../../dist/cargo/nsis-resources/ffms2.dll"] = "ffms2.dll";
+    }
     config.bundle = {
         ...config.bundle,
         targets: process.env.AV1ATION_BUNDLES
@@ -62,17 +92,7 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
                   .map((value) => value.trim())
                   .filter(Boolean)
             : config.bundle.targets,
-        resources: {
-            "../../dist/apps/desktop/": "web/",
-            "../../dist/tools/": "tools/",
-            // The Windows loader resolves the linked FFMS2 import before the app can
-            // choose a tools directory, so this copy has to sit beside the executable.
-            // The staged tree keeps the library under tools/lib for the Linux rpath and
-            // macOS loader path; Windows needs the root copy as well.
-            ...(process.platform === "win32"
-                ? { "../../dist/tools/lib/ffms2.dll": "ffms2.dll" }
-                : {}),
-        },
+        resources,
     };
     writeFileSync(generatedReleaseConfig, `${JSON.stringify(config, null, 2)}\n`);
     releaseConfig = generatedReleaseConfig;
@@ -119,6 +139,9 @@ try {
 } finally {
     if (releaseConfig !== null) {
         rmSync(releaseConfig, { force: true });
+    }
+    if (windowsFfms2Root !== null) {
+        rmSync(windowsFfms2Root, { recursive: true, force: true });
     }
 }
 
