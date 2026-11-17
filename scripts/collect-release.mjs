@@ -149,14 +149,26 @@ function run(command, args, options = {}) {
 
 function zipDirectory(source, destination) {
     if (process.platform === "win32") {
-        const sevenZip = spawnSync(
-            "7z",
-            ["a", "-tzip", "-mx=5", "-y", destination, basename(source)],
-            {
-                cwd: resolve(source, ".."),
+        const parent = resolve(source, "..");
+        const name = basename(source);
+        // Windows' bundled bsdtar handles the 1.2 GB tool tree and its long Python paths.
+        // PowerShell 5.1's Compress-Archive is a ZipArchive wrapper that fails on that
+        // tree, and an App Execution Alias named `7z` may not be a usable CLI here. Keep
+        // both as fallbacks for hosts where tar is absent or has no ZIP writer.
+        const systemTar = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+        if (existsSync(systemTar)) {
+            const tar = spawnSync(systemTar, ["-a", "-c", "-f", destination, "-C", parent, name], {
                 stdio: "inherit",
-            },
-        );
+            });
+            if (tar.error === undefined && tar.status === 0) {
+                return;
+            }
+            rmSync(destination, { force: true });
+        }
+        const sevenZip = spawnSync("7z", ["a", "-tzip", "-mx=5", "-y", destination, name], {
+            cwd: parent,
+            stdio: "inherit",
+        });
         if (sevenZip.error === undefined && sevenZip.status === 0) {
             return;
         }
@@ -175,7 +187,9 @@ function zipDirectory(source, destination) {
             throw powershell.error;
         }
         if (powershell.status !== 0) {
-            throw new Error(`neither 7z nor Compress-Archive could create ${destination}`);
+            throw new Error(
+                `System tar, 7z, and Compress-Archive all failed to create ${destination}`,
+            );
         }
         return;
     }

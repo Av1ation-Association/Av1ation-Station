@@ -70,7 +70,13 @@
                 "tag": "5.0",
                 "commit": "7ed5e4d039ca9a6236bd2ebdfdd656c4304fbe04"
             },
-            "build": { "recipe": "packaging/recipes/ffms2.mjs" },
+            "build": {
+                "recipe": "packaging/recipes/ffms2.mjs",
+                "variables": {
+                    "windows_archive_url": "https://github.com/FFMS/ffms2/releases/download/5.0/ffms2-5.0-msvc.7z",
+                    "windows_archive_sha256": "e867a3df7262865107df40f230f5b8e1455905eba9b8852e6f35b1227537caeb"
+                }
+            },
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/lib/ffms2.dll" },
                 "aarch64-apple-darwin": { "install": "tools/lib/libffms2.dylib" },

@@ -348,9 +348,7 @@ before publishing; hand editing is expected and does not feed back into the mani
 
 The following are unresolved and block publication:
 
-1. **No hosted tag run.** `release.yml`, the package validation, and the audit and security
-   gates are present, but no tag has been created or exercised. Run 43808022233 generated
-   `packaging/toolchain.lock.json` for all three targets, and it passes `toolchain:verify`.
+1. **No hosted tag run, and the current lock is not hosted-verified.** `release.yml`, the package validation, and the audit and security gates are present, but no tag has been created or exercised. The current `packaging/toolchain.lock.json` was generated locally after the Windows target tree was updated with the rebuilt MSVC `ffms2.dll`; it passes `toolchain:verify` and a local lock check, but it has not been verified against an untouched hosted Windows artifact. A hosted run must reproduce the tree and pass the lock before publication.
 2. **Hosted package validation has not run.** `release-package-check.mjs` is wired into the
    Windows and Linux package jobs; it measures compressed and installed sizes, installs each
    variant, and requires a one-run uninstall. Local Windows evidence exists for both variants;

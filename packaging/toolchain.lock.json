@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
     "revision": "2026.11.1",
-    "manifest_sha256": "71a93b2af6311ab23c562e2a28a9bd615485df63cea70792cebaa5629cedd47a",
+    "manifest_sha256": "32497e1ec2807f5616e6d3ad84999616817796c96a2c2038698edbe3176ec0cf",
     "targets": {
         "x86_64-pc-windows-msvc": {
             "components": {
@@ -8838,8 +8838,8 @@
                     },
                     "artifact": {
                         "url": "https://github.com/FFMS/ffms2",
-                        "sha256": "c7cadca7ad37217d4adfca9961376d4fd84e08926580e1e2aad69765eefd267b",
-                        "size": 280695,
+                        "sha256": "970d3f8d170fd13a2dd8a7e8a7f56b0ce5a1dc7eea79d1774bbb2c2cab47e3f0",
+                        "size": 25696256,
                         "install": "tools/lib/ffms2.dll"
                     }
                 },
@@ -9066,8 +9066,8 @@
                 }
             },
             "tree": {
-                "sha256": "a98a1882ec22152dc5d88f465aa9004ce55fda74cb13603d45330da01b472c08",
-                "size": 1142251979,
+                "sha256": "a51af58e2f6d1bfb5f8be6d8c888022181664d5a46197558d17ddfc6c7af7952",
+                "size": 1167667540,
                 "files": [
                     "tools/bin/aomenc.exe",
                     "tools/bin/avmenc.exe",
@@ -17841,8 +17841,8 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "a35e532234d4ddf3cc7c3e470b5d1454510dc42a69ab512b9f7e744102244a74",
-                        "size": 717797750,
+                        "sha256": "279abd9f4150f0b88aa0e65f929a88474e917a70392fae1f7b0fdd8799861c3b",
+                        "size": 720246531,
                         "install": "tools/python",
                         "files": [
                             "bin/cyclopts",
@@ -18699,6 +18699,7 @@
                             "lib/python3.14/keyword.py",
                             "lib/python3.14/lib-dynload/_dbm.cpython-314-darwin.so",
                             "lib/python3.14/lib-dynload/_tkinter.cpython-314-darwin.so",
+                            "lib/python3.14/lib-dynload/.empty",
                             "lib/python3.14/LICENSE.txt",
                             "lib/python3.14/linecache.py",
                             "lib/python3.14/locale.py",
@@ -20160,6 +20161,7 @@
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                            "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -20197,6 +20199,7 @@
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                            "lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -22094,6 +22097,7 @@
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                            "lib/python3.14/site-packages/pyopencl/compyte/.gitignore",
                             "lib/python3.14/site-packages/pyopencl/compyte/array.py",
                             "lib/python3.14/site-packages/pyopencl/compyte/dtypes.py",
                             "lib/python3.14/site-packages/pyopencl/compyte/pyproject.toml",
@@ -22845,6 +22849,9 @@
                             "lib/python3.14/site-packages/scipy/_lib/tests/test_warnings.py",
                             "lib/python3.14/site-packages/scipy/_lib/tests/test_xp_capabilities.py",
                             "lib/python3.14/site-packages/scipy/_lib/uarray.py",
+                            "lib/python3.14/site-packages/scipy/.dylibs/libgcc_s.1.1.dylib",
+                            "lib/python3.14/site-packages/scipy/.dylibs/libgfortran.5.dylib",
+                            "lib/python3.14/site-packages/scipy/.dylibs/libquadmath.0.dylib",
                             "lib/python3.14/site-packages/scipy/cluster/__init__.py",
                             "lib/python3.14/site-packages/scipy/cluster/__pycache__/__init__.cpython-314.pyc",
                             "lib/python3.14/site-packages/scipy/cluster/hierarchy/__init__.py",
@@ -26774,7 +26781,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "4a5127e50020576219e9ceee03d17dd712833a8af607b23330a6866b69151876",
+                        "sha256": "3cd59fa4de38d2588fb88b7004a09725b084c59a31bcba346b890b04fda54571",
                         "size": 4132512,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
@@ -26790,7 +26797,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/xiph/rav1e",
-                        "sha256": "c9009d5241f58278dc3affc47a4030ec25e2e6b12a0ee58170d1b1d9e7b66aad",
+                        "sha256": "49fc091570c4729423b6c68d387a7cf7b6ce15d5b688987c01ceac40f513d8a7",
                         "size": 4653688,
                         "install": "tools/bin/rav1e"
                     }
@@ -26970,8 +26977,8 @@
                 }
             },
             "tree": {
-                "sha256": "f7b07347d5828f088cb63c97703c81f4b42712a23a8b459715ae5397fd96711c",
-                "size": 812956023,
+                "sha256": "9ffc7c70900335fc07f7817148a8fb913c5f280eb9b62d5fb31e10367c525dda",
+                "size": 815404804,
                 "files": [
                     "tools/bin/aomenc",
                     "tools/bin/avmenc",
@@ -27842,6 +27849,7 @@
                     "tools/python/lib/python3.14/keyword.py",
                     "tools/python/lib/python3.14/lib-dynload/_dbm.cpython-314-darwin.so",
                     "tools/python/lib/python3.14/lib-dynload/_tkinter.cpython-314-darwin.so",
+                    "tools/python/lib/python3.14/lib-dynload/.empty",
                     "tools/python/lib/python3.14/LICENSE.txt",
                     "tools/python/lib/python3.14/linecache.py",
                     "tools/python/lib/python3.14/locale.py",
@@ -29303,6 +29311,7 @@
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                    "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -29340,6 +29349,7 @@
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                    "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -31237,6 +31247,7 @@
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                    "tools/python/lib/python3.14/site-packages/pyopencl/compyte/.gitignore",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/array.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/dtypes.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/pyproject.toml",
@@ -31988,6 +31999,9 @@
                     "tools/python/lib/python3.14/site-packages/scipy/_lib/tests/test_warnings.py",
                     "tools/python/lib/python3.14/site-packages/scipy/_lib/tests/test_xp_capabilities.py",
                     "tools/python/lib/python3.14/site-packages/scipy/_lib/uarray.py",
+                    "tools/python/lib/python3.14/site-packages/scipy/.dylibs/libgcc_s.1.1.dylib",
+                    "tools/python/lib/python3.14/site-packages/scipy/.dylibs/libgfortran.5.dylib",
+                    "tools/python/lib/python3.14/site-packages/scipy/.dylibs/libquadmath.0.dylib",
                     "tools/python/lib/python3.14/site-packages/scipy/cluster/__init__.py",
                     "tools/python/lib/python3.14/site-packages/scipy/cluster/__pycache__/__init__.cpython-314.pyc",
                     "tools/python/lib/python3.14/site-packages/scipy/cluster/hierarchy/__init__.py",

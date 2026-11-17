@@ -627,7 +627,11 @@ is a staging input, not a release artifact.
 ### Measured sizes
 
 Windows x64 bundled and system artifacts built from the local working tree on 2026-11-16
-(HEAD `866febc`, with the uncommitted service and CI changes present) and measured then:
+(HEAD `866febc`, with the uncommitted service and CI changes present) and measured then.
+The 2026-11-17 RC build with the regenerated toolchain lock and self-contained FFMS2
+measured NSIS 318.0 MiB bundled / 21.8 MiB system, portable ZIP 474.6 MiB bundled /
+39.2 MiB system, and NSIS install trees of 1,211.8 MiB over 8,648 files / 75.6 MiB over
+177 files. MSI was not rebuilt because RC releases use NSIS and the portable ZIP:
 
 | Artifact | Bundled bytes | Bundled MiB | System bytes | System MiB |
 | --- | ---: | ---: | ---: | ---: |
