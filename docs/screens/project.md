@@ -386,7 +386,9 @@ route. Every section is a draft until saved, and the server enforces the run loc
 
 - **Method card first.** A small radio group: `None`, `AVSceneChange`, or `TransNetV2`.
   `AVSceneChange` adds a second radio group for fast/standard. All methods carry minimum and
-  maximum scene length in frames, side by side with a `frames` unit.
+  maximum scene length, side by side. A video section edits them in seconds once its source is
+  probed and shows the stored frame count beneath each field; project and template scope keep a
+  `frames` field because one document applies to sources with different rates.
 - **Input card.** `Project input` and `Custom input` radios. A custom input is edited by the
   same `InputEditor` General uses: the same three kind cards, source plugin, script source,
   and engine-schema filter list.
@@ -410,9 +412,12 @@ route. Every section is a draft until saved, and the server enforces the run loc
    source path and index. Clearing the override restores the project input.
 4. **Save scores.** The switch is inside the Method card, not a separate Options card; a
    separate card would be a section with one switch. It is off because it floods the config.
-5. **Explain `None`.** `None` produces one arbitrary scene; the detector writes scenes as
+5. **Edit in a unit the scope can know.** A video's seconds edit rounds to the nearest frame
+   at the probe rate; the frame readout is the exact stored value. Project and template scope
+   stay in frames because no single rate exists there.
+6. **Explain `None`.** `None` produces one arbitrary scene; the detector writes scenes as
    they are found.
-6. **Use the machine model.** TransNetV2's model is set once in Settings → Dependencies. It
+7. **Use the machine model.** TransNetV2's model is set once in Settings → Dependencies. It
    applies to every matching project and does not use the fast/standard pair.
 
 ### Scene detection states
@@ -422,7 +427,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 | Loading | Method and input schemas load into a skeleton. |
 | Empty | No scenes yet is valid; the detector can run. The screen explains that `None` still produces one scene. |
 | Error | A duplicate variable, invalid input, or save failure stays inline; the model note names the missing machine setting. |
-| Populated | Method, scene lengths, input scope, and score option are visible. |
+| Populated | Method, scene lengths (seconds on a probed video, frames otherwise), input scope, and score option are visible. |
 | Locked | All fields are read-only; writes answer `423`. |
 
 ### Scene detection data and contracts

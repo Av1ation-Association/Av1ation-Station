@@ -14,16 +14,30 @@ afterEach(cleanup);
 function Harness({
     initial,
     scope = "project",
+    frameRate = null,
 }: {
     initial: Record<string, unknown>;
     scope?: DocumentScope;
+    frameRate?: number | null;
 }) {
     const [value, setValue] = useState(initial);
-    return <SceneDetectionEditor value={value} onChange={setValue} locked={false} scope={scope} />;
+    return (
+        <SceneDetectionEditor
+            value={value}
+            onChange={setValue}
+            locked={false}
+            scope={scope}
+            frameRate={frameRate}
+        />
+    );
 }
 
-function renderEditor(initial: Record<string, unknown>, scope: DocumentScope = "project") {
-    renderWithApi(<Harness initial={initial} scope={scope} />, {
+function renderEditor(
+    initial: Record<string, unknown>,
+    scope: DocumentScope = "project",
+    frameRate: number | null = null,
+) {
+    renderWithApi(<Harness initial={initial} scope={scope} frameRate={frameRate} />, {
         transport: new MockTransport(),
     });
 }
@@ -71,6 +85,40 @@ it("keeps scores inside the method card and shows the preset only for AVSceneCha
     fireEvent.click(screen.getByRole("radio", { name: "None" }));
     expect(screen.queryByRole("checkbox", { name: /Write per-frame scores/u })).toBeNull();
     expect(screen.getByText(/None produces one arbitrary scene/u)).toBeTruthy();
+});
+
+it("edits scene bounds in seconds when the video's rate is known", () => {
+    renderEditor(avSceneChange(), "video", 24);
+
+    const minimum = screen.getByLabelText("Minimum scene length in seconds");
+    expect((minimum as HTMLInputElement).value).toBe("1");
+    expect(screen.getByText("24 frames")).toBeTruthy();
+
+    fireEvent.change(minimum, { target: { value: "1.5" } });
+    // A save shortcut can run before the field blurs, so the edit is already in the draft.
+    expect(screen.getByText("36 frames")).toBeTruthy();
+    fireEvent.blur(minimum);
+    expect((minimum as HTMLInputElement).value).toBe("1.5");
+    expect(screen.getByText("36 frames")).toBeTruthy();
+});
+
+it("rounds a seconds edit to the nearest frame at 23.976 fps", () => {
+    renderEditor(avSceneChange(), "video", 23.976);
+
+    const maximum = screen.getByLabelText("Maximum scene length in seconds");
+    fireEvent.change(maximum, { target: { value: "2.5" } });
+    fireEvent.blur(maximum);
+
+    expect(screen.getByText("60 frames")).toBeTruthy();
+    expect((maximum as HTMLInputElement).value).toBe("2.503");
+});
+
+it("keeps frames at project scope, where no single rate exists", () => {
+    renderEditor(avSceneChange());
+
+    expect(screen.getByLabelText("Minimum scene length in frames")).toBeTruthy();
+    expect(screen.queryByLabelText("Minimum scene length in seconds")).toBeNull();
+    expect(screen.getByText(/Frames are the engine's unit/u)).toBeTruthy();
 });
 
 it("names the video's input on a video, not the project's", () => {

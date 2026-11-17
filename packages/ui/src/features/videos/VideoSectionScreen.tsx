@@ -91,7 +91,13 @@ export function VideoSectionScreen() {
     const scenes = useMemo(() => sceneTable.data?.scenes ?? [], [sceneTable.data]);
     const historyQuery = useVideoHistory(projectId, videoId);
     const runs = useMemo(() => historyRuns(historyQuery.data?.entries ?? []), [historyQuery.data]);
-    const probe = useProbeVideo(projectId, videoId, scenes.length > 0);
+    // Scene detection needs the rate before the first detection, so its section probes even
+    // when the scene table is still empty.
+    const probe = useProbeVideo(
+        projectId,
+        videoId,
+        scenes.length > 0 || definition?.id === "scene-detection",
+    );
     const frameRate = probe.data?.clip?.frame_rate ?? null;
     const sourceWidth = probe.data?.clip?.width ?? null;
     const sourceHeight = probe.data?.clip?.height ?? null;
@@ -463,6 +469,7 @@ export function VideoSectionScreen() {
                                         setDraft={session.setValue}
                                         locked={locked}
                                         scope="video"
+                                        frameRate={frameRate}
                                         encoderDocument={videoDocument}
                                         encoders={encoders.data}
                                         onEditScript={(part) => void openScript(part)}

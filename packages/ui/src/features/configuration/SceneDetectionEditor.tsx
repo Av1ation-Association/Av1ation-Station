@@ -1,7 +1,8 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import type { DocumentScope } from "../../shared/model/project-sections";
 import { InputOverrideEditor } from "./InputOverrideEditor";
+import { formatSeconds, framesToSeconds, secondsToFrames } from "./scene-bounds";
 
 const METHOD_OPTIONS = [
     { id: "None", label: "None" },
@@ -81,6 +82,90 @@ function bound(body: Record<string, unknown>, key: string, fallback: number): nu
 }
 
 /**
+ * One scene bound. The stored value is always frames; a known probe rate lets the field
+ * speak seconds without losing the frame that will be written. The text stays local while
+ * focused so a decimal point can be typed before it rounds.
+ */
+function BoundField({
+    label,
+    frames,
+    frameRate,
+    disabled,
+    onFrames,
+}: {
+    label: string;
+    frames: number;
+    frameRate: number | null;
+    disabled: boolean;
+    onFrames: (next: number) => void;
+}) {
+    const [text, setText] = useState<string | null>(null);
+    const seconds = framesToSeconds(frames, frameRate);
+    const inSeconds = seconds !== null;
+    const unit = inSeconds ? "seconds" : "frames";
+    const value = text ?? (inSeconds ? formatSeconds(seconds) : String(frames));
+
+    const parse = (raw: string) => {
+        const parsed = Number(raw);
+        return inSeconds
+            ? secondsToFrames(parsed, frameRate)
+            : Number.isFinite(parsed)
+              ? Math.max(0, Math.trunc(parsed))
+              : null;
+    };
+
+    const commit = () => {
+        if (text === null) {
+            return;
+        }
+        const next = parse(text);
+        if (next !== null) {
+            onFrames(next);
+        }
+        setText(null);
+    };
+
+    return (
+        <label className="block min-w-0">
+            <span className="text-[11px] font-medium text-ink-secondary">{label}</span>
+            <span className="mt-1 flex h-8 min-w-0 items-center rounded-md border border-line-strong bg-raised focus-within:border-brand">
+                <input
+                    type="text"
+                    inputMode={inSeconds ? "decimal" : "numeric"}
+                    autoComplete="off"
+                    aria-label={`${label} in ${unit}`}
+                    value={value}
+                    disabled={disabled}
+                    onChange={(event) => {
+                        const next = event.target.value;
+                        setText(next);
+                        // Commit while typing as well, so a keyboard save cannot miss the
+                        // edit; the local text still allows a decimal to be completed.
+                        const frames = parse(next);
+                        if (frames !== null) {
+                            onFrames(frames);
+                        }
+                    }}
+                    onBlur={commit}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                        }
+                    }}
+                    className="h-full min-w-0 flex-1 rounded-md bg-transparent px-2 font-mono text-[11px] text-ink outline-none disabled:opacity-50"
+                />
+                <span className="pr-2 font-mono text-[9.5px] text-ink-muted">{unit}</span>
+            </span>
+            {inSeconds ? (
+                <span className="mt-1 block font-mono text-[9.5px] text-ink-muted tabular-nums">
+                    {String(frames)} frames
+                </span>
+            ) : null}
+        </label>
+    );
+}
+
+/**
  * Scene detection in the shape the boards use: the detector comes first, the method is a
  * small radio group, the preset is a second one, and the bounds sit beside each other.
  *
@@ -98,12 +183,15 @@ export function SceneDetectionEditor({
     onChange,
     locked,
     scope = "project",
+    frameRate = null,
     onEditScript,
 }: {
     value: Record<string, unknown>;
     onChange: (next: Record<string, unknown>) => void;
     locked: boolean;
     scope?: DocumentScope;
+    /** The video's probed rate; absent at project and template scope. */
+    frameRate?: number | null;
     /** Opens the script page for the detection input override. */
     onEditScript?: (() => void) | undefined;
 }) {
@@ -190,65 +278,28 @@ export function SceneDetectionEditor({
                     ) : null}
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block min-w-0">
-                            <span className="text-[11px] font-medium text-ink-secondary">
-                                Minimum scene length
-                            </span>
-                            <span className="mt-1 flex h-8 min-w-0 items-center rounded-md border border-line-strong bg-raised focus-within:border-brand">
-                                <input
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    aria-label="Minimum scene length in frames"
-                                    value={minimum}
-                                    disabled={locked}
-                                    onChange={(event) =>
-                                        updateBody({
-                                            minimum_length: Math.max(
-                                                0,
-                                                Math.trunc(Number(event.target.value) || 0),
-                                            ),
-                                        })
-                                    }
-                                    className="h-full min-w-0 flex-1 rounded-md bg-transparent px-2 font-mono text-[11px] text-ink outline-none disabled:opacity-50"
-                                />
-                                <span className="pr-2 font-mono text-[9.5px] text-ink-muted">
-                                    frames
-                                </span>
-                            </span>
-                        </label>
-                        <label className="block min-w-0">
-                            <span className="text-[11px] font-medium text-ink-secondary">
-                                Maximum scene length
-                            </span>
-                            <span className="mt-1 flex h-8 min-w-0 items-center rounded-md border border-line-strong bg-raised focus-within:border-brand">
-                                <input
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    aria-label="Maximum scene length in frames"
-                                    value={maximum}
-                                    disabled={locked}
-                                    onChange={(event) =>
-                                        updateBody({
-                                            maximum_length: Math.max(
-                                                0,
-                                                Math.trunc(Number(event.target.value) || 0),
-                                            ),
-                                        })
-                                    }
-                                    className="h-full min-w-0 flex-1 rounded-md bg-transparent px-2 font-mono text-[11px] text-ink outline-none disabled:opacity-50"
-                                />
-                                <span className="pr-2 font-mono text-[9.5px] text-ink-muted">
-                                    frames
-                                </span>
-                            </span>
-                        </label>
+                        <BoundField
+                            label="Minimum scene length"
+                            frames={minimum}
+                            frameRate={frameRate}
+                            disabled={locked}
+                            onFrames={(next) => updateBody({ minimum_length: next })}
+                        />
+                        <BoundField
+                            label="Maximum scene length"
+                            frames={maximum}
+                            frameRate={frameRate}
+                            disabled={locked}
+                            onFrames={(next) => updateBody({ maximum_length: next })}
+                        />
                     </div>
                     <p className="m-0 text-[10px] leading-relaxed text-ink-muted">
                         Shorter cuts merge; longer scenes split. Both bounds are inclusive, and the
                         boundaries are written as they are found, so cancelling keeps the scenes
-                        already detected.
+                        already detected.{" "}
+                        {framesToSeconds(minimum, frameRate) === null
+                            ? "Frames are the engine's unit; a video section shows seconds once its source is probed."
+                            : "A seconds edit rounds to the nearest frame; the frame count below it is what the engine stores."}
                     </p>
 
                     {key === "TransNetV2" ? (

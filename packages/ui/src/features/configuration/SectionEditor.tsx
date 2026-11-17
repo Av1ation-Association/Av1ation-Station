@@ -369,6 +369,7 @@ export function SectionParts({
     encodingFilter = false,
     encoderDocument = null,
     encoders,
+    frameRate = null,
     onEditScript,
 }: {
     definition: SectionDefinition;
@@ -380,6 +381,8 @@ export function SectionParts({
     setDraft: Dispatch<SetStateAction<Record<string, unknown> | null>>;
     locked: boolean;
     scope?: DocumentScope;
+    /** A video's probed rate, for seconds edits; project and template scope have none. */
+    frameRate?: number | null;
     /** The saved encoder, so a probe screen quotes that encoder's quantizer scale. */
     encoderDocument?: Record<string, unknown> | null;
     /** The encoder catalogue, for the probe's own quantizer scale. */
@@ -511,6 +514,7 @@ export function SectionParts({
                             }
                             locked={locked}
                             scope={scope}
+                            frameRate={frameRate}
                             onEditScript={
                                 onEditScript === undefined
                                     ? undefined
