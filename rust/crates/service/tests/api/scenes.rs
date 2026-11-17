@@ -241,6 +241,14 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     )
     .expect("rewrite the video document");
 
+    let chunks = dir.join("temp").join(&video_id);
+    tokio::fs::create_dir_all(&chunks).await.expect("chunk dir");
+    for name in ["00000.ivf", "00001.ivf", "00001.temp.264"] {
+        tokio::fs::write(chunks.join(name), vec![0_u8; 16])
+            .await
+            .expect("retained chunk");
+    }
+
     let (status, body) = send(
         app.clone(),
         Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/split"))
@@ -250,6 +258,22 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    for name in ["00000.ivf", "00001.ivf", "00001.temp.264"] {
+        assert!(
+            !chunks.join(name).exists(),
+            "a split moved scene {name} to a different index"
+        );
+    }
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    for index in [0, 1] {
+        assert!(
+            persisted["condor"]["scenes"][index]["sequence_data"]["noise_detection"].is_null(),
+            "a split cleared the old measurements for scene {index}"
+        );
+    }
 
     let (_, list) = send(
         app.clone(),
@@ -275,6 +299,12 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
+    for name in ["00000.ivf", "00001.ivf"] {
+        tokio::fs::write(chunks.join(name), vec![0_u8; 16])
+            .await
+            .expect("retained chunk");
+    }
+
     let (status, body) = send(
         app.clone(),
         Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/merge"))
@@ -286,6 +316,20 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    for name in ["00000.ivf", "00001.ivf"] {
+        assert!(
+            !chunks.join(name).exists(),
+            "a merge moved scene {name} to a different index"
+        );
+    }
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["noise_detection"].is_null(),
+        "a merge cleared the old measurements for the merged scene"
+    );
 
     let (status, body) = send(
         app.clone(),
