@@ -436,6 +436,11 @@ jobs:
               env:
                   MATRIX_BUNDLES: ${{ inputs.bundles }}
                   RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+                  # linuxdeploy's bundled strip cannot read the .relr.dyn sections in
+                  # Ubuntu 24.04 system libraries; its AppImage also needs FUSE, which
+                  # hosted runners lack.
+                  NO_STRIP: "1"
+                  APPIMAGE_EXTRACT_AND_RUN: "1"
               run: |
                   set -euo pipefail
                   export AV1ATION_BUNDLES="$MATRIX_BUNDLES"
