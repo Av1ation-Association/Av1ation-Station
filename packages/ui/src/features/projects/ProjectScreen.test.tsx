@@ -110,6 +110,22 @@ it("opens a row's actions without navigating to the video", async () => {
     expect(router.state.location.pathname).toBe(before);
 });
 
+it("does not navigate when a queue row menu item is chosen", async () => {
+    const transport = new MockTransport();
+    const projectId = await seedQueue(transport);
+    const { router } = renderProject(transport, projectId);
+
+    const trigger = await screen.findByRole("button", { name: "Actions for One" });
+    const before = router.state.location.pathname;
+    fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+    fireEvent.click(trigger);
+
+    // The menu is portalled, but its React events still bubble through the row component.
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+
+    expect(router.state.location.pathname).toBe(before);
+});
+
 it("shows a refused row start in that row, not at the top of the queue", async () => {
     const transport = new MockTransport();
     const projectId = await seedQueue(transport);

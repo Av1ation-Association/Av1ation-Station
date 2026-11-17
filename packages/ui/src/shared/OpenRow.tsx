@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 
 /**
  * Descendants that activate on their own. A click that lands on one of them belongs to it,
- * not to the row that contains it, so the row must not navigate as well.
+ * not to the row that contains it, so the row must not navigate as well. Menu roots and
+ * items are included because Radix renders them through a portal: the DOM is outside the
+ * row, but React still bubbles their events through the component tree that owns the row.
  */
-const OWN_CONTROL = "a,button,input,select,textarea,label,summary";
+const OWN_CONTROL = 'a,button,input,select,textarea,label,summary,[role="menu"],[role^="menuitem"]';
 
 /**
  * A whole-row pointer target.
