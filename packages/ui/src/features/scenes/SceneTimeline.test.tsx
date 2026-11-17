@@ -49,6 +49,48 @@ describe("SceneTimeline", () => {
         expect(screen.getByText("00:00:02.0")).toBeDefined();
     });
 
+    it("anchors a source-aspect still at the start of a block", () => {
+        const { container } = render(
+            <SceneTimeline
+                scenes={[scene(0), scene(1), scene(2)]}
+                selection={SELECTED}
+                onSelectionChange={vi.fn()}
+                onSeek={vi.fn()}
+                playhead={0}
+                frameRate={24}
+                thumbnailFor={() => "/thumb.jpg"}
+                aspectRatio={4 / 3}
+                trackHeight={72}
+            />,
+        );
+
+        const still = container.querySelector("[data-still]") as HTMLElement | null;
+        expect(still).not.toBeNull();
+        expect(still?.style.aspectRatio).toContain(String(4 / 3));
+        expect(still?.className).toContain("left-0");
+        expect(still?.className).not.toContain("w-full");
+        expect(still?.querySelector("img")?.getAttribute("src")).toBe("/thumb.jpg");
+        expect(still?.querySelector("img")?.getAttribute("class")).toContain("object-cover");
+    });
+
+    it("keeps the full-block crop when the source aspect is unknown", () => {
+        const { container } = render(
+            <SceneTimeline
+                scenes={[scene(0), scene(1), scene(2)]}
+                selection={SELECTED}
+                onSelectionChange={vi.fn()}
+                onSeek={vi.fn()}
+                playhead={0}
+                frameRate={24}
+                thumbnailFor={() => "/thumb.jpg"}
+            />,
+        );
+
+        const still = container.querySelector("[data-still]") as HTMLElement | null;
+        expect(still?.style.aspectRatio).toBe("");
+        expect(still?.className).toContain("w-full");
+    });
+
     it("names the hovered scene in the readout and leaves a gap unnamed", () => {
         render(
             <SceneTimeline

@@ -62,6 +62,13 @@ export function ScenesScreen() {
     const probe = useProbeVideo(projectId, videoId);
     const frameRate = probe.data?.clip?.frame_rate ?? null;
     const sourceFrames = probe.data?.clip?.frame_count ?? list.data?.total_frames ?? 0;
+    const aspectRatio =
+        probe.data?.clip !== null &&
+        probe.data?.clip !== undefined &&
+        probe.data.clip.width > 0 &&
+        probe.data.clip.height > 0
+            ? probe.data.clip.width / probe.data.clip.height
+            : null;
     // The rail and the timeline ask the same lookup, so one scene never draws two
     // different frames and a shared URL is a cache hit rather than a second extraction.
     const thumbnailFor = useSceneThumbnail(projectId, videoId, frameRate);
@@ -770,6 +777,7 @@ export function ScenesScreen() {
                                 thumbnailFor={thumbnailFor}
                                 totalFrames={sourceFrames}
                                 trackHeight={trackHeight}
+                                aspectRatio={aspectRatio}
                                 onContextMenu={(frame) => setContextMenu({ frame })}
                                 className="shrink-0"
                             />

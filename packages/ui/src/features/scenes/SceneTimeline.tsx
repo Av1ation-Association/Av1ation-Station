@@ -76,6 +76,7 @@ export function SceneTimeline({
     thumbnailFor,
     totalFrames = 0,
     trackHeight = 64,
+    aspectRatio,
     onContextMenu,
     className = "",
 }: {
@@ -94,6 +95,12 @@ export function SceneTimeline({
     totalFrames?: number | undefined;
     /** Height of the block track, changed by the Scenes layout divider. */
     trackHeight?: number | undefined;
+    /**
+     * The source's display aspect, so a block's still keeps its shape instead of being
+     * stretched across the block's arbitrary width. A missing or invalid value falls back
+     * to the old full-block crop.
+     */
+    aspectRatio?: number | null | undefined;
     /** A right-click at this frame; the screen owns the menu and its actions. */
     onContextMenu?: ((frame: number) => void) | undefined;
     className?: string | undefined;
@@ -159,6 +166,13 @@ export function SceneTimeline({
         return () => observer.disconnect();
     }, []);
 
+    const stillAspect =
+        aspectRatio !== null &&
+        aspectRatio !== undefined &&
+        Number.isFinite(aspectRatio) &&
+        aspectRatio > 0
+            ? aspectRatio
+            : null;
     const span = Math.max(1, sourceEnd);
     const origin = 0;
     const maxPan = Math.max(0, 1 - 1 / view.zoom);
@@ -666,13 +680,20 @@ export function SceneTimeline({
                                     className={`absolute top-0 bottom-0 overflow-hidden border-r border-app ${blockTone(block)}`}
                                 >
                                     {still === null ? null : (
-                                        <>
-                                            <SceneStill
-                                                src={still}
-                                                className="absolute inset-0 h-full w-full"
-                                            />
-                                            <span className="pointer-events-none absolute inset-0 bg-app/20" />
-                                        </>
+                                        <div
+                                            data-still="true"
+                                            style={
+                                                stillAspect === null
+                                                    ? undefined
+                                                    : { aspectRatio: String(stillAspect) }
+                                            }
+                                            className={`pointer-events-none absolute inset-y-0 left-0 overflow-hidden ${
+                                                stillAspect === null ? "w-full" : ""
+                                            }`}
+                                        >
+                                            <SceneStill src={still} className="h-full w-full" />
+                                            <span className="absolute inset-0 bg-app/20" />
+                                        </div>
                                     )}
                                     {block.selected ? (
                                         <span
