@@ -9,7 +9,7 @@ are below; the sections after them list every script in `package.json` by purpos
 | --- | --- |
 | `npm run check` | Fast local gate: all static checks plus the plain web and Rust test suites. No coverage. |
 | `npm run verify` | Full local gate: static checks once, then the web and Rust coverage gates in parallel. |
-| `npm run test:e2e` | Build the headless service and desktop SPA, then run the Playwright browser journeys. |
+| `npm run test:e2e` | Build the headless service and desktop SPA, then run the Playwright browser journeys and the docs chart regression. |
 | `npm run test:real-encode` | Run the environment-gated real-encode suite with the real toolchain; fails on a skipped test or an empty run. |
 
 The shared static profiles are `check:web`, `check:rust`, and `check:evidence`; `check:web`
@@ -53,7 +53,8 @@ test profiles.
 | `npm run test:rust:coverage` | Run `llvm-cov` for the engine and service and write the Rust lcov report. |
 | `npm run test:e2e:build` | Build or reuse the cached headless service and desktop SPA. |
 | `npm run test:e2e:run` | Run Playwright against the built SPA and the real headless service. |
-| `npm run test:e2e` | Run `test:e2e:build`, then `test:e2e:run`. |
+| `npm run test:e2e:chart` | Run the analytics-chart gesture regression against the docs site in Chromium. |
+| `npm run test:e2e` | Run `test:e2e:build`, `test:e2e:run`, then `test:e2e:chart`. |
 
 ### Build, release, and maintenance
 

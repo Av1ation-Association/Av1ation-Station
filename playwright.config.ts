@@ -2,8 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
     testDir: "./e2e",
-    // The deterministic screenshot gallery has its own website server and publisher.
-    testIgnore: ["screenshots/**"],
+    // The screenshot gallery and the docs chart have their own website servers.
+    testIgnore: ["screenshots/**", "chart-zoom.spec.ts"],
     fullyParallel: false,
     workers: 1,
     forbidOnly: process.env.CI === "true",

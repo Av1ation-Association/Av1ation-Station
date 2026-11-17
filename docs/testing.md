@@ -242,11 +242,12 @@ Before the first browser run, `npm run doctor -- --profile e2e` checks the Playw
 Chromium download, Cargo/Rust, MSVC on Windows, installed JavaScript dependencies, and free
 space on the build volume. It catches a missing browser before `test:e2e:build` starts.
 
-`npm run test:e2e` has two steps. `npm run test:e2e:build` prepares the desktop SPA and the
-headless service; `npm run test:e2e:run` starts the real service with fresh
-`dist/test-data/e2e` directories and drives the built SPA from Chromium. The aggregate
-command runs both for local use and CI. The run step never compiles: Playwright starts the
-prebuilt binary directly, so its startup timeout covers only process startup and health.
+`npm run test:e2e` has three steps. `npm run test:e2e:build` prepares the desktop SPA and
+the headless service; `npm run test:e2e:run` starts the real service with fresh
+`dist/test-data/e2e` directories and drives the built SPA from Chromium; `test:e2e:chart`
+runs the separate docs chart regression in §3.10. The aggregate command runs all three for
+local use and CI. The run step never compiles: Playwright starts the prebuilt binary
+directly, so its startup timeout covers only process startup and health.
 
 Both artifacts are reused. `build:service` caches the debug binary in `dist/cache/service/`,
 keyed by the Rust sources, `Cargo.lock`, the toolchain pin, and the Python-LSP vendoring
@@ -745,6 +746,22 @@ packaged Windows system portable layout built from this tree.
 | 10  | Malformed or out-of-order SSE    | Malformed and schema-invalid frames are discarded, the reconnect cursor only moves forward, and the next reconnect resumes from the last accepted id. | `packages/api/src/transport/event-stream.test.ts::survives malformed frames and never rewinds its reconnect cursor`                                                                                                                                                                                                                         |
 
 <!-- error-evidence:end -->
+
+### 3.10 Chart gesture regression
+
+`e2e/chart-zoom.spec.ts` is the regression suite for ECharts' inside `dataZoom`. It drives
+the real `SequenceAnalyticsCard` on the documentation site through Chromium and asserts
+that the rendered SVG axis labels change for a wheel, Ctrl-wheel (the trackpad-pinch path),
+a two-finger touch pinch, and a fresh pinch after a cancelled touch; it then reloads and
+asserts that the initial view returns. `playwright.chart.config.ts` starts the documentation
+Vite host on port 1422, so the app journey suite does not own that server. The chart check
+is part of `npm run test:e2e` as `test:e2e:chart`.
+
+This is a browser regression rather than a Vitest component test because the claim is about
+layout, gesture arbitration, and ECharts' rendered data window, not a pure transform. jsdom
+has no layout or real pointer/touch pipeline, so it cannot exercise the path that was
+reported broken. CDP touch input still cannot stand in for the native Tauri WebView; that
+check remains manual.
 
 ## 4. Feasibility spikes
 

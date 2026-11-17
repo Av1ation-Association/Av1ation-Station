@@ -61,11 +61,14 @@ jobs:
                             rust=true
                             e2e=true
                             ;;
-                          packages/*|package.json|package-lock.json|.nvmrc|.prettier*|eslint.config.*|tsconfig*|vite.config.*|playwright.config.*)
+                          packages/*|package.json|package-lock.json|.nvmrc|.prettier*|eslint.config.*|tsconfig*|vite.config.*|playwright*.config.*)
                             web=true
                             e2e=true
                             ;;
-                          apps/website/*) web=true ;;
+                          apps/website/*)
+                            web=true
+                            e2e=true
+                            ;;
                           apps/*)
                             web=true
                             e2e=true
