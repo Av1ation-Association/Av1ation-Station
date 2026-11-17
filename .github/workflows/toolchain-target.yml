@@ -388,7 +388,8 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y --no-install-recommends \
                     libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 \
-                    libffms2-dev libboost-filesystem1.83.0 libpugixml1v5 libfmt9 libqt6core6t64
+                    libffms2-dev libboost-filesystem1.83.0 libpugixml1v5 libfmt9 libqt6core6t64 \
+                    nasm
 
             - uses: actions/download-artifact@v4
               with:
