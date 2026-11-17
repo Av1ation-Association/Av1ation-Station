@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { cargoTarget, stagedTools } from "./build-paths.mjs";
 import { collectReleaseArtifacts } from "./collect-release.mjs";
 import { cacheRoot, prepareDevTools } from "./dev-tools.mjs";
+import { selectBundleTargets } from "./release-bundles.mjs";
 import { sanitizedPath } from "./sanitize-path.mjs";
 
 const cli = fileURLToPath(new URL("../node_modules/@tauri-apps/cli/tauri.js", import.meta.url));
@@ -85,13 +86,20 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
         cpSync(nativeFfms2, join(windowsFfms2Root, "ffms2.dll"));
         resources["../../dist/cargo/nsis-resources/ffms2.dll"] = "ffms2.dll";
     }
+    const requestedTargets = process.env.AV1ATION_BUNDLES ?? config.bundle.targets;
+    const targets = selectBundleTargets({
+        platform: process.platform,
+        version: config.version,
+        requested: requestedTargets,
+    });
+    if (targets !== requestedTargets && String(config.version ?? "").includes("-")) {
+        console.log(
+            `Prerelease ${String(config.version)}: MSI is stable-only; building NSIS and the portable ZIP.`,
+        );
+    }
     config.bundle = {
         ...config.bundle,
-        targets: process.env.AV1ATION_BUNDLES
-            ? process.env.AV1ATION_BUNDLES.split(",")
-                  .map((value) => value.trim())
-                  .filter(Boolean)
-            : config.bundle.targets,
+        targets,
         resources,
     };
     writeFileSync(generatedReleaseConfig, `${JSON.stringify(config, null, 2)}\n`);

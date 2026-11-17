@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { cargoTarget } from "./build-paths.mjs";
 import { collectReleaseArtifacts } from "./collect-release.mjs";
+import { selectBundleTargets } from "./release-bundles.mjs";
 import { sanitizedPath } from "./sanitize-path.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -20,23 +21,13 @@ const config = JSON.parse(fs.readFileSync(basePath, "utf8"));
 
 config.productName = "Av1ation Station System";
 
-// Tauri rejects a bundle type the host cannot produce, so the default follows the platform
-// instead of assuming the Windows installers.
-function defaultBundles() {
-    if (process.platform === "win32") {
-        return ["msi", "nsis"];
-    }
-    if (process.platform === "darwin") {
-        return ["dmg", "app"];
-    }
-    return ["deb", "rpm", "appimage"];
-}
-
 config.bundle = {
     ...config.bundle,
-    targets: process.env.AV1ATION_BUNDLES
-        ? process.env.AV1ATION_BUNDLES.split(",").map((value) => value.trim())
-        : defaultBundles(),
+    targets: selectBundleTargets({
+        platform: process.platform,
+        version: config.version,
+        requested: process.env.AV1ATION_BUNDLES,
+    }),
     resources: { "../../dist/apps/desktop/": "web/" },
 };
 
