@@ -258,9 +258,62 @@ pub(crate) async fn put_video_storage(
                 ),
             );
         }
-        if tokio::fs::create_dir_all(directory).await.is_err()
-            || !directory_is_writable(directory).await
-        {
+        if directory.parent().is_none() {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidConfig,
+                format!("{} is a filesystem root.", directory.display()),
+                Some("Choose a folder inside a volume, not the volume itself.".to_owned()),
+            );
+        }
+        if tokio::fs::create_dir_all(directory).await.is_err() {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidConfig,
+                format!(
+                    "The directory {} could not be created.",
+                    directory.display()
+                ),
+                Some("Choose a folder this account can create files in.".to_owned()),
+            );
+        }
+        // Deleting retained work removes this whole directory. Adopting a folder that
+        // already contains files would turn that cleanup into unrelated data loss, so a
+        // new scratch location must be empty. Re-selecting the video's current directory
+        // is allowed because its contents are already the video's own work.
+        let is_current = record
+            .temp_directory
+            .as_deref()
+            .map(std::path::Path::new)
+            .is_some_and(|current| current == directory);
+        if !is_current {
+            match directory_is_empty(directory).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    return error_response(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        ErrorCode::InvalidConfig,
+                        format!("The directory {} is not empty.", directory.display()),
+                        Some(
+                            "Choose an empty folder; deleting retained work removes this directory."
+                                .to_owned(),
+                        ),
+                    );
+                }
+                Err(error) => {
+                    return error_response(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        ErrorCode::InvalidConfig,
+                        format!(
+                            "The directory {} could not be read: {error}.",
+                            directory.display()
+                        ),
+                        Some("Choose a folder this account can read and write.".to_owned()),
+                    );
+                }
+            }
+        }
+        if !directory_is_writable(directory).await {
             return error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
                 ErrorCode::InvalidConfig,

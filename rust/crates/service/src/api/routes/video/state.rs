@@ -479,6 +479,16 @@ fn metric_name(value: &Value) -> Option<String> {
         .map(|name| name.to_ascii_lowercase())
 }
 
+/// Whether a directory contains no entries, including hidden files.
+///
+/// The result is an error when the directory cannot be read: the caller is deciding
+/// whether the directory is safe to adopt for retained-work deletion, so it must fail
+/// closed rather than treat an unreadable folder as empty.
+pub(crate) async fn directory_is_empty(directory: &std::path::Path) -> std::io::Result<bool> {
+    let mut entries = tokio::fs::read_dir(directory).await?;
+    Ok(entries.next_entry().await?.is_none())
+}
+
 /// Whether a directory accepts a new file. The probe file is removed immediately; this is
 /// the only honest test on Windows, where a read-only bit does not describe an ACL.
 pub(crate) async fn directory_is_writable(directory: &std::path::Path) -> bool {

@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-save-text-file"
+description = "Allows the webview to open the native save dialog and write the text the user selected."
+commands.allow = ["save_text_file"]
+
+[[permission]]
+identifier = "allow-restart-app"
+description = "Allows the webview to restart the desktop process after a provider change."
+commands.allow = ["restart_app"]
+
+[[permission]]
+identifier = "allow-set-webview-zoom"
+description = "Allows the webview to set its own bounded zoom factor."
+commands.allow = ["set_webview_zoom"]
+
+[[permission]]
+identifier = "allow-quit-app"
+description = "Allows the webview to confirm quitting and stop the embedded service."
+commands.allow = ["quit_app"]

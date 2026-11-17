@@ -55,17 +55,12 @@ const host: HttpTransportOptions =
                   return typeof selected === "string" ? selected : null;
               },
               saveTextFile: async (suggestedName, text, options) => {
-                  const extensions = options?.extensions ?? ["txt"];
-                  const selected = await save({
+                  return await invoke<string | null>("save_text_file", {
+                      suggestedName,
+                      text,
                       title: options?.title ?? "Export",
-                      defaultPath: suggestedName,
-                      filters: [{ name: "File", extensions: [...extensions] }],
+                      extensions: [...(options?.extensions ?? ["txt"])],
                   });
-                  if (typeof selected !== "string") {
-                      return null;
-                  }
-                  await invoke("write_text_file", { path: selected, text });
-                  return selected;
               },
               pickExecutable: async (defaultPath) => {
                   const selected = await open({

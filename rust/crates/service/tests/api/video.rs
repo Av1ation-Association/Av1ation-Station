@@ -94,6 +94,121 @@ async fn a_video_storage_directory_can_be_chosen_and_cleared() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// A custom scratch directory is the video's own work root: deleting retained chunks
+/// removes it, including when it is outside the inherited app-data temp root.
+#[tokio::test]
+async fn deleting_custom_video_chunks_removes_the_adopted_directory() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Custom chunks").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let scratch = dir.join("custom-scratch");
+
+    let (status, chosen) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project}/videos/{video}/storage"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "directory": scratch }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chosen}");
+    tokio::fs::write(scratch.join("00000.ivf"), b"chunk")
+        .await
+        .expect("chunk");
+
+    let (status, _) = send(
+        app,
+        Request::delete(format!("/api/projects/{project}/videos/{video}/chunks"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert!(!scratch.exists(), "the custom scratch directory is removed");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A scratch directory is adopted only when it is empty. Deleting retained work removes
+/// the whole directory, so an existing folder with unrelated files must be refused.
+#[tokio::test]
+async fn a_non_empty_video_storage_directory_is_refused() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Storage guard").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let scratch = dir.join("occupied");
+    tokio::fs::create_dir_all(&scratch)
+        .await
+        .expect("occupied directory");
+    tokio::fs::write(scratch.join("keep.txt"), b"keep")
+        .await
+        .expect("sentinel");
+
+    let (status, body) = send(
+        app,
+        Request::put(format!("/api/projects/{project}/videos/{video}/storage"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "directory": scratch }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("not empty")),
+        "{body}"
+    );
+    assert!(
+        scratch.join("keep.txt").exists(),
+        "the refused folder must remain untouched"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A filesystem root is never a valid scratch directory: deleting retained work removes
+/// the directory recursively, so adopting a root would delete the volume's contents.
+#[tokio::test]
+async fn a_filesystem_root_is_refused_as_a_video_storage_directory() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let project = create_project(app.clone(), "Root guard").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    #[cfg(windows)]
+    let root = std::path::PathBuf::from(r"C:\");
+    #[cfg(not(windows))]
+    let root = std::path::PathBuf::from("/");
+
+    let (status, body) = send(
+        app,
+        Request::put(format!("/api/projects/{project}/videos/{video}/storage"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "directory": root }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("filesystem root")),
+        "{body}"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 /// A project with no batch answers with the inactive shape rather than a 404, so the queue
 /// screen can poll one URL before and after a batch starts.
 #[tokio::test]

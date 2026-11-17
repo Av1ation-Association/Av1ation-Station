@@ -68,10 +68,12 @@ chrome.
    older one is treated the same when a run is prepared, so a rerun of the same target
    replaces it.
 8. **Change the scratch directory.** The scratch directory is read-only in place, with
-   **Change…** and **Project default**. A video's chunks record absolute paths in the
-   encoder's sidecars, so the service refuses the move while retained work exists. The card
-   says so, offers the confirmed **Delete retained** action, and only then enables the move.
-   Retained bytes and free space are measured on every read.
+   **Change…** and **Project default**. A new scratch location must be an empty folder (and
+   not a filesystem root), because deleting retained work removes that directory. A video's
+   chunks record absolute paths in the encoder's sidecars, so the service refuses the move
+   while retained work exists. The card says so, offers the confirmed **Delete retained**
+   action, and only then enables the move. Retained bytes and free space are measured on
+   every read.
 9. **Override a section.** Each sequence card opens that section's project editor scoped to
    this video. Its header states how many of the section's parts the video replaces and offers
    **Reset section**, which restores the project's value in the draft; Save commits.

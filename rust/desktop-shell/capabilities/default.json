@@ -7,10 +7,15 @@
         "urls": ["http://127.0.0.1:*"]
     },
     "permissions": [
-        "core:default",
-        "dialog:default",
-        "opener:default",
+        "core:event:allow-listen",
+        "core:event:allow-unlisten",
+        "allow-save-text-file",
+        "allow-restart-app",
+        "allow-set-webview-zoom",
+        "allow-quit-app",
+        "dialog:allow-open",
+        "dialog:allow-save",
         "opener:allow-open-path",
-        "os:default"
+        "opener:allow-reveal-item-in-dir"
     ]
 }

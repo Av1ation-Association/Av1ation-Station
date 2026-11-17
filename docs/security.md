@@ -134,7 +134,7 @@ except `POST /api/pair`, which exchanges a shortcode for that token.
 | `Origin` check | cross-origin state-changing requests on the LAN listener rejected (`Origin` must match the served origin) |
 | CORS | not enabled for service origins; a debug desktop build additionally allows only the Vite dev origins on port 1420 |
 | `X-Frame-Options` | `DENY` — never framed by a third party |
-| `Content-Security-Policy` | `default-src 'self'`; `media-src 'self'`; `img-src 'self' data:`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self'`; no `unsafe-eval` (Monaco is loaded as a worker, not eval'd) |
+| `Content-Security-Policy` | `default-src 'self'`; `media-src 'self'`; `img-src 'self' data:`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self' ipc: ipc.localhost` for the desktop webview's Tauri IPC; no `unsafe-eval` (Monaco is loaded as a worker, not eval'd) |
 | HSTS | not applicable (plain HTTP on LAN); documented as a limitation |
 | TLS | **not** provided. Self-signed certs are worse UX than transparent plaintext for a LAN tool, and the token is the protection. Documented explicitly, with a recommendation to use a trusted LAN or a VPN. |
 | Bind scope | LAN mode binds every interface; the loopback listener remains separate |
@@ -160,6 +160,35 @@ say so.
   identity, never a client-supplied path.
 - Output files are opened by the encoder, not by our HTTP layer, except the preview stream,
   which is read-only.
+- A video's custom scratch directory is adopted only when it is empty and is not a
+  filesystem root. Deleting retained work removes that directory recursively; refusing a
+  populated folder keeps unrelated files out of that cleanup. The inherited scratch root
+  always uses a service-owned `<video-id>` child.
+
+### 3.1 Desktop IPC permissions
+
+The packaged window loads the loopback service as a remote origin, so Tauri's ACL must
+name every command the webview may call. The capability grants only:
+
+| Permission | Used for |
+| --- | --- |
+| `core:event:allow-listen`, `core:event:allow-unlisten` | `listen("quit-requested")` and its cleanup |
+| `dialog:allow-open` | Native file, directory, script, index, and model pickers |
+| `dialog:allow-save` | Native save dialog for an output file |
+| `opener:allow-reveal-item-in-dir` | Reveal a path in the file manager |
+| `opener:allow-open-path` | Open a path with the default handler |
+| `allow-save-text-file` | Open the native save dialog and write the selected text file |
+| `allow-restart-app` | Restart after a provider change |
+| `allow-set-webview-zoom` | Bounded Ctrl/Cmd zoom |
+| `allow-quit-app` | Confirmed quit, after stopping the embedded service |
+
+No `fs`, `shell`, `http`, or OS-information permission is granted. The two path-opening
+permissions act only on a path the UI received from a native picker or a project document.
+The text-export command owns both the native save dialog and the write: the webview can
+pass bytes and dialog labels, never a destination path. Encoders, muxers, FFmpeg, and
+language servers are started directly with argument vectors, never a shell; the only
+`cmd.exe` invocation is the fixed, user-input-free `cmd.exe /d /c more` hidden-console
+helper. Bounded probes are killed at their timeout.
 
 ## 4. Arbitrary code execution
 

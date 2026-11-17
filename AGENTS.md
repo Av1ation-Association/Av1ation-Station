@@ -94,9 +94,10 @@ keeps the shared text field, because a LAN browser's filesystem is not the host'
 picker to a browser session turns every **Locate…** into a rejected invoke.
 
 A plugin command also needs its permission in `rust/desktop-shell/capabilities/default.json`
-(`dialog:default`, `opener:default`, plus `opener:allow-open-path` for `openPath`; the default
-opener set covers only `openUrl` and `revealItemInDir`). Without it the call fails at runtime
-with a generic "refused by the host" message that names neither the plugin nor the permission.
+(this build grants `dialog:allow-open`, `dialog:allow-save`, `opener:allow-open-path`, and
+`opener:allow-reveal-item-in-dir`; custom app commands need their own entries in
+`permissions/`). Without it the call fails at runtime with a generic "refused by the host"
+message that names neither the plugin nor the permission.
 
 ### 2.8 Capabilities are scoped, never global
 

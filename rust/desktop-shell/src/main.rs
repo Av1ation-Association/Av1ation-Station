@@ -6,16 +6,57 @@ use std::{error::Error, io, sync::Mutex};
 
 use av1ation_service::ServiceHandle;
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
 
 struct ServiceTask(Mutex<Option<ServiceHandle>>);
 
-/// Write the text a save dialog already placed.
+/// Keep only the final component of the suggested export name.
 ///
-/// The path always comes from the dialog the user saw, so this command never chooses one.
-/// A failed write is returned instead of logged, because the screen has to say so.
+/// The dialog treats a path-shaped suggestion as a starting directory. The webview only
+/// gets to name the file, so a directory it supplies is discarded rather than honoured.
+fn export_file_name(suggested_name: &str) -> String {
+    std::path::Path::new(suggested_name)
+        .file_name()
+        .filter(|name| !name.is_empty())
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "export.txt".to_owned())
+}
+
+/// Ask the user where to save text, then write only that selected path.
+///
+/// The webview supplies the bytes and dialog labels, never a destination. The native dialog
+/// is owned by the host, so a compromised page cannot turn this into an arbitrary write.
 #[tauri::command]
-fn write_text_file(path: String, text: String) -> Result<(), String> {
-    std::fs::write(&path, text).map_err(|error| format!("could not write {path}: {error}"))
+async fn save_text_file(
+    app: tauri::AppHandle,
+    suggested_name: String,
+    text: String,
+    title: Option<String>,
+    extensions: Vec<String>,
+) -> Result<Option<String>, String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(title.unwrap_or_else(|| "Export".to_owned()))
+        .set_file_name(export_file_name(&suggested_name));
+    let extensions: Vec<&str> = extensions
+        .iter()
+        .map(|extension| extension.trim().trim_start_matches('.'))
+        .filter(|extension| !extension.is_empty())
+        .collect();
+    if !extensions.is_empty() {
+        dialog = dialog.add_filter("File", &extensions);
+    }
+
+    let Some(path) = dialog.blocking_save_file() else {
+        return Ok(None);
+    };
+    let path = path
+        .into_path()
+        .map_err(|error| format!("The selected path is not a local file: {error}"))?;
+    std::fs::write(&path, text)
+        .map_err(|error| format!("could not write {}: {error}", path.display()))?;
+    Ok(Some(path.display().to_string()))
 }
 
 /// Bound a requested webview zoom and reject a value JSON cannot carry reliably.
@@ -92,10 +133,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
-            write_text_file,
+            save_text_file,
             restart_app,
             set_webview_zoom,
             quit_app
@@ -195,7 +235,24 @@ fn run() -> Result<(), Box<dyn Error>> {
 mod tests {
     use tauri::{Url, utils::acl::RemoteUrlPattern};
 
-    use super::zoom_factor;
+    use super::{export_file_name, zoom_factor};
+
+    #[test]
+    fn an_export_name_cannot_supply_a_directory() {
+        assert_eq!(export_file_name("scenes.txt"), "scenes.txt");
+        let nested = format!("parent{}scenes.txt", std::path::MAIN_SEPARATOR);
+        assert_eq!(export_file_name(&nested), "scenes.txt");
+        assert_eq!(export_file_name("../../scenes.txt"), "scenes.txt");
+        assert_eq!(export_file_name(""), "export.txt");
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                export_file_name("C:\\Users\\someone\\scenes.txt"),
+                "scenes.txt"
+            );
+            assert_eq!(export_file_name("C:\\"), "export.txt");
+        }
+    }
 
     #[test]
     fn zoom_is_bounded_and_finite() {
@@ -231,5 +288,19 @@ mod tests {
             patterns.iter().any(|pattern| pattern.test(&origin)),
             "no remote pattern in capabilities/default.json matches {origin}"
         );
+
+        // The capability may grant the dialog-and-write command, but never a command that
+        // accepts a destination path from the webview.
+        let permissions: Vec<&str> = capability["permissions"]
+            .as_array()
+            .expect("the capability declares permissions")
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        assert!(permissions.contains(&"core:event:allow-listen"));
+        assert!(permissions.contains(&"core:event:allow-unlisten"));
+        assert!(!permissions.contains(&"core:event:default"));
+        assert!(permissions.contains(&"allow-save-text-file"));
+        assert!(!permissions.contains(&"allow-write-text-file"));
     }
 }

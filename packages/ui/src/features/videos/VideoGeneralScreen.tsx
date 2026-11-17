@@ -574,7 +574,9 @@ export function VideoGeneralScreen() {
                         >
                             <p className="mt-1 mb-2 text-[10.5px] leading-relaxed text-ink-muted">
                                 Chunks, scene checkpoints, and the encoder&apos;s sidecars. They
-                                stay after a successful run unless retention is turned off.
+                                stay after a successful run unless retention is turned off. A
+                                replacement folder must be empty and cannot be a filesystem root;
+                                deleting retained work removes that folder.
                             </p>
                             <input
                                 aria-label="Temporary directory"
