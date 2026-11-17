@@ -233,7 +233,10 @@ export function QueueRow({
 
     return (
         <ListRow
-            className={`queue-row grid min-h-16 grid-cols-[16px_16px_minmax(0,1fr)_28px_28px] items-center gap-2 px-2 py-3 sm:grid-cols-[16px_16px_minmax(0,1fr)_auto_28px_28px] sm:gap-3 ${selected ? "" : "hover:bg-hover/60"}`}
+            // The run control owns an `auto` column in both layouts. A fixed 28px column
+            // clipped the compact label as it expanded, so the Start button looked like an
+            // icon with no name at every width.
+            className={`queue-row grid min-h-16 grid-cols-[16px_16px_minmax(0,1fr)_auto_28px] items-center gap-2 px-2 py-3 sm:grid-cols-[16px_16px_minmax(0,1fr)_auto_auto_28px] sm:gap-3 ${selected ? "" : "hover:bg-hover/60"}`}
             onOpen={() =>
                 void navigate({
                     to: "/projects/$projectId/videos/$videoId",
