@@ -299,8 +299,10 @@ stateDiagram-v2
   adapters decide what a save writes; for example, a video part that matches the project
   again stops being an override, and an optional sequence keeps its absent-or-null meaning.
 - `packages/ui/src/shared/shortcuts.ts` owns every application chord, so a hint and the listener
-  that answers it cannot disagree: Save, Undo, Redo, Discard draft, Command palette, and
-  Run selected video, plus the scene player's bare keys. Each player command answers an
+  that answers it cannot disagree: Save, Undo, Redo, Discard draft, Command palette,
+  desktop window zoom, and Run selected video, plus the scene player's bare keys. Window
+  zoom is a host capability: the desktop webview scales itself, while a browser keeps its
+  native zoom and the website demo ignores the chord. Each player command answers an
   arrow key and a letter: Space or K plays and pauses, ↑ or W and ↓ or S step between
   scenes, ← or A and → or D step between frames (Shift plus a frame arrow steps ten), and
   V, F, R toggle picture, full screen, and the view reset. The player binds Space and K to
@@ -447,6 +449,12 @@ Rules, because "animate everything" is how jank gets shipped:
 Feedback policy: the user should always be able to answer "did it register?" within
 100ms. That means optimistic feedback for local actions (button press, selection) and a
 skeleton or progress indicator for anything over ~300ms.
+
+Monaco dominates the script and JSON route chunks. Those routes declare a pending
+skeleton at the router, so a direct visit paints the shell and a sized editor immediately;
+the router's `intent` preload warms the same chunk on hover or keyboard focus. The skeleton
+reserves the editor's height and the script page's side card, so the loaded screen does not
+jump.
 
 ## 9. Accessibility
 

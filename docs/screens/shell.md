@@ -18,7 +18,10 @@ the section-grid pattern; it never owns a screen's content or drafts.
   second pathname parse; the tab list is the same one the video tab bar uses. Its footer
   prints the navigation keys, and its **Keyboard Shortcuts** entry opens a reference dialog.
 - **Shortcut reference.** The dialog lists the whole chord scheme from
-  `packages/ui/src/shortcuts.ts`, grouped into application commands and scene-player keys.
+  `packages/ui/src/shared/shortcuts.ts`, grouped into application commands and scene-player
+  keys. In the desktop window, `Ctrl/⌘ +`, `Ctrl/⌘ -`, and `Ctrl/⌘ 0` change the webview's
+  own zoom; a browser keeps its native zoom, and a focused text field or Monaco owns those
+  keys.
 - **Back control.** Every screen except Home carries it, placed before the mark. Its mark is
   the logo mirrored to point left, with two tapered contrails that brighten on hover.
   Hovering expands it to show `Back to` above the contrails and the parent's name below them.
@@ -66,7 +69,7 @@ the section-grid pattern; it never owns a screen's content or drafts.
 ### Navigation contract data and contracts
 
 - **Back target.** Derived from the route, never from browser history.
-- **Shortcuts.** `packages/ui/src/shortcuts.ts` is the single source for the palette's
+- **Shortcuts.** `packages/ui/src/shared/shortcuts.ts` is the single source for the palette's
   keyboard reference.
 - **No stored navigation state.** The shell is mounted once; the current route supplies the
   breadcrumb and Back target.
