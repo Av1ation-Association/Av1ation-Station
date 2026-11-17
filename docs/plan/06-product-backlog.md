@@ -1,5 +1,7 @@
 # Phase 6 — Product backlog
 
+> **Planning record.** Current delivery status lives in [progress.md](../progress.md).
+
 **Status:** active planning and first fixes. This is the working catalog for the issues reported
 after the bundled-toolchain release candidate. Update the Status column as work lands; keep
 the verification column honest even when a check is deferred.
@@ -28,13 +30,13 @@ stopped. They stay at the top until a published release exists.
 | **R2** | Bundled Windows installers do not place the native `ffms2.dll` beside the executable. | Reported from the RC: NSIS/MSI install, then the app exits because the loader cannot find `ffms2.dll`. The staged tree has it under `tools/lib/`; the Tauri resource map only copied the tree. | Map `dist/tools/lib/ffms2.dll` to the Windows resource root and copy it beside the portable executable. Add an installer-content assertion. | Unit/lint check on the generated config; hosted NSIS install assertion in `release-package-check.mjs`; manual launch of the installed bundled build. MSI still needs the same assertion before the release is called verified. |
 | **R3** | The package legs cache the Rust workspace from the repository root, which has no `Cargo.toml`. | `Swatinem/rust-cache` logs `could not find Cargo.toml` in each package leg. It did not cause the job failure, but it makes the cache miss and hides a real error in the log. | Point the action at `rust/` (or remove it from package legs if the cache is not worth a workspace path). | A package leg log with no `cargo metadata` error; the lock gate is the actual pass condition. |
 
-`R1`'s lock is regenerated; `R2` is implemented in this change; `R3` still needs a committed release pass.
+`R1`'s lock is regenerated, `R2`'s DLL placement and `R3`'s cache path are implemented; all three still need a hosted release pass.
 
 ## Workstream A — Safety and data integrity
 
 | ID | Status | Priority | Item | Why it matters | First move / code area | Verification |
 | --- | --- | --- | --- | --- | --- | --- |
-| A1 | planned | **P0** | Splitting, merging, or modifying a Scene must delete the affected encoded chunks and clear/reset their Sequence Data. | A retained chunk made from old boundaries can be muxed into a new sequence; the user sees a successful encode with the wrong pictures. | Service scene-edit transaction: derive the old and new ranges, invalidate overlapping chunk rows, clear `sequence_data` for those scenes, then write the table and return the invalidated ids. Check `rust/crates/service/src/api/routes/video` and the engine run scratch model. | Service test: split/merge/move a boundary with a fake retained chunk and assert the chunk file is gone, the row is reset, and a later run schedules those scenes again. Browser test: edit then run and confirm the sequence bar no longer says “Encoded”. |
+| A1 | implemented | **P0** | Splitting, merging, or modifying a Scene must delete the affected encoded chunks and clear/reset their Sequence Data. | A retained chunk made from old boundaries can be muxed into a new sequence; the user sees a successful encode with the wrong pictures. | Service scene-edit routes invalidate retained chunks and clear `sequence_data`; split, merge, add, and delete remove every chunk because scene indices move, while a range edit removes only that scene's chunk. See `rust/crates/service/src/api/routes/scenes.rs` and `rust/crates/engine/src/run/reset.rs`. | Service tests: split and merge delete retained and partial chunks and clear sequence data; range/delete covers partial invalidation and undo. A browser edit-and-run check remains advisory. |
 | A2 | implemented | **P1** | Exit guard triggers when nothing is running. | Every close asks about cancelling an encode that does not exist; users learn to dismiss the guard. | `packages/ui/src/app/QuitGuard.tsx` should consult `useActiveRun()` and call `transport.quit()` directly when it is `null`. Native close interception stays in `rust/desktop-shell/src/main.rs`. | Component test: no active run closes immediately; an active run opens the dialog and does not quit until confirmed. |
 | A3 | planned | **P1** | Portable installations must write projects, settings, thumbnails, logs, scratch and VapourSynth config only inside the installation directory. | A “portable” build that leaves data in AppData is not portable and can mix two copies’ state. | Introduce an explicit portable marker/launch mode and resolve one data root from the executable directory before `serve_in_with_tools`; audit every `app_data_dir()` and `std::env::temp_dir()` call in the desktop/service. The service already accepts a single `data_dir`; make the host choose it. | Integration test with a temporary install root: start, create a project, change a setting, build a thumbnail, stop; assert the root contains every file and the real app-data/temp roots contain none. Manual unzip-and-run check. |
 
@@ -91,7 +93,7 @@ stopped. They stay at the top until a published release exists.
 | --- | --- | --- | --- | --- | --- | --- |
 | G1 | implemented, awaiting hosted run | **P0** | NSIS/MSI installers omit `ffms2.dll`; the app does not launch. | The installed app exits before the window because the native loader cannot resolve FFMS2. | `scripts/run-tauri.mjs` maps the DLL to the Windows resource root; `scripts/collect-release.mjs` copies it beside the portable executable; `scripts/release-package-check.mjs` asserts it after NSIS install. The MSI path still needs the same content assertion. | Hosted NSIS install check; manual installed-tree launch; MSI equivalent check before release sign-off. |
 | G2 | planned | **P1** | Make the portable build truly portable (A3). | Cross-reference to the data-root audit. | Resolve the data root from the install directory when portable mode is present; pass that single root to the service. | Same as A3. |
-| G3 | in progress | **P2** | Regenerate the lock from CI artifacts and fix the root-cwd Rust cache. | Release credibility and log hygiene. | R1's lock is regenerated; R3 remains. | `lock` and all package legs green; no `Cargo.toml` error in the package log. |
+| G3 | implemented, awaiting hosted run | **P2** | Regenerate the lock from CI artifacts and fix the root-cwd Rust cache. | Release credibility and log hygiene. | R1's lock is regenerated; R3 points the cache at `rust -> ../dist/cargo`. | `lock` and all package legs green; no `Cargo.toml` error in the package log. |
 
 ## Recommended order
 
