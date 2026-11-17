@@ -14,6 +14,7 @@ import {
     type TextFormatName,
     type WidgetChoice,
 } from "./parameter-drafts";
+import { readDelimiter } from "./delimiter-label";
 import {
     canonicalParameterKey,
     descriptorFromDraft,
@@ -118,11 +119,16 @@ export function useParameterDraft({
     }, [open, initialKey]);
 
     const canonical = canonicalParameterKey(prefix, name);
+    const delimiter =
+        kind === "Flag"
+            ? null
+            : (readDelimiter(initialRef.current?.descriptor.delimiter) ?? "Space");
 
     const apply = (onApply: (key: string, descriptor: ParameterDescriptor) => void) => {
         const input = {
             prefix,
             name,
+            delimiter,
             label,
             kind,
             widget,

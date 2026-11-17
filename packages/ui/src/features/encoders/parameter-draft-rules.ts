@@ -1,5 +1,6 @@
 import type { ParameterDescriptor } from "@av1ation/contracts";
 
+import type { DelimiterValue } from "./delimiter-label";
 import type { ParameterKindName } from "./parameter-summary";
 import {
     contractFormat,
@@ -15,6 +16,8 @@ import {
 export interface ParameterDraftInput {
     prefix: string;
     name: string;
+    /** The existing separator is preserved when another field is edited. */
+    delimiter: DelimiterValue | null;
     label: string;
     kind: ParameterKindName;
     widget: WidgetChoice;
@@ -164,7 +167,7 @@ export function descriptorFromDraft(draft: ParameterDraftInput): ParameterDescri
     if (draft.kind === "Number" || draft.kind === "Decimal") {
         return {
             ...common,
-            delimiter: "Space",
+            delimiter: draft.delimiter ?? "Space",
             kind: {
                 Number: {
                     integer: draft.kind === "Number",
@@ -180,7 +183,7 @@ export function descriptorFromDraft(draft: ParameterDraftInput): ParameterDescri
     if (draft.kind === "Choice") {
         return {
             ...common,
-            delimiter: "Space",
+            delimiter: draft.delimiter ?? "Space",
             kind: {
                 Choice: {
                     options: choices.map((choice) => ({
@@ -213,14 +216,14 @@ export function descriptorFromDraft(draft: ParameterDraftInput): ParameterDescri
         ];
         return {
             ...common,
-            delimiter: "Space",
+            delimiter: draft.delimiter ?? "Space",
             kind: { Path: { directory: draft.pathDirectory, accept } },
             default: draft.rawDefault.trim() === "" ? null : draft.rawDefault.trim(),
         } as ParameterDescriptor;
     }
     return {
         ...common,
-        delimiter: "Space",
+        delimiter: draft.delimiter ?? "Space",
         kind: {
             Text: {
                 max_len: null,

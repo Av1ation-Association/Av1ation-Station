@@ -1,6 +1,8 @@
 import type { ParameterDescriptor } from "@av1ation/contracts";
 import { ExternalLink, Info, RotateCcw } from "lucide-react";
 
+import { DelimiterReadout } from "./DelimiterReadout";
+import { delimiterLabel } from "./delimiter-label";
 import { isDefaultOption } from "./encoder-options";
 import { ParameterControl } from "./parameter-control";
 import { isSwitchNumber } from "./parameter-summary";
@@ -83,6 +85,7 @@ export function ParameterValueGrid({
                             const { name, parameter, descriptor, canonical } = entry;
                             const changed = isChanged(entry);
                             const full = descriptor?.description ?? "";
+                            const separator = delimiterLabel(descriptor?.delimiter);
                             return (
                                 <div
                                     key={name}
@@ -109,6 +112,19 @@ export function ParameterValueGrid({
                                                         <p className="m-0 font-mono text-[9.5px] text-ink-muted">
                                                             {canonical}
                                                         </p>
+                                                        {separator === null ? null : (
+                                                            <p className="mt-1 mb-0 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[9.5px] text-ink-muted">
+                                                                <span>Separator</span>
+                                                                <DelimiterReadout
+                                                                    delimiter={
+                                                                        descriptor?.delimiter
+                                                                    }
+                                                                />
+                                                                <span aria-hidden="true">
+                                                                    · {separator.hint}
+                                                                </span>
+                                                            </p>
+                                                        )}
                                                         <p className="mt-1 mb-0">
                                                             {full === ""
                                                                 ? "No description in this build's help output."

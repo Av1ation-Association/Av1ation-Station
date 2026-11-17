@@ -9,6 +9,7 @@ import {
 const BASE: ParameterDraftInput = {
     prefix: "--",
     name: "crf",
+    delimiter: "Space",
     label: "Constant Rate Factor",
     kind: "Decimal",
     widget: "Auto",
@@ -76,6 +77,12 @@ describe("parameter draft rules", () => {
             default: "slow",
             kind: { Text: { format: "Url" } },
         });
+    });
+
+    it("preserves a joined delimiter when another field is edited", () => {
+        const descriptor = descriptorFromDraft(draft({ delimiter: { Joined: "=" } }));
+
+        expect(descriptor.delimiter).toEqual({ Joined: "=" });
     });
 
     it("builds numeric choices and their default from the edited rows", () => {
