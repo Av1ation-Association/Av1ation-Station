@@ -20,7 +20,13 @@ afterEach(cleanup);
 
 const NO_SCHEMA = { root: {}, node: {} };
 
-function Harness({ initial }: { initial: Record<string, unknown> }) {
+function Harness({
+    initial,
+    locked = false,
+}: {
+    initial: Record<string, unknown>;
+    locked?: boolean;
+}) {
     const [draft, setDraft] = useState<Record<string, unknown> | null>(initial);
     if (draft === null) {
         return null;
@@ -30,7 +36,7 @@ function Harness({ initial }: { initial: Record<string, unknown> }) {
             parts={{ target: NO_SCHEMA, bitrate: NO_SCHEMA }}
             draft={draft}
             setDraft={setDraft}
-            locked={false}
+            locked={locked}
             scope="project"
             encoderDocument={null}
         />
@@ -161,6 +167,21 @@ it("opens the metric options from the nullable sequence part", () => {
     fireEvent.click(screen.getByRole("button", { name: /Metric options/u }));
     expect(screen.getByText("Threads")).toBeTruthy();
     expect(screen.getByText("Resolution")).toBeTruthy();
+});
+
+it("disables both target-quality switches while the sequence is locked", () => {
+    renderWithApi(<Harness initial={targetOff()} locked />, {
+        transport: new MockTransport(),
+    });
+
+    const target = screen.getByRole("switch", { name: "Target quality" });
+    const bitrate = screen.getByRole("switch", { name: "Bitrate optimization" });
+    expect(target.hasAttribute("disabled")).toBe(true);
+    expect(bitrate.hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(target);
+    expect(target.getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByLabelText("Maximum probes")).toBeNull();
 });
 
 it("seeds a complete target document and keeps bitrate optimization independent", () => {

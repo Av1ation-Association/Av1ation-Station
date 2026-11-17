@@ -4,7 +4,6 @@ import { useFilterSchemas } from "@av1ation/api";
 
 import { defaultFor, type JsonSchema } from "../../shared/schema/config-schema";
 import type { DocumentScope } from "../../shared/model/project-sections";
-import { Button } from "../../shared/Button";
 import { FilterList } from "./FilterList";
 import { filterVariants } from "./FilterComposer";
 import { InputOverrideEditor } from "./InputOverrideEditor";
@@ -118,11 +117,12 @@ export function NoiseGenerationEditor({
                             Produces one noise value per scene from a reference and a denoised pass.
                         </p>
                     </div>
-                    {detector === null ? (
-                        <Button
-                            className="h-8 shrink-0 px-3 text-[12px]"
-                            disabled={locked}
-                            onClick={() =>
+                    <Switch
+                        label="Noise detector"
+                        checked={detector !== null}
+                        disabled={locked}
+                        onChange={(next) => {
+                            if (next) {
                                 setPart("noise_detector", {
                                     ...(defaultFor(
                                         parts.detector.root,
@@ -130,21 +130,12 @@ export function NoiseGenerationEditor({
                                     ) as object),
                                     input: null,
                                     ...DETECTOR_START,
-                                })
+                                });
+                            } else {
+                                setPart("noise_detector", null);
                             }
-                        >
-                            Enable
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="ghost"
-                            className="h-8 shrink-0 px-2.5 text-[12px]"
-                            disabled={locked}
-                            onClick={() => setPart("noise_detector", null)}
-                        >
-                            Disable
-                        </Button>
-                    )}
+                        }}
+                    />
                 </div>
 
                 {detector === null ? (
@@ -206,29 +197,21 @@ export function NoiseGenerationEditor({
                             range.
                         </p>
                     </div>
-                    {scaler === null ? (
-                        <Button
-                            className="h-8 shrink-0 px-3 text-[12px]"
-                            disabled={locked}
-                            onClick={() =>
+                    <Switch
+                        label="Noise scaler"
+                        checked={scaler !== null}
+                        disabled={locked}
+                        onChange={(next) => {
+                            if (next) {
                                 setPart("noise_scaler", {
                                     ...(defaultFor(parts.scaler.root, parts.scaler.node) as object),
                                     ...SCALER_START,
-                                })
+                                });
+                            } else {
+                                setPart("noise_scaler", null);
                             }
-                        >
-                            Enable
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="ghost"
-                            className="h-8 shrink-0 px-2.5 text-[12px]"
-                            disabled={locked}
-                            onClick={() => setPart("noise_scaler", null)}
-                        >
-                            Disable
-                        </Button>
-                    )}
+                        }}
+                    />
                 </div>
 
                 {scaler === null ? (

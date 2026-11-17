@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { EncoderDescriptor } from "@av1ation/contracts";
 
-import { Button } from "../../shared/Button";
+import { Switch } from "../../shared/Switch";
 import type { DocumentScope } from "../../shared/model/project-sections";
 import type { SectionDefinition } from "../../shared/model/section-definitions";
 import {
@@ -575,42 +575,23 @@ export function SectionParts({
                                 </p>
                             </div>
                             {optional ? (
-                                value === null || value === undefined ? (
-                                    <Button
-                                        className="h-8 shrink-0 px-3 text-[12px]"
-                                        disabled={locked}
-                                        onClick={() =>
-                                            setDraft((previous) =>
-                                                previous === null
-                                                    ? previous
-                                                    : {
-                                                          ...previous,
-                                                          [part.key]: defaultFor(partRoot, node),
-                                                      },
-                                            )
-                                        }
-                                    >
-                                        Enable
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="ghost"
-                                        className="h-8 shrink-0 px-2.5 text-[12px]"
-                                        disabled={locked}
-                                        onClick={() =>
-                                            setDraft((previous) =>
-                                                previous === null
-                                                    ? previous
-                                                    : {
-                                                          ...previous,
-                                                          [part.key]: null,
-                                                      },
-                                            )
-                                        }
-                                    >
-                                        Disable
-                                    </Button>
-                                )
+                                <Switch
+                                    label={part.title}
+                                    checked={value !== null && value !== undefined}
+                                    disabled={locked}
+                                    onChange={(next) =>
+                                        setDraft((previous) =>
+                                            previous === null
+                                                ? previous
+                                                : {
+                                                      ...previous,
+                                                      [part.key]: next
+                                                          ? defaultFor(partRoot, node)
+                                                          : null,
+                                                  },
+                                        )
+                                    }
+                                />
                             ) : null}
                         </div>
 

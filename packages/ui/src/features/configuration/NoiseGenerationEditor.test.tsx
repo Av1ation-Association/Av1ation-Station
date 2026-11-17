@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
+import { useState } from "react";
 
 import { MockTransport } from "@av1ation/api";
 
@@ -39,6 +40,69 @@ function renderEditor(scope: DocumentScope) {
         { transport: new MockTransport() },
     );
 }
+
+function SwitchHarness({
+    initial,
+    locked = false,
+}: {
+    initial: Record<string, unknown>;
+    locked?: boolean;
+}) {
+    const [draft, setDraft] = useState<Record<string, unknown> | null>(initial);
+    if (draft === null) {
+        return null;
+    }
+    return (
+        <NoiseGenerationEditor
+            parts={PARTS}
+            draft={draft}
+            setDraft={setDraft}
+            locked={locked}
+            scope="project"
+        />
+    );
+}
+
+function renderSwitches(initial: Record<string, unknown>, locked = false) {
+    renderWithApi(<SwitchHarness initial={initial} locked={locked} />, {
+        transport: new MockTransport(),
+    });
+}
+
+it("enables and disables both noise stages with the shared switches", () => {
+    renderSwitches({ noise_detector: null, noise_scaler: null });
+
+    const detector = screen.getByRole("switch", { name: "Noise detector" });
+    const scaler = screen.getByRole("switch", { name: "Noise scaler" });
+    expect(detector.getAttribute("aria-checked")).toBe("false");
+    expect(scaler.getAttribute("aria-checked")).toBe("false");
+
+    fireEvent.click(detector);
+    expect(detector.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("Reference filters")).toBeTruthy();
+
+    fireEvent.click(scaler);
+    expect(scaler.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("Minimum scaler")).toBeTruthy();
+
+    fireEvent.click(detector);
+    expect(detector.getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByText("Reference filters")).toBeNull();
+});
+
+it("disables both noise switches while the sequence is locked", () => {
+    renderSwitches({ noise_detector: null, noise_scaler: null }, true);
+
+    const detector = screen.getByRole("switch", { name: "Noise detector" });
+    const scaler = screen.getByRole("switch", { name: "Noise scaler" });
+    expect(detector.hasAttribute("disabled")).toBe(true);
+    expect(scaler.hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(detector);
+    fireEvent.click(scaler);
+    expect(detector.getAttribute("aria-checked")).toBe("false");
+    expect(scaler.getAttribute("aria-checked")).toBe("false");
+});
 
 it("names the source on a video's detector override", () => {
     renderEditor("video");

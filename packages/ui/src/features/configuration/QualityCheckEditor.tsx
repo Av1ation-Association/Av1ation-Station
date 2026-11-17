@@ -7,6 +7,7 @@ import { InputOverrideEditor } from "./InputOverrideEditor";
 import { MetricField, ProbeFields } from "./QualityFields";
 import type { JsonSchema } from "../../shared/schema/config-schema";
 import type { DocumentScope } from "../../shared/model/project-sections";
+import { Switch } from "../../shared/Switch";
 
 /**
  * What enabling Quality check writes.
@@ -87,26 +88,12 @@ export function QualityCheckEditor({
                     <div className="min-w-0">
                         <h2 className="m-0 text-base font-semibold text-ink">Setup</h2>
                     </div>
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-checked={enabled}
-                        aria-label="Quality check"
+                    <Switch
+                        label="Quality check"
+                        checked={enabled}
                         disabled={locked}
-                        onClick={() => setCheck(enabled ? null : CHECK_START)}
-                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-150 disabled:opacity-50 ${
-                            enabled ? "border-brand bg-brand" : "border-line-strong bg-sunken"
-                        }`}
-                    >
-                        <span
-                            aria-hidden="true"
-                            className={`h-3.5 w-3.5 rounded-full transition-transform duration-150 ${
-                                enabled
-                                    ? "translate-x-[18px] bg-on-brand"
-                                    : "translate-x-[3px] bg-ink"
-                            }`}
-                        />
-                    </button>
+                        onChange={(next) => setCheck(next ? CHECK_START : null)}
+                    />
                 </div>
 
                 {!enabled ? (
