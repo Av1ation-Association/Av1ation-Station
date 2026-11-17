@@ -114,7 +114,7 @@ jobs:
             runner: ${{ matrix.runner }}
             max_parallel: ${{ matrix.max_parallel }}
             bundles: ${{ matrix.bundles }}
-            package: ${{ inputs.package }}
+            package: ${{ inputs.package || false }}
             release_tag: ${{ inputs.release_tag }}
             ref: ${{ inputs.ref }}
 
