@@ -15,8 +15,8 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "bf1445a31164e0048d76fb1bc3146d97da3bdd4045a7fb5150c69d689af40812",
-                        "size": 961758515,
+                        "sha256": "396de4f6b7c27890da2c6329f426b860063fb4f97f3d3bd32adfef382d075c6c",
+                        "size": 961758824,
                         "install": "tools/python",
                         "files": [
                             "DLLs/_asyncio.pyd",
@@ -2327,6 +2327,7 @@
                             "Lib/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                            "Lib/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                             "Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -2364,6 +2365,7 @@
                             "Lib/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                            "Lib/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                             "Lib/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                             "Lib/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                             "Lib/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -4264,6 +4266,7 @@
                             "Lib/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                             "Lib/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                             "Lib/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                            "Lib/site-packages/pyopencl/compyte/.gitignore",
                             "Lib/site-packages/pyopencl/compyte/array.py",
                             "Lib/site-packages/pyopencl/compyte/dtypes.py",
                             "Lib/site-packages/pyopencl/compyte/pyproject.toml",
@@ -8835,7 +8838,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/FFMS/ffms2",
-                        "sha256": "3ccffba184933931efb63099a8b206812beb9c2a2c85f8df311047fe524a7f98",
+                        "sha256": "c7cadca7ad37217d4adfca9961376d4fd84e08926580e1e2aad69765eefd267b",
                         "size": 280695,
                         "install": "tools/lib/ffms2.dll"
                     }
@@ -8851,7 +8854,7 @@
                     },
                     "artifact": {
                         "url": "https://aomedia.googlesource.com/aom",
-                        "sha256": "c2ba85bf24e7dd2d078f08974c51883826ed4a91deab15f4ee9efdb84a5461e9",
+                        "sha256": "9a9e08aa38dee6673078e7f57173d178db8e5b19495093e1f2e2f7c202ca226e",
                         "size": 11654317,
                         "install": "tools/bin/aomenc.exe"
                     }
@@ -8867,7 +8870,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "37f77c86db5486877b42dbe30cb26d4e01b8e921a0b0ac760fbde7b237c7d830",
+                        "sha256": "06f22bfcbe822a72a6396656904a8a62f24f7aa5b47d68c9b52045c3b834b275",
                         "size": 9290794,
                         "install": "tools/bin/SvtAv1EncApp.exe"
                     }
@@ -8883,7 +8886,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/xiph/rav1e",
-                        "sha256": "60a5cb324d9b9cb87c07947774b6249a4ac342b039a0899049fc074f90dbf0d4",
+                        "sha256": "98d144164d6ad4d7c64c582fc494e4ccb88ebd0bbd8941dd57faa006f01e529b",
                         "size": 4564480,
                         "install": "tools/bin/rav1e.exe"
                     }
@@ -8899,7 +8902,7 @@
                     },
                     "artifact": {
                         "url": "https://chromium.googlesource.com/webm/libvpx",
-                        "sha256": "4c38dc3242099e05629c11fddb31a9273c7a7575227b22ba7cc13e0b94bfe69a",
+                        "sha256": "727f3acf0510e226d68745fa8147a7e5d8d41a15bcb244feb07bec6d08474ed3",
                         "size": 5635698,
                         "install": "tools/bin/vpxenc.exe"
                     }
@@ -8915,7 +8918,7 @@
                     },
                     "artifact": {
                         "url": "https://aomedia.googlesource.com/avm",
-                        "sha256": "8a26dcc191051e19f32da4a3ce11f00c888e68ad9439fd7b0325727863f9de50",
+                        "sha256": "58f11211270b2ebfd19112d77fb93bb76d8d1229937862920ebd9c4f808a2fb8",
                         "size": 11572387,
                         "install": "tools/bin/avmenc.exe"
                     }
@@ -8930,7 +8933,7 @@
                     },
                     "artifact": {
                         "url": "https://code.videolan.org/videolan/x264",
-                        "sha256": "9beb5f9b1028261e4398d91b816e091a75b2c51741a7a1372a072b00b88ff7e7",
+                        "sha256": "6bc3fed0379d93a6cdd756aeb2358f3a410608588821eaf52c04d5b28a62344f",
                         "size": 2873452,
                         "install": "tools/bin/x264.exe"
                     }
@@ -8946,7 +8949,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/Multicorewareinc/x265",
-                        "sha256": "898ed8f9206dcfebe64c84db386d07529bf1aca0755e3787211295d84f399007",
+                        "sha256": "074f878c00a53ea592a0e5e9187810bc46f87274bbb100a6e1d627419501c758",
                         "size": 8049573,
                         "install": "tools/bin/x265.exe"
                     }
@@ -8962,7 +8965,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/fraunhoferhhi/vvenc",
-                        "sha256": "bd22f833ff44ab1374150e81fa610af36b9159b79483261c3296a9d8ddd6017b",
+                        "sha256": "cb4ffa512bb17820dd915a33e0f81788e315c58a2fb7076e7ab415e66435d5b3",
                         "size": 5544306,
                         "install": "tools/bin/vvencapp.exe"
                     }
@@ -8978,7 +8981,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "sha256": "471e080d6b32fff44a73572e314ece7eef5468893b13779ce9cbf269d6a944d6",
+                        "sha256": "ea73fa03700720abbce2adb478be5054bae20129e1fb775a71b936bd23e3a103",
                         "size": 22431232,
                         "install": "tools/bin/ffmpeg.exe"
                     }
@@ -8994,7 +8997,7 @@
                     },
                     "artifact": {
                         "url": "https://codeberg.org/mbunkus/mkvtoolnix",
-                        "sha256": "bbc70eecb5ae31e59c09dde0e1476b982ca7e1b2cf45bbbc426192de88767e37",
+                        "sha256": "62fad25700de317f845bb41032d29074ece3ab9dc0c3d7a84052d779fe53b3e0",
                         "size": 9527296,
                         "install": "tools/bin/mkvmerge.exe"
                     }
@@ -9025,7 +9028,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/Netflix/vmaf",
-                        "sha256": "14e09baa8911099108d3f31f9ff49ede99ae24a2d0decf77550bb9a968f33fbd",
+                        "sha256": "ea0850026748f31905d86b51e1243012d7b6ebcbe890e1e7ef4770430374ca0d",
                         "size": 1752329,
                         "install": "tools/lib/libvmaf.dll"
                     }
@@ -9040,7 +9043,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/BoatsMcGee/fmetrics",
-                        "sha256": "f9a49e387b3d7214bd1008f3e572709a98711591d4e105d61fb5e15bbf65b61e",
+                        "sha256": "a8cb6ee80ff38228e516cde7b2214920c4e6b715255c190f2219a34f546ea2dc",
                         "size": 611840,
                         "install": "tools/lib/fmetrics.dll"
                     }
@@ -9056,15 +9059,15 @@
                     },
                     "artifact": {
                         "url": "https://codeberg.org/Line-fr/Vship",
-                        "sha256": "0e557c144389267e15c22de6f489880e9a90362c3115a0401a20a5fb2e25994d",
+                        "sha256": "b4e50cd62923e14d115e57535191d18aa970abfdd2136d10eb50a36eb85efaf0",
                         "size": 917314,
                         "install": "tools/lib/libvship.dll"
                     }
                 }
             },
             "tree": {
-                "sha256": "2ccfc072e01730038f9f5f0d74cc08f53fa4c25e94a0eec1a75f8253f7e388bf",
-                "size": 1142251670,
+                "sha256": "a98a1882ec22152dc5d88f465aa9004ce55fda74cb13603d45330da01b472c08",
+                "size": 1142251979,
                 "files": [
                     "tools/bin/aomenc.exe",
                     "tools/bin/avmenc.exe",
@@ -11411,6 +11414,7 @@
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                    "tools/python/Lib/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -11448,6 +11452,7 @@
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                    "tools/python/Lib/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                     "tools/python/Lib/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -13348,6 +13353,7 @@
                     "tools/python/Lib/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                     "tools/python/Lib/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                     "tools/python/Lib/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                    "tools/python/Lib/site-packages/pyopencl/compyte/.gitignore",
                     "tools/python/Lib/site-packages/pyopencl/compyte/array.py",
                     "tools/python/Lib/site-packages/pyopencl/compyte/dtypes.py",
                     "tools/python/Lib/site-packages/pyopencl/compyte/pyproject.toml",
@@ -35813,8 +35819,8 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "e96d5f733b75b37ffd46ce44453cb2267ce0e215825825d37cd8c8651f5cd224",
-                        "size": 1409166110,
+                        "sha256": "3d845654b3812fa83e43db095094d877162c62338368b4a3feb67dc7c7578ff4",
+                        "size": 1409166395,
                         "install": "tools/python",
                         "files": [
                             "bin/cyclopts",
@@ -36667,6 +36673,7 @@
                             "lib/python3.14/keyword.py",
                             "lib/python3.14/lib-dynload/_dbm.cpython-314-x86_64-linux-gnu.so",
                             "lib/python3.14/lib-dynload/_tkinter.cpython-314-x86_64-linux-gnu.so",
+                            "lib/python3.14/lib-dynload/.empty",
                             "lib/python3.14/LICENSE.txt",
                             "lib/python3.14/linecache.py",
                             "lib/python3.14/locale.py",
@@ -38128,6 +38135,7 @@
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                            "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -38165,6 +38173,7 @@
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                            "lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                             "lib/python3.14/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -40064,6 +40073,7 @@
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                             "lib/python3.14/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                            "lib/python3.14/site-packages/pyopencl/compyte/.gitignore",
                             "lib/python3.14/site-packages/pyopencl/compyte/array.py",
                             "lib/python3.14/site-packages/pyopencl/compyte/dtypes.py",
                             "lib/python3.14/site-packages/pyopencl/compyte/pyproject.toml",
@@ -47681,7 +47691,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "c0223bafd759bfbbdc2e3075b59d8e652304ad0141ca0e6a19b94e891c60df31",
+                        "sha256": "60a48a3e45004c39fc12332561eb8575406899b41a3c8cc1ef2f1027ea8633cc",
                         "size": 7945208,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
@@ -47697,7 +47707,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/xiph/rav1e",
-                        "sha256": "0bf5d729791acf5b22c15cfd872ee079843b4d713fe9ee12f96cfac5bd4bd6e9",
+                        "sha256": "4f9209a02d1f7c37fef53457034c40a06655ceda8412d54597f02f01d7493fc9",
                         "size": 59915408,
                         "install": "tools/bin/rav1e"
                     }
@@ -47877,8 +47887,8 @@
                 }
             },
             "tree": {
-                "sha256": "8cd005e9481ce54754ee7b69ce1ea7da1d09e243f3ab0f9b3610b9b8f5e7a355",
-                "size": 1588158375,
+                "sha256": "92a8b35814a087b1f0e420932c2f95988b78adc6cc8621ec997e1ee85a54f9df",
+                "size": 1588158660,
                 "files": [
                     "tools/bin/aomenc",
                     "tools/bin/avmenc",
@@ -48745,6 +48755,7 @@
                     "tools/python/lib/python3.14/keyword.py",
                     "tools/python/lib/python3.14/lib-dynload/_dbm.cpython-314-x86_64-linux-gnu.so",
                     "tools/python/lib/python3.14/lib-dynload/_tkinter.cpython-314-x86_64-linux-gnu.so",
+                    "tools/python/lib/python3.14/lib-dynload/.empty",
                     "tools/python/lib/python3.14/LICENSE.txt",
                     "tools/python/lib/python3.14/linecache.py",
                     "tools/python/lib/python3.14/locale.py",
@@ -50206,6 +50217,7 @@
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/foo.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c",
+                    "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_free.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_mod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/assumed_shape/foo_use.f90",
@@ -50243,6 +50255,7 @@
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/publicmod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/pubprivmod.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/crackfortran/unicode_comment.f90",
+                    "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/inplace/foo.f",
                     "tools/python/lib/python3.14/site-packages/numpy/f2py/tests/src/isocintrin/isoCtests.f90",
@@ -52142,6 +52155,7 @@
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/__init__.cpython-314.pyc",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/array.cpython-314.pyc",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/__pycache__/dtypes.cpython-314.pyc",
+                    "tools/python/lib/python3.14/site-packages/pyopencl/compyte/.gitignore",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/array.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/dtypes.py",
                     "tools/python/lib/python3.14/site-packages/pyopencl/compyte/pyproject.toml",
