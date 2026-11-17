@@ -338,6 +338,11 @@ jobs:
               run: mkdir -p dist/tools
             - name: Install FFMS2 development files
               uses: ./.github/actions/install-ffms2
+            - name: Stage the FFMS2 runtime for the compile-only resource map
+              shell: bash
+              run: |
+                  mkdir -p dist/tools/lib
+                  cp "$FFMS_LIB_DIR/ffms2.dll" dist/tools/lib/ffms2.dll
             - name: Compile Tauri shell
               run: npm run tauri -- build --no-bundle
 
