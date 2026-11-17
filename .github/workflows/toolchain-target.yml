@@ -1,0 +1,460 @@
+name: Bundled toolchain target
+
+on:
+    workflow_call:
+        inputs:
+            target:
+                description: Target triple to build
+                required: true
+                type: string
+            runner:
+                description: GitHub-hosted runner for the target
+                required: true
+                type: string
+            max_parallel:
+                description: Concurrent component builds for this target
+                required: true
+                type: number
+            bundles:
+                description: Comma-separated release bundles for this target
+                required: true
+                type: string
+            package:
+                description: Build and validate installers from the assembled toolchain
+                required: false
+                type: boolean
+                default: false
+            release_tag:
+                description: Release tag for package builds
+                required: false
+                type: string
+                default: ""
+            ref:
+                description: Git ref to build; defaults to the caller's ref
+                required: false
+                type: string
+                default: ""
+
+permissions:
+    contents: read
+
+jobs:
+    plan:
+        name: Plan ${{ inputs.target }} matrix
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        outputs:
+            matrix: ${{ steps.matrix.outputs.matrix }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+            - id: matrix
+              name: Emit the component matrix
+              env:
+                  TARGET: ${{ inputs.target }}
+              run: echo "matrix=$(node scripts/toolchain-build.mjs --target "$TARGET" --print-matrix)" >> "$GITHUB_OUTPUT"
+
+    component:
+        name: ${{ matrix.id }} / ${{ inputs.target }}
+        needs: plan
+        strategy:
+            fail-fast: false
+            # The caller owns the per-platform limit. macOS arm64 stays at four
+            # because its hosted pool is routinely saturated; Windows and Linux
+            # use independent, higher limits so they do not queue behind it.
+            max-parallel: ${{ inputs.max_parallel }}
+            matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 360
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - name: Restore component cache
+              id: cache
+              uses: actions/cache@v4
+              with:
+                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
+                  key: toolchain-${{ matrix.target }}-${{ matrix.cache_key }}
+
+            # A warm cache needs only Node and the checkout. Verify the marker and claimed
+            # artifact before skipping the package-manager setup that a rebuild needs.
+            - name: Check restored component cache
+              id: cache-check
+              if: steps.cache.outputs.cache-hit == 'true'
+              continue-on-error: true
+              shell: bash
+              env:
+                  TARGET: ${{ matrix.target }}
+                  COMPONENT: ${{ matrix.id }}
+              run: |
+                  key="$(node scripts/toolchain-build.mjs --target "$TARGET" --component "$COMPONENT" --print-cache-key)"
+                  EXPECTED_CACHE_KEY="$key" node scripts/toolchain-cache-check.mjs
+
+            - name: Install Linux build tools
+              if: runner.os == 'Linux' && steps.cache-check.outcome != 'success'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    build-essential cmake ninja-build meson nasm yasm pkg-config \
+                    autoconf automake libtool ruby rake unzip \
+                    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+                    libogg-dev libvorbis-dev libflac-dev \
+                    libboost-filesystem-dev libboost-system-dev libgmp-dev \
+                    libboost-dev libebml-dev libmatroska-dev libpugixml-dev libfmt-dev \
+                    nlohmann-json3-dev qt6-base-dev qmake6 libvulkan-dev libshaderc-dev \
+                    glslang-tools spirv-tools docbook-xsl docbook-xml xsltproc
+
+            - name: Install macOS build tools
+              if: runner.os == 'macOS' && steps.cache-check.outcome != 'success'
+              run: |
+                  brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
+                    libogg libvorbis flac
+                  if [[ "${{ matrix.id }}" == "mkvmerge" ]]; then
+                    brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase docbook-xsl
+                  fi
+                  brew install vulkan-headers
+
+            - name: Install macOS Vship Vulkan tooling
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
+              run: brew install vulkan-loader glslang shaderc molten-vk || true
+
+            # MKVToolNix probes libogg with a raw -logg link rather than pkg-config, so
+            # Homebrew's prefix has to be on the compiler's search paths explicitly.
+            - name: Point macOS builds at Homebrew
+              if: runner.os == 'macOS' && steps.cache-check.outcome != 'success'
+              shell: bash
+              run: |
+                  prefix="$(brew --prefix)"
+                  {
+                    echo "CPPFLAGS=-I${prefix}/include"
+                    echo "LDFLAGS=-L${prefix}/lib"
+                    echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig"
+                    echo "CMAKE_PREFIX_PATH=${prefix}"
+                  } >> "$GITHUB_ENV"
+
+            - name: Point mac Vship at Homebrew's Vulkan SDK
+              if: matrix.id == 'metric:libvship' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
+              shell: bash
+              run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
+
+            # Homebrew's Qt installs qmake, while MKVToolNix looks for qmake6.
+            - name: Point mac MKVToolNix at Homebrew's Qt
+              if: matrix.id == 'mkvmerge' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
+              shell: bash
+              run: |
+                  echo "QMAKE6=$(brew --prefix qtbase)/bin/qmake" >> "$GITHUB_ENV"
+                  echo "BOOST_ROOT=$(brew --prefix boost)" >> "$GITHUB_ENV"
+                  echo "DOCBOOK_ROOT=$(brew --prefix docbook-xsl)/docbook-xsl" >> "$GITHUB_ENV"
+                  echo "XML_CATALOG_FILES=$(brew --prefix)/etc/xml/catalog" >> "$GITHUB_ENV"
+
+            - uses: msys2/setup-msys2@v2
+              id: msys2
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              with:
+                  msystem: UCRT64
+                  update: true
+                  install: >-
+                      mingw-w64-ucrt-x86_64-toolchain
+                      mingw-w64-ucrt-x86_64-cmake
+                      mingw-w64-ucrt-x86_64-ninja
+                      mingw-w64-ucrt-x86_64-nasm
+                      mingw-w64-ucrt-x86_64-pkgconf
+                      mingw-w64-ucrt-x86_64-autotools
+                      mingw-w64-ucrt-x86_64-meson
+                      mingw-w64-ucrt-x86_64-ffmpeg
+                      mingw-w64-ucrt-x86_64-libogg
+                      mingw-w64-ucrt-x86_64-libvorbis
+                      mingw-w64-ucrt-x86_64-flac
+                      mingw-w64-ucrt-x86_64-libiconv
+                      mingw-w64-ucrt-x86_64-zlib
+                      mingw-w64-ucrt-x86_64-boost
+                      mingw-w64-ucrt-x86_64-gmp
+                      mingw-w64-ucrt-x86_64-fmt
+                      mingw-w64-ucrt-x86_64-pugixml
+                      mingw-w64-ucrt-x86_64-nlohmann-json
+                      mingw-w64-ucrt-x86_64-utf8cpp
+                      mingw-w64-ucrt-x86_64-qt6-base
+                      mingw-w64-ucrt-x86_64-docbook-xsl
+                      mingw-w64-ucrt-x86_64-docbook-xml
+                      mingw-w64-ucrt-x86_64-libxslt
+                      make
+
+            # MKVToolNix's asset generator needs Inkscape and ImageMagick, and its
+            # rake target needs zsh. Keep them off the other Windows jobs: the
+            # Inkscape dependency tree is large, and a transient mirror failure
+            # here must not fail an unrelated encoder build.
+            - name: Install Windows MKV asset tools
+              if: matrix.id == 'mkvmerge' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  msys2="$(cygpath -u "$MSYS2_LOCATION")"
+                  for attempt in 1 2 3; do
+                    if "$msys2/usr/bin/bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-inkscape mingw-w64-ucrt-x86_64-imagemagick zsh"; then
+                      exit 0
+                    fi
+                    sleep 10
+                  done
+                  exit 1
+
+            # Ruby is only needed by MKVToolNix's rake build. Install it before the
+            # action's UCRT64 path is restored, because setup-ruby prepends its own
+            # MSYS2 tree to PATH.
+            - uses: ruby/setup-ruby@v1
+              if: matrix.id == 'mkvmerge' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              with:
+                  ruby-version: "3.3"
+
+            # The runner image also has a C:\msys64 UCRT64 tree. It must not shadow the
+            # action's installation, or pkg-config sees the image's libraries instead of
+            # the ones installed above.
+            - name: Put the action's MSYS2 UCRT64 tree on PATH
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  # GITHUB_PATH prepends in reverse order, so write the MSYS tree
+                  # first to keep the native UCRT64 toolchain ahead of /usr/bin.
+                  echo "${MSYS2_LOCATION}\\usr\\bin" >> "$GITHUB_PATH"
+                  echo "${MSYS2_LOCATION}\\ucrt64\\bin" >> "$GITHUB_PATH"
+
+            # xsltproc has no default catalog location on Windows. Point it at the
+            # catalog that the UCRT64 docbook packages installed, so the configure
+            # smoke test and the man-page build can resolve DocBook's DTD offline.
+            - name: Point Windows XML tools at the MSYS2 catalog
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  catalog="$(cygpath -m "$MSYS2_LOCATION")/ucrt64/etc/xml/catalog"
+                  echo "XML_CATALOG_FILES=${catalog}" >> "$GITHUB_ENV"
+
+            - uses: ilammy/msvc-dev-cmd@v1
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+
+            # MSYS2's /usr/bin contains a GNU link.exe. Cargo resolves the linker by
+            # name, so pin the Visual Studio one instead of letting that GNU link.exe
+            # receive MSVC arguments.
+            - name: Pin the MSVC linker for Cargo
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: pwsh
+              run: |
+                  $linker = Join-Path $env:VCToolsInstallDir 'bin\HostX64\x64\link.exe'
+                  if (-not (Test-Path $linker)) {
+                    throw "The MSVC linker was not found at $linker"
+                  }
+                  "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$linker" >> $env:GITHUB_ENV
+
+            # rav1e is the only component that invokes Cargo. Pin the workspace's Rust
+            # channel instead of relying on the runner image's ambient toolchain.
+            - uses: dtolnay/rust-toolchain@stable
+              if: matrix.id == 'encoder:rav1e' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              with:
+                  toolchain: "1.97"
+
+            - name: Install Vulkan SDK for Vship
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              run: choco install vulkan-sdk -y --no-progress
+
+            - name: Point Windows Vship at the Vulkan SDK
+              if: matrix.id == 'metric:libvship' && runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: pwsh
+              run: |
+                  $sdk = [Environment]::GetEnvironmentVariable('VULKAN_SDK', 'Machine')
+                  if ([string]::IsNullOrWhiteSpace($sdk)) {
+                    $sdk = Get-ChildItem (Join-Path $env:ProgramFiles 'VulkanSDK') `
+                      -Directory | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
+                  }
+                  if ([string]::IsNullOrWhiteSpace($sdk)) {
+                    throw 'The Vulkan SDK installation directory was not found'
+                  }
+                  "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
+
+            - uses: mlugg/setup-zig@v2
+              if: matrix.id == 'metric:fmetrics' && steps.cache-check.outcome != 'success'
+              with:
+                  version: "0.16.0"
+
+            # Surface PATH-resolution drift before a component fails deep in configure
+            # or CMake. `link` may expose the GNU shim; Cargo uses the pin above.
+            - name: Report resolved Windows build tools
+              if: runner.os == 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              run: |
+                  set -u
+                  for tool in bash gcc pkg-config make qmake6 link; do
+                    path="$(command -v "$tool" 2>/dev/null || true)"
+                    printf '%-12s %s\n' "$tool" "${path:-MISSING}"
+                  done
+                  printf '%-12s %s\n' 'cargo-link' "${CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER:-MISSING}"
+
+            - name: Build or reuse ${{ matrix.id }}
+              shell: bash
+              env:
+                  TARGET: ${{ matrix.target }}
+                  COMPONENT: ${{ matrix.id }}
+              run: node scripts/toolchain-build.mjs --target "$TARGET" --component "$COMPONENT"
+
+            - name: Upload component cache
+              uses: actions/upload-artifact@v4
+              with:
+                  name: component-${{ matrix.target }}-${{ matrix.cache_dir }}
+                  path: dist/toolchain-cache/${{ matrix.target }}/${{ matrix.cache_dir }}
+                  if-no-files-found: error
+                  retention-days: 7
+
+    assemble:
+        name: Assemble ${{ inputs.target }}
+        needs: component
+        runs-on: ${{ inputs.runner }}
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: component-${{ inputs.target }}-*
+                  path: dist/downloaded-components
+
+            - name: Restore component directories
+              shell: bash
+              env:
+                  TARGET: ${{ inputs.target }}
+              run: |
+                  mkdir -p "dist/toolchain-cache/${TARGET}"
+                  for directory in "dist/downloaded-components/component-${TARGET}-"*; do
+                    name="${directory##*/}"
+                    component="${name#component-${TARGET}-}"
+                    rm -rf "dist/toolchain-cache/${TARGET}/${component}"
+                    cp -R "$directory" "dist/toolchain-cache/${TARGET}/${component}"
+                  done
+
+            - name: Assemble target tree
+              shell: bash
+              env:
+                  TARGET: ${{ inputs.target }}
+              run: node scripts/toolchain-build.mjs --target "$TARGET" --assemble-only
+
+            - name: Upload target tree
+              uses: actions/upload-artifact@v4
+              with:
+                  name: toolchain-${{ inputs.target }}
+                  path: dist/cargo/toolchain/${{ inputs.target }}
+                  if-no-files-found: error
+                  retention-days: 7
+
+    package:
+        name: Package ${{ inputs.target }}
+        needs: assemble
+        if: inputs.package
+        runs-on: ${{ inputs.runner }}
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "26"
+                  cache: npm
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: "1.97.0"
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Install Linux Tauri dependencies
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 \
+                    libffms2-dev libboost-filesystem1.83.0 libpugixml1v5 libfmt9 libqt6core6t64
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: toolchain-${{ inputs.target }}
+                  path: dist/toolchain-target
+
+            - name: Verify the target tree against the committed lock
+              shell: bash
+              env:
+                  TARGET: ${{ inputs.target }}
+              run: |
+                  mkdir -p dist/toolchain-targets
+                  rm -rf "dist/toolchain-targets/${TARGET}"
+                  mv dist/toolchain-target "dist/toolchain-targets/${TARGET}"
+                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets --target "$TARGET" --check
+
+            - name: Verify the committed lock metadata
+              run: node scripts/toolchain-verify.mjs
+
+            - name: Stage bundled tools
+              run: node scripts/stage-tools.mjs --from dist/toolchain-targets/${{ inputs.target }} --out dist/tools
+
+            - run: npm ci
+            - name: Install FFMS2 development files
+              if: runner.os == 'Windows'
+              uses: ./.github/actions/install-ffms2
+
+            - name: Install FFMS2
+              if: runner.os == 'macOS'
+              shell: bash
+              run: |
+                  brew install ffms2
+                  prefix="$(brew --prefix ffms2)"
+                  echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+
+            - name: Stamp the release version
+              shell: bash
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+              run: node scripts/stamp-release-version.mjs --write --tag "$RELEASE_TAG" --sha "$(git rev-parse HEAD)"
+
+            - name: Build both release variants
+              shell: bash
+              env:
+                  MATRIX_BUNDLES: ${{ inputs.bundles }}
+                  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+              run: |
+                  set -euo pipefail
+                  export AV1ATION_BUNDLES="$MATRIX_BUNDLES"
+                  if [ "$RUNNER_OS" = "Windows" ] && [[ "$RELEASE_TAG" == *-* ]]; then
+                    export AV1ATION_BUNDLES=nsis
+                  fi
+                  npm run release:build -- --tag "$RELEASE_TAG" --branch main
+
+            - name: Validate package (install where supported)
+              run: node scripts/release-package-check.mjs
+
+            - uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: package-validation-${{ inputs.target }}
+                  path: dist/release/package-validation.json
+                  if-no-files-found: warn
+                  retention-days: 14
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: release-${{ inputs.target }}
+                  path: dist/release
+                  if-no-files-found: error
+                  retention-days: 14
