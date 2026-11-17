@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useTransport } from "@av1ation/api";
+import { useActiveRun, useTransport } from "@av1ation/api";
 
 import { Button } from "../shared/Button";
 
@@ -16,12 +16,31 @@ import { Button } from "../shared/Button";
  */
 export function QuitGuard() {
     const transport = useTransport();
+    const activeRun = useActiveRun();
     const [open, setOpen] = useState(false);
     const dialog = useRef<HTMLDialogElement>(null);
 
-    useEffect(() => {
-        return transport.onQuitRequest?.(() => setOpen(true)) ?? undefined;
+    const quit = useCallback(() => {
+        setOpen(false);
+        void transport.quit?.().catch(() => {
+            // The host is going away; a failed quit leaves the window open and the run intact.
+        });
     }, [transport]);
+
+    useEffect(() => {
+        return (
+            transport.onQuitRequest?.(() => {
+                // The native host always intercepts close so it can cancel a run first. With
+                // no run there is nothing to cancel, so asking would only teach the user to
+                // dismiss the guard. Unsaved drafts have their own router guard.
+                if (activeRun === null) {
+                    quit();
+                    return;
+                }
+                setOpen(true);
+            }) ?? undefined
+        );
+    }, [transport, activeRun, quit]);
 
     useEffect(() => {
         const element = dialog.current;
@@ -35,13 +54,6 @@ export function QuitGuard() {
             element.close();
         }
     }, [open]);
-
-    const quit = () => {
-        setOpen(false);
-        void transport.quit?.().catch(() => {
-            // The host is going away; a failed quit leaves the window open and the run intact.
-        });
-    };
 
     return (
         <dialog
