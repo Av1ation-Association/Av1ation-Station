@@ -76,12 +76,12 @@ test profiles.
 | `npm run release:weekly-tag -- --date <YYYYMMDD>` | Decide whether the tested HEAD should receive a weekly tag; skips documentation-only changes and existing dates. Does not create a tag; the weekly workflow checks readiness separately. |
 | `npm run release:website` | Project the checked-in published release manifest into the website's generated release metadata. |
 | `npm run check:website-release -- --urls` | Fail when the generated metadata is stale or a linked download is missing or has a different size on GitHub. |
-| `npm run toolchain:lock` | Hash the four built target trees into `packaging/toolchain.lock.json`; refuses a partial or missing target. |
+| `npm run toolchain:lock` | Hash the three built target trees into `packaging/toolchain.lock.json`; refuses a partial or missing target. |
 | `npm run toolchain:check` | Validate the reviewed manifest and recipe paths without requiring a lock. |
 | `npm run toolchain:plan` | Print the component/target build matrix with its cache keys. |
 | `npm run toolchain:build -- --target <triple>` | Build one target component by component, reusing each component cache when its recipe, builder and target are unchanged. |
 | `npm run toolchain:stage -- --target <triple>` | Assemble a target tree from existing component caches. |
-| `npm run toolchain:verify` | Fail closed unless the manifest and complete four-target lock are present and internally consistent. |
+| `npm run toolchain:verify` | Fail closed unless the manifest and complete three-target lock are present and internally consistent. |
 | `npm run clean:outputs` | Remove transient generated output. |
 | `npm run clean:target` | Clean the Cargo target tree. |
 | `npm run stage:tools` | Stage the release toolchain tree, including the full provider set on every target. |

@@ -17,9 +17,6 @@ function wheelTag(target) {
     if (target === "aarch64-apple-darwin") {
         return "macosx_13_0_arm64";
     }
-    if (target === "x86_64-apple-darwin") {
-        return "macosx_13_0_x86_64";
-    }
     return "manylinux_2_28_x86_64";
 }
 

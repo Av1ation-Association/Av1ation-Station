@@ -56,8 +56,6 @@ async fn toolchain_summary_matches_the_reviewed_lock() {
         "x86_64-pc-windows-msvc"
     } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
         "aarch64-apple-darwin"
-    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        "x86_64-apple-darwin"
     } else {
         "x86_64-unknown-linux-gnu"
     };

@@ -4,7 +4,7 @@
     "gates": {
         "transitive-notices": {
             "status": "pass",
-            "evidence": "Hosted runs 43808022233 and 43822686084 assembled all target trees against the committed lock. release:audit --tools read each staged tree: 73 Python/plugin packages on Windows and Linux and 74 on each macOS target, with 98 licence texts per target; PYTHON_NOTICES.md and PYTHON-LICENSES.txt were generated for all four targets. The fmetrics fork commit ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac, upstream base e8bf3cfe06fb78f51864804b2f7003667d4c5a71 and recipe digest 5b7b7a8d928a398ff0fbf8856143982b154b56fbffae634b496190fea544fa12 are present in each SOURCE-OFFER.md. The audit checks pass.",
+            "evidence": "Hosted runs 43808022233 and 43822686084 assembled all target trees against the committed lock. release:audit --tools read each staged tree: 73 Python/plugin packages on Windows and Linux and 74 on the macOS target, with 98 licence texts per target; PYTHON_NOTICES.md and PYTHON-LICENSES.txt were generated for all three targets. The fmetrics fork commit ae87c8e5607063f0dcc8241b52cb143f6c9ad4ac, upstream base e8bf3cfe06fb78f51864804b2f7003667d4c5a71 and recipe digest 5b7b7a8d928a398ff0fbf8856143982b154b56fbffae634b496190fea544fa12 are present in each SOURCE-OFFER.md. The audit checks pass.",
             "verified_at": "2026-11-16"
         }
     }

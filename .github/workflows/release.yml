@@ -167,7 +167,7 @@ jobs:
                     rm -rf "dist/toolchain-targets/${target}"
                     mv "$directory" "dist/toolchain-targets/${target}"
                   done
-                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu; do
+                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-unknown-linux-gnu; do
                     test -d "dist/toolchain-targets/${target}/tools/python" || {
                       echo "missing staged Python tree for ${target}" >&2
                       exit 1
@@ -213,7 +213,7 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu; do
+                  for target in x86_64-pc-windows-msvc aarch64-apple-darwin x86_64-unknown-linux-gnu; do
                     for file in toolchain.lock.json THIRD_PARTY_NOTICES.md PYTHON_NOTICES.md PYTHON-LICENSES.txt sbom.spdx.json SOURCE-OFFER.md; do
                       cp "dist/release/audit/$target/$file" "dist/release/assets/$target-$file"
                     done

@@ -86,15 +86,16 @@ function archFromName(name) {
 
 function platformInfo(os, arch) {
     const normalizedArch = normalizeArch(arch);
+    if (os === "macos" && normalizedArch !== "arm64") {
+        throw new Error(`unsupported macOS architecture: ${normalizedArch}`);
+    }
     const target =
         os === "windows"
             ? normalizedArch === "arm64"
                 ? "aarch64-pc-windows-msvc"
                 : "x86_64-pc-windows-msvc"
             : os === "macos"
-              ? normalizedArch === "arm64"
-                  ? "aarch64-apple-darwin"
-                  : "x86_64-apple-darwin"
+              ? "aarch64-apple-darwin"
               : normalizedArch === "arm64"
                 ? "aarch64-unknown-linux-gnu"
                 : "x86_64-unknown-linux-gnu";

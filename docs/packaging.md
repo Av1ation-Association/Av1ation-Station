@@ -66,7 +66,9 @@ as an error, and the Dependencies screen offers System only for that row.
 
 Every upstream artefact above is pinned by version **and** content hash. `metric:libvship` is
 built from its pinned source because its Codeberg releases are not a stable, machine-readable
-wheel channel. The build must expose the handler C API (`Vship_InitHandler`,
+wheel channel.
+
+`metric:libvship`'s build must expose the handler C API (`Vship_InitHandler`,
 `Vship_ComputeHandler`, `Vship_Reset`); 5.1.1 is the oldest version that does. A library that
 loads but reports an incompatible API is rejected, which leaves the perceptual metrics on
 fmetrics.
@@ -74,16 +76,15 @@ fmetrics.
 The Python pin is 3.14 because that is the version VapourSynth targets, not because it is
 the newest. R82's module is `cp312-abi3` with `requires-python >=3.12` and no upper bound,
 and PyPI publishes it for Windows x64, Linux x86_64 (`manylinux_2_27`/`manylinux_2_28`) and
-macOS 13+ arm64 and x64. The recipe installs the target wheel into the pinned interpreter.
+macOS 13+ arm64. The recipe installs the target wheel into the pinned interpreter.
 Upstream's installation guide names 3.12 and later, including 3.14. `vsjetpack` 3.0.0
 requires Python 3.13 or newer and is installed with `--extra-index-url` pointing at the
 vs-wheels simple index as well as PyPI.
 
 `vsjetpack` is pure Python, but its extras are not: their native wheels do not cover every
 target equally. Windows x64 and Linux x86_64 carry the complete `full`, `gpu`, `cl` and
-`vulkan` set. macOS arm64 carries it; macOS x64 has no `hysteresis`, `mlrt-ncnn` or
-`vs-placebo` wheel in 3.0.0, so the recipe builds those from the pinned sources. The lock and
-About row name any omission rather than claiming a plugin that is not there. The hosted
+`vulkan` set. macOS arm64 carries it. The lock and About row name any omission rather than
+claiming a plugin that is not there. The hosted
 package job installs and removes the Windows/Linux payload; a full plugin import smoke remains
 part of the deferred clean-VM matrix. A plugin wheel that does not publish a 3.14 build is the
 one input that can move the pin back, and it must be recorded in the lock. The extra also pulls
@@ -330,7 +331,6 @@ Two checked-in files and a recipe directory produce the bundle:
       "artifacts": {
         "x86_64-pc-windows-msvc": { "install": "tools/bin/SvtAv1EncApp.exe" },
         "aarch64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
-        "x86_64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
         "x86_64-unknown-linux-gnu": { "install": "tools/bin/SvtAv1EncApp" }
       }
     },
@@ -349,9 +349,6 @@ Two checked-in files and a recipe directory produce the bundle:
           "install": "tools/python/Lib/site-packages/vapoursynth"
         },
         "aarch64-apple-darwin": {
-          "install": "tools/python/lib/python3.14/site-packages/vapoursynth"
-        },
-        "x86_64-apple-darwin": {
           "install": "tools/python/lib/python3.14/site-packages/vapoursynth"
         },
         "x86_64-unknown-linux-gnu": {
@@ -380,12 +377,12 @@ immutable.
    path claimed by that target's `artifacts` map.
 3. Run `npm run toolchain:lock` (or `npm run toolchain:lock -- --from <directory>`). It hashes
    the actual files, records the manifest's immutable source references, and writes the lock.
-   It refuses to write unless all four target directories and every claimed artifact exist,
+   It refuses to write unless all three target directories and every claimed artifact exist,
    each artifact is non-empty, and each target has no duplicate install path.
 4. Review the lock diff as part of the pull request. The diff is the audit trail: a version
    change is a few lines, not a committed binary.
 5. Run `npm run toolchain:verify`. It checks manifest shape, immutable source refs, unhashed
-   artifacts, lock revision/hash agreement, all four targets, component
+   artifacts, lock revision/hash agreement, all three targets, component
    version/licence/source agreement, install paths under `tools/`, and duplicate install
    paths. It does not inspect wheel tags, SPDX licence IDs, build-tool versions, patch
    ancestry, or provider semantics.
@@ -460,14 +457,14 @@ manifest; a stale or partial directory is rebuilt instead of trusted.
 | `validate` | manifest shape, immutable source refs, recipe presence, recipe syntax | every push that touches packaging |
 | `plan` | emit the component/target matrix and each component cache key | every run |
 | `component` (matrix over every target and component) | build or restore one component; upload its cache directory | every toolchain run |
-| `assemble` (matrix: `windows-2025`, `macos-15`, `macos-15-intel`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
-| `lock` | run `toolchain:lock --check` over the four target artifacts; fail on drift from the committed lock | after assembly |
-| `package` | verify the target tree against the committed lock, stage it into `dist/tools`, build the channel's Tauri variants, upload installers | manual dispatch with `package`, or a tag-driven `release.yml` call; the committed lock is the only packaging input |
+| `assemble` (matrix: `windows-2025`, `macos-15`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
+| `lock` | run `toolchain:lock --check` over the three target artifacts; fail on drift from the committed lock | after assembly |
+| `package` (matrix over published targets) | verify the target tree against the committed lock, stage it into `dist/tools`, build the channel's Tauri variants, upload installers | manual dispatch with `package`, or a tag-driven `release.yml` call; the committed lock is the only packaging input |
 
 The component job is a matrix, not one job that builds a whole target on one runner. Each
 leg restores only its own cache directory; the Windows leg runs on `windows-2025`; the macOS
-legs are native thin builds (`macos-15` arm64 and `macos-15-intel` x64), never a universal
-binary; Linux builds on `ubuntu-24.04`, not `ubuntu-latest`, so the glibc floor does not
+leg is a native thin arm64 build (`macos-15`), never a universal binary; Linux builds on
+`ubuntu-24.04`, not `ubuntu-latest`, so the glibc floor does not
 drift with the runner image. The engine's prebuilt ONNX Runtime requires glibc 2.38; the
 Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 
@@ -482,7 +479,8 @@ legs build MSI, NSIS and the portable; weekly and RC legs build NSIS and the por
 Certificate-based code signing is **not planned**. The hosted package job produces unsigned
 artifacts on Windows and Linux and ad-hoc-signed artifacts on macOS. On macOS, every nested
 Mach-O — `python3`, `libpython`, `libvsscript`, ffms2, the metric libraries, VapourSynth
-plugins and extension modules — is ad-hoc signed inside-out before the `.app`; the result is
+plugins and extension modules — is ad-hoc signed
+inside-out before the `.app`; the result is
 not notarised and remains unverified because no macOS host is available. `codesign --deep`
 is not a substitute for signing inside-out. On Linux the recipes strip symbols and publish
 the ELF files with their SONAME/rpath intact; the `.deb` declares its WebKitGTK dependency
@@ -554,19 +552,18 @@ shown only in the local process's dependency rows.
 | Windows x64 (`x86_64-pc-windows-msvc`) | full bundle, primary, Windows 10/11 | bundled |
 | Linux x64 (`x86_64-unknown-linux-gnu`) | full bundle, secondary | bundled |
 | macOS arm64 (`aarch64-apple-darwin`) | best-effort full bundle, unverified | bundled; install/signing unverified |
-| macOS x64 (`x86_64-apple-darwin`) | best-effort full bundle, unverified | bundled; install/signing unverified |
 | Windows arm64 (`aarch64-pc-windows-msvc`) | not supported | no wheel |
 | Linux arm64 (`aarch64-unknown-linux-gnu`) | out of Phase 5; possible later with a reduced plugin set | wheel exists, plugin coverage is uneven |
 
-All four targets build. Windows and Linux carry the executable toolchain, VapourSynth/Python,
-and the native metrics; the package job validates install, size, and one-run uninstall on each
-hosted runner. macOS builds the same bundle on hosted runners but is **best-effort**: its
-installed tree, ad-hoc signing, and runtime behaviour are unverified because no macOS host is
-available.
+All three toolchain targets build, and release packages Windows x64, Linux x64, and macOS
+arm64. Windows and Linux carry the executable toolchain, VapourSynth/Python, and the native
+metrics; the package job validates install, size, and one-run uninstall on each hosted runner.
+macOS arm64 builds the same bundle on hosted runners but is **best-effort**: its installed
+tree, ad-hoc signing, and runtime behaviour are unverified because no macOS host is available.
 
 The macOS floor is **15.0**, because the vsjetpack plugin wheels are `macosx_15_0`; the
 VapourSynth and Python wheels themselves begin at `macosx_13_0`. macOS installers are thin
-(arm64 and x64), never universal. A Mac before 15 cannot load the bundled plugin wheels.
+(arm64), never universal. A Mac before 15 cannot load the bundled plugin wheels.
 
 The Linux floor is Ubuntu 24.04 / Debian 13. The engine's prebuilt ONNX Runtime requires
 glibc 2.38, and the current Ubuntu 24.04 build emits GLIBC_2.39 symbols; the effective
@@ -692,10 +689,8 @@ by component and by target:
   probe; macOS/Linux need `bin/python3` and a linkable `libpython`. The portable CPython tree
   is the layout upstream tests on every target.
 - **One toolchain archive shared by every target.** Python, VapourSynth, plugins, encoders and
-  metrics are native; a single archive would either ship unusable binaries or grow to four
+  metrics are native; a single archive would either ship unusable binaries or grow to three
   copies. The lock and staging tree are per target.
-- **A universal macOS binary.** The Python, VapourSynth and plugin wheels are architecture-
-  specific. Two thin installers are smaller and simpler than one bundle carrying both trees.
 - **Bundling WebKitGTK under `<tools>`.** It is the OS webview and is not part of the
   VapourSynth/Python unit; the `.deb` dependency and the baseline AppImage are the supported
   route.

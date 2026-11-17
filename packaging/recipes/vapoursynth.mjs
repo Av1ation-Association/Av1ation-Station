@@ -21,10 +21,6 @@ const cpython = {
         url: "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10%2B20261110-aarch64-apple-darwin-install_only.tar.gz",
         sha256: "42031ed5f0d38777335252c8c77d64708c8010dd67c128246bdec25000672666",
     },
-    "x86_64-apple-darwin": {
-        url: "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10%2B20261110-x86_64-apple-darwin-install_only.tar.gz",
-        sha256: "f6c82fcf867b4aaadd373ac97699ad95fbb9c96f9ecf9b25775943aa5458b87f",
-    },
     "x86_64-unknown-linux-gnu": {
         url: "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10%2B20261110-x86_64-unknown-linux-gnu-install_only.tar.gz",
         sha256: "3fe0d7c0538eb5d190c34582992d26230532551355cbd789fabc6591621cfc07",
@@ -153,27 +149,6 @@ export default async function build({ target, workDir, outputDir, component, log
         CUSTOM_INDEX,
         "vapoursynth==82",
         `vapoursynth-ffms2==${ffms2}`,
-    ]);
-    // The macOS x64 plugin set has sdists but no wheels for a few plugins. Install the core
-    // first so a source build can find the VapourSynth headers and library, and keep the
-    // build backends in the environment for the non-isolated build.
-    run(python, [
-        "-m",
-        "pip",
-        "install",
-        "--disable-pip-version-check",
-        "--no-cache-dir",
-        "--no-input",
-        "--no-warn-script-location",
-        "--prefer-binary",
-        "setuptools",
-        "setuptools-scm",
-        "wheel",
-        "hatchling",
-        "hatch-fancy-pypi-readme",
-        "meson-python",
-        "scikit-build-core",
-        "setuptools-rust",
     ]);
     run(python, [
         "-m",

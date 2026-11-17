@@ -44,13 +44,13 @@ surface. This entry remains until the live comparison is recorded.
 remain in the build and release matrix, but its install, ad-hoc signing, and runtime cannot be
 verified here. The updater key has no owner-accessible provisioning path.
 
-**Decision.** Phase 5 builds and publishes Windows x64, Linux x64, and macOS arm64/x64. The
+**Decision.** Phase 5 builds and publishes Windows x64, Linux x64, and macOS arm64. The
 hosted package job validates Windows/Linux installs and uninstalls, records macOS artifact
 sizes, and does not claim macOS install or signing verification. macOS is labelled
 best-effort and unverified; no macOS pass is a release gate. The updater remains deferred and
 publishes no `latest.json`. Clean-VM and the manual release plan are deferred as v0.1 gates.
 
-**Consequences.** `docs/releases.md` owns the four-target matrix and the best-effort macOS
+**Consequences.** `docs/releases.md` owns the three-target matrix and the best-effort macOS
 labels; `docs/packaging.md` records the unverified macOS bundle; `docs/progress.md` marks
 5.8/5.25/5.26 as partial and 5.6/5.13 as deferred. The package job keeps macOS artifacts in
 the release but does not require a macOS host to pass it.

@@ -165,18 +165,11 @@ jobs:
                   if [[ "${{ matrix.id }}" == "mkvmerge" ]]; then
                     brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase docbook-xsl
                   fi
-                  if [[ "${{ matrix.id }}" == "vapoursynth" && "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
-                    brew install ncnn protobuf onnx libomp
-                  fi
                   brew install vulkan-headers
 
             - name: Install macOS Vship Vulkan tooling
               if: matrix.id == 'metric:libvship' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               run: brew install vulkan-loader glslang shaderc molten-vk || true
-
-            - name: Install macOS VapourSynth Vulkan tooling
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
-              run: brew install vulkan-loader
 
             # MKVToolNix probes libogg with a raw -logg link rather than pkg-config, so
             # Homebrew's prefix has to be on the compiler's search paths explicitly.
@@ -206,20 +199,6 @@ jobs:
                   echo "BOOST_ROOT=$(brew --prefix boost)" >> "$GITHUB_ENV"
                   echo "DOCBOOK_ROOT=$(brew --prefix docbook-xsl)/docbook-xsl" >> "$GITHUB_ENV"
                   echo "XML_CATALOG_FILES=$(brew --prefix)/etc/xml/catalog" >> "$GITHUB_ENV"
-
-            - name: Point mac VapourSynth x64 at Homebrew's OpenMP
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
-              shell: bash
-              run: |
-                  libomp="$(brew --prefix libomp)"
-                  echo "OpenMP_ROOT=${libomp}" >> "$GITHUB_ENV"
-                  echo "CPATH=${libomp}/include${CPATH:+:${CPATH}}" >> "$GITHUB_ENV"
-                  echo "LDFLAGS=${LDFLAGS} -L${libomp}/lib" >> "$GITHUB_ENV"
-
-            - name: Point mac VapourSynth at Homebrew's Vulkan SDK
-              if: matrix.id == 'vapoursynth' && matrix.target == 'x86_64-apple-darwin' && runner.os == 'macOS' && steps.cache-check.outcome != 'success'
-              shell: bash
-              run: echo "VULKAN_SDK=$(brew --prefix)" >> "$GITHUB_ENV"
 
             - uses: msys2/setup-msys2@v2
               id: msys2
@@ -391,8 +370,6 @@ jobs:
                       runner: windows-2025
                     - target: aarch64-apple-darwin
                       runner: macos-15
-                    - target: x86_64-apple-darwin
-                      runner: macos-15-intel
                     - target: x86_64-unknown-linux-gnu
                       runner: ubuntu-24.04
         runs-on: ${{ matrix.runner }}
@@ -480,9 +457,6 @@ jobs:
                       bundles: nsis,msi
                     - target: aarch64-apple-darwin
                       runner: macos-15
-                      bundles: dmg,app
-                    - target: x86_64-apple-darwin
-                      runner: macos-15-intel
                       bundles: dmg,app
                     - target: x86_64-unknown-linux-gnu
                       runner: ubuntu-24.04

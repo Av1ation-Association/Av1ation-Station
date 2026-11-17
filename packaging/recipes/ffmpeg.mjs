@@ -32,8 +32,6 @@ export default async function build({ target, workDir, outputDir, component }) {
         args.push("--toolchain=msvc", "--arch=x86_64");
     } else if (target === "aarch64-apple-darwin") {
         args.push("--arch=arm64");
-    } else if (target === "x86_64-apple-darwin") {
-        args.push("--arch=x86_64");
     } else {
         args.push("--arch=x86_64");
     }

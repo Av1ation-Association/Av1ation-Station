@@ -29,7 +29,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/python" },
                 "aarch64-apple-darwin": { "install": "tools/python" },
-                "x86_64-apple-darwin": { "install": "tools/python" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/python" }
             }
         },
@@ -55,9 +54,6 @@
                 "aarch64-apple-darwin": {
                     "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
                 },
-                "x86_64-apple-darwin": {
-                    "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
-                },
                 "x86_64-unknown-linux-gnu": {
                     "install": "tools/python/lib/python3.14/site-packages/vapoursynth/plugins"
                 }
@@ -78,7 +74,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/lib/ffms2.dll" },
                 "aarch64-apple-darwin": { "install": "tools/lib/libffms2.dylib" },
-                "x86_64-apple-darwin": { "install": "tools/lib/libffms2.dylib" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/lib/libffms2.so" }
             }
         },
@@ -97,7 +92,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/aomenc.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/aomenc" },
-                "x86_64-apple-darwin": { "install": "tools/bin/aomenc" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/aomenc" }
             }
         },
@@ -116,7 +110,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/SvtAv1EncApp.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
-                "x86_64-apple-darwin": { "install": "tools/bin/SvtAv1EncApp" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/SvtAv1EncApp" }
             }
         },
@@ -135,7 +128,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/rav1e.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/rav1e" },
-                "x86_64-apple-darwin": { "install": "tools/bin/rav1e" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/rav1e" }
             }
         },
@@ -154,7 +146,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/vpxenc.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/vpxenc" },
-                "x86_64-apple-darwin": { "install": "tools/bin/vpxenc" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/vpxenc" }
             }
         },
@@ -173,7 +164,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/avmenc.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/avmenc" },
-                "x86_64-apple-darwin": { "install": "tools/bin/avmenc" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/avmenc" }
             }
         },
@@ -194,7 +184,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/x264.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/x264" },
-                "x86_64-apple-darwin": { "install": "tools/bin/x264" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/x264" }
             }
         },
@@ -213,7 +202,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/x265.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/x265" },
-                "x86_64-apple-darwin": { "install": "tools/bin/x265" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/x265" }
             }
         },
@@ -232,7 +220,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/vvencapp.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/vvencapp" },
-                "x86_64-apple-darwin": { "install": "tools/bin/vvencapp" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/vvencapp" }
             }
         },
@@ -257,7 +244,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/ffmpeg.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/ffmpeg" },
-                "x86_64-apple-darwin": { "install": "tools/bin/ffmpeg" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/ffmpeg" }
             }
         },
@@ -279,7 +265,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/bin/mkvmerge.exe" },
                 "aarch64-apple-darwin": { "install": "tools/bin/mkvmerge" },
-                "x86_64-apple-darwin": { "install": "tools/bin/mkvmerge" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/bin/mkvmerge" }
             }
         },
@@ -297,7 +282,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/model/transnetv2.onnx" },
                 "aarch64-apple-darwin": { "install": "tools/model/transnetv2.onnx" },
-                "x86_64-apple-darwin": { "install": "tools/model/transnetv2.onnx" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/model/transnetv2.onnx" }
             }
         },
@@ -316,7 +300,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/lib/libvmaf.dll" },
                 "aarch64-apple-darwin": { "install": "tools/lib/libvmaf.dylib" },
-                "x86_64-apple-darwin": { "install": "tools/lib/libvmaf.dylib" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/lib/libvmaf.so" }
             }
         },
@@ -341,7 +324,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/lib/fmetrics.dll" },
                 "aarch64-apple-darwin": { "install": "tools/lib/libfmetrics.dylib" },
-                "x86_64-apple-darwin": { "install": "tools/lib/libfmetrics.dylib" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/lib/libfmetrics.so" }
             }
         },
@@ -360,7 +342,6 @@
             "artifacts": {
                 "x86_64-pc-windows-msvc": { "install": "tools/lib/libvship.dll" },
                 "aarch64-apple-darwin": { "install": "tools/lib/libvship.dylib" },
-                "x86_64-apple-darwin": { "install": "tools/lib/libvship.dylib" },
                 "x86_64-unknown-linux-gnu": { "install": "tools/lib/libvship.so" }
             }
         }

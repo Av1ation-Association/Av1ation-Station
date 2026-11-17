@@ -9,7 +9,7 @@ The release gate is **closed** until the hosted package validation and a tagged 
 pass. Windows and Linux installs are validated. macOS is built and published **best-effort**:
 without a macOS host or certificate, its install, ad-hoc signing, and runtime behaviour are
 not guaranteed. The updater is deferred, so no `latest.json` is produced. The reviewed
-manifest, recipes, four-target lock, reusable toolchain and security workflows, the tag-driven
+manifest, recipes, three-target lock, reusable toolchain and security workflows, the tag-driven
 `release.yml`, and the readiness record are present. The local artifacts under `dist/release/`
 are development evidence, not release candidates.
 
@@ -137,16 +137,15 @@ numeric version required by the Windows MSI installer; see [Artifact formats](#a
 | Windows x64 | `x86_64-pc-windows-msvc` | bundled, system | Full bundled set on Windows | `windows-2025` |
 | Linux x64 | `x86_64-unknown-linux-gnu` | bundled, system | Full bundled set, including VapourSynth/Python and native metrics | `ubuntu-24.04` |
 | macOS arm64 | `aarch64-apple-darwin` | bundled, system | Best-effort full set; install and signing unverified | `macos-15` |
-| macOS x64 | `x86_64-apple-darwin` | bundled, system | Best-effort full set; install and signing unverified | `macos-15-intel` |
 
-Every channel builds both variants for all four targets. The current local artifacts are not
-release candidates: they predate the lock, and the observed Windows artifact lacks providers
+Every channel builds both variants for the three supported targets. The current local
+artifacts are not release candidates: they predate the lock, and the observed Windows artifact lacks providers
 the contract claims. No target is called full until its lock passes. Windows/Linux installs
-are validated; macOS is published best-effort and is not a guaranteed-support target. A
+are validated; macOS arm64 is published best-effort and is not a guaranteed-support target. A
 bundle is not renamed to imply a capability it does not carry.
 
-Excluded targets are Windows arm64 and Linux arm64. macOS arm64 and x64 are thin builds,
-never universal, and are unverified. Linux is Ubuntu 24.04 / Debian 13 with glibc 2.39;
+Excluded release targets are Windows arm64 and Linux arm64. macOS arm64 is a
+thin build, never universal, and is unverified. Linux is Ubuntu 24.04 / Debian 13 with glibc 2.39;
 Ubuntu 22.04 and Debian 12 are not supported release baselines.
 
 ## Artifact formats
@@ -232,7 +231,7 @@ target: provenance URL, SHA-256, size, install path, the file list for directory
 and a target-tree digest that covers runtime files staged beside an executable. The lock is
 generated, never hand-written.
 
-`npm run toolchain:lock` reads the reviewed manifest and four built target trees, hashes the
+`npm run toolchain:lock` reads the reviewed manifest and three built target trees, hashes the
 actual files, and writes the lock. Its default input is `dist/cargo/toolchain/<target>/`; use
 `--from <directory>` when the trees are elsewhere. It refuses to write unless every target
 directory exists, every claimed artifact is present and non-empty, and every target has at
@@ -244,7 +243,7 @@ which is what each package leg runs.
 `npm run toolchain:verify` is the local and CI check after generation. It fails closed when:
 
 - `packaging/toolchain.json` or `packaging/toolchain.lock.json` is absent;
-- any of the four release targets is absent from the lock;
+- any of the three release targets is absent from the lock;
 - a source is a branch, `latest`, or an unhashed URL;
 - a claimed component has no artifact for a target;
 - a lock component disagrees with the manifest's version, licence, or source;
@@ -264,7 +263,7 @@ auto-bumped from upstream tags. A component with no stable, machine-readable sou
 claimed as bundled for that target.
 
 The reviewed `packaging/toolchain.json` and `packaging/toolchain.lock.json` are present.
-`npm run toolchain:verify` passes for all four targets; the remaining release gates are
+`npm run toolchain:verify` passes for all three targets; the remaining release gates are
 outside the lock. The existing `dist/tools` tree is not a lock and cannot substitute for it.
 
 ## Update policy
@@ -351,7 +350,7 @@ The following are unresolved and block publication:
 
 1. **No hosted tag run.** `release.yml`, the package validation, and the audit and security
    gates are present, but no tag has been created or exercised. Run 43808022233 generated
-   `packaging/toolchain.lock.json` for all four targets, and it passes `toolchain:verify`.
+   `packaging/toolchain.lock.json` for all three targets, and it passes `toolchain:verify`.
 2. **Hosted package validation has not run.** `release-package-check.mjs` is wired into the
    Windows and Linux package jobs; it measures compressed and installed sizes, installs each
    variant, and requires a one-run uninstall. Local Windows evidence exists for both variants;

@@ -41,7 +41,6 @@ const markerVersion = 1;
 const runners = {
     "x86_64-pc-windows-msvc": "windows-2025",
     "aarch64-apple-darwin": "macos-15",
-    "x86_64-apple-darwin": "macos-15-intel",
     "x86_64-unknown-linux-gnu": "ubuntu-24.04",
 };
 
@@ -51,9 +50,6 @@ const hostTarget = (() => {
     }
     if (process.platform === "darwin" && process.arch === "arm64") {
         return "aarch64-apple-darwin";
-    }
-    if (process.platform === "darwin" && process.arch === "x64") {
-        return "x86_64-apple-darwin";
     }
     if (process.platform === "linux" && process.arch === "x64") {
         return "x86_64-unknown-linux-gnu";
@@ -418,7 +414,7 @@ async function main() {
         return;
     }
     if (target === null) {
-        fail("this host is not one of the four release targets; pass --target");
+        fail("this host is not one of the supported release targets; pass --target");
     }
     if (!TARGET_SET.has(target)) {
         fail(`unknown target: ${target}`);

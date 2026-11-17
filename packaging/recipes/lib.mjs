@@ -22,7 +22,7 @@ export function platform(target) {
     if (target === "x86_64-pc-windows-msvc") {
         return "win32";
     }
-    if (target === "aarch64-apple-darwin" || target === "x86_64-apple-darwin") {
+    if (target === "aarch64-apple-darwin") {
         return "darwin";
     }
     return "linux";

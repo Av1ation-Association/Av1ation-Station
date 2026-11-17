@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe("toolchain lock fixtures", () => {
-    it("writes a lock that the verifier accepts for four valid targets", () => {
+    it("writes a lock that the verifier accepts for every valid target", () => {
         const root = fixture([
             { id: "encoder:test", version: "1.0.0", license: "MIT", provides: ["encode:test"] },
         ]);
