@@ -7,6 +7,7 @@ import {
     lazyRouteComponent,
 } from "@tanstack/react-router";
 
+import { MonacoRouteSkeleton } from "../shared/MonacoRouteSkeleton";
 import { AppShell } from "./AppShell";
 import { NotFoundScreen } from "./NotFoundScreen";
 // Include the TanStack static-data augmentation for every host that mounts this tree.
@@ -19,6 +20,31 @@ const rootRoute = createRootRoute({
     notFoundComponent: NotFoundScreen,
     staticData: ROUTE_META["/"],
 });
+
+/**
+ * The script and JSON routes carry Monaco in their lazy chunk. The router's `intent`
+ * preload warms that chunk on hover or focus; a direct visit paints this skeleton instead
+ * of holding the previous screen until the editor runtime arrives.
+ */
+function ScriptEditorPending() {
+    return <MonacoRouteSkeleton side />;
+}
+
+function JsonEditorPending() {
+    return <MonacoRouteSkeleton />;
+}
+
+const SCRIPT_EDITOR_PENDING = {
+    pendingComponent: ScriptEditorPending,
+    pendingMs: 0,
+    pendingMinMs: 0,
+} as const;
+
+const JSON_EDITOR_PENDING = {
+    pendingComponent: JsonEditorPending,
+    pendingMs: 0,
+    pendingMinMs: 0,
+} as const;
 
 const homeRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -106,6 +132,7 @@ const videoLogsRoute = createRoute({
 const videoScriptEditorRoute = createRoute({
     getParentRoute: () => rootRoute,
     ...routeFor("/projects/$projectId/videos/$videoId/script"),
+    ...SCRIPT_EDITOR_PENDING,
     component: lazyRouteComponent(
         () => import("../features/script/VideoScriptEditorScreen"),
         "VideoScriptEditorScreen",
@@ -115,6 +142,7 @@ const videoScriptEditorRoute = createRoute({
 const scriptEditorRoute = createRoute({
     getParentRoute: () => rootRoute,
     ...routeFor("/projects/$projectId/config/script"),
+    ...SCRIPT_EDITOR_PENDING,
     component: lazyRouteComponent(
         () => import("../features/script/ScriptEditorScreen"),
         "ScriptEditorScreen",
@@ -124,6 +152,7 @@ const scriptEditorRoute = createRoute({
 const templateScriptRoute = createRoute({
     getParentRoute: () => rootRoute,
     ...routeFor("/settings/templates/$templateId/script"),
+    ...SCRIPT_EDITOR_PENDING,
     component: lazyRouteComponent(
         () => import("../features/script/DefaultsScriptScreen"),
         "DefaultsScriptScreen",
@@ -160,6 +189,7 @@ const settingsRoute = createRoute({
 const encoderJsonRoute = createRoute({
     getParentRoute: () => rootRoute,
     ...routeFor("/settings/encoders/$encoderId/json"),
+    ...JSON_EDITOR_PENDING,
     component: lazyRouteComponent(
         () => import("../features/encoders/EncoderJsonScreen"),
         "EncoderJsonScreen",
