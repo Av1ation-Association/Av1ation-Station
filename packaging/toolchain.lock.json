@@ -8962,7 +8962,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/fraunhoferhhi/vvenc",
-                        "sha256": "788aff606e4449d66b2d50436b617318d24206491519c2d129c912a5878d732b",
+                        "sha256": "bd22f833ff44ab1374150e81fa610af36b9159b79483261c3296a9d8ddd6017b",
                         "size": 5544306,
                         "install": "tools/bin/vvencapp.exe"
                     }
@@ -8978,7 +8978,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "sha256": "2ac12f3f93d66fd20f3afc72007a69657a3cfb195ce22eb8da6ff30aa49ef267",
+                        "sha256": "471e080d6b32fff44a73572e314ece7eef5468893b13779ce9cbf269d6a944d6",
                         "size": 22431232,
                         "install": "tools/bin/ffmpeg.exe"
                     }
@@ -8994,7 +8994,7 @@
                     },
                     "artifact": {
                         "url": "https://codeberg.org/mbunkus/mkvtoolnix",
-                        "sha256": "84f66a414a0b120c2055b992fdb0ac0ef18463b40e4be53881c5f044da2b3cf0",
+                        "sha256": "bbc70eecb5ae31e59c09dde0e1476b982ca7e1b2cf45bbbc426192de88767e37",
                         "size": 9527296,
                         "install": "tools/bin/mkvmerge.exe"
                     }
@@ -9040,7 +9040,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/BoatsMcGee/fmetrics",
-                        "sha256": "6477dc0d7d2d0c55b963b4b3bb5be2ceb9a97711bad0df87e21313ceedf89471",
+                        "sha256": "f9a49e387b3d7214bd1008f3e572709a98711591d4e105d61fb5e15bbf65b61e",
                         "size": 611840,
                         "install": "tools/lib/fmetrics.dll"
                     }
@@ -9056,14 +9056,14 @@
                     },
                     "artifact": {
                         "url": "https://codeberg.org/Line-fr/Vship",
-                        "sha256": "8d78fc312d84bf40c7a2b18e19b736e96e11619c2794180525ae6bc0a518e810",
+                        "sha256": "0e557c144389267e15c22de6f489880e9a90362c3115a0401a20a5fb2e25994d",
                         "size": 917314,
                         "install": "tools/lib/libvship.dll"
                     }
                 }
             },
             "tree": {
-                "sha256": "ab1a1c61b1f92803f4feafd9c8dc2cb5877c1734a95dce45a85fa057708b0153",
+                "sha256": "2ccfc072e01730038f9f5f0d74cc08f53fa4c25e94a0eec1a75f8253f7e388bf",
                 "size": 1142251670,
                 "files": [
                     "tools/bin/aomenc.exe",
@@ -17835,7 +17835,7 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "7d2f191b302fa9c324b07842f26573a2271a9666c2d30384ce6b7b943021bbcc",
+                        "sha256": "a35e532234d4ddf3cc7c3e470b5d1454510dc42a69ab512b9f7e744102244a74",
                         "size": 717797750,
                         "install": "tools/python",
                         "files": [
@@ -26768,7 +26768,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "b9b4ae7eb4134942a8eff3378d30b639e38460c778bb61a5b0b5fdfdb6c184d5",
+                        "sha256": "4a5127e50020576219e9ceee03d17dd712833a8af607b23330a6866b69151876",
                         "size": 4132512,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
@@ -26784,7 +26784,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/xiph/rav1e",
-                        "sha256": "f89b8b433dfb2fd4b7d9ac4ac3d5e91b808151ca7a8ab8ef84d058428d4bd331",
+                        "sha256": "c9009d5241f58278dc3affc47a4030ec25e2e6b12a0ee58170d1b1d9e7b66aad",
                         "size": 4653688,
                         "install": "tools/bin/rav1e"
                     }
@@ -26964,7 +26964,7 @@
                 }
             },
             "tree": {
-                "sha256": "8188ec30032d835fe15dc89c2650878dfcce70aaaf90207380fae82ea0e77c23",
+                "sha256": "f7b07347d5828f088cb63c97703c81f4b42712a23a8b459715ae5397fd96711c",
                 "size": 812956023,
                 "files": [
                     "tools/bin/aomenc",
@@ -35813,7 +35813,7 @@
                     },
                     "artifact": {
                         "url": "https://pypi.org/project/vapoursynth/82/",
-                        "sha256": "065fa6dfd3abb12bf824dc6b6e3eb090880d6fd4d71e205b0548cb5962c54003",
+                        "sha256": "b988960d7a09717e13e9b6125db61c7a64f02e72538b02646cf40b2462bff7cb",
                         "size": 1408151421,
                         "install": "tools/python",
                         "files": [
@@ -47680,7 +47680,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "605736c0c1e402a50839ffae00fa07a28ff276b13203d9c6eea633661727bb7c",
+                        "sha256": "c0223bafd759bfbbdc2e3075b59d8e652304ad0141ca0e6a19b94e891c60df31",
                         "size": 7945208,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
@@ -47696,7 +47696,7 @@
                     },
                     "artifact": {
                         "url": "https://github.com/xiph/rav1e",
-                        "sha256": "e157c6727666f2cb6a5acd73689b49e193d878e67e3a863b0901b3f951da21ce",
+                        "sha256": "0bf5d729791acf5b22c15cfd872ee079843b4d713fe9ee12f96cfac5bd4bd6e9",
                         "size": 59915408,
                         "install": "tools/bin/rav1e"
                     }
@@ -47869,14 +47869,14 @@
                     },
                     "artifact": {
                         "url": "https://codeberg.org/Line-fr/Vship",
-                        "sha256": "f9ba8c4b283247caa4f4e640c7704327e47a53360a76f02b83dfd1fdeac27589",
+                        "sha256": "9f30dea02054bd40d37a42c8e4012796e4ff80a420cd37eb575d91d8ef564030",
                         "size": 883240,
                         "install": "tools/lib/libvship.so"
                     }
                 }
             },
             "tree": {
-                "sha256": "439dceddd1b2323f140fcc2dbb0e7c876615e61fc25a7bdb5fa86a8d25705937",
+                "sha256": "d1b786c8559b75fe3a6cfa318532890355a9628ac9b7bbc19c414aac845ec464",
                 "size": 1587143686,
                 "files": [
                     "tools/bin/aomenc",
