@@ -36,7 +36,9 @@ const defaultCacheRoot = join(repoRoot, "dist", "toolchain-cache");
 const defaultBuildRoot = join(repoRoot, "dist", "toolchain-build");
 const defaultOutputRoot = join(repoRoot, "dist", "cargo", "toolchain");
 const markerName = "component.json";
-const markerVersion = 1;
+// Bump when the cached payload changes outside a recipe's bytes. Version 2 rebuilds the
+// Python components so their hidden `.libs` directories survive the CI artifact upload.
+const markerVersion = 2;
 
 const runners = {
     "x86_64-pc-windows-msvc": "windows-2025",
