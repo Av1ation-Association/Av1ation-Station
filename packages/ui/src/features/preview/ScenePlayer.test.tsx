@@ -97,6 +97,42 @@ function renderPlayer(
 }
 
 describe("ScenePlayer", () => {
+    it("reveals the fullscreen transport on activity and hides it when idle", () => {
+        vi.useFakeTimers();
+        try {
+            renderPlayer(new MockTransport());
+            const section = screen.getByLabelText("Video preview");
+            Object.defineProperty(document, "fullscreenElement", {
+                configurable: true,
+                value: section,
+            });
+            act(() => document.dispatchEvent(new Event("fullscreenchange")));
+
+            const chrome = document.querySelector("[data-fullscreen-chrome='true']");
+            expect(chrome).not.toBeNull();
+            expect(chrome?.getAttribute("data-visible")).toBe("true");
+
+            act(() => vi.advanceTimersByTime(2999));
+            expect(chrome?.getAttribute("data-visible")).toBe("true");
+            act(() => vi.advanceTimersByTime(1));
+            expect(chrome?.getAttribute("data-visible")).toBe("false");
+
+            fireEvent.pointerMove(section);
+            expect(chrome?.getAttribute("data-visible")).toBe("true");
+            act(() => vi.advanceTimersByTime(3000));
+            expect(chrome?.getAttribute("data-visible")).toBe("false");
+
+            fireEvent.focus(section);
+            expect(chrome?.getAttribute("data-visible")).toBe("true");
+        } finally {
+            Object.defineProperty(document, "fullscreenElement", {
+                configurable: true,
+                value: null,
+            });
+            vi.useRealTimers();
+        }
+    });
+
     it("explains that a host without media streaming cannot show a preview", () => {
         renderPlayer(new MockTransport());
 

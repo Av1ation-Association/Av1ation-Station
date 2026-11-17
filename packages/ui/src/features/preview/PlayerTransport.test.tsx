@@ -78,6 +78,7 @@ it("edits timecode, frame, seek, zoom, playback, and full screen from the transp
             frameRate={24}
             playhead={48}
             onSeek={vi.fn()}
+            chromeVisible
         />,
     );
 
@@ -139,6 +140,7 @@ it("opens the sound menu and chooses an audio track", () => {
             frameRate={24}
             playhead={48}
             onSeek={vi.fn()}
+            chromeVisible
         />,
     );
 
@@ -164,6 +166,7 @@ it("disables transport actions when there is no playable source", () => {
             frameRate={null}
             playhead={null}
             onSeek={vi.fn()}
+            chromeVisible
         />,
     );
 

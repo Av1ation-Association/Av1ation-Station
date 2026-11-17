@@ -575,6 +575,10 @@ adds an audio-track selector, on every preview source.
 12. **Keyboard.** `Space` or `K` plays or pauses, the arrow keys step one frame (`Shift` steps
     ten), `V` toggles the picture between `Original` and `Encoded` (the source control selects
     `Decoded`), `F` toggles full screen, and `R` resets the wheel zoom.
+    - In full screen the transport is an overlay on the bottom of the picture. It starts
+      visible, slides away after three seconds without pointer movement, and returns on a
+      pointer movement, key press, or keyboard focus. The picture fills the space behind it,
+      so seeking never requires leaving full screen.
     - A press that moves pans the picture, or pinch-zooms it with two fingers on touch; a
       click that does not move toggles playback, so a gesture never does both.
     - Two fingers zoom around the point between them and keep that point under the fingers,

@@ -2,6 +2,7 @@ import { Film, Loader2, TriangleAlert, X } from "lucide-react";
 
 import { type PreviewSource } from "./preview-player";
 import { PlayerTransport } from "./PlayerTransport";
+import { useFullscreenChrome } from "./use-fullscreen-chrome";
 import { usePreviewSession } from "./use-preview-session";
 
 export type { PreviewSource } from "./preview-player";
@@ -154,6 +155,7 @@ export function ScenePlayer({
         onKeyDown,
         status,
     } = session;
+    const chrome = useFullscreenChrome(fullscreen);
 
     return (
         <section
@@ -164,7 +166,12 @@ export function ScenePlayer({
             data-preview-playable={canPlay ? "true" : "false"}
             data-preview-seeking={walking ? "true" : "false"}
             tabIndex={0}
-            onKeyDown={onKeyDown}
+            onKeyDown={(event) => {
+                chrome.reveal();
+                onKeyDown(event);
+            }}
+            onPointerMove={chrome.reveal}
+            onFocus={chrome.reveal}
             className={`relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
                 fullscreen ? "h-screen w-screen rounded-none border-0" : ""
             } ${className}`}
@@ -654,6 +661,7 @@ export function ScenePlayer({
                 frameRate={frameRate}
                 playhead={playhead}
                 onSeek={onSeek}
+                chromeVisible={chrome.visible}
             />
         </section>
     );

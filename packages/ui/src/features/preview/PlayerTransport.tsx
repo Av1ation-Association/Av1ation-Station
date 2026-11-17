@@ -14,6 +14,8 @@ type PlayerTransportProps = {
     frameRate: number | null;
     playhead: number | null;
     onSeek: (frame: number) => void;
+    /** Whether the fullscreen overlay is currently revealed. */
+    chromeVisible: boolean;
 };
 
 export function PlayerTransport({
@@ -23,6 +25,7 @@ export function PlayerTransport({
     frameRate,
     playhead,
     onSeek,
+    chromeVisible,
 }: PlayerTransportProps) {
     const {
         anchorSeconds,
@@ -85,7 +88,17 @@ export function PlayerTransport({
     } = session;
 
     return (
-        <div className="shrink-0 border-t border-line bg-surface">
+        <div
+            data-fullscreen-chrome={fullscreen ? "true" : "false"}
+            data-visible={chromeVisible ? "true" : "false"}
+            className={
+                fullscreen
+                    ? `absolute inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 backdrop-blur-sm transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                          chromeVisible ? "translate-y-0" : "pointer-events-none translate-y-full"
+                      }`
+                    : "shrink-0 border-t border-line bg-surface"
+            }
+        >
             <div className="relative h-1.5 bg-line">
                 {/* What the element has received, at half the played part's weight:
                     a seek inside it answers from memory, and a seek outside it waits
