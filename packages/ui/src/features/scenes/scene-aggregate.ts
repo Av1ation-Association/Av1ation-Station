@@ -30,6 +30,9 @@ export interface SceneSelectionSummary {
     retainedBytes: number;
     quantizer: NumericSummary | null;
     score: NumericSummary | null;
+    qualityScore: NumericSummary | null;
+    noise: NumericSummary | null;
+    noiseScaler: NumericSummary | null;
     encoder: EncoderSummary;
 }
 
@@ -92,6 +95,9 @@ export function sceneSelectionSummary(
         retainedBytes: scenes.reduce((total, scene) => total + (scene.chunk_bytes ?? 0), 0),
         quantizer: numericSummary(scenes.map((scene) => scene.quantizer)),
         score: numericSummary(scenes.map((scene) => scene.score)),
+        qualityScore: numericSummary(scenes.map((scene) => scene.quality_score)),
+        noise: numericSummary(scenes.map((scene) => scene.noise)),
+        noiseScaler: numericSummary(scenes.map((scene) => scene.noise_scaler)),
         encoder: encoderSummary(scenes),
     };
 }

@@ -45,12 +45,18 @@ describe("scene selection aggregation", () => {
                     chunk_bytes: 1_024,
                     quantizer: 24,
                     score: 92,
+                    quality_score: 90,
+                    noise: 12,
+                    noise_scaler: 1.2,
                 }),
                 scene(1, {
                     encoded: true,
                     chunk_bytes: 2_048,
                     quantizer: 28,
                     score: 88,
+                    quality_score: 86,
+                    noise: 14,
+                    noise_scaler: 1.4,
                 }),
                 scene(2, { quantizer: null, score: null }),
             ],
@@ -64,6 +70,10 @@ describe("scene selection aggregation", () => {
         expect(list.retainedBytes).toBe(3_072);
         expect(list.quantizer).toEqual({ min: 24, max: 28, median: 26, count: 2 });
         expect(list.score).toEqual({ min: 88, max: 92, median: 90, count: 2 });
+        expect(list.qualityScore).toEqual({ min: 86, max: 90, median: 88, count: 2 });
+        expect(list.noise).toEqual({ min: 12, max: 14, median: 13, count: 2 });
+        expect(list.noiseScaler).toMatchObject({ min: 1.2, max: 1.4, count: 2 });
+        expect(list.noiseScaler?.median).toBeCloseTo(1.3);
         expect(list.encoder).toEqual({ label: "SVT-AV1", mixed: false, customCount: 0 });
 
         const one = sceneSelectionSummary(

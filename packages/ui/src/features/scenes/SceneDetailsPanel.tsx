@@ -36,6 +36,41 @@ function scoreValue(summary: NumericSummary | null): string {
         : `${summary.min.toFixed(1)}–${summary.max.toFixed(1)}`;
 }
 
+function noiseValue(summary: NumericSummary | null): string {
+    if (summary === null) {
+        return "—";
+    }
+    return summary.min === summary.max
+        ? summary.min.toFixed(2)
+        : `${summary.min.toFixed(2)}–${summary.max.toFixed(2)}`;
+}
+
+function scaleValue(summary: NumericSummary | null): string {
+    if (summary === null) {
+        return "—";
+    }
+    return summary.min === summary.max
+        ? `×${summary.min.toFixed(2)}`
+        : `×${summary.min.toFixed(2)}–×${summary.max.toFixed(2)}`;
+}
+
+/** One read-only engine fact: its source, the value, and why the value is absent. */
+function EngineFact({ label, value, detail }: { label: string; value: string; detail: string }) {
+    return (
+        <div className="flex items-baseline justify-between gap-2 border-t border-line-subtle py-1 first:border-t-0 first:pt-0">
+            <span className="shrink-0 text-[9px] tracking-[0.06em] text-ink-muted uppercase">
+                {label}
+            </span>
+            <span className="min-w-0 text-right font-mono text-[9.5px] leading-relaxed text-ink-secondary">
+                {value}
+                <span className="mt-0.5 block text-[9px] leading-relaxed text-ink-muted">
+                    {detail}
+                </span>
+            </span>
+        </div>
+    );
+}
+
 /**
  * The kind a pair stores. The three buttons choose one; `json` only appears for a pair an
  * older build stored as an array or object, which the typed rows cannot express.
@@ -537,21 +572,30 @@ export function SceneDetailsPanel({
                   ? "Custom for this scene"
                   : `Custom for all ${String(summary.count)} scenes`
               : `${String(summary.encoder.customCount)} of ${String(summary.count)} custom`;
-    const hasEngineData =
-        summary.quantizer !== null || summary.score !== null || summary.encodedCount > 0;
-    const engineLine = hasEngineData
-        ? [
-              quantizerValue(summary.quantizer),
-              `score ${scoreValue(summary.score)}`,
-              summary.retainedBytes > 0 ? formatBytes(summary.retainedBytes) : "no chunk",
-          ].join(" · ")
-        : "Target Quality has not scored this selection yet.";
     const engineDetail =
         summary.encodedCount === 0
             ? "No retained chunks yet."
             : summary.encodedCount === summary.count
               ? "All selected scenes have a retained chunk."
               : `${String(summary.encodedCount)} of ${String(summary.count)} selected scenes have a retained chunk.`;
+    const probeDetail =
+        summary.score === null
+            ? "Target Quality has not scored this selection yet."
+            : summary.score.count === summary.count
+              ? `Mean score ${scoreValue(summary.score)}`
+              : `Mean score ${scoreValue(summary.score)} over ${String(summary.score.count)} of ${String(summary.count)} scenes`;
+    const checkDetail =
+        summary.qualityScore === null
+            ? "Quality check has not run."
+            : summary.qualityScore.count === summary.count
+              ? "Mean score"
+              : `Over ${String(summary.qualityScore.count)} of ${String(summary.count)} scenes`;
+    const noiseDetail =
+        summary.noise === null
+            ? "Noise Detector has not run."
+            : summary.noiseScaler === null
+              ? "No scale applied"
+              : `Scale ${scaleValue(summary.noiseScaler)}`;
 
     return (
         <section
@@ -746,12 +790,32 @@ export function SceneDetailsPanel({
                             </p>
                             <span className="shrink-0 text-[9px] text-ink-muted">Read-only</span>
                         </div>
-                        <p className="m-0 mt-1.5 break-words font-mono text-[9.5px] leading-relaxed text-ink-secondary">
-                            {engineLine}
-                        </p>
-                        <p className="m-0 mt-1 text-[9.5px] leading-relaxed text-ink-muted">
-                            {engineDetail}
-                        </p>
+                        <div className="mt-1.5">
+                            <EngineFact
+                                label="Target quality"
+                                value={quantizerValue(summary.quantizer)}
+                                detail={probeDetail}
+                            />
+                            <EngineFact
+                                label="Quality check"
+                                value={scoreValue(summary.qualityScore)}
+                                detail={checkDetail}
+                            />
+                            <EngineFact
+                                label="Noise"
+                                value={noiseValue(summary.noise)}
+                                detail={noiseDetail}
+                            />
+                            <EngineFact
+                                label="Chunk"
+                                value={
+                                    summary.encodedCount === 0
+                                        ? "—"
+                                        : formatBytes(summary.retainedBytes)
+                                }
+                                detail={engineDetail}
+                            />
+                        </div>
 
                         {single === undefined ? null : (
                             <>

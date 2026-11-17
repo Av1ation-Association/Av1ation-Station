@@ -71,7 +71,12 @@ describe("SceneDetailsPanel", () => {
         expect(screen.getByText("Scene 01")).toBeDefined();
         expect(screen.getByText("SVT-AV1")).toBeDefined();
         expect(screen.getByText(/Inherited from the video/)).toBeDefined();
-        expect(screen.getByText("Q24 · score 92.0 · 2 KB")).toBeDefined();
+        expect(screen.getByText("Target quality")).toBeDefined();
+        expect(screen.getByText("Q24")).toBeDefined();
+        expect(screen.getByText("Mean score 92.0")).toBeDefined();
+        expect(screen.getByText("Quality check has not run.")).toBeDefined();
+        expect(screen.getByText("Noise Detector has not run.")).toBeDefined();
+        expect(screen.getByText("2 KB")).toBeDefined();
         expect(screen.getByText("24 frames · 0:01.0")).toBeDefined();
         expect(screen.getByText("00:00:00.0")).toBeDefined();
 
@@ -109,8 +114,30 @@ describe("SceneDetailsPanel", () => {
         expect(screen.getByText("Mixed")).toBeDefined();
         expect(screen.getByText("mixed")).toBeDefined();
         expect(screen.getByText(/1 of 2 custom/)).toBeDefined();
-        expect(screen.getByText("Q20–Q30 · score 88.0–96.0 · no chunk")).toBeDefined();
+        expect(screen.getByText("Q20–Q30")).toBeDefined();
+        expect(screen.getByText("Mean score 88.0–96.0")).toBeDefined();
+        expect(screen.getByText("No retained chunks yet.")).toBeDefined();
         expect(screen.getByText("48 frames · 0:02.0")).toBeDefined();
+    });
+
+    it("shows quality-check and noise values beside their absent reasons", () => {
+        renderPanel([
+            scene(0, {
+                quality_score: 88,
+                noise: 12.4,
+                noise_scaler: 1.2,
+                chunk_bytes: 2_048,
+                encoded: true,
+                encode_ms: 1_500,
+            }),
+        ]);
+
+        expect(screen.getByText("Quality check")).toBeDefined();
+        expect(screen.getByText("88.0")).toBeDefined();
+        expect(screen.getByText("Noise")).toBeDefined();
+        expect(screen.getByText("12.40")).toBeDefined();
+        expect(screen.getByText("Scale ×1.20")).toBeDefined();
+        expect(screen.getByText("2 KB")).toBeDefined();
     });
 
     it("keeps the action visible but unavailable while a run holds the lock", () => {
