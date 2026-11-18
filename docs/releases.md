@@ -5,13 +5,14 @@ updater policy, and audit bundle. This document owns release policy; current del
 lives in [progress.md](progress.md), and the toolchain contents and provider rules live in
 [packaging.md](packaging.md).
 
-The release gate is **closed** until the hosted package validation and a tagged workflow run
-pass. Windows and Linux installs are validated. macOS is built and published **best-effort**:
-without a macOS host or certificate, its install, ad-hoc signing, and runtime behaviour are
-not guaranteed. The updater is deferred, so no `latest.json` is produced. The reviewed
-manifest, recipes, three-target lock, reusable toolchain and security workflows, the tag-driven
-`release.yml`, and the readiness record are present. The local artifacts under `dist/release/`
-are development evidence, not release candidates.
+The release gate is **open** for the RC channel: hosted package validation and a tag-driven
+workflow run pass. `v0.1.0-rc.3` is a draft prerelease awaiting manual publication; no tag has
+been moved. Windows and Linux installs are validated. macOS is built and published
+**best-effort**: without a macOS host or certificate, its install, ad-hoc signing, and runtime
+behaviour are not guaranteed. The updater is deferred, so no `latest.json` is produced. The
+reviewed manifest, recipes, three-target lock, reusable toolchain and security workflows, the
+tag-driven `release.yml`, and the readiness record are present. The local artifacts under
+`dist/release/` remain development evidence; tag-built assets are the candidate.
 
 ## Contents
 
@@ -138,11 +139,12 @@ numeric version required by the Windows MSI installer; see [Artifact formats](#a
 | Linux x64 | `x86_64-unknown-linux-gnu` | bundled, system | Full bundled set, including VapourSynth/Python and native metrics | `ubuntu-24.04` |
 | macOS arm64 | `aarch64-apple-darwin` | bundled, system | Best-effort full set; install and signing unverified | `macos-15` |
 
-Every channel builds both variants for the three supported targets. The current local
-artifacts are not release candidates: they predate the lock, and the observed Windows artifact lacks providers
-the contract claims. No target is called full until its lock passes. Windows/Linux installs
-are validated; macOS arm64 is published best-effort and is not a guaranteed-support target. A
-bundle is not renamed to imply a capability it does not carry.
+Every channel builds both variants for the three supported targets. The hosted RC package run
+44218214023 verified each target tree against the committed lock; Windows bundle size and
+install/uninstall pass, and the Linux bundle installs and removes cleanly. No target is called
+full until its lock passes. Windows/Linux installs are validated; macOS arm64 is published
+best-effort and is not a guaranteed-support target. A bundle is not renamed to imply a
+capability it does not carry.
 
 Excluded release targets are Windows arm64 and Linux arm64. macOS arm64 is a
 thin build, never universal, and is unverified. Linux is Ubuntu 24.04 / Debian 13 with glibc 2.39;
@@ -179,11 +181,11 @@ A Windows NSIS check measured an installed tree of 1,165.5 MiB over 8,931 files,
 helper process left after installation. On 2026-11-16, fresh bundled and system NSIS installs
 were each removed by one synchronous silent uninstall: the tree and Start Menu shortcut were
 gone, no installed helper process remained, and the documented 1.3 GiB app-data directory was
-retained. An earlier check had needed a second silent run; that leftover did not recur. The
-Windows package job repeats this check on GitHub. Linux `.deb` installation and removal are
-validated by the same package job. macOS ships a `.dmg` and app ZIP but has no validated
-uninstaller; users delete the app and its app-data directory manually, and this path is
-unverified.
+retained. The hosted package job now repeats this check: run 44218214023 removed the bundled
+Windows tree (8,648 files, 1,211.8 MiB) and the system tree (177 files, 75.6 MiB) in one run,
+and removed both Linux `.deb` variants (8,909 files/1,862.4 MB bundled and 181 files/95.4 MB
+system). macOS ships a `.dmg` and app ZIP but has no validated uninstaller; users delete the
+app and its app-data directory manually, and this path is unverified.
 
 ## Website download metadata
 
@@ -316,8 +318,10 @@ per-target audit bundle from the staged trees, writes the manifest, and runs
 `latest.json` before upload. It attaches each target's lock, notices, Python notices and
 licence texts, SPDX SBOM and source offer as `<target>-<file>` plus
 `AUDIT-SHA256SUMS.txt`, attests the upload set, and creates weekly (prerelease), RC (draft
-prerelease), or stable (draft) releases. The workflow does not pass a signing flag, does not
-notarise, and does not publish an updater claim.
+prerelease), or stable (draft) releases. Run 44221921120 exercised this path for
+`v0.1.0-rc.3`: preflight and attestation passed, and the draft contains 32 assets. The
+workflow does not pass a signing flag, does not notarise, and does not publish an updater
+claim.
 
 The generated notes include a `## Changes` draft from Conventional Commits since the
 previous reachable release tag. The release owner edits that section and the limitations
@@ -346,20 +350,20 @@ before publishing; hand editing is expected and does not feed back into the mani
 
 ## Current gate
 
-The following are unresolved and block publication:
+The RC publication gate has passed. The remaining items are manual review and optional
+channel coverage, not build blockers:
 
-1. **No hosted tag run, and the current lock is not hosted-verified.** `release.yml`, the package validation, and the audit and security gates are present, but no tag has been created or exercised. The current `packaging/toolchain.lock.json` was generated locally after the Windows target tree was updated with the rebuilt MSVC `ffms2.dll`; it passes `toolchain:verify` and a local lock check, but it has not been verified against an untouched hosted Windows artifact. A hosted run must reproduce the tree and pass the lock before publication.
-2. **Hosted package validation has not run.** `release-package-check.mjs` is wired into the
-   Windows and Linux package jobs; it measures compressed and installed sizes, installs each
-   variant, and requires a one-run uninstall. Local Windows evidence exists for both variants;
-   Linux and the hosted job remain unproven. The GitHub-hosted job is the release gate.
-3. **The weekly tag job has not produced a candidate.** It will create a tag only after the
-   readiness record and weekly checks pass. The readiness record itself now passes; the tag
-   path is the remaining GitHub action.
+1. **Draft review and publication.** `v0.1.0-rc.3` exists as a draft prerelease with 32 assets,
+   provenance attestation, checksums, audit files, and unsigned/no-updater labels. A release
+   owner must review it against the publication checklist and publish it explicitly; the
+   workflow did not publish it.
+2. **Weekly candidate.** The weekly tag job has not produced a candidate. It will create a tag
+   only after the readiness record and weekly checks pass; the readiness record itself passes,
+   and this path does not block the RC draft.
+3. **Hosted docs-only timing.** A hosted docs-only run and its under-three-minute target remain
+   unverified; it does not affect release artifacts.
 
 macOS is retained in the build and release matrix but is **not** a validated gate: the macOS
 package job records artifact sizes, while install, ad-hoc signing, and runtime behaviour stay
 unverified until a macOS host is available. The updater remains deferred. Unsigned
-Windows/Linux distribution is the validated policy. The remaining order is: push the Phase 5
-changes, run the hosted package validation, create a weekly candidate tag, and exercise the
-tag-driven workflow.
+Windows/Linux distribution is the validated policy.

@@ -514,8 +514,9 @@ alone after E2E teardown so the shared Windows workspace did not lock
 plus the slowest measured job), not a measured full-PR wall time. The 442 s figure is the
 **sum of the component rows**, not a single end-to-end CI run. The static profiles, full
 tests, and `verify:web` pass locally, including frontend coverage at 75.02% total and 73.56%
-UI against baselines 74.91% and 73.46%. No hosted run of the current three-gate workflow exists yet, and the only hosted CI run used the
-older workflow shape and failed. Hosted confirmation is pending for both exit items.
+UI against baselines 74.91% and 73.46%. Hosted run 44218206255 at `70bad22` passed all nine jobs of the current three-gate workflow;
+the earlier workflow-shape failure is superseded. The hosted docs-only timing remains the
+only unverified exit item.
 
 **What is still worth doing, in order.**
 
