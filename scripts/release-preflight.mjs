@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 
 import { projectRoot } from "./build-paths.mjs";
 import { releaseShape } from "./release-manifest.mjs";
+import { expectedMetadataEntries, metadataArchiveName, readZip } from "./release-metadata.mjs";
 import { DEFAULT_READINESS_FILE, checkReleaseReadiness } from "./release-readiness.mjs";
 import { TARGETS } from "./toolchain-manifest.mjs";
 
@@ -303,6 +304,64 @@ function checkMetadata(checks, { artifactsDir, tag, version, release }) {
         actual?.updater?.enabled === release.updater.enabled &&
             actual?.updater?.manifest === release.updater.manifest,
         `release.updater must be ${JSON.stringify(release.updater)}`,
+    );
+
+    const metadataAsset = Array.isArray(parsed.value.assets)
+        ? parsed.value.assets.find((asset) => asset?.kind === "metadata")
+        : undefined;
+    addCheck(
+        checks,
+        "metadata.archive",
+        metadataAsset !== undefined,
+        `assets must include ${metadataArchiveName(version)} with kind metadata`,
+    );
+    if (metadataAsset !== undefined) {
+        checkMetadataArchive(checks, { artifactsDir, version, asset: metadataAsset });
+    }
+}
+
+function checkMetadataArchive(checks, { artifactsDir, version, asset }) {
+    const expectedName = metadataArchiveName(version);
+    const expectedPath = `assets/${expectedName}`;
+    const archivePath = join(artifactsDir, expectedPath);
+    addCheck(
+        checks,
+        "metadata.archive-name",
+        asset?.name === expectedName && asset?.path === expectedPath,
+        `metadata archive must be ${expectedPath}`,
+    );
+    addCheck(
+        checks,
+        "metadata.archive-file",
+        nonEmptyFile(archivePath),
+        nonEmptyFile(archivePath) ? archivePath : `missing or empty ${archivePath}`,
+    );
+
+    let actual = null;
+    try {
+        actual = readZip(archivePath)
+            .map((entry) => entry.name)
+            .sort((left, right) => left.localeCompare(right));
+    } catch (error) {
+        addCheck(
+            checks,
+            "metadata.archive-contents",
+            false,
+            `could not read ${archivePath}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+    }
+
+    const expected = expectedMetadataEntries().sort((left, right) => left.localeCompare(right));
+    const missing = expected.filter((name) => !actual.includes(name));
+    const extra = actual.filter((name) => !expected.includes(name));
+    addCheck(
+        checks,
+        "metadata.archive-contents",
+        missing.length === 0 && extra.length === 0,
+        missing.length === 0 && extra.length === 0
+            ? `${String(actual.length)} metadata files`
+            : `missing: ${missing.join(", ") || "none"}; unexpected: ${extra.join(", ") || "none"}`,
     );
 }
 

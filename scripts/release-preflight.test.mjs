@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { projectRoot } from "./build-paths.mjs";
 import { runPreflight } from "./release-preflight.mjs";
+import { createMetadataArchive } from "./release-metadata.mjs";
 import { READINESS_GATES } from "./release-readiness.mjs";
 import { TARGETS } from "./toolchain-manifest.mjs";
 
@@ -118,6 +119,10 @@ function fixture({
         );
     }
 
+    writeFile(join(artifacts, "SHA256SUMS-github.txt"), "installer checksum\n");
+    writeFile(join(artifacts, "SHA256SUMS.txt"), "build checksum\n");
+    const archive = createMetadataArchive({ releaseDir: artifacts, tag, version });
+
     const release = {
         tag,
         version,
@@ -133,12 +138,13 @@ function fixture({
     };
     writeFile(
         join(artifacts, "release-manifest.json"),
-        `${JSON.stringify({ schema_version: 1, release }, null, 2)}\n`,
+        `${JSON.stringify({ schema_version: 1, release, assets: [archive.asset] }, null, 2)}\n`,
     );
 
     return {
         root,
         artifacts,
+        archive,
         tag,
         run(overrides = {}) {
             return runPreflight({
@@ -244,6 +250,34 @@ describe("release preflight", () => {
         });
 
         expect(report.ready).toBe(true);
+    });
+
+    it("accepts a complete metadata archive and rejects an incomplete one", () => {
+        const candidate = fixture();
+
+        expect(candidate.run().ready).toBe(true);
+
+        rmSync(join(candidate.artifacts, candidate.archive.path));
+        const report = candidate.run();
+        expect(report.ready).toBe(false);
+        expect(report.checks).toContainEqual(
+            expect.objectContaining({ id: "metadata.archive-file", status: "fail" }),
+        );
+    });
+
+    it("fails when the manifest omits the metadata archive", () => {
+        const candidate = fixture();
+        const manifestPath = join(candidate.artifacts, "release-manifest.json");
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+        manifest.assets = [];
+        writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+        const report = candidate.run();
+
+        expect(report.ready).toBe(false);
+        expect(report.checks).toContainEqual(
+            expect.objectContaining({ id: "metadata.archive", status: "fail" }),
+        );
     });
 
     it("fails when the audit bundle is incomplete", () => {

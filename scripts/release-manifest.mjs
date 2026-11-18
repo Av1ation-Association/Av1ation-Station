@@ -22,6 +22,7 @@ import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { projectRoot, releaseDir, releasePlatform } from "./build-paths.mjs";
+import { createMetadataArchive } from "./release-metadata.mjs";
 
 const checksumName = "SHA256SUMS.txt";
 const githubChecksumName = "SHA256SUMS-github.txt";
@@ -517,6 +518,7 @@ function notesFor({
     sourceCommit,
     branch,
     release,
+    metadataArchive = null,
 }) {
     const platformSummary = joinLabels(platforms.map((platform) => platform.label));
     const releaseLabel =
@@ -629,7 +631,9 @@ ${hasLinuxBundled ? "The bundled Linux variant carries the full pinned toolchain
         release.updater.enabled
             ? "- This stable release publishes a signed updater manifest (`latest.json`)."
             : "- No updater manifest is published with this release.",
-        "- The generated third-party notices, SPDX SBOM, and source-offer bundle must be attached before publication; see `docs/releases.md`.",
+        metadataArchive === null
+            ? "- The generated third-party notices, SPDX SBOM, and source-offer bundle must be attached before publication; see `docs/releases.md`."
+            : `- The generated third-party notices, SPDX SBOM, and source-offer bundle are in \`${metadataArchive}\`.`,
         "- The full manual release test plan and clean-VM checks remain part of the publication gate; see `docs/releases.md`.",
     ].filter(Boolean);
     const checksums = artifacts
@@ -663,7 +667,7 @@ ${guidance.join("\n")}
 
 ${installSections.join("\n\n")}
 
-## SHA-256
+${metadataArchive === null ? "" : `## Release metadata\n\nDownload \`${metadataArchive}\` for the per-target toolchain locks, third-party and Python notices, licence texts, SPDX SBOMs, source offers, \`AUDIT-SHA256SUMS.txt\`, and both checksum files. The separate \`SHA256SUMS-github.txt\` remains for quick verification; the archive carries a copy.\n\n`}## SHA-256
 
 The attached \`SHA256SUMS-github.txt\` uses the uploaded asset names, so it can be checked from a folder of downloads. The build tree's \`SHA256SUMS.txt\` keeps the platform and variant paths for local verification. These are the same hashes:
 
@@ -878,6 +882,9 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
     writeGithubChecksums(artifacts);
     const flatDirectory = stageFlatAssets(artifacts);
     copyFileSync(join(releaseDir, githubChecksumName), join(flatDirectory, githubChecksumName));
+    const metadata = existsSync(join(releaseDir, "audit"))
+        ? createMetadataArchive({ releaseDir, tag, version })
+        : null;
     const assets = [
         ...artifacts.map((artifact) => ({
             name: artifact.name,
@@ -891,6 +898,7 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
             sha256: artifact.sha256,
         })),
         checksumsAsset(),
+        ...(metadata === null ? [] : [metadata.asset]),
     ];
     const notes = notesFor({
         artifacts,
@@ -902,6 +910,7 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
         sourceCommit,
         branch,
         release,
+        metadataArchive: metadata?.name ?? null,
     });
     const manifest = {
         schema_version: 1,

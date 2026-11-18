@@ -229,9 +229,10 @@ providers. See [docs/preflight.md](docs/preflight.md) for provider selection.
 
 `release:build` writes `dist/release/<platform>/bundled/` and
 `dist/release/<platform>/system/`. Each contains the host's installers and a portable
-artifact. The manifest stages upload files in `dist/release/assets/`; upload every file from
-that flat directory, not the nested build folders. The portable form is a ZIP on Windows, a
-zipped `.app` on macOS, and the AppImage on Linux.
+artifact. The manifest stages upload files in `dist/release/assets/`; when the audit bundle
+is present it also writes the single `Av1ation-Station_<version>_metadata.zip` there. Upload
+every file from that flat directory, not the nested build folders. The portable form is a
+ZIP on Windows, a zipped `.app` on macOS, and the AppImage on Linux.
 
 Both wrappers default to the host's installer types: `msi`/`nsis` on Windows, `dmg`/`app` on
 macOS, and `deb`/`rpm`/`appimage` on Linux. Set `AV1ATION_BUNDLES` for another set.

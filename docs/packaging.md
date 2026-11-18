@@ -523,7 +523,7 @@ publishes, beside that target's installer:
   the patches and where the corresponding source archive is published. For `fmetrics` it
   also names the fork commit, the upstream base and, on Windows, the portability patch.
 - `SHA256SUMS` — for the installers and portable artifacts; `AUDIT-SHA256SUMS.txt` covers
-  the attached per-target lock, notices, SBOM and source offer.
+  the per-target lock, notices, SBOM and source offer inside the metadata archive.
 
 `npm run release:audit -- --tag <tag> --tools <trees>` generates the per-target audit
 directory from the reviewed manifest, lock and staged target trees. It copies the target's
@@ -615,11 +615,14 @@ for a manual GitHub release. The tag is required; a missing tag fails before any
 never becomes an implicit stable release. It also
 stages every uploadable file in the flat `dist/release/assets/` directory: each installer
 or portable gets `-bundled` or `-system` inserted before its extension, `release-manifest`
-rejects duplicate flat names, and `upload.asset_paths` lists only that one directory.
-`SHA256SUMS-github.txt` uses those flat names; the aggregate `SHA256SUMS.txt` keeps the
-platform and variant paths for local checks. `release-manifest` selects only paths that end in
-an installer or portable extension and are outside `audit/`, so the audit bundle, preflight
-reports and logs cannot collide with or enter the upload set. The Cargo
+rejects duplicate flat names, and `upload.asset_paths` lists that directory. It also writes
+one `Av1ation-Station_<version>_metadata.zip` there containing the three targets' audit
+files, `AUDIT-SHA256SUMS.txt`, both checksum files, and a README. `SHA256SUMS-github.txt`
+uses the installer/portable flat names and remains a separate convenience asset; the archive
+carries a copy. The aggregate `SHA256SUMS.txt` keeps the platform and variant paths for local
+checks. `release-manifest` selects only paths that end in an installer or portable extension
+and are outside `audit/`, so the audit bundle, preflight reports, logs, and the metadata
+archive cannot collide with or enter the installer upload set. The Cargo
 `release/bundle/` tree and the expanded `dist/release/portable/` staging tree are
 intermediate; remove them with `npm run clean:outputs` after the archives exist. `dist/tools`
 is a staging input, not a release artifact.

@@ -351,7 +351,7 @@ describe("release note installer guidance", () => {
         label: "Windows x64",
         variants: new Map([["bundled", artifacts]]),
     });
-    const notes = (artifacts) =>
+    const notes = (artifacts, metadataArchive = null) =>
         notesFor({
             artifacts,
             platforms: [windows(artifacts)],
@@ -362,6 +362,7 @@ describe("release note installer guidance", () => {
             sourceCommit: "abc1234",
             branch: "main",
             release,
+            metadataArchive,
         });
 
     it("offers only the NSIS installer when the candidate has no MSI", () => {
@@ -381,5 +382,13 @@ describe("release note installer guidance", () => {
         expect(notes([exe, msi])).toContain(
             "Run the `.msi` or `-setup.exe` for the variant you want.",
         );
+    });
+
+    it("points users to the consolidated metadata archive when one is attached", () => {
+        const text = notes([exe], "Av1ation-Station_0.1.0-rc.1_metadata.zip");
+
+        expect(text).toContain("## Release metadata");
+        expect(text).toContain("Av1ation-Station_0.1.0-rc.1_metadata.zip");
+        expect(text).not.toContain("must be attached before publication");
     });
 });

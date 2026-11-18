@@ -279,17 +279,18 @@ that can provision and test its key; stable, RC and weekly releases all publish 
 
 Every published target/variant release carries:
 
-- `SHA256SUMS` for its installers and portable artifacts;
-- that target's `toolchain.lock.json` as `<target>-toolchain.lock.json`;
-- `THIRD_PARTY_NOTICES.md` as `<target>-THIRD_PARTY_NOTICES.md`, generated from the resolved
-  component set;
-- `PYTHON_NOTICES.md` as `<target>-PYTHON_NOTICES.md` and `PYTHON-LICENSES.txt` as
-  `<target>-PYTHON-LICENSES.txt`, generated from the staged Python/plugin tree;
-- `sbom.spdx.json` as `<target>-sbom.spdx.json`, with the bundle revision and target triple;
-- `SOURCE-OFFER.md` as `<target>-SOURCE-OFFER.md`, naming the exact source revision, recipe,
-  patches, and publication location for every GPL/LGPL component;
-- `AUDIT-SHA256SUMS.txt` over that per-target audit upload set;
+- one metadata archive, `Av1ation-Station_<version>_metadata.zip`, containing:
+  - all three targets' `toolchain.lock.json`, `THIRD_PARTY_NOTICES.md`,
+    `PYTHON_NOTICES.md`, `PYTHON-LICENSES.txt`, `sbom.spdx.json`, and `SOURCE-OFFER.md`,
+    named `<target>-<file>`;
+  - `AUDIT-SHA256SUMS.txt` over those per-target files;
+  - `SHA256SUMS-github.txt` and the build-tree `SHA256SUMS.txt`;
+  - `README.txt` describing the archive;
+- `SHA256SUMS-github.txt` as a separate convenience asset for quick verification;
 - a GitHub build-provenance attestation for each artifact's digest.
+
+The archive is the only audit download. Installers and portables remain individual assets,
+so a user chooses a platform and variant without sorting through notices or locks.
 
 `npm run release:audit -- --tag <tag> --tools <trees>` writes this bundle per target under
 `dist/release/audit/` from the reviewed manifest, lock and staged target trees. It copies the
@@ -301,8 +302,9 @@ repository, commit, workflow, and builder, but it does not make Windows SmartScr
 file. The release notes state that distinction.
 
 A target's lock, notices, SBOM, and source offer never stand in for another target's. The
-release workflow attaches them as `<target>-<file>` and writes `AUDIT-SHA256SUMS.txt` over
-that upload set; `release:preflight` checks the bundle before the release is created.
+release workflow puts every target's files into the one archive and writes
+`AUDIT-SHA256SUMS.txt` over that set; `release:preflight` checks the source bundle and the
+archive's member list before the release is created.
 `GET /api/toolchain` serves the target summary from the embedded lock. About lists the same
 components with source links; its layout is accepted provisionally for v0.1 because the live
 Penpot board is unavailable, and the live comparison is deferred.
@@ -315,13 +317,13 @@ job checks tag reachability, the version, and the three required CI contexts, th
 `release-*` and `toolchain-*` artifacts, rebuilds the combined checksums, generates the
 per-target audit bundle from the staged trees, writes the manifest, and runs
 `release:preflight` without `--code-signed`, `--notarized`, or `--updater`; it rejects
-`latest.json` before upload. It attaches each target's lock, notices, Python notices and
-licence texts, SPDX SBOM and source offer as `<target>-<file>` plus
-`AUDIT-SHA256SUMS.txt`, attests the upload set, and creates weekly (prerelease), RC (draft
-prerelease), or stable (draft) releases. Run 44221921120 exercised this path for
-`v0.1.0-rc.3`: preflight and attestation passed, and the draft contains 32 assets. The
-workflow does not pass a signing flag, does not notarise, and does not publish an updater
-claim.
+`latest.json` before upload. The manifest builds one
+`Av1ation-Station_<version>_metadata.zip` and adds it to the upload set; the workflow does
+not copy individual audit files into the release. It attests the upload set and creates
+weekly (prerelease), RC (draft prerelease), or stable (draft) releases. Run 44221921120 exercised the earlier
+individual-file layout for `v0.1.0-rc.3` (32 assets, including 18 audit files); the next tag
+uses the consolidated archive. The workflow does not pass a signing flag, does not notarise,
+and does not publish an updater claim.
 
 The generated notes include a `## Changes` draft from Conventional Commits since the
 previous reachable release tag. The release owner edits that section and the limitations
