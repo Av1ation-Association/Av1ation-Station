@@ -15,7 +15,10 @@ use av1ation_engine::{
 use crate::{
     api::lan::LanController,
     capability::preflight::PreflightCache,
-    media::{stream::PreviewBuilds, thumbnails::ThumbnailBuilds},
+    media::{
+        stream::{EnginePreviewWriter, PreviewBuilds, PreviewWriter},
+        thumbnails::ThumbnailBuilds,
+    },
     platform::disk::DiskProbe,
     project::{projects::ProjectStore, settings::SettingsStore, videos::VideoStore},
     run::{logs::LogStore, runs::RunSupervisor, timeline::TimelineStore},
@@ -46,6 +49,9 @@ pub struct AppState {
     /// Proxy builds that are still writing. Shared so two viewers of one source follow one
     /// decode and one encode instead of racing duplicates into the cache.
     preview_builds: PreviewBuilds,
+    /// The engine work behind a proxy build. Production uses the real writer; route tests
+    /// inject a prepared response so they never decode, encode, or load VapourSynth.
+    preview_writer: Arc<dyn PreviewWriter>,
     /// Keyframe extractions that are still writing. Shared so a cold rail starts one
     /// decoder, not one per mounted row.
     thumbnails: ThumbnailBuilds,
@@ -179,6 +185,7 @@ impl AppState {
             data_dir,
             tools_dir: None,
             preview_builds: PreviewBuilds::default(),
+            preview_writer: Arc::new(EnginePreviewWriter),
             thumbnails: ThumbnailBuilds::default(),
             plugin_lookup: None,
         }
@@ -283,6 +290,17 @@ impl AppState {
     /// The in-flight preview builds, so a request can follow one instead of duplicating it.
     pub(crate) fn preview_builds(&self) -> &PreviewBuilds {
         &self.preview_builds
+    }
+
+    /// Replace the engine work behind preview builds. This is a test seam, not a setting.
+    pub fn with_preview_writer(mut self, writer: Arc<dyn PreviewWriter>) -> Self {
+        self.preview_writer = writer;
+        self
+    }
+
+    /// The injected preview writer, or the engine-backed default.
+    pub(crate) fn preview_writer(&self) -> Arc<dyn PreviewWriter> {
+        Arc::clone(&self.preview_writer)
     }
 
     /// The in-flight keyframe extractions, so a cold rail starts one decoder.

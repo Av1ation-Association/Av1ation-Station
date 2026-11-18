@@ -1,5 +1,93 @@
 use super::*;
 use crate::project::videos::VideoStore;
+use av1ation_engine::media::preview::PreviewContext;
+use serde_json::Value;
+use std::{path::Path, sync::atomic::AtomicBool};
+
+/// The engine work a preview build performs, behind one seam.
+///
+/// The HTTP route must be testable without decoding a clip or running an encoder. Production
+/// uses [`EnginePreviewWriter`]; a route test can inject a writer that emits a prepared
+/// fragmented MP4 and still exercise the request parsing, cache, streaming, and response
+/// headers. The methods are synchronous because the caller already runs them on a blocking
+/// worker.
+pub trait PreviewWriter: Send + Sync {
+    /// Encode the requested decoded window.
+    fn write_decoded(
+        &self,
+        input: &Value,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String>;
+
+    /// Encode one scene from its first frame with the run's encoder.
+    fn write_encoded(
+        &self,
+        input: &Value,
+        encoder: &Value,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String>;
+
+    /// Copy a scene's retained chunk into the browser container.
+    fn remux_chunk(
+        &self,
+        input: &Value,
+        chunk: &Path,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String>;
+}
+
+/// The production writer, which delegates to the engine's preview functions.
+pub(crate) struct EnginePreviewWriter;
+
+impl PreviewWriter for EnginePreviewWriter {
+    fn write_decoded(
+        &self,
+        input: &Value,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        av1ation_engine::media::preview::write_decoded_window(input, context, start, end, cancel)
+    }
+
+    fn write_encoded(
+        &self,
+        input: &Value,
+        encoder: &Value,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        av1ation_engine::media::preview::write_scene_encoded_proxy(
+            input, encoder, context, start, end, cancel,
+        )
+    }
+
+    fn remux_chunk(
+        &self,
+        input: &Value,
+        chunk: &Path,
+        context: &PreviewContext<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        av1ation_engine::media::preview::remux_chunk_proxy(
+            input, chunk, context, start, end, cancel,
+        )
+    }
+}
 
 /// Which derived picture the player asked for, and where.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +175,11 @@ impl PreviewBuild {
     /// The growing file, for a request that streams it.
     pub(super) fn part(&self) -> &Path {
         &self.part
+    }
+
+    /// The finished cache file, for a body that started after the part was published.
+    pub(super) fn output(&self) -> &Path {
+        &self.output
     }
 
     /// The flag the builder checks between frames.

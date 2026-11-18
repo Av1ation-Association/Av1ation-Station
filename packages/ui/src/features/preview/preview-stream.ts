@@ -199,6 +199,16 @@ function av1Codec(config: Bytes): string | null {
     return `av01.${String(profile)}.${String(level).padStart(2, "0")}${tier === 1 ? "H" : "M"}.${String(depth).padStart(2, "0")}`;
 }
 
+/** `vp09.<profile>.<level>.<bit depth>`, from the VP9 decoder configuration. */
+function vp9Codec(config: Bytes): string | null {
+    if (config.length < 7) {
+        return null;
+    }
+    const byte = (value: number | undefined): string => String(value ?? 0).padStart(2, "0");
+    // The depth shares its byte with chroma subsampling and the full-range flag.
+    return `vp09.${byte(config[4])}.${byte(config[5])}.${byte((config[6] ?? 0) >> 4)}`;
+}
+
 /** Reverse the 32 compatibility bits, which HEVC names least-significant first. */
 function reverseBits(value: number): number {
     let flipped = 0;
@@ -248,6 +258,10 @@ function sampleEntryCodec(bytes: Bytes, entry: Box, fourcc: string): string | nu
     if (fourcc === "av01") {
         const config = configFor("av1C");
         return config === null ? null : av1Codec(config);
+    }
+    if (fourcc === "vp09") {
+        const config = configFor("vpcC");
+        return config === null ? null : vp9Codec(config);
     }
     if (fourcc === "hvc1" || fourcc === "hev1") {
         const config = configFor("hvcC");

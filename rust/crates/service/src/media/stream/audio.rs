@@ -14,11 +14,29 @@ pub(super) async fn audio_source_path(
 
 pub(crate) async fn ffmpeg(state: &AppState) -> Option<String> {
     let report = state.preflight().await;
-    report
+    let check = report
         .checks
         .iter()
-        .find(|check| check.available && (check.id == "ffmpeg" || check.id == "custom:ffmpeg"))
-        .map(|check| check.path.clone().unwrap_or_else(|| "ffmpeg".to_owned()))
+        .find(|check| check.available && (check.id == "ffmpeg" || check.id == "custom:ffmpeg"))?;
+    if let Some(path) = &check.path {
+        return Some(path.clone());
+    }
+    // The preflight row reports the bundled path in its detail, not in `path`; `path` is
+    // reserved for a saved custom executable. Resolve the selected bundle explicitly so the
+    // preview can also find the x264/vpxenc siblings beside it instead of relying on PATH.
+    if check.selected_source.as_deref() == Some("bundled")
+        && let Some(tools_dir) = state.tools_dir.as_deref()
+    {
+        return Some(
+            crate::capability::toolchain::binary_path(
+                tools_dir,
+                av1ation_engine::capability::preflight::ToolFamily::Ffmpeg,
+            )
+            .to_string_lossy()
+            .into_owned(),
+        );
+    }
+    Some("ffmpeg".to_owned())
 }
 
 /// One cached, audio-only file for the selected stream.

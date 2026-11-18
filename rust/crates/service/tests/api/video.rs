@@ -1,6 +1,9 @@
 //! HTTP tests for the `video` route family.
 
 use crate::common::*;
+use av1ation_engine::media::preview::PreviewContext;
+use av1ation_service::PreviewWriter;
+use std::sync::atomic::Ordering;
 
 #[tokio::test]
 async fn deleting_chunks_is_idempotent_and_leaves_the_video() {
@@ -40,6 +43,243 @@ async fn deleting_chunks_is_idempotent_and_leaves_the_video() {
     assert_eq!(status, StatusCode::OK);
 
     std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A four-byte-length box, enough for the route's fragment detector and browser headers.
+fn mp4_box(kind: &[u8; 4], body: usize) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(body + 8);
+    bytes.extend_from_slice(&u32::try_from(body + 8).expect("box size").to_be_bytes());
+    bytes.extend_from_slice(kind);
+    bytes.extend(std::iter::repeat_n(0_u8, body));
+    bytes
+}
+
+/// A prepared fragmented MP4. The test route only needs the boxes the browser and the
+/// service inspect: an init segment, a movie header, and a media fragment.
+fn prepared_fragmented_mp4() -> Vec<u8> {
+    let mut ftyp = mp4_box(b"ftyp", 8);
+    ftyp[8..12].copy_from_slice(b"isom");
+    [
+        ftyp,
+        mp4_box(b"moov", 64),
+        mp4_box(b"moof", 24),
+        mp4_box(b"mdat", 64),
+    ]
+    .concat()
+}
+
+fn has_mp4_box(bytes: &[u8], kind: &[u8; 4]) -> bool {
+    let mut offset = 0;
+    while offset + 8 <= bytes.len() {
+        let size =
+            u32::from_be_bytes(bytes[offset..offset + 4].try_into().expect("box length")) as usize;
+        if size < 8 || offset + size > bytes.len() {
+            return false;
+        }
+        if &bytes[offset + 4..offset + 8] == kind {
+            return true;
+        }
+        offset += size;
+    }
+    false
+}
+
+fn tool_file(bin: &Path, name: &str) -> PathBuf {
+    bin.join(if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    })
+}
+
+/// Emits prepared bytes instead of opening the source or running x264/vpxenc. It still
+/// checks the path the service resolved, which is the bundled FFmpeg absolute path with both
+/// standalone encoder siblings beside it.
+struct PreparedPreviewWriter {
+    bytes: Vec<u8>,
+    bin: PathBuf,
+    release: Arc<AtomicBool>,
+}
+
+impl PreparedPreviewWriter {
+    fn copy(&self, context: &PreviewContext<'_>) -> Result<(), String> {
+        assert!(
+            Path::new(context.ffmpeg).is_absolute(),
+            "{}",
+            context.ffmpeg
+        );
+        assert_eq!(
+            Path::new(context.ffmpeg),
+            tool_file(&self.bin, "ffmpeg"),
+            "the service must resolve the bundled FFmpeg, not PATH"
+        );
+        assert!(tool_file(&self.bin, "x264").is_file());
+        assert!(tool_file(&self.bin, "vpxenc").is_file());
+        std::fs::write(context.output, &self.bytes).map_err(|error| error.to_string())?;
+        // Hold the build open until the test has consumed the first body frame. This makes
+        // the route's streaming path deterministic: the part file cannot be renamed before
+        // the response body has attached to it.
+        while !self.release.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        Ok(())
+    }
+}
+
+impl PreviewWriter for PreparedPreviewWriter {
+    fn write_decoded(
+        &self,
+        _input: &Value,
+        context: &PreviewContext<'_>,
+        _start: usize,
+        _end: usize,
+        _cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        self.copy(context)
+    }
+
+    fn write_encoded(
+        &self,
+        _input: &Value,
+        _encoder: &Value,
+        context: &PreviewContext<'_>,
+        _start: usize,
+        _end: usize,
+        _cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        self.copy(context)
+    }
+
+    fn remux_chunk(
+        &self,
+        _input: &Value,
+        _chunk: &Path,
+        context: &PreviewContext<'_>,
+        _start: usize,
+        _end: usize,
+        _cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        self.copy(context)
+    }
+}
+
+/// D5's media route must serve both derived sources as browser-playable fragmented MP4 and
+/// must hand the engine the bundled FFmpeg path so the x264/vpxenc fallbacks are siblings.
+/// The injected writer keeps this test free of a GPU, VapourSynth, and any real encode.
+#[tokio::test]
+async fn the_media_route_serves_prepared_decoded_and_encoded_proxies() {
+    let dir = project_dir();
+    let tools = dir.join("tools");
+    let bin = tools.join("bin");
+    std::fs::create_dir_all(&bin).expect("bundled tools");
+    for name in ["ffmpeg", "x264", "vpxenc"] {
+        std::fs::write(tool_file(&bin, name), b"prepared").expect("bundled tool");
+    }
+
+    let mut probes = test_probes();
+    probes.push(Probe {
+        id: "ffmpeg".to_owned(),
+        label: "FFmpeg".to_owned(),
+        capability: Capability::Muxing,
+        available: true,
+        detail: "bundled".to_owned(),
+        remediation: None,
+        plugins: Vec::new(),
+    });
+    let expected = prepared_fragmented_mp4();
+    let release = Arc::new(AtomicBool::new(false));
+    let app = router(
+        AppState::with_runner_probes_and_data_dir(None, Arc::new(FakeRunner), probes, dir.clone())
+            .with_tools_dir(Some(tools))
+            .with_preview_writer(Arc::new(PreparedPreviewWriter {
+                bytes: expected.clone(),
+                bin,
+                release: Arc::clone(&release),
+            })),
+    );
+    let project = create_project(app.clone(), "Prepared previews").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let url = format!("/api/projects/{project}/videos/{video}/media");
+
+    // Decoded needs no scene table: the prepared writer is the only work behind its builder.
+    let response = app
+        .clone()
+        .oneshot(
+            Request::get(format!("{url}?source=decoded&frame=0&frames=48"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("router response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CONTENT_TYPE], "video/mp4");
+    let body = read_gated_body(response.into_body(), &release).await;
+    assert!(!body.is_empty(), "the decoded proxy must have bytes");
+    assert!(has_mp4_box(&body, b"ftyp"));
+    assert!(has_mp4_box(&body, b"moof"));
+    assert_eq!(body, expected, "the route must return the prepared bytes");
+
+    // Encoded resolves the scene and its encoder before the prepared writer runs.
+    let document = dir
+        .join("projects")
+        .join(&project)
+        .join("videos")
+        .join(format!("{video}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let encoder = av1ation_engine::default_project_config()["encoder"].clone();
+    record["condor"] = serde_json::json!({ "scenes": [saved_scene(encoder)] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    release.store(false, Ordering::SeqCst);
+    let response = app
+        .oneshot(
+            Request::get(format!("{url}?source=encode&scene=0&encode_from=decoded"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("router response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CONTENT_TYPE], "video/mp4");
+    let body = read_gated_body(response.into_body(), &release).await;
+    assert!(!body.is_empty(), "the encoded proxy must have bytes");
+    assert!(has_mp4_box(&body, b"ftyp"));
+    assert!(has_mp4_box(&body, b"moof"));
+    assert_eq!(body, expected, "the route must return the prepared bytes");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Read a route body, releasing the prepared writer after its first frame. Until then the
+/// writer holds the part file open, so this also exercises the streaming response instead of
+/// racing a completed cache rename.
+async fn read_gated_body(mut body: Body, release: &AtomicBool) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let mut released = false;
+    loop {
+        let frame = timeout(Duration::from_secs(5), body.frame())
+            .await
+            .expect("body frame timeout");
+        let Some(frame) = frame else {
+            break;
+        };
+        let frame = frame.expect("body frame error");
+        if let Ok(data) = frame.into_data() {
+            bytes.extend_from_slice(&data);
+        }
+        if !released {
+            release.store(true, Ordering::SeqCst);
+            released = true;
+        }
+    }
+    assert!(released, "the route must produce at least one body frame");
+    bytes
 }
 
 /// A video may keep its scratch work outside the inherited root, and returning to the

@@ -290,6 +290,7 @@ pub(crate) async fn preview_proxy(
                 .unwrap_or("preview"),
             uuid::Uuid::new_v4()
         ));
+        let writer = state.preview_writer();
         let task = {
             let input = input.clone();
             let ffmpeg = executable.clone();
@@ -309,9 +310,7 @@ pub(crate) async fn preview_proxy(
                     output: &part,
                 };
                 let cancel = AtomicBool::new(false);
-                av1ation_engine::media::preview::remux_chunk_proxy(
-                    &input, &chunk, &context, start, end, &cancel,
-                )
+                writer.remux_chunk(&input, &chunk, &context, start, end, &cancel)
             })
             .await
         };
@@ -361,18 +360,16 @@ pub(crate) async fn preview_proxy(
             uuid::Uuid::new_v4()
         ))
     });
-    // Only the encoded proxy is fragmented: the route can tell an encoder's first frame from
-    // the muxer's header there, so that is where it waits before promising a stream.
-    let build = if encoder.is_some() {
-        build.wait_for_fragment()
-    } else {
-        build
-    };
+    // Every proxy is fragmented. Waiting for the first fragment keeps a failed encoder inside
+    // the route's first-byte window; it also covers the standalone x264 path, which writes an
+    // elementary stream before FFmpeg muxes the first fragment.
+    let build = build.wait_for_fragment();
     if !started {
         return Ok(PreparedPreview::Building(build));
     }
     let part = build.part().to_path_buf();
     let cancel = Arc::clone(build.cancel());
+    let writer = state.preview_writer();
     let ffmpeg = executable.clone();
     let input_for_task = input.clone();
     let encoder_for_task = encoder.clone();
@@ -410,26 +407,13 @@ pub(crate) async fn preview_proxy(
         };
         let result = match request {
             PreviewRequest::Decoded { .. } => {
-                av1ation_engine::media::preview::write_decoded_window(
-                    &input_for_task,
-                    &context,
-                    start,
-                    end,
-                    &cancel,
-                )
+                writer.write_decoded(&input_for_task, &context, start, end, &cancel)
             }
             PreviewRequest::Encoded { .. } => {
                 let encoder = encoder_for_task
                     .as_ref()
                     .unwrap_or(&serde_json::Value::Null);
-                av1ation_engine::media::preview::write_scene_encoded_proxy(
-                    &input_for_task,
-                    encoder,
-                    &context,
-                    start,
-                    end,
-                    &cancel,
-                )
+                writer.write_encoded(&input_for_task, encoder, &context, start, end, &cancel)
             }
         };
         let bytes = std::fs::metadata(&part_for_task)
@@ -728,11 +712,22 @@ pub(crate) async fn tail_part(
     let mut file: Option<tokio::fs::File> = None;
     let mut buffer = vec![0u8; 64 * 1024];
     loop {
-        if file.is_none()
-            && let Ok(mut opened) = tokio::fs::File::open(&part).await
-            && opened.seek(SeekFrom::Start(offset)).await.is_ok()
-        {
-            file = Some(opened);
+        if file.is_none() {
+            // A short build can publish its finished file before the body's first open. The
+            // part path then no longer exists, so follow the published file instead of
+            // returning an empty body.
+            let path = if part.is_file() {
+                part.as_path()
+            } else if build.result().is_some() {
+                build.output()
+            } else {
+                part.as_path()
+            };
+            if let Ok(mut opened) = tokio::fs::File::open(path).await
+                && opened.seek(SeekFrom::Start(offset)).await.is_ok()
+            {
+                file = Some(opened);
+            }
         }
         let mut copied = false;
         if let Some(active) = file.as_mut() {

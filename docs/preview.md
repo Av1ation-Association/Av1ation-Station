@@ -76,10 +76,14 @@ input inherits the General input, Decoded and Original show the same frames only
 input has no filters; the control stays because it still states which input the encode
 actually used.
 
-All three sources are delivered as **fragmented MP4**. `Decoded` carries H.264 at CRF 16
+All three sources are delivered as **fragmented MP4**. `Decoded` prefers H.264 at CRF 16
 (`veryfast`, or `h264_nvenc` constant QP 18), which is visually lossless at the sizes the
-player shows: the last bit of a sample can differ, the picture does not. A sample-exact
-proxy is not usable here. x264's lossless mode requires the High 4:4:4 profile, which costs
+player shows: the last bit of a sample can differ, the picture does not. The release
+FFmpeg is built without libx264, so the sibling `x264` executable encodes the same H.264
+when libx264 is absent; if neither is available, FFmpeg's `libvpx-vp9` or the bundled
+`vpxenc` writes VP9 instead. The VP9 and standalone-x264 paths are 8-bit builds, so a
+10-bit source is downsampled only on those fallbacks; the libx264 path preserves its depth.
+A sample-exact proxy is not usable here. x264's lossless mode requires the High 4:4:4 profile, which costs
 about 36 MB/s for 1080p; Chromium caps a `SourceBuffer` at roughly 150 MB, so a six-second
 window filled the quota before the player had shown its first frame and the whole source
 failed. The CRF keeps a window at a few megabytes, which is also what makes a backwards
@@ -516,8 +520,10 @@ runs is measured, not assumed, because their order depends on the machine and on
 is running: the first proxy of a session encodes a few frames of the source's own size with
 each option and keeps the GPU path only when it wins by ten percent. The result is kept per
 FFmpeg build and picture size. A failure — no GPU, an old driver, a refused profile — leaves
-x264, which always works. NVENC H.264 has no 10-bit profile, so a 10-bit input never
-calibrates and stays on x264 at its own depth.
+x264. A build without libx264 uses the bundled x264 executable; a toolchain without either
+H.264 encoder falls back to VP9 through `vpxenc` or FFmpeg's `libvpx-vp9`. NVENC H.264 has
+no 10-bit profile, so a 10-bit input never calibrates and stays on the libx264 software
+path; the standalone x264 and VP9 fallbacks downsample a 10-bit source to 8-bit.
 
 **Grain and colour are part of that parameter list.** The Parallel Encoder writes a
 photon-noise table per scene into its scratch directory and appends the encoder's grain

@@ -66,7 +66,7 @@ pub const CANCELLED: &str = "The preview was stopped because no viewer is watchi
 /// filled on the first append, and the whole Decoded source failed with a quota error.
 /// Bumping a hand-written version was forgotten exactly once; a recipe string beside the
 /// arguments that produce the file cannot be.
-pub const PROXY_RECIPE: &str = "decoded=H264(crf16,veryfast,g25,nvenc-cq18);chunk=copy;frag=500ms";
+pub const PROXY_RECIPE: &str = "decoded=H264(crf16,veryfast,g25,nvenc-cq18|standalone-x264)|VP9(lossless,realtime)|chunk=copy;frag=500ms";
 
 pub struct PreviewContext<'a> {
     /// The source file this video was queued with.
@@ -425,6 +425,19 @@ enum ProxyH264 {
     X264,
 }
 
+/// The browser-playable encoder used for a decoded window.
+///
+/// H.264 stays first: it is the fastest visual-lossless proxy on machines with a usable
+/// encoder. The bundled FFmpeg is built without libx264, so a sibling `x264` executable is
+/// preferred over giving up; VP9 is the fallback when neither H.264 path is installed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DecodedEncoder {
+    FfmpegH264(ProxyH264),
+    StandaloneX264(PathBuf),
+    StandaloneVpx(PathBuf),
+    FfmpegVp9,
+}
+
 /// The bit depth a Y4M header carries, read from the opened clip.
 fn bit_depth_of(info: &andean_condor::core::input::clip_info::ClipInfo) -> usize {
     info.format_info.as_bit_depth().unwrap_or(8)
@@ -461,6 +474,87 @@ fn proxy_encoder(ffmpeg: &str, bit_depth: usize, resolution: (u32, u32)) -> Prox
     let choice = calibrate_proxy(ffmpeg, resolution);
     choices.insert(key, choice);
     choice
+}
+
+/// Whether this FFmpeg build can encode with `encoder`.
+///
+/// The answer is cached per path: a window build asks once, and a long preview must not
+/// spawn `ffmpeg -encoders` for every request. A missing or unreadable FFmpeg reports false,
+/// which lets the standalone/VP9 fallbacks take over instead of selecting an encoder that
+/// cannot start.
+fn ffmpeg_has_encoder(ffmpeg: &str, encoder: &str) -> bool {
+    static ENCODERS: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+    let cache = ENCODERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let key = format!("{ffmpeg}|{encoder}");
+    if let Ok(cache) = cache.lock()
+        && let Some(available) = cache.get(&key)
+    {
+        return *available;
+    }
+    let available = Command::new(ffmpeg)
+        .args(["-hide_banner", "-encoders"])
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .is_ok_and(|output| {
+            output.status.success()
+                && String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .any(|line| line.split_whitespace().nth(1) == Some(encoder))
+        });
+    if let Ok(mut cache) = cache.lock() {
+        cache.insert(key, available);
+    }
+    available
+}
+
+/// A standalone x264 beside the resolved FFmpeg, when the release bundles one.
+fn standalone_x264(ffmpeg: &str) -> Option<PathBuf> {
+    let name = if cfg!(windows) { "x264.exe" } else { "x264" };
+    let candidate = Path::new(ffmpeg).parent()?.join(name);
+    candidate.is_file().then_some(candidate)
+}
+
+/// A standalone vpxenc beside the resolved FFmpeg, when the release bundles one.
+fn standalone_vpx(ffmpeg: &str) -> Option<PathBuf> {
+    let name = if cfg!(windows) {
+        "vpxenc.exe"
+    } else {
+        "vpxenc"
+    };
+    let candidate = Path::new(ffmpeg).parent()?.join(name);
+    candidate.is_file().then_some(candidate)
+}
+
+fn decoded_encoder(
+    ffmpeg: &str,
+    bit_depth: usize,
+    resolution: (u32, u32),
+) -> Result<DecodedEncoder, String> {
+    tracing::debug!(
+        target: "av1ation_engine::preview",
+        ffmpeg,
+        x264 = ?standalone_x264(ffmpeg),
+        vpx = ?standalone_vpx(ffmpeg),
+        libx264 = ffmpeg_has_encoder(ffmpeg, "libx264"),
+        libvpx = ffmpeg_has_encoder(ffmpeg, "libvpx-vp9"),
+        "selecting a decoded preview encoder"
+    );
+    if ffmpeg_has_encoder(ffmpeg, "libx264") {
+        return Ok(DecodedEncoder::FfmpegH264(proxy_encoder(
+            ffmpeg, bit_depth, resolution,
+        )));
+    }
+    if let Some(x264) = standalone_x264(ffmpeg) {
+        return Ok(DecodedEncoder::StandaloneX264(x264));
+    }
+    if let Some(vpx) = standalone_vpx(ffmpeg) {
+        return Ok(DecodedEncoder::StandaloneVpx(vpx));
+    }
+    if ffmpeg_has_encoder(ffmpeg, "libvpx-vp9") {
+        return Ok(DecodedEncoder::FfmpegVp9);
+    }
+    Err("The preview needs an H.264 encoder (FFmpeg libx264 or x264) or a VP9 encoder (vpxenc or FFmpeg libvpx-vp9); install one in Settings, or use the bundled toolchain.".to_owned())
 }
 
 /// Time both encoders on the same synthetic frames and keep the faster one.
@@ -579,6 +673,31 @@ fn add_proxy_video(command: &mut Command, encoder: ProxyH264) {
         .arg("mp4");
 }
 
+/// VP9 is the fallback when the installed FFmpeg has neither H.264 encoder.
+///
+/// The player already parses `vp09` from the sample entry, and Chromium accepts VP9 in
+/// fragmented MP4, so this keeps the route's container and cache extension unchanged.
+/// Lossless mode preserves the preview's purpose: judging the source, not the proxy.
+fn add_vp9_video(command: &mut Command) {
+    command
+        .arg("-c:v")
+        .arg("libvpx-vp9")
+        .arg("-lossless")
+        .arg("1")
+        .arg("-deadline")
+        .arg("realtime")
+        .arg("-cpu-used")
+        .arg("8")
+        .arg("-row-mt")
+        .arg("1")
+        .arg("-g")
+        .arg("25")
+        .arg("-movflags")
+        .arg("+frag_keyframe+empty_moov+default_base_moof")
+        .arg("-f")
+        .arg("mp4");
+}
+
 /// The temporary elementary stream beside the cache file.
 fn raw_path(output: &Path, extension: &str) -> PathBuf {
     let extension = extension.trim_start_matches('.');
@@ -617,8 +736,8 @@ fn finish_ffmpeg(child: std::process::Child, label: &str) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::{
-        add_proxy_video, encoder_diagnostic, encoder_error_line, feed_stderr, prepare_encoder,
-        raw_path,
+        DecodedEncoder, add_proxy_video, add_vp9_video, decoded_encoder, encoder_diagnostic,
+        encoder_error_line, feed_stderr, prepare_encoder, raw_path,
     };
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -794,6 +913,15 @@ Svt[info]: -------------------------------------------\n";
             .collect()
     }
 
+    fn vp9_arguments() -> Vec<String> {
+        let mut command = Command::new("ffmpeg");
+        add_vp9_video(&mut command);
+        command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect()
+    }
+
     #[test]
     fn the_decoded_proxy_is_quality_targeted_and_keeps_the_source_depth() {
         for encoder in [super::ProxyH264::X264, super::ProxyH264::Nvenc] {
@@ -841,6 +969,74 @@ Svt[info]: -------------------------------------------\n";
         assert_eq!(
             super::proxy_encoder("av1ation-no-such-ffmpeg", 8, (640, 360)),
             super::ProxyH264::X264
+        );
+    }
+
+    #[test]
+    fn the_vp9_fallback_is_lossless_and_fragmented() {
+        let arguments = vp9_arguments();
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["-c:v", "libvpx-vp9"]),
+            "the fallback names VP9: {arguments:?}"
+        );
+        assert!(
+            arguments.windows(2).any(|pair| pair == ["-lossless", "1"]),
+            "the fallback keeps the preview lossless: {arguments:?}"
+        );
+        assert!(
+            arguments.windows(2).any(|pair| pair == ["-f", "mp4"]),
+            "the route's MP4 cache and MediaSource append path stay unchanged: {arguments:?}"
+        );
+    }
+
+    #[test]
+    fn a_standalone_x264_beside_ffmpeg_is_selected_when_libx264_is_missing() {
+        // The release FFmpeg is built without GPL encoders; the toolchain next to it still
+        // ships x264. Selecting it by sibling path keeps H.264 the preferred preview codec.
+        let dir = scratch("x264-select");
+        let ffmpeg = dir.join("ffmpeg.exe");
+        let x264 = dir.join(if cfg!(windows) { "x264.exe" } else { "x264" });
+        std::fs::write(&ffmpeg, b"not an executable").expect("a placeholder ffmpeg");
+        std::fs::write(&x264, b"not an executable").expect("a placeholder x264");
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+            .expect("a bundled x264 is selected");
+        assert_eq!(encoder, DecodedEncoder::StandaloneX264(x264));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_standalone_vpx_is_selected_when_no_h264_exists() {
+        let dir = scratch("vpx-select");
+        let ffmpeg = dir.join("ffmpeg.exe");
+        let vpx = dir.join(if cfg!(windows) {
+            "vpxenc.exe"
+        } else {
+            "vpxenc"
+        });
+        std::fs::write(&ffmpeg, b"not an executable").expect("a placeholder ffmpeg");
+        std::fs::write(&vpx, b"not an executable").expect("a placeholder vpxenc");
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+            .expect("a bundled vpxenc is selected");
+        assert_eq!(encoder, DecodedEncoder::StandaloneVpx(vpx));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_bundled_toolchain_finds_its_x264() {
+        // This is the release layout: ffmpeg and x264 are siblings under tools/bin. The
+        // test skips a source checkout without staged tools rather than requiring them.
+        let ffmpeg = Path::new("dist/tools/bin/ffmpeg.exe");
+        let x264 = Path::new("dist/tools/bin/x264.exe");
+        if !ffmpeg.is_file() || !x264.is_file() {
+            return;
+        }
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+            .expect("the bundled x264 is selected");
+        assert!(
+            matches!(encoder, DecodedEncoder::StandaloneX264(_)),
+            "the bundled toolchain uses its x264: {encoder:?}"
         );
     }
 }

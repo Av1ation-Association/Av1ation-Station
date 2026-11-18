@@ -18,10 +18,7 @@ use std::{
     collections::HashMap,
     io::SeekFrom,
     path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex, atomic::Ordering},
 };
 
 use av1ation_contracts::protocol::ErrorCode;
@@ -358,8 +355,9 @@ mod preview;
 pub(crate) use audio::ffmpeg;
 use audio::*;
 pub(crate) use concat::{get_video_concat_inventory, get_video_concat_source_info};
-pub(crate) use preview::PreviewBuilds;
+pub use preview::PreviewWriter;
 use preview::*;
+pub(crate) use preview::{EnginePreviewWriter, PreviewBuilds};
 /// Resolve the file a `source` name addresses, with the errors both media routes share.
 pub(crate) async fn source_path(
     state: &AppState,

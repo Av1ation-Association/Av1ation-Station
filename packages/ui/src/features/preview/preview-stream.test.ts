@@ -70,6 +70,13 @@ describe("previewCodec", () => {
         expect(previewCodec(bytes)).toBe("av01.0.04M.10");
     });
 
+    it("names a VP9 profile, level, and depth", () => {
+        const config = new Uint8Array([1, 0, 0, 0, 0, 10, 0x82]);
+        const bytes = init(sampleEntry("vp09", box("vpcC", config)));
+
+        expect(previewCodec(bytes)).toBe("vp09.00.10.08");
+    });
+
     it("names an HEVC profile with its reversed compatibility bits", () => {
         const config = new Uint8Array([1, 0x01, 0x60, 0, 0, 0, 0xb0, 0, 0, 0, 0, 0, 93]);
         const bytes = init(sampleEntry("hvc1", box("hvcC", config)));

@@ -174,13 +174,39 @@ fn write_decoded_frames(
     let header = opened
         .y4m_header(Some(count))
         .map_err(|error| error.to_string())?;
+    let encoder = decoded_encoder(context.ffmpeg, bit_depth_of(&info), info.resolution)?;
+    match encoder {
+        DecodedEncoder::FfmpegH264(encoder) => {
+            write_decoded_ffmpeg(opened, context, header, start, end, cancel, Some(encoder))
+        }
+        DecodedEncoder::FfmpegVp9 => {
+            write_decoded_ffmpeg(opened, context, header, start, end, cancel, None)
+        }
+        DecodedEncoder::StandaloneX264(x264) => {
+            write_decoded_x264(opened, context, header, start, end, cancel, &x264)
+        }
+        DecodedEncoder::StandaloneVpx(vpx) => {
+            write_decoded_vpx(opened, context, header, start, end, cancel, &vpx)
+        }
+    }
+}
+
+fn write_decoded_ffmpeg(
+    opened: &mut CoreInput,
+    context: &PreviewContext<'_>,
+    header: String,
+    start: usize,
+    end: usize,
+    cancel: &AtomicBool,
+    encoder: Option<ProxyH264>,
+) -> Result<(), String> {
     let mut command = ffmpeg_command(context.ffmpeg);
     command.arg("-f").arg("yuv4mpegpipe").arg("-i").arg("-");
     command.arg("-map").arg("0:v:0");
-    add_proxy_video(
-        &mut command,
-        proxy_encoder(context.ffmpeg, bit_depth_of(&info), info.resolution),
-    );
+    match encoder {
+        Some(encoder) => add_proxy_video(&mut command, encoder),
+        None => add_vp9_video(&mut command),
+    }
     command.arg(context.output);
 
     let mut child = command
@@ -219,5 +245,251 @@ fn write_decoded_frames(
         }
     }
     drop(stdin);
+    finish_ffmpeg(child, "decoded preview")
+}
+
+/// Encode with the bundled standalone x264 when FFmpeg was built without libx264.
+///
+/// x264 writes an elementary H.264 stream; FFmpeg then muxes it into the same fragmented
+/// MP4 the route serves, without re-encoding. This path is slower than a pipe from FFmpeg
+/// because the whole window is encoded before muxing, but it is the only H.264 option in the
+/// bundled toolchain, and H.264 remains the most widely accepted preview codec.
+fn write_decoded_x264(
+    opened: &mut CoreInput,
+    context: &PreviewContext<'_>,
+    header: String,
+    start: usize,
+    end: usize,
+    cancel: &AtomicBool,
+    x264: &Path,
+) -> Result<(), String> {
+    let raw = raw_path(context.output, "264");
+    let _ = fs::remove_file(&raw);
+    let mut command = Command::new(x264);
+    hide_console(&mut command);
+    command
+        .args(["--demuxer", "y4m", "--preset", "veryfast", "--crf", "16"])
+        .arg("--output")
+        .arg(&raw)
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("x264 could not start for the decoded preview: {error}"))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "x264 did not open a stdin for the decoded preview.".to_owned())?;
+    if let Err(error) = stdin.write_all(header.as_bytes()) {
+        drop(stdin);
+        let _ = fs::remove_file(&raw);
+        return Err(format!(
+            "The decoded preview stopped before its first frame: {error}{}",
+            ffmpeg_error(child)
+        ));
+    }
+    for index in start..end {
+        if cancel.load(Ordering::Relaxed) {
+            drop(stdin);
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = fs::remove_file(&raw);
+            return Err(CANCELLED.to_owned());
+        }
+        let frame = opened
+            .y4m_frame(index)
+            .map_err(|error| format!("Frame {index} could not be decoded: {error}"))?;
+        if let Err(error) = stdin.write_all(frame.get_ref()) {
+            drop(stdin);
+            let _ = fs::remove_file(&raw);
+            return Err(format!(
+                "The decoded preview stopped at frame {index}: {error}{}",
+                ffmpeg_error(child)
+            ));
+        }
+    }
+    drop(stdin);
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("The decoded preview task failed: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr);
+        let detail = detail
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("x264 failed.");
+        let _ = fs::remove_file(&raw);
+        return Err(format!(
+            "The decoded preview could not be encoded: {detail}"
+        ));
+    }
+
+    let result = mux_elementary(context, &raw, "x264");
+    let _ = fs::remove_file(&raw);
+    result
+}
+
+/// Encode with the bundled standalone vpxenc when neither H.264 path exists.
+///
+/// vpxenc writes IVF, which FFmpeg copies into the same fragmented MP4 without another
+/// encode. The player names the track `vp09`, so this remains a MediaSource append rather
+/// than a direct `<video>` fallback.
+fn write_decoded_vpx(
+    opened: &mut CoreInput,
+    context: &PreviewContext<'_>,
+    header: String,
+    start: usize,
+    end: usize,
+    cancel: &AtomicBool,
+    vpx: &Path,
+) -> Result<(), String> {
+    let count = end - start;
+    let info = opened.clip_info().map_err(|error| error.to_string())?;
+    let bit_depth = bit_depth_of(&info);
+    let raw = raw_path(context.output, "ivf");
+    let _ = fs::remove_file(&raw);
+    let mut command = Command::new(vpx);
+    hide_console(&mut command);
+    command
+        .args([
+            "--codec=vp9",
+            "--ivf",
+            "--passes=1",
+            "--good",
+            "--cpu-used=5",
+            "--end-usage=q",
+            "--cq-level=0",
+            "--lossless=1",
+            "--kf-max-dist=25",
+            "--quiet",
+        ])
+        .arg(format!("--limit={count}"))
+        .arg("-o")
+        .arg(&raw)
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("vpxenc could not start for the decoded preview: {error}"))?;
+    let vpx_stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "vpxenc did not open a stdin for the decoded preview.".to_owned())?;
+    // The bundled vpxenc is an 8-bit build. A 10-bit source is converted through FFmpeg's
+    // Y4M pipe before VP9 sees it, so the fallback remains available instead of failing with
+    // the encoder's "input bit depth" error.
+    let (mut stdin, converter, copy) = if bit_depth > 8 {
+        let mut command = ffmpeg_command(context.ffmpeg);
+        command
+            .args([
+                "-f",
+                "yuv4mpegpipe",
+                "-i",
+                "-",
+                "-pix_fmt",
+                "yuv420p",
+                "-f",
+                "yuv4mpegpipe",
+                "-",
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut converter = command
+            .spawn()
+            .map_err(|error| format!("FFmpeg could not convert the VP9 preview input: {error}"))?;
+        let stdin = converter
+            .stdin
+            .take()
+            .ok_or_else(|| "FFmpeg did not open a stdin for the VP9 input.".to_owned())?;
+        let mut stdout = converter
+            .stdout
+            .take()
+            .ok_or_else(|| "FFmpeg did not open a stdout for the VP9 input.".to_owned())?;
+        let mut vpx_stdin = vpx_stdin;
+        let copy = std::thread::spawn(move || {
+            let _ = std::io::copy(&mut stdout, &mut vpx_stdin);
+        });
+        (stdin, Some(converter), Some(copy))
+    } else {
+        (vpx_stdin, None, None)
+    };
+    if let Err(error) = stdin.write_all(header.as_bytes()) {
+        drop(stdin);
+        let _ = fs::remove_file(&raw);
+        return Err(format!(
+            "The decoded preview stopped before its first frame: {error}{}",
+            ffmpeg_error(child)
+        ));
+    }
+    for index in start..end {
+        if cancel.load(Ordering::Relaxed) {
+            drop(stdin);
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = fs::remove_file(&raw);
+            return Err(CANCELLED.to_owned());
+        }
+        let frame = opened
+            .y4m_frame(index)
+            .map_err(|error| format!("Frame {index} could not be decoded: {error}"))?;
+        if let Err(error) = stdin.write_all(frame.get_ref()) {
+            drop(stdin);
+            let _ = fs::remove_file(&raw);
+            return Err(format!(
+                "The decoded preview stopped at frame {index}: {error}{}",
+                ffmpeg_error(child)
+            ));
+        }
+    }
+    drop(stdin);
+    if let Some(converter) = converter {
+        let _ = converter.wait_with_output();
+    }
+    if let Some(copy) = copy {
+        let _ = copy.join();
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("The decoded preview task failed: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr);
+        let detail = detail
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("vpxenc failed.");
+        let _ = fs::remove_file(&raw);
+        return Err(format!(
+            "The decoded preview could not be encoded: {detail}"
+        ));
+    }
+    let result = mux_elementary(context, &raw, "vpxenc");
+    let _ = fs::remove_file(&raw);
+    result
+}
+
+fn mux_elementary(context: &PreviewContext<'_>, raw: &Path, producer: &str) -> Result<(), String> {
+    let mut mux = ffmpeg_command(context.ffmpeg);
+    mux.arg("-i")
+        .arg(raw)
+        .arg("-map")
+        .arg("0:v:0")
+        .arg("-c:v")
+        .arg("copy")
+        .arg("-movflags")
+        .arg("+frag_keyframe+empty_moov+default_base_moof")
+        .arg("-f")
+        .arg("mp4")
+        .arg(context.output)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    let child = mux
+        .spawn()
+        .map_err(|error| format!("FFmpeg could not mux the {producer} preview: {error}"))?;
     finish_ffmpeg(child, "decoded preview")
 }
