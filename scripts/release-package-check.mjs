@@ -53,6 +53,9 @@ function run(command, args, options = {}) {
     return spawnSync(command, args, {
         cwd: projectRoot,
         encoding: "utf8",
+        // A bundled Linux tree lists far more paths than Node's 1 MiB child-process
+        // default; dpkg-query then fails with ENOBUFS before validation can measure it.
+        maxBuffer: 128 * 1024 * 1024,
         timeout: 300_000,
         ...options,
     });
