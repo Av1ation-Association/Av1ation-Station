@@ -13,10 +13,12 @@
         "@av1ation/ui": "*",
         "@fontsource-variable/inter": "^5.3.0",
         "@fontsource-variable/jetbrains-mono": "^5.3.0",
-        "@mdx-js/rollup": "^3.1.1",
         "minisearch": "^7.2.0",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
         "remark-gfm": "^4.0.1"
+    },
+    "devDependencies": {
+        "@mdx-js/rollup": "^3.1.1"
     }
 }

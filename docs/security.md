@@ -269,8 +269,11 @@ pub fn anonymise(lines: impl Iterator<Item = String>, opts: Options) -> (Vec<Str
 - Repository secret scanning uses a reviewed scanner configuration and allowlist, and runs
   in the Phase 5 release-security job before publication. It is not a pull-request gate
   before that allowlist exists.
-- Pull-request CI runs `npm audit --audit-level=high` and `cargo audit`; both are blocking
-  for the vulnerabilities they report there. The weekly dependency audit is advisory: it
+- Pull-request CI runs `npm audit --omit=dev --audit-level=high` and `cargo audit`; both are
+  blocking for the vulnerabilities they report there. The npm gate covers the tree an
+  installed application can load; build-only tooling stays in the weekly advisory audit so
+  a dev-server or bundler advisory cannot block a release when no fixed version exists. The
+  weekly dependency audit is advisory: it
   opens or updates one issue for npm high/critical findings and Cargo vulnerabilities, and
   closes it when the audit is clean. Lower-severity npm findings and Cargo warnings stay in
   the audit artifact rather than failing a check.

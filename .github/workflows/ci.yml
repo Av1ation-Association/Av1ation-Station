@@ -131,7 +131,10 @@ jobs:
                   cache: npm
             - run: npm ci
             - name: Audit JavaScript dependencies
-              run: npm audit --audit-level=high
+              # Build-only tooling is not shipped in either application. The blocking gate
+              # covers the dependency tree an installed app can load; the weekly audit keeps
+              # reporting dev-tree advisories until an upstream fix exists.
+              run: npm audit --omit=dev --audit-level=high
             - name: Validate website release metadata and download URLs
               run: npm run check:website-release -- --urls
             - name: Run web static profile
