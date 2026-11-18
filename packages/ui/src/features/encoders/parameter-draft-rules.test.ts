@@ -13,6 +13,7 @@ const BASE: ParameterDraftInput = {
     label: "Constant Rate Factor",
     kind: "Decimal",
     widget: "Auto",
+    marks: [],
     choices: [],
     choiceNumeric: false,
     textFormat: "Plain",
@@ -114,5 +115,52 @@ describe("parameter draft rules", () => {
             },
             default: 2,
         });
+    });
+
+    it("sorts and trims slider marks, dropping blank rows", () => {
+        const descriptor = descriptorFromDraft(
+            draft({
+                widget: "Slider",
+                marks: [
+                    { value: "40", label: "  Detail  " },
+                    { value: "", label: "ignored" },
+                    { value: "24", label: " " },
+                ],
+                min: "0",
+                max: "63",
+                step: "0.25",
+            }),
+        );
+
+        expect(descriptor.widget).toEqual({
+            Slider: {
+                step: 0.25,
+                marks: [
+                    { value: 24, label: null },
+                    { value: 40, label: "Detail" },
+                ],
+            },
+        });
+    });
+
+    it("rejects slider marks that repeat or leave the range", () => {
+        expect(
+            validateParameterDraft(
+                draft({
+                    widget: "Slider",
+                    marks: [
+                        { value: "20", label: "" },
+                        { value: "20", label: "Again" },
+                    ],
+                }),
+                { editing: false, taken: new Set() },
+            ),
+        ).toContain("unique");
+        expect(
+            validateParameterDraft(
+                draft({ widget: "Slider", marks: [{ value: "64", label: "" }] }),
+                { editing: false, taken: new Set() },
+            ),
+        ).toContain("inside");
     });
 });

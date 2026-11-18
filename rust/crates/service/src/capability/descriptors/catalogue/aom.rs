@@ -4,9 +4,9 @@ pub(super) const AOM: &[CatalogueEntry] = &[
     entry(
         "--cpu-used",
         "CPU used",
-        "Speed from 0 (slowest) to 8 (fastest).",
+        "Speed from 0 (slowest) to 9 (fastest) in the good-quality deadline.",
         "Speed",
-        int(Some(0.0), Some(8.0)),
+        int(Some(0.0), Some(9.0)),
         false,
     ),
     entry(
@@ -20,9 +20,9 @@ pub(super) const AOM: &[CatalogueEntry] = &[
     entry(
         "--end-usage",
         "Rate-control mode",
-        "q, cq, vbr or cbr.",
+        "q and cq keep quality constant; vbr and cbr target a bitrate.",
         "Quality",
-        text(),
+        choice(&["q", "cq", "vbr", "cbr"]),
         false,
     ),
     entry(
@@ -30,7 +30,7 @@ pub(super) const AOM: &[CatalogueEntry] = &[
         "Maximum keyframe distance",
         "Maximum frames between keyframes.",
         "Structure",
-        int(None, None),
+        int_unit(None, None, "frames"),
         false,
     ),
     entry(
@@ -62,7 +62,7 @@ pub(super) const AOM: &[CatalogueEntry] = &[
         "Lookahead",
         "Frames buffered before encoding; 0 disables lookahead.",
         "Speed",
-        int(Some(0.0), Some(25.0)),
+        int_unit(Some(0.0), Some(25.0), "frames"),
         false,
     ),
     entry(
@@ -70,15 +70,28 @@ pub(super) const AOM: &[CatalogueEntry] = &[
         "Adaptive quantisation",
         "0 off, 1 variance, 2 complexity, 3 cyclic refresh.",
         "Quality",
-        int(Some(0.0), Some(3.0)),
+        numbered(&[
+            (0.0, "Off"),
+            (1.0, "Variance"),
+            (2.0, "Complexity"),
+            (3.0, "Cyclic refresh"),
+        ]),
         true,
     ),
     entry(
         "--deltaq-mode",
         "Delta-q mode",
-        "Perceptual delta-q strength.",
+        "Delta-q mode: 0 off, 1 objective, 2 perceptual, 3 key-frame quality, 4 user-rating quality, 5 HDR, 6 variance boost for all-intra.",
         "Quality",
-        int(Some(0.0), Some(4.0)),
+        numbered(&[
+            (0.0, "Off"),
+            (1.0, "Objective"),
+            (2.0, "Perceptual"),
+            (3.0, "Key-frame quality"),
+            (4.0, "User-rating quality"),
+            (5.0, "HDR"),
+            (6.0, "Variance boost (all-intra)"),
+        ]),
         true,
     ),
     entry(
@@ -108,9 +121,9 @@ pub(super) const AOM: &[CatalogueEntry] = &[
     entry(
         "--passes",
         "Passes",
-        "Number of encoding passes.",
+        "Encoding passes: 1, 2 or 3.",
         "Quality",
-        int(Some(1.0), Some(2.0)),
+        int(Some(1.0), Some(3.0)),
         true,
     ),
     entry(
@@ -118,7 +131,15 @@ pub(super) const AOM: &[CatalogueEntry] = &[
         "Bit depth",
         "Bits per sample written to the bitstream.",
         "Format",
-        int(Some(8.0), Some(12.0)),
+        numbered(&[(8.0, "8-bit"), (10.0, "10-bit"), (12.0, "12-bit")]),
+        true,
+    ),
+    entry(
+        "--disable-kf",
+        "Disable keyframes",
+        "Never insert a keyframe on its own.",
+        "Structure",
+        flag(),
         true,
     ),
     entry(
@@ -126,7 +147,7 @@ pub(super) const AOM: &[CatalogueEntry] = &[
         "Profile",
         "Bitstream profile written to the sequence header.",
         "Format",
-        numbered(&[(0, "Main"), (1, "High"), (2, "Professional")]),
+        numbered(&[(0.0, "Main"), (1.0, "High"), (2.0, "Professional")]),
         true,
     ),
     entry(

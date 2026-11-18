@@ -199,7 +199,8 @@ The descriptor is generated from the engine's own `EncoderBase::default_paramete
 `/api/encoders` performs that mapping: a `Bool` becomes `Flag`, a `Number` becomes an
 unbounded `Number` with `integer` inferred from its default, and a `String` becomes `Text`.
 The engine exposes no minima, maxima, units, labels, or choice lists, so those stay absent
-and `widget` is `Auto`; the renderer chooses a plain control instead of inventing a range.
+until the curated catalogue supplies documented values; `/api/encoders` then resolves every
+`Auto` widget, so callers receive the same concrete control the renderer draws.
 
 The renderer in `packages/ui/src/features/configuration/` maps `Widget` to a control and uses
 provenance to render the inherited/overridden badge and reset affordance. Field grouping
@@ -438,23 +439,33 @@ Widget selection, applied in order when a descriptor is built with `Auto`:
 1. `Flag` → `Toggle`.
 2. `Choice` → `ChoiceInput { presentation: Auto }`.
 3. `Path` → `PathPicker`; `Duration` → `DurationInput`.
-4. `Number` whose only values are 0 and 1 → `Switch`. An encoder that spells a boolean
+4. Integer `Number` whose only values are 0 and 1 → `Switch`. An encoder that spells a boolean
    as a value (`--enable-qm 0|1`) is not a quantity; a slider would let it take 0.5 and the
    encoder would refuse the run.
-5. `Number` with finite `min` and `max` and at most 20 discrete steps → `Slider`.
+5. `Number` with finite `min` and `max` spanning at most 100 units → `Slider`. Fractional
+   steps are allowed: CRF is 1–70 in 0.25 increments. The descriptor's `step` is preserved;
+   an integer slider with no authored step falls back to 1.
 6. Any other `Number` → `NumberInput`.
 7. `Text` → `TextInput`; `Collection` → `CollectionInput`.
 
-A widget that cannot represent its kind (a `Slider` on an unbounded `Number`, a `Toggle`
-on a `Choice`) is a descriptor error, rejected when the definition loads. It never renders
-as a broken control.
+A slider may carry up to eight curated `Mark`s. Each mark has a finite value inside the
+range, an optional label, and a unique value. The renderer always adds the descriptor's
+default as a `Default <value>` mark without storing it, even when a curated mark carries
+that value, so switching widgets cannot pollute the descriptor. Ticks remain for every
+mark; a label that would collide is hidden until its own tick is hovered or focused, and
+the default marker wins a collision. Automatic marks never repeat the endpoint labels: the
+slider's own ends already communicate the minimum and maximum.
 
-Built-in descriptors carry hand-authored constraints because the engine does not expose
-minima, maxima, or units. A catalogue row the engine does not seed also carries the
+An explicit widget is evidence and is left alone. When it cannot represent its kind — a
+`Slider` without a finite range, or a `Toggle` on a `Choice` — the renderer falls back to a
+plain field instead of drawing a broken control.
+
+Built-in descriptors carry hand-authored constraints from each encoder's official
+documentation because the engine does not expose minima, maxima, or units. A catalogue row the engine does not seed also carries the
 shipped build's documented default, read from its `--full-help`; a preset-dependent
 default stays unset, because a single value would be wrong for some presets. Probed user
 encoders get only the type and help text from `--help`; when a range is unknown the field
-is a `NumberInput` marked "unbounded", never a slider with invented limits. A user may add constraints in the JSON file; they are
+stays a plain `NumberInput`, never a slider with invented limits. A user may add constraints in the JSON file; they are
 validated against the kind and cannot widen a built-in's range silently.
 
 ### 6.4 Relations between parameters

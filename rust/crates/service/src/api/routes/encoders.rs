@@ -14,7 +14,7 @@ pub(super) async fn list_encoders(State(state): State<AppState>) -> Json<Vec<Enc
             // appears unless the user removed it deliberately.
             let engine_parameters = descriptors::builtin(&encoder.id, &encoder.parameters);
             let override_document = settings.encoder_overrides.get(&encoder.id);
-            let parameters = match override_document {
+            let mut parameters = match override_document {
                 Some(document) => {
                     let mut merged = engine_parameters;
                     for removed in &document.removed {
@@ -27,6 +27,9 @@ pub(super) async fn list_encoders(State(state): State<AppState>) -> Json<Vec<Enc
                 }
                 None => engine_parameters,
             };
+            // A saved override may predate the resolver or carry `Auto`; resolve it at the
+            // same boundary as the engine catalogue so every caller sees one control shape.
+            descriptors::resolve_descriptors(&mut parameters);
             // A custom provider is published under its own `custom:<family>` id, so the
             // catalogue must look for every spelling a probe can use; otherwise an
             // accepted replacement would be invisible here until the next restart.

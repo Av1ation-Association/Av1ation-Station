@@ -15,7 +15,12 @@
                 }
             },
             "default": 0.25,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 0.05,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -35,7 +40,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Film grain",
             "relations": []
@@ -74,7 +79,11 @@
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": false,
             "group": "Rate control",
             "relations": []
@@ -167,7 +176,11 @@
                 }
             },
             "default": "max",
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Diagnostics",
             "relations": []
@@ -187,7 +200,7 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -207,7 +220,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -227,7 +240,12 @@
                 }
             },
             "default": 15,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -247,7 +265,12 @@
                 }
             },
             "default": 4,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -292,7 +315,11 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -312,7 +339,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -332,7 +359,12 @@
                 }
             },
             "default": 25,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 0.25,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Rate control",
             "relations": []
@@ -352,7 +384,7 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -372,7 +404,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -380,19 +412,48 @@
         "--enable-dlf": {
             "delimiter": "Space",
             "label": "Deblocking filter",
-            "description": "0 off, 1 enabled, 2 and 3 slower but more accurate filtering.",
+            "description": "0 off, 1 on, 2 slower and 3 maximum-accuracy filtering.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 3,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "On",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Slower (more accurate)",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Maximum accuracy",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -400,19 +461,42 @@
         "--enable-mfmv": {
             "delimiter": "Space",
             "label": "Motion field motion vectors",
-            "description": "-1 automatic, 0 off, 1 on.",
+            "description": "Automatic lets the encoder decide per frame.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": -1,
-                    "max": 1,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": -1,
+                            "label": "Automatic",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "On",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": -1,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -432,7 +516,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -452,7 +536,7 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -472,7 +556,7 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -492,7 +576,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Diagnostics",
             "relations": []
@@ -500,19 +584,48 @@
         "--enable-tf": {
             "delimiter": "Space",
             "label": "Temporal filtering",
-            "description": "0 off, 1 on, 2 and 3 adaptive with a stronger filter.",
+            "description": "0 off, 1 on, 2 adaptive and 3 full adaptive temporal filtering.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 3,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "On",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Adaptive",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Full",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -532,7 +645,7 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -540,19 +653,42 @@
         "--fast-decode": {
             "delimiter": "Space",
             "label": "Fast decode",
-            "description": "0 off; 1 and 2 trade compression for decoder speed.",
+            "description": "0 off; 1 and 2 trade compression for decoder speed, 2 more so.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 2,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "On",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Faster decoder",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Speed",
             "relations": []
@@ -572,7 +708,12 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Film grain",
             "relations": []
@@ -592,7 +733,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Film grain",
             "relations": []
@@ -612,7 +753,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -620,19 +761,48 @@
         "--hierarchical-levels": {
             "delimiter": "Space",
             "label": "Hierarchical levels",
-            "description": "Temporal layers beyond the base layer, from 2 to 5.",
+            "description": "Temporal layers beyond the base layer, from three to six.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 2,
-                    "max": 5,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 2,
+                            "label": "3 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "4 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "5 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 5,
+                            "label": "6 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -665,7 +835,11 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -698,7 +872,11 @@
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -714,11 +892,15 @@
                     "min": -2,
                     "max": null,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": false,
             "group": "GOP",
             "relations": []
@@ -737,7 +919,12 @@
                 }
             },
             "default": "0",
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -753,11 +940,16 @@
                     "min": -1,
                     "max": 32,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": -1,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -777,7 +969,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -797,7 +989,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Speed",
             "relations": []
@@ -817,7 +1009,12 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Parallelism",
             "relations": []
@@ -837,7 +1034,12 @@
                 }
             },
             "default": 10,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -845,19 +1047,24 @@
         "--max-qp": {
             "delimiter": "Space",
             "label": "Maximum QP",
-            "description": "Highest (worst) quantiser allowed, from 0 to 63.",
+            "description": "Highest (worst) quantiser allowed, from 1 to 63.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
                 "Number": {
                     "integer": true,
-                    "min": 0,
+                    "min": 1,
                     "max": 63,
                     "step": null,
                     "unit": null
                 }
             },
             "default": 63,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -876,7 +1083,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -892,11 +1104,15 @@
                     "min": -1,
                     "max": null,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": -1,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -904,19 +1120,24 @@
         "--min-qp": {
             "delimiter": "Space",
             "label": "Minimum QP",
-            "description": "Lowest (best) quantiser allowed, from 0 to 63.",
+            "description": "Lowest (best) quantiser allowed, from 1 to 63.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
                 "Number": {
                     "integer": true,
-                    "min": 0,
+                    "min": 1,
                     "max": 63,
                     "step": null,
                     "unit": null
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -936,7 +1157,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -956,7 +1182,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Film grain",
             "relations": []
@@ -964,19 +1190,36 @@
         "--pred-struct": {
             "delimiter": "Space",
             "label": "Prediction structure",
-            "description": "1 low delay, 2 random access.",
+            "description": "Low delay has no frame reordering; random access allows B-frames.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 1,
-                    "max": 2,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 1,
+                            "label": "Low delay",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Random access",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -996,7 +1239,12 @@
                 }
             },
             "default": 4,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Speed",
             "relations": []
@@ -1035,7 +1283,11 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -1043,19 +1295,42 @@
         "--progress": {
             "delimiter": "Space",
             "label": "Progress reporting",
-            "description": "0 quiet, 1 default output, 2 detailed output.",
+            "description": "0 quiet, 1 basic progress, 2 detailed progress.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 2,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Quiet",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Basic",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Detailed",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Diagnostics",
             "relations": []
@@ -1075,7 +1350,12 @@
                 }
             },
             "default": 15,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1095,7 +1375,12 @@
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1115,7 +1400,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -1135,7 +1425,12 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1174,7 +1469,11 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": false,
             "group": "Rate control",
             "relations": []
@@ -1194,7 +1493,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -1214,7 +1513,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": false,
             "group": "GOP",
             "relations": []
@@ -1222,19 +1521,48 @@
         "--scm": {
             "delimiter": "Space",
             "label": "Screen-content detection",
-            "description": "0 off, 1 on, 2 content adaptive, 3 content adaptive with anti-alias awareness.",
+            "description": "0 off, 1 block copy and palette, 2 content adaptive, 3 content adaptive with anti-alias awareness.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 3,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Block copy + palette",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Content adaptive",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Adaptive (anti-alias aware)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 2,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "AV1 tools",
             "relations": []
@@ -1254,7 +1582,7 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": "Switch",
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1274,7 +1602,12 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1282,19 +1615,48 @@
         "--startup-mg-size": {
             "delimiter": "Space",
             "label": "Startup mini-GOP size",
-            "description": "0 off, 2 three temporal layers, 3 four temporal layers, 4 five temporal layers.",
+            "description": "An alternative mini-GOP for the first GOP after a keyframe.",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 4,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "3 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "4 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "5 temporal layers",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "GOP",
             "relations": []
@@ -1313,7 +1675,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Advanced",
             "relations": []
@@ -1332,7 +1699,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Rate control",
             "relations": []
@@ -1352,7 +1724,12 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1385,7 +1762,11 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -1405,7 +1786,12 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Parallelism",
             "relations": []
@@ -1425,7 +1811,12 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Parallelism",
             "relations": []
@@ -1476,7 +1867,11 @@
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1484,19 +1879,48 @@
         "--variance-boost-strength": {
             "delimiter": "Space",
             "label": "Variance boost strength",
-            "description": "1 mild, 2 gentle, 3 medium, 4 aggressive.",
+            "description": "Variance-boost strength from mild (1) to aggressive (4).",
             "doc_link": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 1,
-                    "max": 4,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 1,
+                            "label": "Mild",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Gentle",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Medium",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "Aggressive",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 1,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1516,8 +1940,2492 @@
                 }
             },
             "default": 4,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
+            "group": "Quality",
+            "relations": []
+        }
+    },
+    "aom": {
+        "--aq-mode": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Adaptive quantisation",
+            "description": "0 off, 1 variance, 2 complexity, 3 cyclic refresh.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Complexity",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Cyclic refresh",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--auto-alt-ref": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Alt-ref frames",
+            "description": "Number of alternate reference frames.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Switch",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--bit-depth": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Bit depth",
+            "description": "Bits per sample written to the bitstream.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 8,
+                            "label": "8-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 10,
+                            "label": "10-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 12,
+                            "label": "12-bit",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--cpu-used": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "CPU used",
+            "description": "Speed from 0 (slowest) to 9 (fastest) in the good-quality deadline.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 9,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 6,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--cq-level": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Constrained quality",
+            "description": "Quality level from 0 (lossless) to 63.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 30,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--deltaq-mode": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Delta-q mode",
+            "description": "Delta-q mode: 0 off, 1 objective, 2 perceptual, 3 key-frame quality, 4 user-rating quality, 5 HDR, 6 variance boost for all-intra.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Objective",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Perceptual",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Key-frame quality",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "User-rating quality",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 5,
+                            "label": "HDR",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 6,
+                            "label": "Variance boost (all-intra)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--denoise-noise-level": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Denoise",
+            "description": "Pre-process film grain at this strength; 0 keeps the source.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 50,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--disable-kf": {
+            "delimiter": null,
+            "label": "Disable keyframes",
+            "description": "Never insert a keyframe on its own.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--enable-qm": {
+            "delimiter": null,
+            "label": "Quantisation matrices",
+            "description": "Use the encoder's quantisation matrices.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": "Flag",
+            "default": false,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--end-usage": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Rate-control mode",
+            "description": "q and cq keep quality constant; vbr and cbr target a bitrate.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "q",
+                            "label": "q",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cq",
+                            "label": "cq",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "vbr",
+                            "label": "vbr",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cbr",
+                            "label": "cbr",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "q",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--kf-max-dist": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Maximum keyframe distance",
+            "description": "Maximum frames between keyframes.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": null,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": 9999,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--lag-in-frames": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Lookahead",
+            "description": "Frames buffered before encoding; 0 disables lookahead.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 25,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Passes",
+            "description": "Encoding passes: 1, 2 or 3.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 3,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Profile",
+            "description": "Bitstream profile written to the sequence header.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "High",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Professional",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--row-mt": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Row multithreading",
+            "description": "1 lets tiles encode row by row across threads.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": "Switch",
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 8,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-columns": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile columns",
+            "description": "Log2 number of tile columns.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile rows",
+            "description": "Log2 number of tile rows.",
+            "doc_link": "https://aomedia.googlesource.com/aom/+/master/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        }
+    },
+    "rav1e": {
+        "--keyint": {
+            "delimiter": "Space",
+            "label": "Keyframe interval",
+            "description": "Maximum GOP length in frames; 0 lets the encoder choose.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": null,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": 0,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--low-latency": {
+            "delimiter": null,
+            "label": "Low latency",
+            "description": "Disable lookahead for live-style encoding.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": "Flag",
+            "default": false,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--matrix": {
+            "delimiter": "Space",
+            "label": "Colour matrix",
+            "description": "Matrix written to the bitstream, for example bt709.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--min-keyint": {
+            "delimiter": "Space",
+            "label": "Minimum keyframe interval",
+            "description": "Shortest GOP length in frames.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": null,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--no-scene-detection": {
+            "delimiter": null,
+            "label": "No scene detection",
+            "description": "Keep one GOP across scene changes.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": "Space",
+            "label": "Passes",
+            "description": "Number of encoding passes.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--primaries": {
+            "delimiter": "Space",
+            "label": "Colour primaries",
+            "description": "Primaries written to the bitstream.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--quantizer": {
+            "delimiter": "Space",
+            "label": "Quantiser",
+            "description": "Constant quantiser from 0 to 255; lower keeps more detail.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 255,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 100,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--range": {
+            "delimiter": "Space",
+            "label": "Pixel range",
+            "description": "limited is studio range, full is full range.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "limited",
+                            "label": "limited",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "full",
+                            "label": "full",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--speed": {
+            "delimiter": "Space",
+            "label": "Speed",
+            "description": "0 is slowest and best, 10 is fastest.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 10,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 8,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": "Space",
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": "Space",
+            "label": "Tile rows",
+            "description": "Number of tile rows; must be a power of two and may be overridden by the resolution.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Auto",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "4",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 8,
+                            "label": "8",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 16,
+                            "label": "16",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 32,
+                            "label": "32",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 64,
+                            "label": "64",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tiles": {
+            "delimiter": "Space",
+            "label": "Tiles",
+            "description": "Minimum number of tiles across the frame; overrides the tile row and column counts.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--transfer": {
+            "delimiter": "Space",
+            "label": "Transfer characteristics",
+            "description": "Transfer function written to the bitstream.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "-y": {
+            "delimiter": null,
+            "label": "Overwrite output",
+            "description": "Allow the encoder to overwrite its output file.",
+            "doc_link": "https://github.com/xiph/rav1e/blob/master/README.md",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Diagnostics",
+            "relations": []
+        }
+    },
+    "vpx": {
+        "--aq-mode": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Adaptive quantisation",
+            "description": "0 off, 1 variance, 2 complexity, 3 cyclic refresh, 4 equator360 (VP9).",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Complexity",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Cyclic refresh",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "Equator360 (VP9)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--auto-alt-ref": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Alt-ref frames",
+            "description": "Number of alternate reference frames.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 6,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--codec": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Codec",
+            "description": "VP8 or VP9.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "vp8",
+                            "label": "vp8",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "vp9",
+                            "label": "vp9",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "vp9",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        },
+        "--cpu-used": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "CPU used",
+            "description": "Speed from 0 (slowest) to 8 (fastest).",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 8,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 2,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--cq-level": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Constrained quality",
+            "description": "Quality level from 0 (lossless) to 63.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 30,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--disable-kf": {
+            "delimiter": null,
+            "label": "Disable keyframes",
+            "description": "Never insert a keyframe on its own.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--end-usage": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Rate-control mode",
+            "description": "q and cq keep quality constant; vbr and cbr target a bitrate.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "q",
+                            "label": "q",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cq",
+                            "label": "cq",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "vbr",
+                            "label": "vbr",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cbr",
+                            "label": "cbr",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "q",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--kf-max-dist": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Maximum keyframe distance",
+            "description": "Maximum frames between keyframes.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": null,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": 9999,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--kf-min-dist": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Minimum keyframe distance",
+            "description": "Minimum frames between keyframes.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--lag-in-frames": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Lookahead",
+            "description": "Frames buffered before encoding; 0 disables lookahead.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 25,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Passes",
+            "description": "Number of encoding passes.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Profile",
+            "description": "VP9 profile: 0 is 8-bit 4:2:0, 1 is 8-bit 4:2:2/4:4:4, 2 is 10/12-bit 4:2:0, 3 is 10/12-bit 4:2:2/4:4:4.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "8-bit 4:2:0",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "8-bit 4:2:2/4:4:4",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "10/12-bit 4:2:0",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "10/12-bit 4:2:2/4:4:4",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 2,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--row-mt": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Row multithreading",
+            "description": "1 lets tiles encode row by row across threads.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 1,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 1,
+            "widget": "Switch",
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 4,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-columns": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile columns",
+            "description": "Log2 number of tile columns.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile rows",
+            "description": "Log2 number of tile rows.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 2,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "-b": {
+            "delimiter": "Space",
+            "label": "Target bitrate",
+            "description": "Target bitrate in kbit/s for VBR or CBR.",
+            "doc_link": "https://www.webmproject.org/docs/encoder-parameters/",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": "kbps"
+                }
+            },
+            "default": 10,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        }
+    },
+    "avm": {
+        "--aq-mode": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Adaptive quantisation",
+            "description": "0 off, 1 variance, 2 complexity, 3 cyclic refresh.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Complexity",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Cyclic refresh",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--cpu-used": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "CPU used",
+            "description": "Speed from 0 (slowest) to 9 (fastest).",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 9,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 6,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--end-usage": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Rate-control mode",
+            "description": "q and cq keep quality constant; vbr and cbr target a bitrate.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "q",
+                            "label": "q",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cq",
+                            "label": "cq",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "vbr",
+                            "label": "vbr",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "cbr",
+                            "label": "cbr",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "q",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--kf-max-dist": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Maximum keyframe distance",
+            "description": "Maximum frames between keyframes.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": null,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": 9999,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--lag-in-frames": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Lookahead",
+            "description": "Frames buffered before encoding.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 25,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Passes",
+            "description": "AVM requires a single pass.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 1,
+                            "label": "Single pass",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--qp": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Quantiser",
+            "description": "Quantiser from -96 to 255; the lossless point is 0 for 8-bit, -48 for 10-bit and -96 for 12-bit input.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": -96,
+                    "max": 255,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 30,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 8,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-columns": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile columns",
+            "description": "Log2 number of tile columns.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Tile rows",
+            "description": "Log2 number of tile rows.",
+            "doc_link": "https://aomedia.googlesource.com/avm/+/main/apps/aomenc.c",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 6,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        }
+    },
+    "x264": {
+        "--aq-mode": {
+            "delimiter": "Space",
+            "label": "Adaptive quantisation",
+            "description": "0 off, 1 variance, 2 auto-variance, 3 auto-variance biased to dark scenes.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Auto-variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Auto-variance (dark bias)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--bframes": {
+            "delimiter": "Space",
+            "label": "B-frames",
+            "description": "Maximum consecutive B-frames.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 16,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--crf": {
+            "delimiter": "Space",
+            "label": "CRF",
+            "description": "Constant rate factor from -12 to 51; lower keeps more detail. High bit depths allow values below 0.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": false,
+                    "min": -12,
+                    "max": 51,
+                    "step": 0.1,
+                    "unit": null
+                }
+            },
+            "default": 25,
+            "widget": {
+                "Slider": {
+                    "step": 0.1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--deblock": {
+            "delimiter": "Space",
+            "label": "Deblocking",
+            "description": "Two strengths as alpha:beta, for example -1:-1.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--demuxer": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Demuxer",
+            "description": "Input container format; auto detects it.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "auto",
+                            "label": "auto",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "raw",
+                            "label": "raw",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "y4m",
+                            "label": "y4m",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "avs",
+                            "label": "avs",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "lavf",
+                            "label": "lavf",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "y4m",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--keyint": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Keyframe interval",
+            "description": "Maximum GOP length in frames, or infinite.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": "infinite",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--log-level": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Log level",
+            "description": "Highest level of logging to print.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "none",
+                            "label": "none",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "error",
+                            "label": "error",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "warning",
+                            "label": "warning",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "info",
+                            "label": "info",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "debug",
+                            "label": "debug",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "error",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Diagnostics",
+            "relations": []
+        },
+        "--min-keyint": {
+            "delimiter": "Space",
+            "label": "Minimum keyframe interval",
+            "description": "Shortest GOP length in frames.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--preset": {
+            "delimiter": {
+                "Joined": "="
+            },
+            "label": "Preset",
+            "description": "Speed preset from ultrafast to placebo; slower presets spend more time on quality.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "ultrafast",
+                            "label": "ultrafast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "superfast",
+                            "label": "superfast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "veryfast",
+                            "label": "veryfast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "faster",
+                            "label": "faster",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fast",
+                            "label": "fast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "medium",
+                            "label": "medium",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slow",
+                            "label": "slow",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slower",
+                            "label": "slower",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "veryslow",
+                            "label": "veryslow",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "placebo",
+                            "label": "placebo",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "slow",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": "Space",
+            "label": "Profile",
+            "description": "Force the limits of an H.264 profile; this overrides individual settings.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "baseline",
+                            "label": "baseline",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "main",
+                            "label": "main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "high",
+                            "label": "high",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "high10",
+                            "label": "high10",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "high422",
+                            "label": "high422",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "high444",
+                            "label": "high444",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--psy-rd": {
+            "delimiter": "Space",
+            "label": "Psy-rd",
+            "description": "Psychovisual strength as rd:trellis.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--qp": {
+            "delimiter": "Space",
+            "label": "Quantiser",
+            "description": "Constant quantiser used when CRF is absent, from 0 (lossless) to 81.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 81,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--rc-lookahead": {
+            "delimiter": "Space",
+            "label": "Lookahead",
+            "description": "Frames buffered for rate-control decisions.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 250,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Speed",
+            "relations": []
+        },
+        "--ref": {
+            "delimiter": "Space",
+            "label": "Reference frames",
+            "description": "Number of reference frames.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 16,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": true,
+            "group": "Structure",
+            "relations": []
+        },
+        "--scenecut": {
+            "delimiter": "Space",
+            "label": "Scene cut threshold",
+            "description": "How aggressively to insert extra I-frames, from 0 to 100.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 100,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 0,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--stitchable": {
+            "delimiter": null,
+            "label": "Stitchable",
+            "description": "Keep every segment independently decodable.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": "Space",
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tune": {
+            "delimiter": "Space",
+            "label": "Tune",
+            "description": "Tune the psychovisual model for a content type or a delivery constraint.",
+            "doc_link": "https://www.videolan.org/developers/x264.html",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "film",
+                            "label": "film",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "animation",
+                            "label": "animation",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "grain",
+                            "label": "grain",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "stillimage",
+                            "label": "stillimage",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "psnr",
+                            "label": "psnr",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "ssim",
+                            "label": "ssim",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fastdecode",
+                            "label": "fastdecode",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "zerolatency",
+                            "label": "zerolatency",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
             "group": "Quality",
             "relations": []
         }
@@ -1526,19 +4434,54 @@
         "--aq-mode": {
             "delimiter": "Space",
             "label": "Adaptive quantisation",
-            "description": "0 off, 1 variance, 2 auto-variance, 3 auto-variance with bias.",
+            "description": "0 off, 1 variance, 2 auto-variance, 3 auto-variance biased to dark scenes, 4 auto-variance with edge information.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 0,
-                    "max": 3,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": "Off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 1,
+                            "label": "Variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "Auto-variance",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "Auto-variance (dark bias)",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "Auto-variance (edge-aware)",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1558,7 +4501,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Structure",
             "relations": []
@@ -1578,7 +4526,12 @@
                 }
             },
             "default": 25,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Quality",
             "relations": []
@@ -1597,7 +4550,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1617,7 +4575,11 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": true,
             "group": "Parallelism",
             "relations": []
@@ -1633,11 +4595,15 @@
                     "min": -1,
                     "max": null,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": -1,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": false,
             "group": "Structure",
             "relations": []
@@ -1645,19 +4611,102 @@
         "--level-idc": {
             "delimiter": "Space",
             "label": "Level",
-            "description": "Signalled decoder level, for example 5.",
+            "description": "Minimum decoder level to signal, from 1 to 6.2; the encoder raises it if the stream needs more.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
-                "Number": {
-                    "integer": true,
-                    "min": 1,
-                    "max": 7,
-                    "step": null,
-                    "unit": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 1,
+                            "label": "1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2,
+                            "label": "2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 2.1,
+                            "label": "2.1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3,
+                            "label": "3",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 3.1,
+                            "label": "3.1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4,
+                            "label": "4",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 4.1,
+                            "label": "4.1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 5,
+                            "label": "5",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 5.1,
+                            "label": "5.1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 5.2,
+                            "label": "5.2",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 6,
+                            "label": "6",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 6.1,
+                            "label": "6.1",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 6.2,
+                            "label": "6.2",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": 5,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": false,
             "group": "Format",
             "relations": []
@@ -1673,11 +4722,15 @@
                     "min": 0,
                     "max": null,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": true,
             "group": "Structure",
             "relations": []
@@ -1696,7 +4749,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Parallelism",
             "relations": []
@@ -1704,18 +4762,84 @@
         "--preset": {
             "delimiter": "Space",
             "label": "Preset",
-            "description": "ultrafast through placebo.",
+            "description": "Speed preset from ultrafast to placebo; slower presets spend more time on quality.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
-                "Text": {
-                    "max_len": null,
-                    "pattern": null,
-                    "multiline": false,
-                    "format": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "ultrafast",
+                            "label": "ultrafast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "superfast",
+                            "label": "superfast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "veryfast",
+                            "label": "veryfast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "faster",
+                            "label": "faster",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fast",
+                            "label": "fast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "medium",
+                            "label": "medium",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slow",
+                            "label": "slow",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slower",
+                            "label": "slower",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "veryslow",
+                            "label": "veryslow",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "placebo",
+                            "label": "placebo",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": "slow",
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": false,
             "group": "Speed",
             "relations": []
@@ -1723,18 +4847,42 @@
         "--profile": {
             "delimiter": "Space",
             "label": "Profile",
-            "description": "main, main10 or mainstillpicture.",
+            "description": "Enforce an HEVC profile.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
-                "Text": {
-                    "max_len": null,
-                    "pattern": null,
-                    "multiline": false,
-                    "format": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "main",
+                            "label": "main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "main10",
+                            "label": "main10",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "mainstillpicture",
+                            "label": "mainstillpicture",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": true,
             "group": "Format",
             "relations": []
@@ -1753,7 +4901,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": true,
             "group": "Quality",
             "relations": []
@@ -1769,11 +4922,15 @@
                     "min": 0,
                     "max": 250,
                     "step": null,
-                    "unit": null
+                    "unit": "frames"
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
             "advanced": true,
             "group": "Speed",
             "relations": []
@@ -1793,7 +4950,12 @@
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": true,
             "group": "Structure",
             "relations": []
@@ -1801,7 +4963,7 @@
         "--scenecut": {
             "delimiter": "Space",
             "label": "Scene cut threshold",
-            "description": "Sensitivity to detected cuts, 0 to 100.",
+            "description": "How aggressively to insert extra I-frames, from 0 to 100.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
                 "Number": {
@@ -1813,7 +4975,12 @@
                 }
             },
             "default": 0,
-            "widget": "Auto",
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
             "advanced": false,
             "group": "Structure",
             "relations": []
@@ -1821,18 +4988,54 @@
         "--tune": {
             "delimiter": "Space",
             "label": "Tune",
-            "description": "psnr, ssim, grain, zerolatency, fastdecode or animation.",
+            "description": "Tune the encoder for a quality metric or a delivery constraint.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
-                "Text": {
-                    "max_len": null,
-                    "pattern": null,
-                    "multiline": false,
-                    "format": null
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "psnr",
+                            "label": "psnr",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "ssim",
+                            "label": "ssim",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "grain",
+                            "label": "grain",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "zerolatency",
+                            "label": "zerolatency",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fastdecode",
+                            "label": "fastdecode",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
                 }
             },
             "default": null,
-            "widget": "Auto",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
             "advanced": false,
             "group": "Quality",
             "relations": []
@@ -1844,7 +5047,7 @@
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": "Flag",
             "default": true,
-            "widget": "Auto",
+            "widget": "Toggle",
             "advanced": false,
             "group": "Format",
             "relations": []
@@ -1855,18 +5058,706 @@
             "description": "Bits per sample in the output, 8, 10 or 12.",
             "doc_link": "https://x265.readthedocs.io/en/stable/cli.html",
             "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 8,
+                            "label": "8-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 10,
+                            "label": "10-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 12,
+                            "label": "12-bit",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": 10,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        }
+    },
+    "vvenc": {
+        "--bitrate": {
+            "delimiter": "Space",
+            "label": "Target bitrate",
+            "description": "Target bitrate in kbit/s; used when constant QP is absent.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
                 "Number": {
                     "integer": true,
-                    "min": 8,
-                    "max": 12,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": "kbps"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--gopsize": {
+            "delimiter": "Space",
+            "label": "GOP size",
+            "description": "Intra period in frames.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "--mctf": {
+            "delimiter": "Space",
+            "label": "Temporal filtering",
+            "description": "Motion-compensated temporal filtering; off disables it.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "off",
+                            "label": "off",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fast",
+                            "label": "fast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "medium",
+                            "label": "medium",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slow",
+                            "label": "slow",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--output-bitdepth": {
+            "delimiter": "Space",
+            "label": "Output bit depth",
+            "description": "Bits per sample written to the bitstream.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": 8,
+                            "label": "8-bit",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": 10,
+                            "label": "10-bit",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Number",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--passes": {
+            "delimiter": "Space",
+            "label": "Passes",
+            "description": "Number of encoding passes.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": 2,
                     "step": null,
                     "unit": null
                 }
             },
-            "default": 10,
-            "widget": "Auto",
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--preset": {
+            "delimiter": "Space",
+            "label": "Preset",
+            "description": "Speed preset from faster to slower; slower presets spend more time on compression.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "faster",
+                            "label": "faster",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "fast",
+                            "label": "fast",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "medium",
+                            "label": "medium",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slow",
+                            "label": "slow",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "slower",
+                            "label": "slower",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": "medium",
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "--profile": {
+            "delimiter": "Space",
+            "label": "Profile",
+            "description": "VVC profile such as main_10 or main_10_444; auto lets the encoder choose.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--qp": {
+            "delimiter": "Space",
+            "label": "Quantiser",
+            "description": "Quantiser from 0 (lossless) to 63.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": 32,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "--qpa": {
+            "delimiter": null,
+            "label": "QP adaptation",
+            "description": "Adapt quantisation inside a frame.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": "Flag",
+            "default": false,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "--threads": {
+            "delimiter": "Space",
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tier": {
+            "delimiter": "Space",
+            "label": "Tier",
+            "description": "The main tier covers normal delivery; high tier allows higher bitrates at high levels.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Choice": {
+                    "options": [
+                        {
+                            "value": "main",
+                            "label": "main",
+                            "description": null,
+                            "doc_link": null
+                        },
+                        {
+                            "value": "high",
+                            "label": "high",
+                            "description": null,
+                            "doc_link": null
+                        }
+                    ],
+                    "value_kind": "Text",
+                    "multiple": false,
+                    "min_selected": 1,
+                    "max_selected": 1
+                }
+            },
+            "default": null,
+            "widget": {
+                "ChoiceInput": {
+                    "presentation": "Auto"
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "--tile-columns": {
+            "delimiter": "Space",
+            "label": "Tile columns",
+            "description": "Number of tile columns.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--tile-rows": {
+            "delimiter": "Space",
+            "label": "Tile rows",
+            "description": "Number of tile rows.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 1,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": true,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "--y4m": {
+            "delimiter": null,
+            "label": "Y4M input",
+            "description": "Read the input as a raw Y4M stream.",
+            "doc_link": "https://github.com/fraunhoferhhi/vvenc/wiki/Usage",
+            "kind": "Flag",
+            "default": true,
+            "widget": "Toggle",
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        }
+    },
+    "ffmpeg": {
+        "-b:v": {
+            "delimiter": "Space",
+            "label": "Target bitrate",
+            "description": "Target bitrate such as 4000k; used instead of CRF.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "-c:v": {
+            "delimiter": "Space",
+            "label": "Video codec",
+            "description": "The codec FFmpeg encodes with, for example libx265.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
             "advanced": false,
             "group": "Format",
+            "relations": []
+        },
+        "-crf": {
+            "delimiter": "Space",
+            "label": "CRF",
+            "description": "Quality target forwarded to the chosen codec; its range depends on that codec.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": 63,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "Slider": {
+                    "step": 1,
+                    "marks": []
+                }
+            },
+            "advanced": false,
+            "group": "Quality",
+            "relations": []
+        },
+        "-g": {
+            "delimiter": "Space",
+            "label": "GOP length",
+            "description": "Maximum frames between keyframes.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": "frames"
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Structure",
+            "relations": []
+        },
+        "-pix_fmt": {
+            "delimiter": "Space",
+            "label": "Pixel format",
+            "description": "Output pixel format, for example yuv420p10le.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": false,
+            "group": "Format",
+            "relations": []
+        },
+        "-preset": {
+            "delimiter": "Space",
+            "label": "Preset",
+            "description": "Speed preset understood by the chosen codec.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": false,
+            "group": "Speed",
+            "relations": []
+        },
+        "-profile:v": {
+            "delimiter": "Space",
+            "label": "Profile",
+            "description": "Profile forwarded to the chosen codec.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Format",
+            "relations": []
+        },
+        "-svtav1-params": {
+            "delimiter": "Space",
+            "label": "SVT-AV1 parameters",
+            "description": "Extra SVT-AV1 options as key=value pairs separated by colons.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Advanced",
+            "relations": []
+        },
+        "-threads": {
+            "delimiter": "Space",
+            "label": "Threads",
+            "description": "Worker threads this encoder may use.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Number": {
+                    "integer": true,
+                    "min": 0,
+                    "max": null,
+                    "step": null,
+                    "unit": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "NumberInput": {
+                    "step": null
+                }
+            },
+            "advanced": false,
+            "group": "Parallelism",
+            "relations": []
+        },
+        "-tune": {
+            "delimiter": "Space",
+            "label": "Tune",
+            "description": "Tune setting understood by the chosen codec.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Quality",
+            "relations": []
+        },
+        "-x264-params": {
+            "delimiter": "Space",
+            "label": "x264 parameters",
+            "description": "Extra x264 options as key=value pairs separated by colons.",
+            "doc_link": "https://ffmpeg.org/ffmpeg-codecs.html",
+            "kind": {
+                "Text": {
+                    "max_len": null,
+                    "pattern": null,
+                    "multiline": false,
+                    "format": null
+                }
+            },
+            "default": null,
+            "widget": {
+                "TextInput": {
+                    "placeholder": null,
+                    "multiline": false
+                }
+            },
+            "advanced": true,
+            "group": "Advanced",
             "relations": []
         }
     }

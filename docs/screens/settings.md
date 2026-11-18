@@ -207,7 +207,8 @@ asks save / discard / stay before the panel changes.
   action is a trash icon that widens on hover or keyboard focus to reveal **Remove**.
 - **Parameter editor sheet** (`04 Settings / Parameter editor`): live preview, key as prefix
   + name, label, description, documentation link, kind and widget, number constraints,
-  default and group, an **Advanced** switch, and declared `Requires` relations.
+  up to eight optional slider marks, default and group, an **Advanced** switch, and declared
+  `Requires` relations.
 - **Open JSON** opens `/settings/encoders/:id/json`, the same descriptor set as one document
   in a bundled Monaco editor.
 
@@ -309,7 +310,9 @@ asks save / discard / stay before the panel changes.
 20. **Preview parameters.** The preview is not a second rendering of the parameters: it is the
     same `ParameterValueGrid` that Configuration → Encoding draws, down to the control each
     descriptor's kind selects, so a flag is a switch here when it is a switch there and a
-    bounded number is a slider.
+    bounded number is a slider with its default marked. A descriptor's curated marks are
+    labelled under the track; a label that would collide appears when its own tick is hovered
+    or focused.
     - Its groups are packed in masonry columns, not grid rows.
     - Its values are scratch — the document states descriptors, not values — so they start at
       each descriptor's default and never reach the draft.

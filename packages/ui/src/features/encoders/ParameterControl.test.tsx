@@ -344,3 +344,93 @@ it("shows a numeric parameter's unit beside the field and names it in the field"
     fireEvent.change(field, { target: { value: "48" } });
     expect(picked).toEqual([48]);
 });
+
+function crfDescriptor(widget: ParameterDescriptor["widget"]): ParameterDescriptor {
+    return {
+        delimiter: "Space",
+        label: "Constant Rate Factor",
+        description: null,
+        doc_link: null,
+        kind: {
+            Number: { integer: false, min: 1, max: 70, step: 0.25, unit: null },
+        },
+        default: 25,
+        widget,
+        advanced: false,
+        group: null,
+        relations: [],
+    };
+}
+
+it("uses an explicit slider with fractional steps and its marks", () => {
+    renderControl(
+        <ParameterControl
+            descriptor={crfDescriptor({
+                Slider: {
+                    step: 0.25,
+                    marks: [{ value: 30, label: "Visually lossless" }],
+                },
+            })}
+            parameter={{ Number: { prefix: "--", delimiter: " ", value: 25 } }}
+            onChange={() => undefined}
+            disabled={false}
+        />,
+    );
+
+    const slider = screen.getByRole("slider", { name: "Constant Rate Factor slider" });
+    expect((slider as HTMLInputElement).getAttribute("step")).toBe("0.25");
+    expect(screen.getByText("Default 25")).toBeTruthy();
+    expect(screen.getByText("Visually lossless")).toBeTruthy();
+    expect(screen.getByTitle("Default 25").getAttribute("data-mark-value")).toBe("25");
+});
+
+it("labels the default mark 'Default <value>' even when a curated mark shares it", () => {
+    renderControl(
+        <ParameterControl
+            descriptor={crfDescriptor({
+                Slider: {
+                    step: 0.25,
+                    marks: [{ value: 25, label: "Visually lossless" }],
+                },
+            })}
+            parameter={{ Number: { prefix: "--", delimiter: " ", value: 25 } }}
+            onChange={() => undefined}
+            disabled={false}
+        />,
+    );
+
+    expect(screen.getByText("Default 25")).toBeTruthy();
+    expect(screen.queryByText("Visually lossless")).toBeNull();
+    expect(screen.getByTitle("Default 25").getAttribute("data-mark-value")).toBe("25");
+});
+
+it("keeps a short range as a field when the descriptor says NumberInput", () => {
+    renderControl(
+        <ParameterControl
+            descriptor={crfDescriptor({ NumberInput: { step: 0.25 } })}
+            parameter={{ Number: { prefix: "--", delimiter: " ", value: 25 } }}
+            onChange={() => undefined}
+            disabled={false}
+        />,
+    );
+
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Constant Rate Factor" })).toBeTruthy();
+});
+
+it("clamps a typed number to the descriptor range", () => {
+    const picked: number[] = [];
+    renderControl(
+        <ParameterControl
+            descriptor={crfDescriptor({ NumberInput: { step: 0.25 } })}
+            parameter={{ Number: { prefix: "--", delimiter: " ", value: 25 } }}
+            onChange={(next) => picked.push(Number(next))}
+            disabled={false}
+        />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Constant Rate Factor" }), {
+        target: { value: "80" },
+    });
+    expect(picked).toEqual([70]);
+});

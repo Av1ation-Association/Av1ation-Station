@@ -80,7 +80,8 @@ async fn the_encoder_and_sequence_catalogues_come_from_the_engine() {
     assert_eq!(crf["kind"]["Number"]["max"], 70.0);
     assert_eq!(crf["kind"]["Number"]["step"], 0.25);
     assert_eq!(crf["default"], 25.0);
-    assert_eq!(crf["widget"], "Auto");
+    assert_eq!(crf["widget"]["Slider"]["step"], 0.25);
+    assert_eq!(crf["widget"]["Slider"]["marks"], serde_json::json!([]));
     assert!(
         crf["doc_link"]
             .as_str()

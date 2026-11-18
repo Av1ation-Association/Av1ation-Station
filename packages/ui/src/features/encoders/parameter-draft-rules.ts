@@ -7,6 +7,7 @@ import {
     makeWidget,
     typedValue,
     type ChoiceDraft,
+    type MarkDraft,
     type RelationDraft,
     type TextFormatName,
     type WidgetChoice,
@@ -21,6 +22,7 @@ export interface ParameterDraftInput {
     label: string;
     kind: ParameterKindName;
     widget: WidgetChoice;
+    marks: readonly MarkDraft[];
     choices: readonly ChoiceDraft[];
     choiceNumeric: boolean;
     textFormat: TextFormatName;
@@ -115,6 +117,29 @@ export function validateParameterDraft(
         if (draft.rawDefault.trim() !== "" && !isNumeric(draft.rawDefault)) {
             return "A number parameter needs a numeric default.";
         }
+        if (draft.widget === "Slider") {
+            const marks = draft.marks.filter((mark) => mark.value.trim() !== "");
+            if (marks.length > 8) {
+                return "A slider can have at most eight marks.";
+            }
+            const values: number[] = [];
+            for (const mark of marks) {
+                if (!isNumeric(mark.value)) {
+                    return "Every slider mark needs a numeric value.";
+                }
+                const value = Number(mark.value);
+                if (values.includes(value)) {
+                    return "Slider marks must have unique values.";
+                }
+                if (
+                    (isNumeric(draft.min) && value < Number(draft.min)) ||
+                    (isNumeric(draft.max) && value > Number(draft.max))
+                ) {
+                    return "Slider marks must stay inside the minimum and maximum.";
+                }
+                values.push(value);
+            }
+        }
     }
     for (const relation of draft.relations) {
         if (relation.other.trim() === "") {
@@ -140,7 +165,7 @@ export function descriptorFromDraft(draft: ParameterDraftInput): ParameterDescri
         label: draft.label.trim(),
         description: draft.description.trim() === "" ? null : draft.description.trim(),
         doc_link: draft.docLink.trim() === "" ? null : draft.docLink.trim(),
-        widget: makeWidget(draft.widget, draft.step),
+        widget: makeWidget(draft.widget, draft.step, draft.marks),
         advanced: draft.advanced,
         group: draft.group.trim() === "" ? null : draft.group.trim(),
         relations: draft.relations

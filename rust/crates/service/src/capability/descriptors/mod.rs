@@ -15,12 +15,12 @@ use catalogue::catalogue;
 use std::collections::BTreeMap;
 
 use av1ation_contracts::encoder::{
-    Choice, ChoiceSpec, ChoiceValueKind, Delimiter, NumberSpec, ParameterDescriptor, ParameterKind,
-    ParameterValue, TextSpec, Widget,
+    Choice, ChoicePresentation, ChoiceSpec, ChoiceValueKind, CollectionPresentation, Delimiter,
+    NumberSpec, ParameterDescriptor, ParameterKind, ParameterValue, TextSpec, Widget,
 };
 use serde_json::Value;
 
-/// How a catalogue entry describes a parameter the engine does not seed.
+/// How a catalogue entry describes one parameter, whether the engine seeds it or not.
 enum CatalogueKind {
     Flag,
     Integer {
@@ -37,9 +37,10 @@ enum CatalogueKind {
     /// A string value from a closed set the encoder documents. The engine stores such an
     /// option as an untyped `String`; the set is what turns it into a select.
     Choice(&'static [&'static str]),
-    /// A numeric value whose numbers mean something (`0` is `yuv400`). The encoder still
-    /// receives the number; the labels are what the user reads.
-    Numbered(&'static [(i64, &'static str)]),
+    /// A numeric value whose numbers mean something (`0` is `yuv400`) and whose accepted
+    /// values may include fractions, such as HEVC level 5.1. The encoder still receives the
+    /// number; the labels are what the user reads.
+    Numbered(&'static [(f64, &'static str)]),
     Text,
 }
 
@@ -141,9 +142,11 @@ pub(crate) fn parameters(raw: &Value) -> BTreeMap<String, ParameterDescriptor> {
 
 /// The engine's parameter map plus this build's labels, descriptions and common flags.
 ///
-/// An engine-seeded parameter keeps the engine's kind, delimiter and default: those are
-/// observed facts, and the table only adds presentation. A parameter the table adds starts
-/// unset, so nothing is sent to the encoder until the user chooses a value.
+/// An engine-seeded parameter keeps the engine's delimiter and default: those are observed
+/// facts. The table adds presentation and may replace a kind the engine could only infer
+/// (an untyped string or a bare number) with the closed set the encoder documents. A
+/// parameter the table adds carries the default the encoder's help states when there is
+/// one, and nothing is sent until the user chooses a value.
 pub(crate) fn builtin(id: &str, raw: &Value) -> BTreeMap<String, ParameterDescriptor> {
     let mut descriptors = parameters(raw);
     let Some((delimiter, entries)) = catalogue(id) else {
@@ -157,7 +160,7 @@ pub(crate) fn builtin(id: &str, raw: &Value) -> BTreeMap<String, ParameterDescri
             descriptor.group = Some(entry.group.to_owned());
             descriptor.advanced = entry.advanced;
             descriptor.doc_link = docs(id).map(str::to_owned);
-            merge_constraints(&mut descriptor.kind, &entry.kind);
+            apply_catalogue_kind(&mut descriptor.kind, &entry.kind);
             prune_choice_default(descriptor);
             continue;
         }
@@ -218,7 +221,51 @@ pub(crate) fn builtin(id: &str, raw: &Value) -> BTreeMap<String, ParameterDescri
         );
     }
 
+    resolve_descriptors(&mut descriptors);
     descriptors
+}
+
+/// Resolve every `Auto` widget once, so the API, the docs snapshot and the renderer agree.
+/// An explicit widget is evidence and is left alone.
+pub(crate) fn resolve_descriptors(descriptors: &mut BTreeMap<String, ParameterDescriptor>) {
+    for descriptor in descriptors.values_mut() {
+        if matches!(descriptor.widget, Widget::Auto) {
+            descriptor.widget = auto_widget(&descriptor.kind);
+        }
+    }
+}
+
+/// The one widget rule for `Auto`, shared by the service, the snapshot and the tests.
+fn auto_widget(kind: &ParameterKind) -> Widget {
+    match kind {
+        ParameterKind::Flag => Widget::Toggle,
+        ParameterKind::Choice(_) => Widget::ChoiceInput {
+            presentation: ChoicePresentation::Auto,
+        },
+        ParameterKind::Path(_) => Widget::PathPicker,
+        ParameterKind::Duration(_) => Widget::DurationInput,
+        ParameterKind::Collection(_) => Widget::CollectionInput {
+            presentation: CollectionPresentation::Chips,
+        },
+        ParameterKind::Text(spec) => Widget::TextInput {
+            placeholder: None,
+            multiline: spec.multiline,
+        },
+        ParameterKind::Number(spec) => {
+            if spec.integer && spec.min == Some(0.0) && spec.max == Some(1.0) {
+                return Widget::Switch;
+            }
+            let slider = matches!((spec.min, spec.max), (Some(min), Some(max)) if max > min && max - min <= 100.0);
+            if slider {
+                Widget::Slider {
+                    step: spec.step.or(spec.integer.then_some(1.0)),
+                    marks: Vec::new(),
+                }
+            } else {
+                Widget::NumberInput { step: spec.step }
+            }
+        }
+    }
 }
 
 /// The value a closed-set or text parameter uses when the encoder does not seed it.
@@ -229,6 +276,7 @@ fn catalogue_text_default(id: &str, key: &str) -> Option<&'static str> {
     match (id, key) {
         ("svt-av1", "--asm") => Some("max"),
         ("svt-av1", "--level") => Some("0"),
+        ("vvenc", "--preset") => Some("medium"),
         _ => None,
     }
 }
@@ -290,23 +338,19 @@ fn catalogue_default(id: &str, key: &str) -> Option<f64> {
         ("svt-av1", "--tile-rows") => 0.0,
         ("svt-av1", "--lp") => 0.0,
         ("svt-av1", "--profile") => 0.0,
-        ("svt-av1", "--level") => 0.0,
         ("svt-av1", "--color-format") => 1.0,
         ("svt-av1", "--avif") => 0.0,
         ("svt-av1", "--progress") => 2.0,
         ("svt-av1", "--enable-stat-report") => 0.0,
         ("svt-av1", "--fast-decode") => 0.0,
         ("svt-av1", "--low-memory") => 0.0,
+        ("vvenc", "--qp") => 32.0,
         ("aom", "--enable-qm") => 1.0,
         _ => return None,
     };
     Some(value)
 }
 
-/// The delimiter and curated rows for one engine encoder id.
-///
-/// The delimiter follows what the engine already seeds for that executable; adding a flag
-/// with the other spelling would produce `--crf=25` for an encoder that expects `--crf 25`.
 /// The reference document for one engine encoder's CLI, usually its own repository.
 ///
 /// Every curated row points at the same authoritative page: the repositories publish one
@@ -328,11 +372,11 @@ fn docs(id: &str) -> Option<&'static str> {
     }
 }
 
-/// Fill a constraint the engine left blank from the curated row, without overwriting an
-/// observed range. A fractional row also states that the value is not integer-only.
-fn merge_constraints(kind: &mut ParameterKind, catalogue: &CatalogueKind) {
-    // A closed set is more specific than the engine's untyped string. A number or flag
-    // already observed is left alone: an encoder can reuse a spelling.
+/// Apply the curated row to the kind the engine inferred. A closed set replaces a bare
+/// string or number; a range fills only the constraints the engine left blank.
+fn apply_catalogue_kind(kind: &mut ParameterKind, catalogue: &CatalogueKind) {
+    // A closed text set is more specific than the engine's untyped string, but it does not
+    // replace a number or flag: an encoder can reuse a spelling.
     if let CatalogueKind::Choice(values) = catalogue {
         if matches!(kind, ParameterKind::Text(_)) {
             *kind = choice_kind(values);
@@ -363,19 +407,16 @@ fn merge_constraints(kind: &mut ParameterKind, catalogue: &CatalogueKind) {
             spec.max = spec.max.or(*max);
             spec.step = spec.step.or(*step);
         }
-        CatalogueKind::Choice(_)
-        | CatalogueKind::Numbered(_)
-        | CatalogueKind::Flag
-        | CatalogueKind::Text => {}
+        _ => {}
     }
 }
 
-fn numbered_kind(values: &[(i64, &'static str)]) -> ParameterKind {
+fn numbered_kind(values: &[(f64, &'static str)]) -> ParameterKind {
     ParameterKind::Choice(ChoiceSpec {
         options: values
             .iter()
             .map(|(value, label)| Choice {
-                value: ParameterValue::Number(*value as f64),
+                value: ParameterValue::Number(*value),
                 label: (*label).to_owned(),
                 description: None,
                 doc_link: None,
@@ -564,6 +605,27 @@ mod tests {
     }
 
     #[test]
+    fn a_fractional_enum_reaches_an_engine_seeded_number() {
+        let raw = json!({
+            "level-idc": { "Number": { "prefix": "--", "delimiter": " ", "value": 5.0 } }
+        });
+        let descriptors = builtin("x265", &raw);
+        let level = &descriptors["--level-idc"];
+        let ParameterKind::Choice(spec) = &level.kind else {
+            panic!("HEVC levels are a labelled choice");
+        };
+        assert!(
+            spec.options
+                .iter()
+                .any(|option| option.value == ParameterValue::Number(5.1)),
+            "the picker offers 5.1"
+        );
+        // The engine seeds the level as a number; the conversion must not discard it.
+        assert_eq!(level.default, Some(ParameterValue::Number(5.0)));
+        assert!(matches!(level.widget, Widget::ChoiceInput { .. }));
+    }
+
+    #[test]
     fn a_documented_number_enum_becomes_a_labeled_choice() {
         let raw = json!({
             "color-format": { "Number": { "prefix": "--", "delimiter": " ", "value": 1.0 } }
@@ -603,28 +665,6 @@ mod tests {
         // The engine's observed default is not replaced by the document's default.
         assert_eq!(crf.default, Some(ParameterValue::Number(25.0)));
         assert!(crf.doc_link.is_some());
-    }
-
-    #[test]
-    fn every_built_in_encoder_documents_its_parameters() {
-        for id in [
-            "svt-av1", "aom", "rav1e", "vpx", "avm", "x264", "x265", "vvenc", "ffmpeg",
-        ] {
-            let descriptors = builtin(id, &json!({}));
-            assert!(!descriptors.is_empty(), "{id} has no catalogue");
-            for (key, descriptor) in descriptors {
-                assert!(
-                    descriptor
-                        .description
-                        .as_deref()
-                        .is_some_and(|text| !text.is_empty()),
-                    "{id} {key} has no description"
-                );
-                assert!(descriptor.group.is_some(), "{id} {key} has no group");
-                assert!(descriptor.doc_link.is_some(), "{id} {key} has no doc link");
-                assert_ne!(descriptor.label, key, "{id} {key} still reads like a flag");
-            }
-        }
     }
 
     #[test]
@@ -679,5 +719,225 @@ mod tests {
         let descriptors = builtin("x265", &json!({}));
         assert!(descriptors.contains_key("-D"));
         assert!(!descriptors.contains_key("--D"));
+    }
+
+    #[test]
+    fn every_shipped_descriptor_is_complete_and_has_a_concrete_widget() {
+        for encoder in av1ation_engine::capability::catalogue::encoders() {
+            let descriptors = builtin(&encoder.id, &encoder.parameters);
+            assert!(!descriptors.is_empty(), "{} has no parameters", encoder.id);
+            for (key, descriptor) in descriptors {
+                assert!(
+                    !descriptor.label.trim().is_empty(),
+                    "{} {key} has no label",
+                    encoder.id
+                );
+                assert_ne!(
+                    descriptor.label, key,
+                    "{} {key} still reads like a flag",
+                    encoder.id
+                );
+                assert!(
+                    descriptor
+                        .description
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no description",
+                    encoder.id
+                );
+                assert!(
+                    descriptor
+                        .group
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no group",
+                    encoder.id
+                );
+                assert!(
+                    descriptor
+                        .doc_link
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no documentation link",
+                    encoder.id
+                );
+                assert_valid_descriptor(&encoder.id, &key, &descriptor);
+            }
+        }
+    }
+
+    #[test]
+    fn website_snapshot_matches_all_shipped_descriptors() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../apps/website/src/gallery/encoder-parameters.json");
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        let snapshot: BTreeMap<String, BTreeMap<String, ParameterDescriptor>> =
+            serde_json::from_str(&text).expect("website snapshot parses");
+        let mut expected = BTreeMap::new();
+        for encoder in av1ation_engine::capability::catalogue::encoders() {
+            expected.insert(
+                encoder.id.clone(),
+                builtin(&encoder.id, &encoder.parameters),
+            );
+        }
+
+        assert_eq!(
+            snapshot.keys().collect::<Vec<_>>(),
+            expected.keys().collect::<Vec<_>>(),
+            "the website snapshot must cover every shipped encoder"
+        );
+        for (encoder, descriptors) in &expected {
+            let published = snapshot.get(encoder).expect("encoder is in the snapshot");
+            assert_eq!(
+                published.keys().collect::<Vec<_>>(),
+                descriptors.keys().collect::<Vec<_>>(),
+                "{encoder} parameter keys drifted"
+            );
+            for (key, descriptor) in descriptors {
+                assert_eq!(
+                    serde_json::to_value(published.get(key)).expect("published descriptor"),
+                    serde_json::to_value(descriptor).expect("resolved descriptor"),
+                    "{encoder} {key} drifted from the website snapshot"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn auto_widgets_follow_the_contract_rules() {
+        let number = |min, max, step, integer| {
+            ParameterKind::Number(NumberSpec {
+                integer,
+                min,
+                max,
+                step,
+                unit: None,
+            })
+        };
+        assert_eq!(
+            auto_widget(&number(Some(0.0), Some(1.0), None, true)),
+            Widget::Switch
+        );
+        assert!(matches!(
+            auto_widget(&number(Some(1.0), Some(70.0), Some(0.25), false)),
+            Widget::Slider {
+                step: Some(0.25),
+                ..
+            }
+        ));
+        assert!(matches!(
+            auto_widget(&number(Some(0.0), None, None, true)),
+            Widget::NumberInput { .. }
+        ));
+        assert!(matches!(
+            auto_widget(&number(Some(0.0), Some(1.0), Some(0.05), false)),
+            Widget::Slider { .. }
+        ));
+        assert_eq!(auto_widget(&ParameterKind::Flag), Widget::Toggle);
+    }
+
+    #[test]
+    fn an_explicit_widget_survives_resolution() {
+        let raw = json!({
+            "crf": { "Number": { "prefix": "--", "delimiter": " ", "value": 25.0 } }
+        });
+        let mut descriptors = builtin("svt-av1", &raw);
+        descriptors
+            .get_mut("--crf")
+            .expect("crf is in the map")
+            .widget = Widget::NumberInput { step: Some(0.25) };
+
+        resolve_descriptors(&mut descriptors);
+
+        assert_eq!(
+            descriptors["--crf"].widget,
+            Widget::NumberInput { step: Some(0.25) }
+        );
+    }
+
+    fn assert_valid_descriptor(encoder: &str, key: &str, descriptor: &ParameterDescriptor) {
+        assert_eq!(
+            descriptor.widget,
+            auto_widget(&descriptor.kind),
+            "{encoder} {key} widget"
+        );
+        if let Widget::Slider { step, marks } = &descriptor.widget {
+            assert!(
+                step.is_none_or(|value| value > 0.0),
+                "{encoder} {key} has an invalid step"
+            );
+            let mut seen = Vec::new();
+            for mark in marks {
+                assert!(
+                    mark.value.is_finite(),
+                    "{encoder} {key} has a non-finite mark"
+                );
+                assert!(
+                    !seen.contains(&mark.value),
+                    "{encoder} {key} repeats a mark"
+                );
+                seen.push(mark.value);
+                assert!(
+                    mark.label
+                        .as_deref()
+                        .is_none_or(|label| !label.trim().is_empty()),
+                    "{encoder} {key} has an empty mark label"
+                );
+            }
+        }
+        match &descriptor.kind {
+            ParameterKind::Flag => {
+                assert!(
+                    descriptor.default.is_none()
+                        || matches!(descriptor.default.as_ref(), Some(ParameterValue::Bool(_))),
+                    "{encoder} {key} has a non-boolean default"
+                );
+            }
+            ParameterKind::Number(spec) => {
+                if let (Some(min), Some(max)) = (spec.min, spec.max) {
+                    assert!(min <= max, "{encoder} {key} has an inverted range");
+                }
+                assert!(!spec.integer || spec.step.is_none_or(|step| step.fract() == 0.0));
+                assert!(
+                    spec.step.is_none_or(|step| step > 0.0),
+                    "{encoder} {key} step"
+                );
+                assert!(
+                    spec.unit
+                        .as_deref()
+                        .is_none_or(|unit| !unit.trim().is_empty())
+                );
+                if let Some(ParameterValue::Number(value)) = descriptor.default.as_ref() {
+                    assert!(
+                        value.is_finite(),
+                        "{encoder} {key} has a non-finite default"
+                    );
+                    assert!(
+                        spec.min.is_none_or(|min| *value >= min),
+                        "{encoder} {key} below min"
+                    );
+                    assert!(
+                        spec.max.is_none_or(|max| *value <= max),
+                        "{encoder} {key} above max"
+                    );
+                } else {
+                    assert!(
+                        descriptor.default.is_none(),
+                        "{encoder} {key} has a non-number default"
+                    );
+                }
+            }
+            ParameterKind::Choice(spec) => {
+                assert!(!spec.options.is_empty(), "{encoder} {key} has no choices");
+                for option in &spec.options {
+                    assert!(
+                        !option.label.trim().is_empty(),
+                        "{encoder} {key} choice label"
+                    );
+                }
+            }
+            _ => {}
+        }
     }
 }

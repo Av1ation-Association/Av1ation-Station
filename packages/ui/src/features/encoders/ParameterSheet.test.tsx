@@ -61,4 +61,47 @@ describe("ParameterSheet", () => {
         expect(descriptor.label).toBe("Quantizer");
         expect(descriptor.kind).toMatchObject({ Text: { format: null } });
     });
+
+    it("adds a curated mark to a slider descriptor", () => {
+        const { apply, dialog } = renderSheet();
+
+        fireEvent.change(within(dialog).getByLabelText("Key name"), {
+            target: { value: "crf" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Label"), {
+            target: { value: "Constant Rate Factor" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Kind"), {
+            target: { value: "Decimal" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Widget"), {
+            target: { value: "Slider" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Minimum"), {
+            target: { value: "1" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Maximum"), {
+            target: { value: "70" },
+        });
+        fireEvent.click(within(dialog).getByRole("button", { name: "Add mark" }));
+        fireEvent.change(within(dialog).getByLabelText("Mark 1 value"), {
+            target: { value: "30" },
+        });
+        fireEvent.change(within(dialog).getByLabelText("Mark 1 label"), {
+            target: { value: "Visually lossless" },
+        });
+        fireEvent.click(within(dialog).getByRole("button", { name: "Add parameter" }));
+
+        expect(apply).toHaveBeenCalledTimes(1);
+        const [, descriptor] = apply.mock.calls[0] as [
+            string,
+            { widget: { Slider: { marks: unknown[] } } },
+        ];
+        expect(descriptor.widget).toEqual({
+            Slider: {
+                step: null,
+                marks: [{ value: 30, label: "Visually lossless" }],
+            },
+        });
+    });
 });

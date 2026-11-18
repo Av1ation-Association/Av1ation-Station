@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
 import { usePickDirectory, usePickFile } from "@av1ation/api";
-import type { ParameterDescriptor, TextFormat } from "@av1ation/contracts";
+import type { Mark, ParameterDescriptor, TextFormat } from "@av1ation/contracts";
 import { FolderOpen } from "lucide-react";
 
 import { readOption } from "./encoder-options";
 import { isSwitchNumber } from "./parameter-summary";
+import { SliderMarks } from "./SliderMarks";
 import { Switch } from "../../shared/Switch";
 
 /** The one text field style; every parameter widget and the encoder form share it. */
@@ -29,16 +30,20 @@ function TypingNumber({
     disabled,
     onChange,
     slider = false,
+    marks = [],
+    defaultValue,
 }: {
     label: string;
     value: string | number | boolean;
     min: number | undefined;
     max: number | undefined;
-    step: number | "any" | undefined;
+    step: number | undefined;
     integer: boolean;
     disabled: boolean;
     onChange: (next: number) => void;
     slider?: boolean;
+    marks?: readonly Mark[];
+    defaultValue: unknown;
 }) {
     const numeric = typeof value === "number" ? value : Number(value);
     const [text, setText] = useState(
@@ -57,42 +62,52 @@ function TypingNumber({
         if (!Number.isFinite(parsed)) {
             return;
         }
-        onChange(integer ? Math.trunc(parsed) : parsed);
+        const truncated = integer ? Math.trunc(parsed) : parsed;
+        const clamped = Math.min(max ?? truncated, Math.max(min ?? truncated, truncated));
+        if (clamped !== parsed) {
+            setText(String(clamped));
+        }
+        onChange(clamped);
     };
 
     return (
-        <div className="flex min-w-0 items-center gap-1.5">
-            {slider && min !== undefined && max !== undefined ? (
+        <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+                {slider && min !== undefined && max !== undefined ? (
+                    <input
+                        type="range"
+                        aria-label={`${label} slider`}
+                        min={min}
+                        max={max}
+                        step={step ?? 1}
+                        value={Number.isFinite(numeric) ? numeric : min}
+                        disabled={disabled}
+                        onChange={(event) => commit(event.target.value)}
+                        className="h-1.5 min-w-0 flex-1 accent-[var(--brand-default)]"
+                    />
+                ) : null}
                 <input
-                    type="range"
-                    aria-label={`${label} slider`}
-                    min={min}
-                    max={max}
-                    step={step ?? 1}
-                    value={Number.isFinite(numeric) ? numeric : min}
+                    type="text"
+                    inputMode={integer ? "numeric" : "decimal"}
+                    aria-label={label}
+                    value={text}
                     disabled={disabled}
                     onChange={(event) => commit(event.target.value)}
-                    className="h-1.5 min-w-0 flex-1 accent-[var(--brand-default)]"
+                    onBlur={() => {
+                        if (text.trim() === "" || !Number.isFinite(Number(text))) {
+                            setText(
+                                typeof value === "number" || typeof value === "string"
+                                    ? String(value)
+                                    : "",
+                            );
+                        }
+                    }}
+                    className={`${FIELD} ${slider ? "w-[68px] shrink-0 text-right" : "w-full"}`}
                 />
+            </div>
+            {slider && min !== undefined && max !== undefined ? (
+                <SliderMarks min={min} max={max} defaultValue={defaultValue} marks={marks} />
             ) : null}
-            <input
-                type="text"
-                inputMode={integer ? "numeric" : "decimal"}
-                aria-label={label}
-                value={text}
-                disabled={disabled}
-                onChange={(event) => commit(event.target.value)}
-                onBlur={() => {
-                    if (text.trim() === "" || !Number.isFinite(Number(text))) {
-                        setText(
-                            typeof value === "number" || typeof value === "string"
-                                ? String(value)
-                                : "",
-                        );
-                    }
-                }}
-                className={`${FIELD} ${slider ? "w-[68px] shrink-0 text-right" : "w-full"}`}
-            />
         </div>
     );
 }
@@ -142,7 +157,18 @@ export function ParameterControl({
     const pickFile = usePickFile();
     const pickDirectory = usePickDirectory();
     const [browseError, setBrowseError] = useState<string | null>(null);
-
+    const numberSpec =
+        descriptor !== undefined &&
+        typeof descriptor.kind === "object" &&
+        "Number" in descriptor.kind
+            ? descriptor.kind.Number
+            : null;
+    const sliderWidget =
+        descriptor !== undefined &&
+        typeof descriptor.widget === "object" &&
+        "Slider" in descriptor.widget
+            ? descriptor.widget.Slider
+            : null;
     if (descriptor?.kind === "Flag" || current?.kind === "Bool") {
         const on = value === true;
         return (
@@ -366,8 +392,7 @@ export function ParameterControl({
         current?.kind === "Number" ||
         (current?.kind !== "String" && descriptor !== undefined && "Number" in descriptor.kind)
     ) {
-        const spec =
-            descriptor !== undefined && "Number" in descriptor.kind ? descriptor.kind.Number : null;
+        const spec = numberSpec;
         const min = spec?.min ?? undefined;
         const max = spec?.max ?? undefined;
         // Encoders that put a boolean behind a value are switches, not ranges. The literal is
@@ -389,14 +414,15 @@ export function ParameterControl({
                 </div>
             );
         }
-        // A bounded, short scale reads better as a slider. Long ranges (bitrate, keyframes)
-        // stay a plain field so a one-pixel drag is not a thousand units.
+        // The service resolves `Auto`; a fixture may still carry it, so mirror the slider
+        // rule. An explicit `NumberInput` keeps its field because only `Auto` takes this path.
         const slider =
-            min !== undefined &&
-            max !== undefined &&
-            max > min &&
-            max - min <= 100 &&
-            spec?.integer !== false;
+            sliderWidget !== null ||
+            (descriptor?.widget === "Auto" &&
+                min !== undefined &&
+                max !== undefined &&
+                max > min &&
+                max - min <= 100);
         const label = descriptor?.label ?? "Value";
         // A unit is part of the value, not decoration: a bare `12` beside `--frames` and
         // `--seconds` is the same control reading as two different parameters. The suffix is
@@ -409,10 +435,12 @@ export function ParameterControl({
                 value={value}
                 min={min}
                 max={max}
-                step={spec?.step ?? (spec?.integer === false ? "any" : 1)}
+                step={sliderWidget?.step ?? spec?.step ?? (spec?.integer === false ? 0.01 : 1)}
                 integer={spec?.integer !== false}
                 disabled={disabled}
                 slider={slider}
+                marks={sliderWidget?.marks}
+                defaultValue={descriptor?.default}
                 onChange={onChange}
             />
         );

@@ -22,7 +22,7 @@ pub(super) const RAV1E: &[CatalogueEntry] = &[
         "Keyframe interval",
         "Maximum GOP length in frames; 0 lets the encoder choose.",
         "Structure",
-        int(None, None),
+        int_unit(None, None, "frames"),
         false,
     ),
     entry(
@@ -30,13 +30,13 @@ pub(super) const RAV1E: &[CatalogueEntry] = &[
         "Minimum keyframe interval",
         "Shortest GOP length in frames.",
         "Structure",
-        int(None, None),
+        int_unit(None, None, "frames"),
         true,
     ),
     entry(
         "--tiles",
         "Tiles",
-        "Number of tiles across the frame.",
+        "Minimum number of tiles across the frame; overrides the tile row and column counts.",
         "Parallelism",
         int(Some(1.0), None),
         true,
@@ -44,9 +44,18 @@ pub(super) const RAV1E: &[CatalogueEntry] = &[
     entry(
         "--tile-rows",
         "Tile rows",
-        "Log2 number of tile rows.",
+        "Number of tile rows; must be a power of two and may be overridden by the resolution.",
         "Parallelism",
-        int(Some(0.0), Some(6.0)),
+        numbered(&[
+            (0.0, "Auto"),
+            (1.0, "1"),
+            (2.0, "2"),
+            (4.0, "4"),
+            (8.0, "8"),
+            (16.0, "16"),
+            (32.0, "32"),
+            (64.0, "64"),
+        ]),
         true,
     ),
     entry(
@@ -76,9 +85,9 @@ pub(super) const RAV1E: &[CatalogueEntry] = &[
     entry(
         "--range",
         "Pixel range",
-        "tv (limited) or pc (full).",
+        "limited is studio range, full is full range.",
         "Format",
-        text(),
+        choice(&["limited", "full"]),
         true,
     ),
     entry(

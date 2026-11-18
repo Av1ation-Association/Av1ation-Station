@@ -12,7 +12,7 @@ pub(super) const FFMPEG: &[CatalogueEntry] = &[
     entry(
         "-crf",
         "CRF",
-        "Quality target forwarded to the chosen codec.",
+        "Quality target forwarded to the chosen codec; its range depends on that codec.",
         "Quality",
         int(Some(0.0), Some(63.0)),
         false,
@@ -62,7 +62,7 @@ pub(super) const FFMPEG: &[CatalogueEntry] = &[
         "GOP length",
         "Maximum frames between keyframes.",
         "Structure",
-        int(Some(0.0), None),
+        int_unit(Some(0.0), None, "frames"),
         false,
     ),
     entry(

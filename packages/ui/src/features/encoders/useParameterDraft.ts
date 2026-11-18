@@ -6,10 +6,12 @@ import { defaultText, kindOf, type ParameterKindName } from "./parameter-summary
 import {
     choiceDrafts,
     choiceIsNumeric,
+    markDrafts,
     relationsOf,
     textFormatOf,
     widgetOf,
     type ChoiceDraft,
+    type MarkDraft,
     type RelationDraft,
     type TextFormatName,
     type WidgetChoice,
@@ -60,6 +62,7 @@ export function useParameterDraft({
     const [group, setGroup] = useState("");
     const [advanced, setAdvanced] = useState(false);
     const [relations, setRelations] = useState<RelationDraft[]>([]);
+    const [marks, setMarks] = useState<MarkDraft[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [infoOpen, setInfoOpen] = useState(false);
     const infoButton = useRef<HTMLButtonElement>(null);
@@ -81,6 +84,7 @@ export function useParameterDraft({
         setLabel(current?.descriptor.label ?? "");
         setKind(current === null ? "Text" : kindOf(current.descriptor));
         setWidget(current === null ? "Auto" : widgetOf(current.descriptor));
+        setMarks(current === null ? [] : markDrafts(current.descriptor));
         setChoices(current === null ? [] : choiceDrafts(current.descriptor));
         setChoiceNumeric(current !== null && choiceIsNumeric(current.descriptor));
         setTextFormat(textFormatOf(current?.descriptor ?? null));
@@ -132,6 +136,7 @@ export function useParameterDraft({
             label,
             kind,
             widget,
+            marks,
             choices,
             choiceNumeric,
             textFormat,
@@ -184,6 +189,8 @@ export function useParameterDraft({
         setKind,
         widget,
         setWidget,
+        marks,
+        setMarks,
         choices,
         setChoices,
         choiceNumeric,

@@ -4,9 +4,9 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
     entry(
         "--preset",
         "Preset",
-        "faster, fast, medium, slow, slower or placebo.",
+        "Speed preset from faster to slower; slower presets spend more time on compression.",
         "Speed",
-        text(),
+        choice(&["faster", "fast", "medium", "slow", "slower"]),
         false,
     ),
     entry(
@@ -22,7 +22,7 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
         "Target bitrate",
         "Target bitrate in kbit/s; used when constant QP is absent.",
         "Quality",
-        int(Some(0.0), None),
+        int_unit(Some(0.0), None, "kbps"),
         true,
     ),
     entry(
@@ -33,11 +33,18 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
         int(Some(1.0), Some(2.0)),
         false,
     ),
-    entry("--tier", "Tier", "main or high.", "Format", text(), true),
+    entry(
+        "--tier",
+        "Tier",
+        "The main tier covers normal delivery; high tier allows higher bitrates at high levels.",
+        "Format",
+        choice(&["main", "high"]),
+        true,
+    ),
     entry(
         "--profile",
         "Profile",
-        "Bitstream profile, for example main_10 or main_10_444.",
+        "VVC profile such as main_10 or main_10_444; auto lets the encoder choose.",
         "Format",
         text(),
         true,
@@ -53,9 +60,9 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
     entry(
         "--mctf",
         "Temporal filtering",
-        "off, fast, medium or slow.",
+        "Motion-compensated temporal filtering; off disables it.",
         "Quality",
-        text(),
+        choice(&["off", "fast", "medium", "slow"]),
         true,
     ),
     entry(
@@ -63,7 +70,7 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
         "GOP size",
         "Intra period in frames.",
         "Structure",
-        int(Some(1.0), None),
+        int_unit(Some(1.0), None, "frames"),
         false,
     ),
     entry(
@@ -95,7 +102,15 @@ pub(super) const VVENC: &[CatalogueEntry] = &[
         "Output bit depth",
         "Bits per sample written to the bitstream.",
         "Format",
-        int(Some(8.0), Some(12.0)),
+        numbered(&[(8.0, "8-bit"), (10.0, "10-bit")]),
+        true,
+    ),
+    entry(
+        "--y4m",
+        "Y4M input",
+        "Read the input as a raw Y4M stream.",
+        "Format",
+        flag(),
         true,
     ),
 ];

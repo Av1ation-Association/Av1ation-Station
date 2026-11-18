@@ -6,6 +6,7 @@ import { ParameterChoiceFields } from "./ParameterChoiceFields";
 import { ParameterDefaultFields } from "./ParameterDefaultFields";
 import { ParameterIdentityFields } from "./ParameterIdentityFields";
 import { ParameterKindFields } from "./ParameterKindFields";
+import { ParameterMarkFields } from "./ParameterMarkFields";
 import { ParameterNumberFields } from "./ParameterNumberFields";
 import { ParameterPreview } from "./ParameterPreview";
 import { ParameterRelations } from "./ParameterRelations";
@@ -70,6 +71,7 @@ export function ParameterSheet({
                 <ParameterKindFields draft={draft} />
                 <ParameterChoiceFields draft={draft} />
                 <ParameterNumberFields draft={draft} />
+                <ParameterMarkFields draft={draft} />
                 <ParameterDefaultFields draft={draft} />
                 <ParameterRelations draft={draft} taken={taken} />
 

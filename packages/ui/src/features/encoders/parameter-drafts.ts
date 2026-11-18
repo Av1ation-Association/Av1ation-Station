@@ -1,4 +1,4 @@
-import type { ParameterDescriptor } from "@av1ation/contracts";
+import type { Mark, ParameterDescriptor } from "@av1ation/contracts";
 
 export const TEXT_FORMATS = ["Plain", "Email", "URL", "ISO-8601 date/time"] as const;
 export type TextFormatName = (typeof TEXT_FORMATS)[number];
@@ -43,6 +43,12 @@ export type WidgetChoice =
     | "Segmented"
     | "Dropdown";
 
+/** One editable mark row in the descriptor sheet. */
+export interface MarkDraft {
+    value: string;
+    label: string;
+}
+
 export function widgetOf(descriptor: ParameterDescriptor): WidgetChoice {
     const widget = descriptor.widget;
     if (typeof widget === "string") {
@@ -64,7 +70,11 @@ export function widgetOf(descriptor: ParameterDescriptor): WidgetChoice {
     return "Auto";
 }
 
-export function makeWidget(choice: WidgetChoice, step: string): ParameterDescriptor["widget"] {
+export function makeWidget(
+    choice: WidgetChoice,
+    step: string,
+    marks: readonly MarkDraft[] = [],
+): ParameterDescriptor["widget"] {
     if (choice === "Toggle") {
         return "Toggle";
     }
@@ -72,7 +82,21 @@ export function makeWidget(choice: WidgetChoice, step: string): ParameterDescrip
         return "Switch";
     }
     if (choice === "Slider") {
-        return { Slider: { step: step.trim() === "" ? null : Number(step), marks: [] } };
+        return {
+            Slider: {
+                step: step.trim() === "" ? null : Number(step),
+                marks: marks
+                    .filter((mark) => mark.value.trim() !== "")
+                    .map((mark) => {
+                        const label = mark.label.trim();
+                        return {
+                            value: Number(mark.value),
+                            label: label === "" ? null : label,
+                        };
+                    })
+                    .sort((left, right) => left.value - right.value),
+            },
+        };
     }
     if (choice === "NumberInput") {
         return { NumberInput: { step: step.trim() === "" ? null : Number(step) } };
@@ -84,6 +108,17 @@ export function makeWidget(choice: WidgetChoice, step: string): ParameterDescrip
         return { ChoiceInput: { presentation: choice } };
     }
     return "Auto";
+}
+
+/** The stored marks a descriptor carries, as editable text rows. */
+export function markDrafts(descriptor: ParameterDescriptor): MarkDraft[] {
+    if (typeof descriptor.widget !== "object" || !("Slider" in descriptor.widget)) {
+        return [];
+    }
+    return (descriptor.widget.Slider.marks as Mark[]).map((mark) => ({
+        value: String(mark.value),
+        label: mark.label ?? "",
+    }));
 }
 
 /** One editable choice row: the value the encoder receives and the label the user reads. */

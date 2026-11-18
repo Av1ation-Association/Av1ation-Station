@@ -1,7 +1,14 @@
 use super::*;
 
 pub(super) const VPX: &[CatalogueEntry] = &[
-    entry("--codec", "Codec", "vp8 or vp9.", "Format", text(), false),
+    entry(
+        "--codec",
+        "Codec",
+        "VP8 or VP9.",
+        "Format",
+        choice(&["vp8", "vp9"]),
+        false,
+    ),
     entry(
         "--cpu-used",
         "CPU used",
@@ -21,9 +28,9 @@ pub(super) const VPX: &[CatalogueEntry] = &[
     entry(
         "--end-usage",
         "Rate-control mode",
-        "q, cq, vbr or cbr.",
+        "q and cq keep quality constant; vbr and cbr target a bitrate.",
         "Quality",
-        text(),
+        choice(&["q", "cq", "vbr", "cbr"]),
         false,
     ),
     entry(
@@ -31,7 +38,7 @@ pub(super) const VPX: &[CatalogueEntry] = &[
         "Maximum keyframe distance",
         "Maximum frames between keyframes.",
         "Structure",
-        int(None, None),
+        int_unit(None, None, "frames"),
         false,
     ),
     entry(
@@ -39,7 +46,7 @@ pub(super) const VPX: &[CatalogueEntry] = &[
         "Minimum keyframe distance",
         "Minimum frames between keyframes.",
         "Structure",
-        int(Some(0.0), None),
+        int_unit(Some(0.0), None, "frames"),
         true,
     ),
     entry(
@@ -79,15 +86,21 @@ pub(super) const VPX: &[CatalogueEntry] = &[
         "Lookahead",
         "Frames buffered before encoding; 0 disables lookahead.",
         "Speed",
-        int(Some(0.0), Some(25.0)),
+        int_unit(Some(0.0), Some(25.0), "frames"),
         true,
     ),
     entry(
         "--aq-mode",
         "Adaptive quantisation",
-        "Adaptive quantisation mode.",
+        "0 off, 1 variance, 2 complexity, 3 cyclic refresh, 4 equator360 (VP9).",
         "Quality",
-        int(Some(0.0), Some(4.0)),
+        numbered(&[
+            (0.0, "Off"),
+            (1.0, "Variance"),
+            (2.0, "Complexity"),
+            (3.0, "Cyclic refresh"),
+            (4.0, "Equator360 (VP9)"),
+        ]),
         true,
     ),
     entry(
@@ -109,9 +122,14 @@ pub(super) const VPX: &[CatalogueEntry] = &[
     entry(
         "--profile",
         "Profile",
-        "0-3; 2 is 10-bit.",
+        "VP9 profile: 0 is 8-bit 4:2:0, 1 is 8-bit 4:2:2/4:4:4, 2 is 10/12-bit 4:2:0, 3 is 10/12-bit 4:2:2/4:4:4.",
         "Format",
-        int(Some(0.0), Some(3.0)),
+        numbered(&[
+            (0.0, "8-bit 4:2:0"),
+            (1.0, "8-bit 4:2:2/4:4:4"),
+            (2.0, "10/12-bit 4:2:0"),
+            (3.0, "10/12-bit 4:2:2/4:4:4"),
+        ]),
         true,
     ),
     entry(
@@ -127,7 +145,7 @@ pub(super) const VPX: &[CatalogueEntry] = &[
         "Target bitrate",
         "Target bitrate in kbit/s for VBR or CBR.",
         "Quality",
-        int(Some(0.0), None),
+        int_unit(Some(0.0), None, "kbps"),
         true,
     ),
 ];

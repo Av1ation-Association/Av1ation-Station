@@ -1,5 +1,9 @@
 use super::*;
 
+/// The delimiter and curated rows for one engine encoder id.
+///
+/// The delimiter follows what the engine already seeds for that executable; adding a flag
+/// with the other spelling would produce `--crf=25` for an encoder that expects `--crf 25`.
 pub(super) fn catalogue(id: &str) -> Option<(Delimiter, &'static [CatalogueEntry])> {
     let equals = || Delimiter::Joined("=".to_owned());
     let entry = match id {
@@ -66,6 +70,19 @@ pub(super) const fn int(min: Option<f64>, max: Option<f64>) -> CatalogueKind {
     }
 }
 
+/// An integer with the unit the encoder's help states for it.
+pub(super) const fn int_unit(
+    min: Option<f64>,
+    max: Option<f64>,
+    unit: &'static str,
+) -> CatalogueKind {
+    CatalogueKind::Integer {
+        min,
+        max,
+        unit: Some(unit),
+    }
+}
+
 pub(super) const fn float(min: Option<f64>, max: Option<f64>, step: Option<f64>) -> CatalogueKind {
     CatalogueKind::Float { min, max, step }
 }
@@ -78,6 +95,6 @@ pub(super) const fn choice(values: &'static [&'static str]) -> CatalogueKind {
     CatalogueKind::Choice(values)
 }
 
-pub(super) const fn numbered(values: &'static [(i64, &'static str)]) -> CatalogueKind {
+pub(super) const fn numbered(values: &'static [(f64, &'static str)]) -> CatalogueKind {
     CatalogueKind::Numbered(values)
 }
