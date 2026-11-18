@@ -1,5 +1,9 @@
 //! HTTP tests for the `settings` route family.
 
+use std::sync::Arc;
+
+use av1ation_engine::CompletingRunner;
+
 use crate::common::*;
 
 #[tokio::test]
@@ -17,6 +21,60 @@ async fn settings_are_readable_before_any_write() {
     assert_eq!(body["reduce_motion"], false);
     assert_eq!(body["custom_tools"], serde_json::json!([]));
     assert_eq!(body["delete_chunks_on_success"], false);
+}
+
+#[tokio::test]
+async fn a_fresh_data_dir_seeds_one_recommended_template_and_it_runs() {
+    let dir = project_dir();
+    let state = AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(CompletingRunner),
+        test_probes(),
+        dir.clone(),
+    );
+    state.seed_starter_template().await.expect("seed");
+    assert!(
+        state
+            .seed_starter_template()
+            .await
+            .expect("second seed")
+            .is_none(),
+        "a fresh seed must run exactly once"
+    );
+    let app = router(state);
+
+    let (status, settings) = send(
+        app.clone(),
+        Request::get("/api/settings").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{settings}");
+    let templates = settings["project_templates"]
+        .as_array()
+        .expect("the template list");
+    assert_eq!(templates.len(), 1);
+    assert_eq!(templates[0]["name"], "Recommended");
+    assert!(
+        settings["default_project_template_id"].is_null(),
+        "the starter must not become the default"
+    );
+    let template_id = templates[0]["id"].as_str().expect("template id").to_owned();
+
+    let mark = Request::put("/api/settings/templates/default")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "id": template_id }).to_string(),
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), mark).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let project = create_project(app.clone(), "Starter").await;
+    let video = add_video(app.clone(), &project, &dir).await;
+    let (status, started) = send(app.clone(), start_request(&project, &video)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    wait_for_config_write(app.clone(), &project).await;
+    cleanup_after_writers(&dir);
 }
 
 #[tokio::test]

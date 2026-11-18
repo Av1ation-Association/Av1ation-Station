@@ -47,6 +47,7 @@ rust/crates/service/src/
 │   │   ├── mod.rs                 project documents and summaries
 │   │   └── store.rs               project persistence
 │   ├── settings.rs                application settings and templates
+│   ├── starter.rs                 the fresh-data-directory template seed
 │   └── videos/
 │       ├── mod.rs                 per-video documents and chunk paths
 │       └── store.rs               video persistence
@@ -148,7 +149,7 @@ tree and that rule.
 | Project or video persistence | `project/projects/` or `project/videos/` |
 | Effective configuration, inheritance, or validation | `project/config.rs` |
 | Derived pipeline state | `project/derive/` |
-| Settings, templates, or default scripts | `project/settings.rs` |
+| Settings, templates, the starter seed, or default scripts | `project/settings.rs`, `project/starter.rs` |
 | Run preparation, sequence selection, or pre-start validation | `run/prepare.rs` |
 | The singleton, progress bridge, or cancellation | `run/runs/` |
 | Timeline records or a run's log files | `run/timeline.rs` or `run/logs.rs` |

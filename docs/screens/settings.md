@@ -361,7 +361,8 @@ asks save / discard / stay before the panel changes.
 - **A searchable template list, not one global document.** The list carries the template
   count, a search field, and **Add template**. Each row has a star toggle, the template name,
   a detail line, and a delete action. The template marked default also carries a **Default**
-  chip.
+  chip. On a data directory with no `config.json`, the list starts with one ordinary
+  **Recommended** template; it has no badge and no separate Copy action.
 - **Add template** opens a dialog with one name field, **Cancel**, and **Create**. Its copy
   says the new template starts from the engine defaults and is configured afterwards.
 - **One template's overview** carries an inline-editable name, a one-line explanation, seven
@@ -404,15 +405,19 @@ asks save / discard / stay before the panel changes.
 9. **Copy at creation.** A new project copies the template marked default into `project.json`;
    with no default template it starts from the engine defaults. Editing a project never
    changes a template, and editing a template never changes an existing project.
-10. **Apply to an existing project.** The Project screen's **Apply Template** picker lists the
+10. **First run.** When the service starts with no `config.json`, it seeds one ordinary
+    **Recommended** template. It is not marked default, so a new project still starts from
+    the engine defaults until the user stars a template. The seed runs once; an existing
+    settings file, even one with no templates, is never changed.
+11. **Apply to an existing project.** The Project screen's **Apply Template** picker lists the
     templates, marks the default, and calls `POST /api/projects/{project_id}/template` with the
     chosen `template_id`. It replaces that project's configuration and General section, keeps
     the video overrides, and offers Undo/Redo in the project top bar.
-11. **Edit the script.** The script page saves either General's script or one sequence input's
+12. **Edit the script.** The script page saves either General's script or one sequence input's
     script, named by the `section` and `part` search params. A template has no video, so
     **Check** explains that a script can be evaluated only after it is in a project with a
     queued video.
-12. **Guard a dirty template.** Switching a section, Settings tab, or route with a dirty draft
+13. **Guard a dirty template.** Switching a section, Settings tab, or route with a dirty draft
     asks first. The guard names the template document, never a project.
 
 ### Project Templates states
@@ -428,7 +433,8 @@ asks save / discard / stay before the panel changes.
 ### Project Templates data and contracts
 
 - **Settings document.** `AppSettings.project_templates` holds the list and
-  `AppSettings.default_project_template_id` names the default.
+  `AppSettings.default_project_template_id` names the default. The fresh-directory seed is
+  a server-side write to that same array; there is no built-in flag and no extra route.
 - **Template list and creation.** `GET`/`POST /api/settings/templates`; creation sends
   `{ name }` and returns the new template.
 - **Default marker.** `PUT /api/settings/templates/default` with `{ id }`, or

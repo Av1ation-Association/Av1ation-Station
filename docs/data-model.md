@@ -173,7 +173,10 @@ still null, so a project that pins its own path keeps it. It is never copied int
 
 `project_templates` holds the saved templates. `default_project_template_id` names the one
 `POST /api/projects` copies; when it is `null`, the create uses the engine's default
-configuration and `GeneralDefaults::default()`. A template is a complete configuration and
+configuration and `GeneralDefaults::default()`. On a data directory with no `config.json`,
+the service seeds one ordinary template named `Recommended`; it is not marked default, and
+an existing settings file is never changed. It is a normal `ProjectTemplate`, so editing or
+deleting it uses the same routes as any other template. A template is a complete configuration and
 General document, not a patch or a pointer. The copy happens in the same atomic write that
 creates `project.json`, so there is no second write and no window in which a project exists
 without a configuration. After creation the project and the template are independent.

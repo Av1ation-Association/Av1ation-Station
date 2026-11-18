@@ -5,6 +5,7 @@ use av1ation_contracts::encoder::{
     EncoderFork, EncoderParameterOverride, PreflightCheck, PreflightReport,
 };
 use av1ation_contracts::platform::{AppInfo, StorageOverview};
+use av1ation_contracts::project::ProjectTemplate;
 use av1ation_contracts::settings::{AppSettings, AppSettingsUpdate};
 use av1ation_engine::{
     ENGINE_REVISION, ENGINE_VERSION, EncodeRunner, FakeRunner,
@@ -500,6 +501,17 @@ impl AppState {
         match &self.settings {
             Some(store) => store.load().await,
             None => AppSettings::default(),
+        }
+    }
+
+    /// Seed the starter project template when this host has no settings file yet.
+    ///
+    /// Real hosts call this during startup; tests call it to model a first run without
+    /// binding a listener. An existing settings file is never touched.
+    pub async fn seed_starter_template(&self) -> Result<Option<ProjectTemplate>, String> {
+        match &self.settings {
+            Some(store) => store.seed_starter_template().await,
+            None => Ok(None),
         }
     }
 

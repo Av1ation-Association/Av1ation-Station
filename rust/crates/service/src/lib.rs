@@ -167,6 +167,9 @@ async fn serve_with_runner_in_tools(
     let address = listener.local_addr()?;
     let state =
         AppState::with_runner_and_data_dir(web_root, runner, data_dir).with_tools_dir(tools_dir);
+    if let Err(error) = state.seed_starter_template().await {
+        tracing::warn!(%error, "the starter project template was not seeded");
+    }
     // VSScript caches its library once per process, so the bundled config has to exist
     // before the first preflight probe. On Windows this is a no-op; there the wheel's
     // four-parent probe is authoritative.
@@ -213,6 +216,9 @@ pub async fn serve_with_runner_probes_and_data_dir(
     let address = listener.local_addr()?;
     let state = AppState::with_runner_probes_and_data_dir(web_root, runner, probes, data_dir)
         .with_tools_dir(tools_dir);
+    if let Err(error) = state.seed_starter_template().await {
+        tracing::warn!(%error, "the starter project template was not seeded");
+    }
     state.hydrate_storage().await;
     state.hydrate_encoder_forks().await;
     serve_state(listener, address, state).await

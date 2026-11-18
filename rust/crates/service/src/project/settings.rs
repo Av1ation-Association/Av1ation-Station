@@ -225,6 +225,30 @@ impl SettingsStore {
         .await
     }
 
+    /// Seed the one starter template into a data directory that has no settings file.
+    ///
+    /// A file that already exists is never changed, even when its template list is empty:
+    /// that is a user's choice, not a fresh install. The existence check and the write share
+    /// the settings lock, so two hosts cannot seed duplicates.
+    pub(crate) async fn seed_starter_template(&self) -> Result<Option<ProjectTemplate>, String> {
+        let _guard = self.write_lock.lock().await;
+        match tokio::fs::metadata(&self.path).await {
+            Ok(_) => return Ok(None),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "could not inspect {} before seeding it: {error}",
+                    self.path.display()
+                ));
+            }
+        }
+        let template = crate::project::starter::project_template()?;
+        let mut settings = AppSettings::default();
+        settings.project_templates.push(template.clone());
+        self.save(&settings).await?;
+        Ok(Some(template))
+    }
+
     /// Replace one template's name, configuration, and General section. `Ok(None)` means
     /// no template has that id.
     pub(crate) async fn update_template(
@@ -619,10 +643,23 @@ fn default_template_id(value: &Value) -> Option<String> {
     let saved = value
         .get("default_project_template_id")
         .and_then(Value::as_str);
-    saved
-        .filter(|id| templates.iter().any(|template| template.id == *id))
-        .map(str::to_owned)
-        .or_else(|| templates.first().map(|template| template.id.clone()))
+    if let Some(id) = saved {
+        return templates
+            .iter()
+            .any(|template| template.id == id)
+            .then(|| id.to_owned());
+    }
+    // A file without a template list predates multiple templates; its migrated first
+    // template is the historical default. A present list with a null marker means the user
+    // (or the starter seed) deliberately left no template marked.
+    if value
+        .get("project_templates")
+        .and_then(Value::as_array)
+        .is_none()
+    {
+        return templates.first().map(|template| template.id.clone());
+    }
+    None
 }
 
 fn sort_templates(templates: &mut [ProjectTemplate]) {
@@ -1143,6 +1180,84 @@ mod tests {
             "the settings patch must keep a custom tool added through its own route"
         );
 
+        tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+    }
+
+    #[test]
+    fn a_present_template_list_without_a_default_marker_stays_unmarked() {
+        let template = ProjectTemplate {
+            id: "template-a".to_owned(),
+            name: "A".to_owned(),
+            config: crate::project::projects::default_config(),
+            general: GeneralDefaults::default(),
+            updated_at: None,
+        };
+        let value = json!({
+            "project_templates": [template],
+            "default_project_template_id": null,
+        });
+        assert_eq!(default_template_id(&value), None);
+    }
+
+    #[test]
+    fn a_legacy_file_without_a_template_list_keeps_its_migrated_default() {
+        let value = json!({ "project_defaults": {} });
+        assert_eq!(default_template_id(&value).as_deref(), Some("default"));
+    }
+
+    #[tokio::test]
+    async fn a_fresh_settings_file_receives_one_recommended_template() {
+        let dir = temporary_dir();
+        let store = SettingsStore::new(&dir);
+        let first = store
+            .seed_starter_template()
+            .await
+            .expect("seed")
+            .expect("a fresh directory is seeded");
+        assert_eq!(first.name, "Recommended");
+        assert!(
+            store
+                .seed_starter_template()
+                .await
+                .expect("second seed")
+                .is_none(),
+            "an existing config must never gain a second starter"
+        );
+        let loaded = store.load().await;
+        assert_eq!(loaded.project_templates.len(), 1);
+        assert_eq!(loaded.project_templates[0].id, first.id);
+        assert_eq!(loaded.default_project_template_id, None);
+        tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn an_existing_empty_template_list_is_not_seeded() {
+        let dir = temporary_dir();
+        tokio::fs::create_dir_all(&dir).await.expect("temp dir");
+        tokio::fs::write(dir.join("config.json"), r#"{"project_templates":[]}"#)
+            .await
+            .expect("seed settings");
+        let store = SettingsStore::new(&dir);
+        assert!(store.seed_starter_template().await.expect("seed").is_none());
+        assert!(store.load().await.project_templates.is_empty());
+        tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn a_malformed_settings_file_is_not_replaced_by_seeding() {
+        let dir = temporary_dir();
+        tokio::fs::create_dir_all(&dir).await.expect("temp dir");
+        tokio::fs::write(dir.join("config.json"), "not json")
+            .await
+            .expect("seed settings");
+        let store = SettingsStore::new(&dir);
+        assert!(store.seed_starter_template().await.expect("seed").is_none());
+        assert_eq!(
+            tokio::fs::read_to_string(dir.join("config.json"))
+                .await
+                .expect("read"),
+            "not json"
+        );
         tokio::fs::remove_dir_all(dir).await.expect("cleanup");
     }
 
