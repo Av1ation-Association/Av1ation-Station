@@ -764,6 +764,8 @@ export function SchemaField({
                             <button
                                 type="button"
                                 aria-label={`Remove ${title} ${String(index + 1)}`}
+                                data-tip={`Remove ${title} ${String(index + 1)}`}
+                                data-tip-align="end"
                                 onClick={() =>
                                     onChange(items.filter((_, cursor) => cursor !== index))
                                 }

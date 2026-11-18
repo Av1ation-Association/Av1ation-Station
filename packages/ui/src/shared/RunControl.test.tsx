@@ -28,3 +28,21 @@ it("wires the compact Start label to hover and keyboard focus", () => {
     fireEvent.focus(button);
     expect(label.getAttribute("aria-hidden")).toBe("true");
 });
+
+it("keeps a disabled reason hit-testable so the tooltip can open", () => {
+    render(
+        <RunControl
+            running={false}
+            pending={false}
+            disabled
+            disabledReason="Add a video first"
+            onStart={() => undefined}
+            onStop={() => undefined}
+        />,
+    );
+
+    const button = screen.getByRole("button", { name: "Start" });
+    expect(button.getAttribute("data-tip")).toBe("Add a video first");
+    expect(button.className).toContain("disabled:pointer-events-auto");
+    expect(button.className).not.toContain("disabled:pointer-events-none");
+});

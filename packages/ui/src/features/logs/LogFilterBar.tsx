@@ -35,6 +35,7 @@ export function LogFilterBar({
                     <button
                         type="button"
                         aria-label="Clear the search"
+                        data-tip="Clear the search"
                         onClick={() => onSearchChange("")}
                         className="rounded p-0.5 text-ink-muted hover:text-ink"
                     >

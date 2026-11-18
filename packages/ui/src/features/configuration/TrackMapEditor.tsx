@@ -444,6 +444,8 @@ export function TrackMapPanel({
                                                                 type="button"
                                                                 aria-haspopup="dialog"
                                                                 aria-label={`Options for ${name}`}
+                                                                data-tip={`Options for ${name}`}
+                                                                data-tip-align="end"
                                                                 disabled={locked}
                                                                 onClick={() => setOpenOptions(key)}
                                                                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-ink disabled:opacity-40"
@@ -566,6 +568,8 @@ export function TrackMapPanel({
                                                 <button
                                                     type="button"
                                                     aria-label={`Remove attachment ${key}`}
+                                                    data-tip={`Remove attachment ${key}`}
+                                                    data-tip-align="end"
                                                     disabled={locked}
                                                     onClick={() =>
                                                         onChange(withoutKey(tracks, key))

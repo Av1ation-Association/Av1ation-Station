@@ -382,6 +382,8 @@ export function PlayerTransport({
                     <button
                         type="button"
                         aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+                        data-tip={fullscreen ? "Exit full screen" : "Full screen"}
+                        data-tip-align="end"
                         aria-pressed={fullscreen}
                         onClick={toggleFullscreen}
                         className="inline-flex h-8 w-8 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"

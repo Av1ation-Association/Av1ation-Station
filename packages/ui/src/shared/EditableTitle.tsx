@@ -87,6 +87,8 @@ export function EditableTitle({
                 <button
                     type="submit"
                     aria-label={`Save ${label} name`}
+                    data-tip={`Save ${label} name`}
+                    data-tip-align="end"
                     disabled={saving || draft.trim() === ""}
                     className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line-strong bg-raised text-ink-secondary hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-40"
                 >
@@ -95,6 +97,8 @@ export function EditableTitle({
                 <button
                     type="button"
                     aria-label={`Cancel renaming ${label}`}
+                    data-tip={`Cancel renaming ${label}`}
+                    data-tip-align="end"
                     disabled={saving}
                     onClick={() => {
                         setEditing(false);
@@ -114,6 +118,7 @@ export function EditableTitle({
             <button
                 type="button"
                 aria-label={`Rename ${label}`}
+                data-tip={`Rename ${label}`}
                 onClick={() => setEditing(true)}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-hover hover:text-ink"
             >

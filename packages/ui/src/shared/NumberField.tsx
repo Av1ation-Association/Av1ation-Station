@@ -99,6 +99,7 @@ export function NumberField({
                 <button
                     type="button"
                     aria-label={`Decrease ${label}`}
+                    data-tip={`Decrease ${label}`}
                     disabled={disabled}
                     onClick={() => stepBy(-1)}
                     className="flex h-full w-6 items-center justify-center text-ink-muted hover:bg-hover hover:text-ink disabled:opacity-30"
@@ -108,6 +109,8 @@ export function NumberField({
                 <button
                     type="button"
                     aria-label={`Increase ${label}`}
+                    data-tip={`Increase ${label}`}
+                    data-tip-align="end"
                     disabled={disabled}
                     onClick={() => stepBy(1)}
                     className="flex h-full w-6 items-center justify-center border-l border-line text-ink-muted hover:bg-hover hover:text-ink disabled:opacity-30"

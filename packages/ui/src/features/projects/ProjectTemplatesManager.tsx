@@ -178,6 +178,12 @@ export function ProjectTemplatesManager() {
                                                 ? `${template.name} is the default template`
                                                 : `Make ${template.name} the default template`
                                         }
+                                        data-tip={
+                                            isDefault
+                                                ? `${template.name} is the default template`
+                                                : `Make ${template.name} the default template`
+                                        }
+                                        data-tip-align="start"
                                         aria-pressed={isDefault}
                                         disabled={mark.isPending}
                                         onClick={() =>
@@ -228,6 +234,8 @@ export function ProjectTemplatesManager() {
                                         <button
                                             type="button"
                                             aria-label={`Delete ${template.name}`}
+                                            data-tip={`Delete ${template.name}`}
+                                            data-tip-align="end"
                                             onClick={() => setRemoving(template.id)}
                                             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line-strong bg-raised text-ink-muted hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
                                         >

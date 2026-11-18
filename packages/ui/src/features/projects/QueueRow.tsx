@@ -388,6 +388,8 @@ export function QueueRow({
                             <button
                                 type="button"
                                 aria-label={`Actions for ${video.name}`}
+                                data-tip={`Actions for ${video.name}`}
+                                data-tip-align="end"
                                 onClick={(event) => {
                                     // The row is a whole-card pointer target. Radix opens the
                                     // menu from pointerdown, but the later click still bubbles

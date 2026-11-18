@@ -308,6 +308,8 @@ export function MetadataPanel({
                                         <button
                                             type="button"
                                             aria-label={`Remove tag ${key}`}
+                                            data-tip={`Remove tag ${key}`}
+                                            data-tip-align="end"
                                             disabled={locked}
                                             onClick={() => {
                                                 const next = { ...metadata.tags };
@@ -391,6 +393,7 @@ function ExtraInputCard({
                     type="button"
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Collapse" : "Expand"} extra input ${String(index + 1)}`}
+                    data-tip={`${expanded ? "Collapse" : "Expand"} extra input ${String(index + 1)}`}
                     onClick={() => setExpanded((previous) => !previous)}
                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-ink"
                 >
@@ -420,6 +423,8 @@ function ExtraInputCard({
                     <button
                         type="button"
                         aria-label={`Move extra input ${String(index + 1)} up`}
+                        data-tip={`Move extra input ${String(index + 1)} up`}
+                        data-tip-align="end"
                         disabled={locked || index === 0}
                         onClick={() => onMove(-1)}
                         className="flex h-6 w-6 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-ink disabled:opacity-30"
@@ -429,6 +434,8 @@ function ExtraInputCard({
                     <button
                         type="button"
                         aria-label={`Move extra input ${String(index + 1)} down`}
+                        data-tip={`Move extra input ${String(index + 1)} down`}
+                        data-tip-align="end"
                         disabled={locked || index === total - 1}
                         onClick={() => onMove(1)}
                         className="flex h-6 w-6 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-ink disabled:opacity-30"
@@ -438,6 +445,8 @@ function ExtraInputCard({
                     <button
                         type="button"
                         aria-label={`Remove extra input ${String(index + 1)}`}
+                        data-tip={`Remove extra input ${String(index + 1)}`}
+                        data-tip-align="end"
                         disabled={locked}
                         onClick={onRemove}
                         className="flex h-6 w-6 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-danger disabled:opacity-40"

@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./cn";
 
 const buttonVariants = cva(
-    "inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-40",
+    "inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,transform] duration-150 ease-out active:translate-y-px disabled:opacity-40",
     {
         variants: {
             variant: {
@@ -34,7 +34,10 @@ const buttonVariants = cva(
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
 
 export interface ButtonProps
-    extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {}
+    extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+    "data-tip"?: string | undefined;
+    "data-tip-align"?: "start" | "end" | undefined;
+}
 
 /**
  * A treatment's classes, for the rare action that must render as a link.
@@ -52,16 +55,32 @@ export function Button({
     variant = "primary",
     type = "button",
     title,
+    disabled = false,
+    "data-tip": dataTip,
+    "data-tip-align": tipAlign,
     ...props
 }: ButtonProps) {
     // A `title` is a hint, and the platform draws hints in the window manager's style. Every
     // caller already supplies the right words, so the button translates them once into the
     // application's own tooltip instead of each screen repeating the attribute.
+    //
+    // A disabled button still has to explain itself. The pointer-event rule is therefore
+    // conditional: a plain disabled button stays transparent to the row behind it, while a
+    // hinted one keeps hit-testing so the bubble can open on hover. The native disabled
+    // attribute still refuses the click.
+    const tip = title ?? dataTip;
     return (
         <button
             type={type}
-            className={buttonClass(variant ?? "primary", className)}
-            {...(title === undefined ? {} : { "data-tip": title })}
+            disabled={disabled}
+            className={cn(
+                buttonClass(variant ?? "primary", className),
+                tip === undefined
+                    ? "disabled:pointer-events-none"
+                    : "disabled:pointer-events-auto disabled:cursor-not-allowed",
+            )}
+            {...(tip === undefined ? {} : { "data-tip": tip })}
+            {...(tipAlign === undefined ? {} : { "data-tip-align": tipAlign })}
             {...props}
         />
     );

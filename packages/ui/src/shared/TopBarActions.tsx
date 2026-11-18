@@ -56,7 +56,7 @@ export function TopBarButton({
             onClick={onClick}
             disabled={disabled}
             {...(hint === undefined ? {} : { "data-tip": hint })}
-            className={`group/action inline-flex h-7 items-center justify-center rounded-md px-1.5 text-ink-secondary transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-35 ${
+            className={`group/action inline-flex h-7 items-center justify-center rounded-md px-1.5 text-ink-secondary transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-35 ${hint === undefined ? "disabled:pointer-events-none" : "disabled:pointer-events-auto disabled:cursor-not-allowed"} ${
                 tone === "brand" ? "text-brand-text" : ""
             } ${color}`}
         >

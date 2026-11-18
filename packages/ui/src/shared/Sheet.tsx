@@ -92,6 +92,8 @@ export function Sheet({
                     <button
                         type="button"
                         aria-label="Close"
+                        data-tip="Close"
+                        data-tip-align="end"
                         onClick={onClose}
                         className="shrink-0 rounded p-1 text-ink-secondary transition-colors duration-150 hover:bg-hover hover:text-ink"
                     >

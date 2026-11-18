@@ -301,6 +301,8 @@ export function NetworkPanel() {
                                     type="button"
                                     disabled={shortcode === undefined}
                                     aria-label="Copy pairing code"
+                                    data-tip={copied === "code" ? "Copied" : "Copy pairing code"}
+                                    data-tip-align="end"
                                     onClick={() => {
                                         if (shortcode !== undefined) {
                                             copy("code", shortcode);

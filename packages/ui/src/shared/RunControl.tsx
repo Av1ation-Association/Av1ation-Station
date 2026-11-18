@@ -52,7 +52,7 @@ export function RunControl({
             onClick={running ? onStop : onStart}
             disabled={disabled || pending}
             {...(disabledReason === undefined ? {} : { "data-tip": disabledReason })}
-            className={`group/run inline-flex shrink-0 items-center justify-center rounded-md border font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:border-line-strong disabled:bg-raised disabled:text-ink-muted disabled:opacity-60 ${metrics} ${tone} ${className}`}
+            className={`group/run inline-flex shrink-0 items-center justify-center rounded-md border font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:border-line-strong disabled:bg-raised disabled:text-ink-muted disabled:opacity-60 ${disabledReason === undefined ? "disabled:pointer-events-none" : "disabled:pointer-events-auto disabled:cursor-not-allowed"} ${metrics} ${tone} ${className}`}
         >
             <span aria-hidden="true" className="flex h-3.5 w-3.5 items-center justify-center">
                 {icon}

@@ -112,6 +112,10 @@ export function ParameterChoiceFields({ draft }: { draft: ParameterDraft }) {
                             aria-label={`Remove choice ${
                                 choice.value.trim() === "" ? String(index + 1) : choice.value
                             }`}
+                            data-tip={`Remove choice ${
+                                choice.value.trim() === "" ? String(index + 1) : choice.value
+                            }`}
+                            data-tip-align="end"
                             onClick={() =>
                                 draft.setChoices((previous) =>
                                     previous.filter((_, position) => position !== index),

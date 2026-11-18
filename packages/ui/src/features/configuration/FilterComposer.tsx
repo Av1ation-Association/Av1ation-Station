@@ -477,6 +477,10 @@ export function FilterComposer({
                                             aria-label={
                                                 locked ? "Aspect locked" : "Aspect unlocked"
                                             }
+                                            data-tip={
+                                                locked ? "Unlock aspect ratio" : "Lock aspect ratio"
+                                            }
+                                            data-tip-align="start"
                                             aria-pressed={locked}
                                             onClick={() => setLocked((value) => !value)}
                                             className={`inline-flex h-8 w-8 items-center justify-center rounded-md border ${

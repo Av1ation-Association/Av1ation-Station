@@ -65,6 +65,7 @@ export function PreviewSoundMenu({
                         <button
                             type="button"
                             aria-label={muted ? "Unmute" : "Mute"}
+                            data-tip={muted ? "Unmute" : "Mute"}
                             aria-pressed={muted}
                             onClick={() => setMuted((value) => !value)}
                             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-ink-secondary transition-colors duration-150 hover:bg-hover hover:text-ink"

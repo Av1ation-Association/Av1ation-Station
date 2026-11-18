@@ -41,6 +41,8 @@ export function SearchField({
                 <button
                     type="button"
                     aria-label="Clear the search"
+                    data-tip="Clear the search"
+                    data-tip-align="end"
                     onClick={() => onChange("")}
                     className="absolute top-1/2 right-1.5 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-ink-muted hover:text-ink"
                 >
