@@ -11,9 +11,9 @@ Queue videos, tune each one scene by scene, target a quality level, and watch ev
 engine is built directly into the app, so scene data, metrics, progress, and errors are
 structured values rather than scraped console output.
 
-> **Pre-release.** `0.1.0` is available as unsigned Windows x64 and Linux x64 downloads;
-> macOS is not in this pre-release. See [Install](#install) for the downloads, the caveats,
-> and the source build, and [docs/progress.md](docs/progress.md) for current status.
+> **Pre-release.** `0.1.0-rc.3` is available as unsigned Windows x64 and Linux x64 downloads
+> and an ad-hoc signed macOS arm64 build. See [Install](#install) for the downloads, the
+> caveats, and the source build, and [docs/progress.md](docs/progress.md) for current status.
 
 ## Features
 
@@ -40,8 +40,9 @@ structured values rather than scraped console output.
 
 ### Choose a build
 
-Version 0.1.0 is a pre-release for Windows x64 and Linux x64, published from the
-[0.1.0 preview release](https://github.com/Av1ation-Association/Av1ation-Station/releases/tag/v0.1.0-1).
+Version 0.1.0-rc.3 is a pre-release for Windows x64, macOS arm64, and Linux x64, published
+from the
+[0.1.0-rc.3 pre-release](https://github.com/Av1ation-Association/Av1ation-Station/releases/tag/v0.1.0-rc.3).
 Each platform ships two builds:
 
 - **Bundled toolchain** (recommended) — includes FFmpeg, VapourSynth, MKVToolNix, the
@@ -51,20 +52,30 @@ Each platform ships two builds:
   VapourSynth, encoders, or metrics. Each capability resolves independently, so a system
   VapourSynth can sit beside a bundled encoder, or the other way around.
 
-Windows offers an MSI installer, an EXE installer, and a portable ZIP; Linux offers a Debian
-package and an AppImage. The installers are unsigned. Verify the
-[SHA-256 sums](https://github.com/Av1ation-Association/Av1ation-Station/releases/download/v0.1.0-1/SHA256SUMS-github.txt)
+Windows offers an EXE installer and a portable ZIP; Linux offers a Debian package and an
+AppImage; macOS offers a DMG and an app ZIP. Windows and Linux installers are unsigned.
+macOS is ad-hoc signed but not notarised. Verify the
+[SHA-256 sums](https://github.com/Av1ation-Association/Av1ation-Station/releases/download/v0.1.0-rc.3/SHA256SUMS-github.txt)
 before running one. All published downloads are pre-release; there is no stable channel yet.
 
 ### Install on Windows
 
-Windows 10/11 x64. Download the bundled or system MSI, EXE, or portable ZIP from the
-[0.1.0 pre-release](https://github.com/Av1ation-Association/Av1ation-Station/releases/tag/v0.1.0-1).
+Windows 10/11 x64. Download the bundled or system EXE or portable ZIP from the
+[0.1.0-rc.3 pre-release](https://github.com/Av1ation-Association/Av1ation-Station/releases/tag/v0.1.0-rc.3).
+The MSI is stable-only and is not part of this release candidate.
 
 ### Install on Linux
 
 Ubuntu 24.04 or Debian 13 x64. Download the bundled or system Debian package or AppImage
 from the same release.
+
+### Install on macOS
+
+macOS 15 or later on Apple silicon. Download the bundled or system DMG or app ZIP from the
+same release. The app is ad-hoc signed and not notarised, so Gatekeeper may block it; confirm
+the download came from the project release page instead of turning off security controls.
+The hosted package job builds and sizes both variants, but install, signature, and runtime
+behaviour remain best-effort and unverified on a macOS host.
 
 ### Build from source
 
@@ -88,10 +99,11 @@ setup and provider rules.
 Open **Settings → Dependencies**. Every provider the first encode needs must be available,
 and each row names the provider it resolved. Home loads with the project list.
 
-### macOS and unsupported platforms
+### Other platforms
 
-macOS is not in the 0.1.0 pre-release. No signed installer is published for any platform. On
-an operating system or architecture without a build, use the source build above.
+Windows arm64 and Linux arm64 are not published. No Developer ID or Authenticode signed
+installer is published for any platform. On an operating system or architecture without a
+build, use the source build above.
 
 ### Next step
 

@@ -1,19 +1,26 @@
 {
     "schema_version": 1,
-    "generated_at": "2026-11-11T05:29:52Z",
+    "generated_at": "2026-11-18T03:20:49Z",
     "repository": "Av1ation-Association/Av1ation-Station",
     "release": {
-        "tag": "v0.1.0-1",
-        "channel": "legacy",
-        "published_at": "2026-11-11T05:29:52Z",
+        "tag": "v0.1.0-rc.3",
+        "version": "0.1.0-rc.3",
+        "channel": "rc",
+        "published_at": "2026-11-18T03:20:49Z",
         "prerelease": true,
-        "checksums_file": "SHA256SUMS-github.txt"
+        "checksums_file": "SHA256SUMS-github.txt",
+        "draft": false
     },
     "platforms": [
         {
             "os": "windows",
             "arch": "x64",
             "label": "Windows x64"
+        },
+        {
+            "os": "macos",
+            "arch": "aarch64",
+            "label": "macOS arm64"
         },
         {
             "os": "linux",
@@ -23,104 +30,124 @@
     ],
     "assets": [
         {
-            "name": "Av1ation.Station.System_0.1.0_amd64-system.AppImage",
-            "platform": "linux",
-            "arch": "x64",
-            "variant": "system",
-            "format": "appimage",
-            "kind": "portable",
-            "size": 167012856,
-            "sha256": "a29da9c5ec7eda92b290754669b53160b751d29fedc0084079b54ee169e353d1"
-        },
-        {
-            "name": "Av1ation.Station.System_0.1.0_amd64-system.deb",
-            "platform": "linux",
-            "arch": "x64",
-            "variant": "system",
-            "format": "deb",
-            "kind": "installer",
-            "size": 33068496,
-            "sha256": "ae665f841b66b68122e58faf8a3a897662faa46f58724e286c5a85fb2a8b44aa"
-        },
-        {
-            "name": "Av1ation.Station.System_0.1.0_x64-setup-system.exe",
-            "platform": "windows",
-            "arch": "x64",
-            "variant": "system",
-            "format": "exe",
-            "kind": "installer",
-            "size": 22321449,
-            "sha256": "d68a9a1dc3acdfb25dc7f1f09553c84dd6ee54edf7d9774e3a2daafea8290e03"
-        },
-        {
-            "name": "Av1ation.Station.System_0.1.0_x64_en-US-system.msi",
-            "platform": "windows",
-            "arch": "x64",
-            "variant": "system",
-            "format": "msi",
-            "kind": "installer",
-            "size": 49953878,
-            "sha256": "1db3621fdab270ead0ffa77d12e29d486c4597692324595c8c6c13a25065e56d"
-        },
-        {
-            "name": "Av1ation.Station.System_0.1.0_x64_portable-system.zip",
-            "platform": "windows",
-            "arch": "x64",
-            "variant": "system",
-            "format": "zip",
-            "kind": "portable",
-            "size": 39567237,
-            "sha256": "6bb0bc66799c7a526640f8772d73320699f813840383cdd158acddbec126d779"
-        },
-        {
-            "name": "Av1ation.Station_0.1.0_amd64-bundled.AppImage",
-            "platform": "linux",
-            "arch": "x64",
-            "variant": "bundled",
-            "format": "appimage",
-            "kind": "portable",
-            "size": 242391544,
-            "sha256": "7d56511e050c4dedb0544298a15cefd5cea6bd7ab10691718f2df9efeeaaa2bb"
-        },
-        {
-            "name": "Av1ation.Station_0.1.0_amd64-bundled.deb",
-            "platform": "linux",
-            "arch": "x64",
-            "variant": "bundled",
-            "format": "deb",
-            "kind": "installer",
-            "size": 182879766,
-            "sha256": "f434401480bafc057a945c6641533e1ef60f8d591b1258b4e46ace8f9dc68e62"
-        },
-        {
-            "name": "Av1ation.Station_0.1.0_x64-setup-bundled.exe",
+            "name": "Av1ation.Station_0.1.0-rc.3_x64-setup-bundled.exe",
             "platform": "windows",
             "arch": "x64",
             "variant": "bundled",
             "format": "exe",
             "kind": "installer",
-            "size": 366777483,
-            "sha256": "dd85fcc52d3914cf0ca8876a647a1d43c87f88033e2fee66514ee1b43f76f1b8"
+            "size": 333541842,
+            "sha256": "be9d8d91b75d2164bf05b30cce552ddf75d12e66fe953ec74fa7c21ae5fa4ebb"
         },
         {
-            "name": "Av1ation.Station_0.1.0_x64_en-US-bundled.msi",
-            "platform": "windows",
-            "arch": "x64",
-            "variant": "bundled",
-            "format": "msi",
-            "kind": "installer",
-            "size": 495498176,
-            "sha256": "633aca2d4a4c43a66e3ffcba1197578145575dd9018bf9e2ead067e6baf35002"
-        },
-        {
-            "name": "Av1ation.Station_0.1.0_x64_portable-bundled.zip",
+            "name": "Av1ation.Station_0.1.0-rc.3_x64_portable-bundled.zip",
             "platform": "windows",
             "arch": "x64",
             "variant": "bundled",
             "format": "zip",
             "kind": "portable",
-            "size": 512913527,
-            "sha256": "391622036b755c2aa997b9fcd3e6e3362333d7d7996c01e22375c8b871343eb7"
+            "size": 497635376,
+            "sha256": "3a6696b681c1f9b9275527f2c0b1db594d4f2ef027b06c486e889e58cf7744b7"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_x64-setup-system.exe",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "system",
+            "format": "exe",
+            "kind": "installer",
+            "size": 22819550,
+            "sha256": "b8a8d5a585cc5fe50d2410e2375006caefe18af50ee3bf408ef8007e2ca06183"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_x64_portable-system.zip",
+            "platform": "windows",
+            "arch": "x64",
+            "variant": "system",
+            "format": "zip",
+            "kind": "portable",
+            "size": 41145669,
+            "sha256": "9a0a8798da32117d73a91afab9da51141383635cb04aef5aa1191bcc34172d44"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0-rc.3_aarch64-bundled.app.zip",
+            "platform": "macos",
+            "arch": "aarch64",
+            "variant": "bundled",
+            "format": "app.zip",
+            "kind": "portable",
+            "size": 350962905,
+            "sha256": "2b2d06d1a64c11d41e58c05fac585b83229afb716b7a268d6226d844192b9751"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0-rc.3_aarch64-bundled.dmg",
+            "platform": "macos",
+            "arch": "aarch64",
+            "variant": "bundled",
+            "format": "dmg",
+            "kind": "installer",
+            "size": 345167823,
+            "sha256": "05b0cb3e89d59f0b3133ce451b6951e1b1478495d125cb2cf41949baf891be7e"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_aarch64-system.app.zip",
+            "platform": "macos",
+            "arch": "aarch64",
+            "variant": "system",
+            "format": "app.zip",
+            "kind": "portable",
+            "size": 30700192,
+            "sha256": "13374b9ba434d2c703b28527c44b3e7deeac11cea87e6a79e9f3f6db23503286"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_aarch64-system.dmg",
+            "platform": "macos",
+            "arch": "aarch64",
+            "variant": "system",
+            "format": "dmg",
+            "kind": "installer",
+            "size": 30641615,
+            "sha256": "655467eaed174e5ab2b173a8c23f98d529bc5e57edc1ddf043fc619bd7da0ecc"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0-rc.3_amd64-bundled.AppImage",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "appimage",
+            "kind": "portable",
+            "size": 581069304,
+            "sha256": "a8200ceedb023e3e88b007143f7e9e31eade19cdbd547a247521941f92fa0f29"
+        },
+        {
+            "name": "Av1ation.Station_0.1.0-rc.3_amd64-bundled.deb",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "bundled",
+            "format": "deb",
+            "kind": "installer",
+            "size": 671920684,
+            "sha256": "f962f70bd1e808bd639e7422e05577fe1668ba2ad852f3a4cf604fa549eab370"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_amd64-system.AppImage",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "system",
+            "format": "appimage",
+            "kind": "portable",
+            "size": 144538104,
+            "sha256": "7845761e39ea3be44b17d32bd91b73fdd55d2fc9603b486f3bad122063aad1bc"
+        },
+        {
+            "name": "Av1ation.Station.System_0.1.0-rc.3_amd64-system.deb",
+            "platform": "linux",
+            "arch": "x64",
+            "variant": "system",
+            "format": "deb",
+            "kind": "installer",
+            "size": 33914234,
+            "sha256": "6cce4446da515a5c0064f1e4c730c7bc17efeea975e2233fc6596d5d86375372"
         },
         {
             "name": "SHA256SUMS-github.txt",
@@ -129,8 +156,8 @@
             "variant": "release",
             "format": "txt",
             "kind": "checksums",
-            "size": 1140,
-            "sha256": "4ecf7e843382a8c73f2e577fff90b4694b4a8886a9d3901f155052be0d0502cc"
+            "size": 1428,
+            "sha256": "596a885a5980f04d0d1d8a5ca3278082333adb99f4c791b0d8e7b16a9d9ab516"
         }
     ]
 }

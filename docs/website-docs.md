@@ -24,7 +24,7 @@ with the website.
 ## 1. Purpose and scope
 
 `/docs/` is end-user documentation for installing, configuring, running, and troubleshooting
-Av1ation Station. It explains the current `0.1.0` pre-release, not a future product. It does
+Av1ation Station. It explains the current `0.1.0-rc.3` pre-release, not a future product. It does
 not duplicate architecture, contracts, development setup, or contribution rules; a single
 “For contributors” page links to those repository documents.
 
@@ -56,23 +56,26 @@ work can be sequenced, but the release gate is the complete set.
 | Live content | Focused samples of production components; widgets for one component | A guide mounts the described surface, not a copy of the application or a screenshot in poor context. |
 | Captures | Deterministic gallery captures, both themes, native-scale crops | Screenshots carry transient, failed, heavy, or non-deterministic states, not routine prose. |
 | Screenshot source | Existing 35-surface gallery, extended with docs states | No parallel screenshot system. |
-| Install lead | Pre-release downloads first, source build as fallback | Unsigned Windows/Linux installers, macOS unavailable, and source build are stated explicitly. |
+| Install lead | Newest published release first, source build as fallback | Stable and a newer pre-release are both selectable; unsigned Windows/Linux installers, the ad-hoc macOS build, and the source build are stated explicitly. |
 | Search | Client-side full-text index over all docs content | No server, no external search service, and no analytics. |
 | Release scope | Everything ships together | All pages, focused samples, widgets, captures, and search are one release. |
 
 ### 2.1 Installation truth
 
-The root README and the install page are written from the same release-manifest projection:
-the `0.1.0` Windows/Linux pre-release downloads, labelled unsigned, with macOS unavailable
-and the source build and GitHub Releases kept as fallback paths. Both name the same assets,
-the same caveats, and the same fallback. Neither may claim a signed installer, a macOS build,
-a stable channel, or an updater that the manifest does not provide.
+The root README and the install page are written from the same published-release catalogue:
+the current `0.1.0-rc.3` Windows, macOS arm64, and Linux downloads, labelled unsigned on
+Windows/Linux and ad-hoc signed on macOS, with the source build and GitHub Releases kept as
+fallback paths. When a stable release exists beside a SemVer-newer pre-release, both are
+selectable; an older pre-release is rejected. Both surfaces name the same assets, caveats,
+and fallback. Neither may claim a notarised or platform-trusted signature, a stable channel,
+or an updater that the manifest does not provide.
 
-The install page projects that manifest into Windows, Linux, macOS, and Source tabs. Each
-platform tab names its bundled assets first and its system-toolchain assets second; macOS
-states that no build is available and points at the source instructions. The page then
-checks the toolchain, covers troubleshooting, and links to the first encode, so the two
-surfaces cannot drift into different instructions.
+The install page projects that catalogue into Windows, Linux, macOS, and Source tabs. Each
+platform tab names its bundled assets first and its system-toolchain assets second. The macOS
+tab carries the DMG/app-ZIP downloads and states that Gatekeeper may block the ad-hoc build;
+it points at the source instructions only when the selected release has no macOS asset. The
+page then checks the toolchain, covers troubleshooting, and links to the first encode, so the
+two surfaces cannot drift into different instructions.
 
 ### 2.2 Live-host gate
 
@@ -195,8 +198,8 @@ widget. The “Done when” line is the user-visible success condition.
 ### T01 Install and verify
 
 - **Outcome:** the application starts and every provider the first encode needs is available.
-- **Before:** Windows 10/11 x64 or Ubuntu 24.04/Debian 13 x64; a source video; permission to
-  install or a source-build toolchain.
+- **Before:** Windows 10/11 x64, macOS 15+ arm64, or Ubuntu 24.04/Debian 13 x64; a source video;
+  permission to install or a source-build toolchain.
 - **Steps:** Install · Check the toolchain · Troubleshooting · Next step.
 - **Done when:** Settings → Dependencies shows the required providers and Home loads.
 - **Recovery:** H01; if no installer is offered, follow the source build section to
@@ -694,7 +697,7 @@ Add a small component vocabulary; do not let MDX import arbitrary app internals:
   `@av1ation/ui/docs-widgets`.
 - `Key` / `KeySequence` — platform-aware shortcuts.
 - `FieldTable` — reference tables with stable row anchors.
-- `PlatformInstall` — release-manifest tabs, bundled and system assets, and install notes.
+- `PlatformInstall` — release and platform tabs, bundled and system assets, and install notes.
 - `RelatedLinks` — reference and next-task links.
 - `CodeBlock` — copy action, shell label; no syntax-highlighting dependency is required.
 
@@ -713,7 +716,7 @@ Add a small component vocabulary; do not let MDX import arbitrary app internals:
   headings, focused-sample headings, and the related-links footer. It has no repeated "On this
   page" label because it is already nested under the current page in the sidebar, and is hidden
   below the wide breakpoint.
-- No version switcher. A `0.1.0` pre-release badge links to the release notes.
+- No version switcher. A pre-release badge links to the selected release's notes.
 
 ### 9.4 Search
 

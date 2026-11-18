@@ -1,10 +1,17 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 
-import { detectPlatform } from "../platform";
-import { assetUrl, formatMiB, RELEASE, type ReleaseAsset } from "../releases";
+import { detectPlatform, PLATFORM_LABELS, type Platform } from "../platform";
+import { ReleaseChooser } from "../ReleaseChooser";
+import {
+    assetUrl,
+    formatMiB,
+    RELEASE,
+    RELEASES,
+    type PublishedRelease,
+    type ReleaseAsset,
+} from "../releases";
 
-type InstallTab = "windows" | "linux" | "macos" | "source";
-type ReleasePlatform = "windows" | "linux";
+type InstallTab = Platform | "source";
 
 const INSTALL_TABS: readonly { readonly id: InstallTab; readonly label: string }[] = [
     { id: "windows", label: "Windows" },
@@ -13,25 +20,29 @@ const INSTALL_TABS: readonly { readonly id: InstallTab; readonly label: string }
     { id: "source", label: "Source" },
 ];
 
-const DOWNLOAD_LABELS: Record<ReleasePlatform, string> = {
+const DOWNLOAD_LABELS: Record<Platform, string> = {
     windows: "Download Windows installer",
     linux: "Download Linux AppImage",
+    macos: "Download macOS disk image",
 };
 
-const FORMAT_ORDER: Record<ReleasePlatform, readonly string[]> = {
+const FORMAT_ORDER: Record<Platform, readonly string[]> = {
     windows: ["exe", "msi", "zip"],
     linux: ["appimage", "deb"],
+    macos: ["dmg", "app.zip"],
 };
 
-const PLATFORM_NOTES: Record<ReleasePlatform, string> = {
+const PLATFORM_NOTES: Record<Platform, string> = {
     windows:
         "Run the installer, then open Av1ation Station from the Start menu. SmartScreen warns because this build is unsigned; confirm the download came from the project release page instead of turning off security controls.",
     linux:
         "Make the AppImage executable, then run it. The Debian package installs the same build through your package manager. A normal desktop session is required.",
+    macos:
+        "Open the disk image and copy Av1ation Station to Applications. The build is ad-hoc signed and not notarised, so Gatekeeper may block it; confirm the download came from the project release page instead of turning off security controls.",
 };
 
 function orderedAssets(
-    platform: ReleasePlatform,
+    platform: Platform,
     assets: readonly ReleaseAsset[],
 ): readonly ReleaseAsset[] {
     const order = FORMAT_ORDER[platform];
@@ -43,8 +54,14 @@ function orderedAssets(
     });
 }
 
-function InstallPanel({ platform }: { platform: ReleasePlatform }) {
-    const variants = RELEASE.variants[platform];
+function InstallPanel({
+    release,
+    platform,
+}: {
+    release: PublishedRelease;
+    platform: Platform;
+}) {
+    const variants = release.variants[platform];
     return (
         <>
             <p className="docs-install__lede">
@@ -76,7 +93,7 @@ function InstallPanel({ platform }: { platform: ReleasePlatform }) {
                                                     ? "site-button site-button--primary docs-install__download"
                                                     : "docs-install__asset"
                                             }
-                                            href={assetUrl(asset.name)}
+                                            href={assetUrl(release, asset.name)}
                                         >
                                             <span>
                                                 {primary
@@ -103,13 +120,21 @@ function InstallPanel({ platform }: { platform: ReleasePlatform }) {
     );
 }
 
-function UnsupportedPanel() {
+function UnsupportedPanel({
+    release,
+    platform,
+}: {
+    release: PublishedRelease;
+    platform: Platform;
+}) {
+    const label = PLATFORM_LABELS[platform];
     return (
         <div className="docs-install__empty">
             <p>
-                There is no macOS asset in the {RELEASE.version} preview snapshot. macOS builds
-                are best-effort and unverified; a published ad-hoc-signed app may still be blocked
-                by Gatekeeper.
+                There is no {label} asset in {release.version}.{" "}
+                {platform === "macos"
+                    ? "macOS builds are published best-effort when a release includes them; this one does not. A published macOS app may still be blocked by Gatekeeper because it is ad-hoc signed and not notarised."
+                    : "See the release history for a release that includes it."}
             </p>
             <a
                 className="site-button site-button--secondary"
@@ -141,11 +166,13 @@ function SourcePanel() {
 
 /**
  * The install download chooser. Bundled builds lead each platform panel; the reader only
- * downloads the assets for the platform they selected. The initial tab follows the
- * browser's platform so most readers do not have to change it.
+ * downloads the assets for the platform they selected. The release chooser appears only when
+ * the catalogue contains both a stable release and a newer pre-release.
  */
 export function PlatformInstall() {
     const [selected, setSelected] = useState<InstallTab>(() => detectPlatform() ?? "windows");
+    const [releaseTag, setReleaseTag] = useState<string>(RELEASE.tag);
+    const release = RELEASES.find((entry) => entry.tag === releaseTag) ?? RELEASE;
     const tabs = useRef<Partial<Record<InstallTab, HTMLButtonElement | null>>>({});
     const panelId = "install-downloads";
 
@@ -172,9 +199,16 @@ export function PlatformInstall() {
     return (
         <section className="docs-install" aria-label="Download Av1ation Station">
             <p className="docs-install__meta">
-                <span>Version {RELEASE.version}</span>
-                <span>Unsigned pre-release</span>
+                <span>Version {release.version}</span>
+                <span>{release.prerelease ? "Pre-release build" : "Stable build"}</span>
             </p>
+            <ReleaseChooser
+                releases={RELEASES}
+                selectedTag={release.tag}
+                onSelect={setReleaseTag}
+                label="Release channel"
+                className="docs-install__releases"
+            />
             <div className="docs-install__tabs" role="tablist" aria-label="Choose your platform">
                 {INSTALL_TABS.map((tab, index) => (
                     <button
@@ -202,12 +236,12 @@ export function PlatformInstall() {
                 aria-labelledby={`install-tab-${selected}`}
                 tabIndex={0}
             >
-                {selected === "windows" || selected === "linux" ? (
-                    <InstallPanel platform={selected} />
-                ) : selected === "macos" ? (
-                    <UnsupportedPanel />
-                ) : (
+                {selected === "source" ? (
                     <SourcePanel />
+                ) : release.variants[selected].length === 0 ? (
+                    <UnsupportedPanel release={release} platform={selected} />
+                ) : (
+                    <InstallPanel release={release} platform={selected} />
                 )}
             </div>
         </section>

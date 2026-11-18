@@ -21,6 +21,7 @@ interface GeneratedAsset {
     readonly platform: Platform;
     readonly variant: ReleaseVariant["id"];
     readonly format: string;
+    readonly kind: "installer" | "portable";
     readonly size: number;
 }
 
@@ -38,7 +39,28 @@ interface GeneratedRelease {
     readonly assets: readonly GeneratedAsset[];
 }
 
-const DATA = generated as GeneratedRelease;
+interface GeneratedCatalogue {
+    readonly repository: string;
+    readonly releases: readonly GeneratedRelease[];
+}
+
+export interface PublishedRelease {
+    readonly repository: string;
+    readonly version: string;
+    readonly tag: string;
+    readonly published: string;
+    readonly prerelease: boolean;
+    readonly downloadUrl: string;
+    readonly notesUrl: string;
+    readonly checksumsUrl: string;
+    readonly platformLabels: Record<Platform, string>;
+    readonly availablePlatforms: readonly Platform[];
+    readonly platformSummary: string;
+    readonly variants: Record<Platform, readonly ReleaseVariant[]>;
+    readonly assetCount: number;
+}
+
+const DATA = generated as GeneratedCatalogue;
 
 const PLATFORMS: readonly Platform[] = ["windows", "macos", "linux"];
 const VARIANT_ORDER: readonly ReleaseVariant["id"][] = ["bundled", "system"];
@@ -79,12 +101,12 @@ function assetLabel(format: string): string {
     return FORMAT_LABELS[format] ?? format.toUpperCase();
 }
 
-function assetsFor(platform: Platform): readonly GeneratedAsset[] {
-    return DATA.assets.filter((asset) => asset.platform === platform);
+function assetsFor(data: GeneratedRelease, platform: Platform): readonly GeneratedAsset[] {
+    return data.assets.filter((asset) => asset.platform === platform);
 }
 
-function variantsFor(platform: Platform): readonly ReleaseVariant[] {
-    const assets = assetsFor(platform);
+function variantsFor(data: GeneratedRelease, platform: Platform): readonly ReleaseVariant[] {
+    const assets = assetsFor(data, platform);
     return VARIANT_ORDER.flatMap((id) => {
         const variantAssets = assets
             .filter((asset) => asset.variant === id)
@@ -117,50 +139,61 @@ function joinLabels(labels: readonly string[]): string {
     return `${labels.slice(0, -1).join(", ")} and ${labels.at(-1) ?? ""}`;
 }
 
-const platformLabels = Object.fromEntries(
-    PLATFORMS.map((platform) => {
-        const published = DATA.platforms.find((entry) => entry.os === platform);
-        return [platform, published?.label ?? PLATFORM_LABELS[platform]];
-    }),
-) as Record<Platform, string>;
+function buildRelease(data: GeneratedRelease): PublishedRelease {
+    const platformLabels = Object.fromEntries(
+        PLATFORMS.map((platform) => {
+            const published = data.platforms.find((entry) => entry.os === platform);
+            return [platform, published?.label ?? PLATFORM_LABELS[platform]];
+        }),
+    ) as Record<Platform, string>;
+    const variants = {
+        windows: variantsFor(data, "windows"),
+        macos: variantsFor(data, "macos"),
+        linux: variantsFor(data, "linux"),
+    };
+    const availablePlatforms = PLATFORMS.filter((platform) => variants[platform].length > 0);
+    const repositoryUrl = `https://github.com/${data.repository}`;
+    const releasesUrl = `${repositoryUrl}/releases`;
+    const downloadUrl = `${releasesUrl}/download/${encodeURIComponent(data.tag)}`;
 
-const variants: Record<Platform, readonly ReleaseVariant[]> = {
-    windows: variantsFor("windows"),
-    macos: variantsFor("macos"),
-    linux: variantsFor("linux"),
-};
+    return {
+        repository: data.repository,
+        version: data.version,
+        tag: data.tag,
+        published: data.published,
+        prerelease: data.prerelease,
+        downloadUrl,
+        notesUrl: `${releasesUrl}/tag/${encodeURIComponent(data.tag)}`,
+        checksumsUrl: `${downloadUrl}/${encodeURIComponent(data.checksums.name)}`,
+        platformLabels,
+        availablePlatforms,
+        platformSummary: joinLabels(availablePlatforms.map((platform) => platformLabels[platform])),
+        variants,
+        assetCount: data.assets.length,
+    };
+}
 
-const availablePlatforms = PLATFORMS.filter((platform) => variants[platform].length > 0);
+/** The published releases in the checked-in catalogue, oldest first. */
+export const RELEASES: readonly PublishedRelease[] = DATA.releases.map(buildRelease);
 
-const repositoryUrl = `https://github.com/${DATA.repository}`;
-const releasesUrl = `${repositoryUrl}/releases`;
-const downloadUrl = `${releasesUrl}/download/${encodeURIComponent(DATA.tag)}`;
+const latest = RELEASES.at(-1);
+if (latest === undefined) {
+    throw new Error("The website release catalogue has no published release.");
+}
 
-/**
- * The published release, projected from the checked-in release manifest by
- * `scripts/website-release.mjs`.
- *
- * Asset names, sizes, tag, and publication date come from that manifest. The visible
- * version comes from `package.json`, the repository's one version source. Presentation copy
- * stays here because it is website language, not release metadata.
- */
-export const RELEASE = {
-    version: DATA.version,
-    tag: DATA.tag,
-    published: DATA.published,
-    prerelease: DATA.prerelease,
-    notesUrl: `${releasesUrl}/tag/${encodeURIComponent(DATA.tag)}`,
-    allReleasesUrl: releasesUrl,
-    checksumsUrl: `${downloadUrl}/${encodeURIComponent(DATA.checksums.name)}`,
-    repositoryUrl,
-    platformLabels,
-    availablePlatforms,
-    platformSummary: joinLabels(availablePlatforms.map((platform) => platformLabels[platform])),
-    variants,
-};
+/** The release the site leads with: the newest stable or pre-release snapshot. */
+export const RELEASE = latest;
+export const STABLE = RELEASES.find((release) => !release.prerelease) ?? null;
+export const PRERELEASE = RELEASES.find((release) => release.prerelease) ?? null;
+export const REPOSITORY_URL = `https://github.com/${DATA.repository}`;
+export const ALL_RELEASES_URL = `${REPOSITORY_URL}/releases`;
 
-export function assetUrl(name: string): string {
-    return `${downloadUrl}/${encodeURIComponent(name)}`;
+export function assetUrl(release: PublishedRelease, name: string): string {
+    return `${release.downloadUrl}/${encodeURIComponent(name)}`;
+}
+
+export function releaseChannelLabel(release: PublishedRelease): string {
+    return release.prerelease ? "Pre-release" : "Stable";
 }
 
 export function formatMiB(size: number): string {

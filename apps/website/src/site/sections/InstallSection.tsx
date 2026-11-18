@@ -1,4 +1,5 @@
 import { withBase } from "../../base-path";
+import { RELEASE } from "../releases";
 
 export function InstallSection() {
     return (
@@ -27,9 +28,9 @@ export function InstallSection() {
                     <div className="install-copy">
                         <h3>Bundled</h3>
                         <p>
-                            One installer, one pinned toolchain. A clean Windows or Linux machine
-                            can detect scenes and run an encode without assembling Python,
-                            VapourSynth, FFmpeg, and an encoder first.
+                            One installer, one pinned toolchain. A clean machine can detect scenes
+                            and run an encode without assembling Python, VapourSynth, FFmpeg, and an
+                            encoder first.
                         </p>
                         <ul>
                             <li>FFmpeg and MKVToolNix for muxing and concatenation</li>
@@ -59,15 +60,19 @@ export function InstallSection() {
                 <dl className="platform-line">
                     <div>
                         <dt>Windows x64</dt>
-                        <dd>Bundled and system installers in 0.1.0</dd>
+                        <dd>Bundled and system installers in {RELEASE.version}</dd>
                     </div>
                     <div>
                         <dt>Linux x64</dt>
-                        <dd>Debian package and AppImage in 0.1.0</dd>
+                        <dd>Debian package and AppImage in {RELEASE.version}</dd>
                     </div>
                     <div>
                         <dt>macOS</dt>
-                        <dd>Not in the current pre-release</dd>
+                        <dd>
+                            {RELEASE.variants.macos.length > 0
+                                ? `Bundled and system disk images in ${RELEASE.version}`
+                                : "Not in this release"}
+                        </dd>
                     </div>
                 </dl>
             </div>

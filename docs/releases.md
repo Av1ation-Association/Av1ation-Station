@@ -6,10 +6,10 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 [packaging.md](packaging.md).
 
 The release gate is **open** for the RC channel: hosted package validation and a tag-driven
-workflow run pass. `v0.1.0-rc.3` is a draft prerelease awaiting manual publication; no tag has
-been moved. Windows and Linux installs are validated. macOS is built and published
-**best-effort**: without a macOS host or certificate, its install, ad-hoc signing, and runtime
-behaviour are not guaranteed. The updater is deferred, so no `latest.json` is produced. The
+workflow run pass. `v0.1.0-rc.3` is published as a prerelease; no tag has been moved. Windows
+and Linux installs are validated. macOS is published **best-effort**: without a macOS host or
+certificate, its install, ad-hoc signing, and runtime behaviour are not guaranteed. The
+updater is deferred, so no `latest.json` is produced. The
 reviewed manifest, recipes, three-target lock, reusable toolchain and security workflows, the
 tag-driven `release.yml`, and the readiness record are present. The local artifacts under
 `dist/release/` remain development evidence; tag-built assets are the candidate.
@@ -51,13 +51,11 @@ another workflow. `release.yml` still builds only the existing tag.
 
 ### Historical 0.1.0 preview
 
-`v0.1.0-1` is the first published 0.1.0 pre-release. It was built before the channel
-tooling existed, so it is not a fourth channel: `release:build` cannot produce it and
-`release:preflight` rejects it as a new candidate. The checked-in website snapshot marks
-it with `"channel": "legacy"`; the projection still derives its download URLs from that
-tag because those are the published assets. Leave those URLs unchanged until a
-channel-built release replaces the snapshot. New candidates always use the weekly, RC, or
-stable tags in the table above.
+`v0.1.0-1` is the first published 0.1.0 pre-release. It was built before the channel tooling
+existed, so it is not a fourth channel: `release:build` cannot produce it and
+`release:preflight` rejects it as a new candidate. It remains available for anyone who needs
+that historical build; the checked-in website snapshot now points at the published
+`v0.1.0-rc.3`. New candidates always use the weekly, RC, or stable tags in the table above.
 
 A weekly run is skipped when the diff from the last weekly tag to `HEAD` contains only
 documentation: `docs/**` and `*.md`. A change to `packaging/**`, `scripts/**`, source, tests,
@@ -190,22 +188,30 @@ app and its app-data directory manually, and this path is unverified.
 ## Website download metadata
 
 The public site must build and render without a GitHub request. Its checked-in
-`apps/website/release-manifest.json` is the published release manifest snapshot; its tag,
-publication date, asset names, asset kinds, and byte sizes all come from that manifest. The
-current snapshot is the historical `v0.1.0-1` preview described above, not a channel build.
-The visible version comes from `package.json`, the repository's one version source.
+`apps/website/release-manifest.json` is the newest **published** release snapshot; its
+version, tag, publication date, and download assets all come from that manifest. It carries
+the installers, portables, and checksum that the site links, not the release's audit files. A
+draft is rejected, and `release.published_at` is required, so an unpublished release cannot
+appear as a download. The current snapshot is the published `v0.1.0-rc.3` prerelease; its
+macOS DMG and app ZIP are part of the same projection as Windows and Linux.
 
-Run `npm run release:website` to project the manifest into
-`apps/website/src/site/release.generated.json`. Commit the source manifest and the generated
-projection with the release, and do not hand-edit either one. When a release manifest is
-prepared for publication, replace the checked-in snapshot with the complete release manifest,
-regenerate the projection, and review the diff. The website derives its platform groups and
-download links from the manifest rather than carrying a second asset list.
+When a stable release exists and the next pre-release is SemVer-newer, keep the stable
+snapshot in `apps/website/stable-release-manifest.json`. The generator adds both to the
+catalogue only in that order; an older pre-release is rejected instead of silently replacing
+stable. When no stable release exists, the pre-release is the only catalogue entry. The
+visible version is the release's own version, not `package.json`: the package can be staged
+for the next candidate while the site continues to describe the last public release.
+
+Run `npm run release:website` to project the catalogue into
+`apps/website/src/site/release.generated.json`. Commit the source snapshot or snapshots and
+the generated projection with the release, and do not hand-edit either one. The website
+derives its release chooser, platform groups, and download links from the catalogue rather
+than carrying a second asset list.
 
 CI runs `npm run check:website-release -- --urls`. It rejects a stale projection and performs
-a `HEAD` request for every installer, portable, and checksum URL, comparing GitHub's
-`Content-Length` with the size in the manifest. A missing URL or a changed asset fails the
-web gate.
+a `HEAD` request for every installer, portable, and checksum URL in every catalogue release,
+comparing GitHub's `Content-Length` with the size in the manifest. A missing URL or a changed
+asset fails the web gate.
 
 ## Unsigned distribution
 
@@ -352,13 +358,13 @@ before publishing; hand editing is expected and does not feed back into the mani
 
 ## Current gate
 
-The RC publication gate has passed. The remaining items are manual review and optional
-channel coverage, not build blockers:
+The RC publication gate has passed. The remaining items are platform verification and
+optional channel coverage, not build blockers:
 
-1. **Draft review and publication.** `v0.1.0-rc.3` exists as a draft prerelease with 32 assets,
-   provenance attestation, checksums, audit files, and unsigned/no-updater labels. A release
-   owner must review it against the publication checklist and publish it explicitly; the
-   workflow did not publish it.
+1. **RC publication.** `v0.1.0-rc.3` is published as a prerelease with 32 assets, provenance
+   attestation, checksums, audit files, and unsigned/no-updater labels. The website snapshot
+   now points at it, including the macOS downloads. macOS install and signing verification
+   remain outstanding because no macOS host is available.
 2. **Weekly candidate.** The weekly tag job has not produced a candidate. It will create a tag
    only after the readiness record and weekly checks pass; the readiness record itself passes,
    and this path does not block the RC draft.

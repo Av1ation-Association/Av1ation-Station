@@ -55,7 +55,7 @@ export const DOCS_PAGES: readonly DocsPage[] = [
         path: "/docs/get-started/install",
         title: "Install and verify",
         description:
-            "Install the unsigned pre-release on Windows or Linux, or build from source, then verify the providers your first encode needs.",
+            "Install the current pre-release on Windows, Linux, or macOS, or build from source, then verify the providers your first encode needs.",
         group: "get-started",
         kind: "task",
         sections: ["Install", "Check the toolchain", "Troubleshooting", "Next step"],

@@ -1,9 +1,10 @@
 // Generate the small release-download projection the website bundles.
 //
-// The checked-in `apps/website/release-manifest.json` is the published release manifest. It
-// supplies the tag, publication date, and every asset name and byte size; the package version
-// supplies the version the site displays, so there is still one version source. The generated
-// projection is committed because the website must build and render without a GitHub request.
+// `apps/website/release-manifest.json` is the newest published release, and the optional
+// `stable-release-manifest.json` keeps an older stable release beside a newer pre-release.
+// The release's own version, tag, publication date, asset names, and byte sizes supply the
+// projection. A draft is rejected because its assets are not publicly downloadable. The
+// generated projection is committed because the website builds without a GitHub request.
 //
 // `--check` rejects a stale projection. `--urls` additionally performs a HEAD request for
 // every download and compares GitHub's Content-Length with the manifest size.
@@ -14,6 +15,12 @@ import { pathToFileURL } from "node:url";
 import { projectRoot } from "./build-paths.mjs";
 
 export const SOURCE_PATH = join(projectRoot, "apps", "website", "release-manifest.json");
+export const STABLE_SOURCE_PATH = join(
+    projectRoot,
+    "apps",
+    "website",
+    "stable-release-manifest.json",
+);
 export const OUTPUT_PATH = join(
     projectRoot,
     "apps",
@@ -40,6 +47,7 @@ const FORMAT_ORDER = [
 ];
 const ASSET_KINDS = new Set(["installer", "portable"]);
 const TAG_PATTERN = /^v[A-Za-z0-9._-]+$/u;
+const WEEKLY_TAG_PATTERN = /^v(\d+\.\d+\.\d+)-weekly\.(\d{8})$/u;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/u;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 
@@ -89,17 +97,58 @@ function rank(list, value) {
     return index === -1 ? list.length : index;
 }
 
-/** Read the reviewed version from the repository's single version source. */
-export function readPackageVersion(root = projectRoot) {
-    const pkg = object(
-        JSON.parse(readFileSync(join(root, "package.json"), "utf8")),
-        "package.json",
-    );
-    const version = text(pkg.version, "package.json version");
-    if (!VERSION_PATTERN.test(version)) {
-        fail(`package.json version is not SemVer: ${version}`);
+function parseSemver(value) {
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/u.exec(value);
+    if (match === null) {
+        fail(`version is not SemVer: ${value}`);
     }
-    return version;
+    return {
+        core: [Number(match[1]), Number(match[2]), Number(match[3])],
+        prerelease: match[4]?.split(".") ?? [],
+    };
+}
+
+/** SemVer precedence, used to decide whether a pre-release may join a stable release. */
+export function compareReleaseVersions(left, right) {
+    const first = parseSemver(text(left, "left version"));
+    const second = parseSemver(text(right, "right version"));
+    for (let index = 0; index < first.core.length; index += 1) {
+        const difference = first.core[index] - second.core[index];
+        if (difference !== 0) {
+            return difference < 0 ? -1 : 1;
+        }
+    }
+    if (first.prerelease.length === 0 || second.prerelease.length === 0) {
+        return first.prerelease.length === second.prerelease.length
+            ? 0
+            : first.prerelease.length === 0
+              ? 1
+              : -1;
+    }
+    for (
+        let index = 0;
+        index < Math.max(first.prerelease.length, second.prerelease.length);
+        index += 1
+    ) {
+        const firstPart = first.prerelease[index];
+        const secondPart = second.prerelease[index];
+        if (firstPart === undefined || secondPart === undefined) {
+            return firstPart === secondPart ? 0 : firstPart === undefined ? -1 : 1;
+        }
+        if (firstPart === secondPart) {
+            continue;
+        }
+        const firstNumeric = /^\d+$/u.test(firstPart);
+        const secondNumeric = /^\d+$/u.test(secondPart);
+        if (firstNumeric && secondNumeric) {
+            return Number(firstPart) < Number(secondPart) ? -1 : 1;
+        }
+        if (firstNumeric !== secondNumeric) {
+            return firstNumeric ? -1 : 1;
+        }
+        return firstPart < secondPart ? -1 : 1;
+    }
+    return 0;
 }
 
 function readPlatformLabels(manifest, downloadAssets) {
@@ -138,7 +187,7 @@ function readPlatformLabels(manifest, downloadAssets) {
  * A full `release-manifest.json` has extra release-channel and audit fields; they are ignored.
  * Only installers, portables, and the checksum file cross into the published site.
  */
-export function projectReleaseManifest(manifest, packageVersion) {
+export function projectReleaseManifest(manifest) {
     const root = object(manifest, "release manifest");
     if (root.schema_version !== 1) {
         fail("release manifest schema_version must be 1");
@@ -147,27 +196,30 @@ export function projectReleaseManifest(manifest, packageVersion) {
     if (!REPOSITORY_PATTERN.test(repository)) {
         fail(`repository must be owner/name, got ${repository}`);
     }
-    const version = text(packageVersion, "package version");
     const release = object(root.release, "release");
+    if (release.draft === true) {
+        fail("a draft release cannot be projected to the website");
+    }
     const tag = text(release.tag, "release.tag");
     if (!TAG_PATTERN.test(tag)) {
         fail(`release.tag is not a safe release tag: ${tag}`);
     }
-    const base = version.split("-")[0];
-    if (tag !== `v${version}` && !tag.startsWith(`v${base}-`)) {
-        fail(`release.tag ${tag} does not describe package version ${version}`);
+    const version = text(release.version, "release.version");
+    if (!VERSION_PATTERN.test(version)) {
+        fail(`release.version is not SemVer: ${version}`);
     }
-    if (release.version !== undefined && release.version !== version) {
-        fail(
-            `release.version ${String(release.version)} does not match package version ${version}`,
-        );
+    const weeklyTag = WEEKLY_TAG_PATTERN.exec(tag);
+    const weeklyPrefix = weeklyTag === null ? null : `${weeklyTag[1]}-weekly.${weeklyTag[2]}.`;
+    const tagMatchesVersion =
+        tag === `v${version}` ||
+        (weeklyPrefix !== null &&
+            version.startsWith(weeklyPrefix) &&
+            /^[0-9a-f]{7}$/u.test(version.slice(weeklyPrefix.length)));
+    if (!tagMatchesVersion) {
+        fail(`release.tag ${tag} does not describe release.version ${version}`);
     }
     const prerelease = bool(release.prerelease, "release.prerelease");
-    const dateValue = release.published_at ?? root.generated_at;
-    if (dateValue === undefined) {
-        fail("release.published_at or generated_at is required");
-    }
-    const published = isoDate(dateValue, "release.published_at");
+    const published = isoDate(release.published_at, "release.published_at");
     const checksumsName = text(release.checksums_file, "release.checksums_file");
 
     if (!Array.isArray(root.assets) || root.assets.length === 0) {
@@ -227,8 +279,6 @@ export function projectReleaseManifest(manifest, packageVersion) {
             left.name.localeCompare(right.name),
     );
     return {
-        schema_version: 1,
-        generated_by: "scripts/website-release.mjs",
         repository,
         tag,
         version,
@@ -238,6 +288,53 @@ export function projectReleaseManifest(manifest, packageVersion) {
         platforms: readPlatformLabels(root, downloadAssets),
         assets: downloadAssets,
         asset_count: downloadAssets.length,
+    };
+}
+
+/**
+ * Build the site's release catalogue from the newest published release and an optional
+ * older stable release. A pre-release is only offered when its SemVer is newer than stable.
+ */
+export function buildReleaseCatalogue({ latest, stable = null }) {
+    const latestRelease = projectReleaseManifest(latest);
+    if (!latestRelease.prerelease) {
+        if (stable !== null) {
+            fail("stable-release-manifest.json duplicates a stable release-manifest.json");
+        }
+        return {
+            schema_version: 2,
+            generated_by: "scripts/website-release.mjs",
+            repository: latestRelease.repository,
+            releases: [latestRelease],
+        };
+    }
+    if (stable === null) {
+        return {
+            schema_version: 2,
+            generated_by: "scripts/website-release.mjs",
+            repository: latestRelease.repository,
+            releases: [latestRelease],
+        };
+    }
+
+    const stableRelease = projectReleaseManifest(stable);
+    if (stableRelease.prerelease) {
+        fail("stable-release-manifest.json must describe a stable release");
+    }
+    if (stableRelease.repository !== latestRelease.repository) {
+        fail("the two website release snapshots name different repositories");
+    }
+    if (compareReleaseVersions(latestRelease.version, stableRelease.version) <= 0) {
+        fail(
+            `pre-release ${latestRelease.version} is not newer than stable ${stableRelease.version}; ` +
+                "remove stable-release-manifest.json or update release-manifest.json",
+        );
+    }
+    return {
+        schema_version: 2,
+        generated_by: "scripts/website-release.mjs",
+        repository: latestRelease.repository,
+        releases: [stableRelease, latestRelease],
     };
 }
 
@@ -251,20 +348,25 @@ function encodePathSegment(value) {
 }
 
 /** Every URL the site links to, plus the expected byte size for the HEAD check. */
-export function releaseAssetEntries(projection) {
-    const base = `https://github.com/${projection.repository}/releases/download/${encodePathSegment(projection.tag)}`;
+export function releaseAssetEntries(release) {
+    const base = `https://github.com/${release.repository}/releases/download/${encodePathSegment(release.tag)}`;
     return [
-        ...projection.assets.map((asset) => ({
+        ...release.assets.map((asset) => ({
             name: asset.name,
             size: asset.size,
             url: `${base}/${encodePathSegment(asset.name)}`,
         })),
         {
-            name: projection.checksums.name,
-            size: projection.checksums.size,
-            url: `${base}/${encodePathSegment(projection.checksums.name)}`,
+            name: release.checksums.name,
+            size: release.checksums.size,
+            url: `${base}/${encodePathSegment(release.checksums.name)}`,
         },
     ];
+}
+
+/** Every URL across the stable and pre-release snapshots. */
+export function releaseCatalogueEntries(catalogue) {
+    return catalogue.releases.flatMap((release) => releaseAssetEntries(release));
 }
 
 async function headEntry(entry, { fetchImpl, timeoutMs, attempts }) {
@@ -327,14 +429,14 @@ async function headEntry(entry, { fetchImpl, timeoutMs, attempts }) {
  * the final 2xx response is accepted. Injectable for the unit test, which never uses the network.
  */
 export async function validateAssetUrls(
-    projection,
+    catalogue,
     { fetchImpl = globalThis.fetch, timeoutMs = 20_000, attempts = 2, log = () => {} } = {},
 ) {
     if (typeof fetchImpl !== "function") {
         fail("this Node build has no fetch implementation");
     }
     const results = [];
-    for (const entry of releaseAssetEntries(projection)) {
+    for (const entry of releaseCatalogueEntries(catalogue)) {
         const result = await headEntry(entry, { fetchImpl, timeoutMs, attempts });
         log(`ok ${String(result.bytes).padStart(10)} bytes  ${result.name}`);
         results.push(result);
@@ -375,9 +477,12 @@ async function main() {
         console.log(usage());
         return;
     }
-    const manifest = JSON.parse(readFileSync(SOURCE_PATH, "utf8"));
-    const projection = projectReleaseManifest(manifest, readPackageVersion());
-    const rendered = renderReleaseProjection(projection);
+    const latest = JSON.parse(readFileSync(SOURCE_PATH, "utf8"));
+    const stable = existsSync(STABLE_SOURCE_PATH)
+        ? JSON.parse(readFileSync(STABLE_SOURCE_PATH, "utf8"))
+        : null;
+    const catalogue = buildReleaseCatalogue({ latest, stable });
+    const rendered = renderReleaseProjection(catalogue);
     if (flags.check) {
         if (!existsSync(OUTPUT_PATH)) {
             fail("release.generated.json is missing; run npm run release:website");
@@ -385,16 +490,18 @@ async function main() {
         if (readFileSync(OUTPUT_PATH, "utf8") !== rendered) {
             fail("release.generated.json is stale; run npm run release:website and review it");
         }
-        console.log(`Website release metadata is current for ${projection.tag}.`);
+        console.log(
+            `Website release metadata is current for ${catalogue.releases.map((release) => release.tag).join(", ")}.`,
+        );
     } else {
         writeFileSync(OUTPUT_PATH, rendered);
         console.log(`Website release metadata: ${OUTPUT_PATH}`);
         console.log(
-            `Tag: ${projection.tag}; version: ${projection.version}; assets: ${String(projection.asset_count)}`,
+            `Releases: ${catalogue.releases.map((release) => `${release.tag} (${release.version})`).join(", ")}`,
         );
     }
     if (flags.urls) {
-        const results = await validateAssetUrls(projection, { log: (line) => console.log(line) });
+        const results = await validateAssetUrls(catalogue, { log: (line) => console.log(line) });
         console.log(`Validated ${String(results.length)} release download URLs.`);
     }
 }

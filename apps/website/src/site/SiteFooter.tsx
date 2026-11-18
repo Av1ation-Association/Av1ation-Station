@@ -26,7 +26,8 @@ export function SiteFooter() {
                     <a href={withBase("/#downloads")}>Download</a>
                 </nav>
                 <p className="site-footer__legal">
-                    GPL-3.0. Pre-release software; installers are unsigned.{" "}
+                    GPL-3.0. Pre-release software; Windows/Linux installers are unsigned and macOS
+                    builds are ad-hoc signed.{" "}
                     <span>Av1ation Station is not affiliated with the Av1an project.</span>
                 </p>
             </div>

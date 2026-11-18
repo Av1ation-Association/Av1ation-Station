@@ -961,6 +961,58 @@
     text-underline-offset: 3px;
 }
 
+.release-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.release-choice__button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-step-full);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        border-color var(--duration-fast) ease-out,
+        background-color var(--duration-fast) ease-out,
+        color var(--duration-fast) ease-out;
+}
+
+.release-choice__button:hover {
+    border-color: var(--border-focus);
+    color: var(--text-primary);
+}
+
+.release-choice__button[aria-pressed="true"] {
+    border-color: var(--brand-default);
+    background: color-mix(in srgb, var(--brand-default) 10%, transparent);
+    color: var(--text-primary);
+}
+
+.release-choice__channel {
+    font-family: var(--font-stack-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.release-choice__version {
+    color: var(--text-primary);
+    font-family: var(--font-stack-mono);
+    font-size: 11px;
+}
+
+.downloads__channels {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
 .downloads__platforms {
     display: flex;
     gap: 0;
@@ -2047,6 +2099,11 @@
     scrollbar-width: none;
 }
 
+.docs-install__releases {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
 .docs-install__tabs::-webkit-scrollbar {
     display: none;
 }
@@ -2209,6 +2266,10 @@
 @media (max-width: 760px) {
     .docs-install__panel {
         padding: 16px;
+    }
+
+    .docs-install__releases {
+        padding: 12px 16px;
     }
 
     .docs-install__builds {

@@ -1,4 +1,4 @@
-The release ships unsigned Windows and Linux installers. Start with the bundled build: it includes FFmpeg, VapourSynth, MKVToolNix, the encoders, the scene model, and the quality metrics, so there is nothing else to install.
+The `0.1.0-rc.3` pre-release ships unsigned Windows and Linux installers and an ad-hoc signed macOS build. Start with the bundled build: it includes FFmpeg, VapourSynth, MKVToolNix, the encoders, the scene model, and the quality metrics, so there is nothing else to install.
 
 ## Install
 
@@ -19,7 +19,7 @@ Read [Resolve dependencies and add encoder builds](/docs/guides/dependencies) to
 ## Troubleshooting
 
 - **Windows SmartScreen warns about the publisher**: the installer is unsigned. Confirm the download came from the project release page; do not disable system-wide security controls.
-- **There is no macOS installer**: this release does not produce one. The source build is unsupported but available from the Source tab.
+- **macOS blocks the app**: the build is ad-hoc signed and not notarised, so Gatekeeper may refuse it. Confirm the download came from the project release page; do not disable system-wide security controls.
 - **The installer is blocked by policy**: use the portable build if policy allows it, or build from source. Do not turn off security controls to force the installer to run.
 - **A capability is still unavailable**: check the row's source and executable, then check again. The [dependency troubleshooting guide](/docs/troubleshooting/dependencies) explains what each state means.
 
