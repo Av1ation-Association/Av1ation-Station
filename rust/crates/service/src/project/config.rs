@@ -131,6 +131,19 @@ fn validate_node(value: &Value, default: &Value, path: &str) -> Result<(), Strin
     if value.is_null() && is_nullable(path) {
         return Ok(());
     }
+    if is_encoder_options(path) {
+        return if value.is_object() {
+            Ok(())
+        } else {
+            Err(format!("`{path}` must be an object, not {}.", kind(value)))
+        };
+    }
+    if path == "sequences.scene_concatenator.method" && value == "Ivf" {
+        // `ConcatMethod::Ivf` is a unit enum variant, so it serialises as a string while
+        // the default variant is an externally tagged object. The variant has no fields
+        // to validate; an unknown string still falls through to the object check.
+        return Ok(());
+    }
     match default {
         Value::Object(default_fields) if !default_fields.is_empty() => {
             let Some(fields) = value.as_object() else {
@@ -167,6 +180,14 @@ fn validate_node(value: &Value, default: &Value, path: &str) -> Result<(), Strin
             kind(value)
         )),
     }
+}
+
+/// Encoder parameters are descriptor-backed, not a closed section in the default document.
+/// A new release can offer a parameter the stored defaults do not mention (for example SVT's
+/// `tune`), and the engine validates the resulting encoder document. Keeping this map open
+/// is what lets that descriptor-backed parameter save instead of looking like a typo.
+fn is_encoder_options(path: &str) -> bool {
+    path.starts_with("encoder.") && path.ends_with(".options")
 }
 
 /// A one-key object whose key the default section does not own is a replacement variant,
@@ -254,6 +275,36 @@ fn resolve_node(
                 source: ValueSource::Overridden,
             },
         );
+        return;
+    }
+
+    if is_encoder_options(path)
+        && let (Some(Value::Object(default_fields)), Some(Value::Object(project_fields))) =
+            (default, project)
+    {
+        if default_fields.is_empty() && project_fields.is_empty() {
+            // An empty descriptor-backed map is still a leaf. Skipping it made the resolved
+            // table omit the encoder's options while the engine document still had them.
+            out.insert(
+                path.to_owned(),
+                ResolvedValue {
+                    value: project
+                        .cloned()
+                        .unwrap_or_else(|| Value::Object(Map::new())),
+                    source: ValueSource::Default,
+                },
+            );
+            return;
+        }
+        for key in union_keys(default_fields, project_fields) {
+            resolve_node(
+                default_fields.get(&key),
+                project_fields.get(&key),
+                overrides,
+                &join(path, &key),
+                out,
+            );
+        }
         return;
     }
 

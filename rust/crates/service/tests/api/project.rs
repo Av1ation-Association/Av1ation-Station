@@ -151,6 +151,97 @@ async fn a_project_config_write_materialises_and_persists_the_document() {
 }
 
 #[tokio::test]
+async fn a_project_config_accepts_descriptor_backed_encoder_options() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Tune").await;
+
+    let update = Request::put(format!("/api/projects/{id}/config"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({
+                "encoder": {
+                    "SVTAV1": {
+                        "options": {
+                            "tune": {
+                                "String": { "prefix": "--", "delimiter": " ", "value": "film" }
+                            }
+                        }
+                    }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let (status, config) = send(app.clone(), update).await;
+    assert_eq!(status, StatusCode::OK, "{config}");
+    assert_eq!(
+        config["values"]["encoder.SVTAV1.options.tune"]["value"]["String"]["value"],
+        "film"
+    );
+
+    // A sibling option still resolves from the engine default; adding one descriptor-backed
+    // parameter must not replace the whole options map.
+    assert_eq!(
+        config["values"]["encoder.SVTAV1.options.crf.Number.value"]["value"],
+        25.0
+    );
+
+    drop(app);
+    let app = router(project_state(&dir));
+    let (status, reread) = send(
+        app,
+        Request::get(format!("/api/projects/{id}/config"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reread}");
+    assert_eq!(
+        reread["values"]["encoder.SVTAV1.options.tune"]["value"]["String"]["value"],
+        "film"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_project_config_accepts_the_ivf_unit_variant_and_rejects_unknown_methods() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "IVF").await;
+
+    let update = Request::put(format!("/api/projects/{id}/config"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"sequences":{"scene_concatenator":{"method":"Ivf"}}}"#,
+        ))
+        .unwrap();
+    let (status, config) = send(app.clone(), update).await;
+    assert_eq!(status, StatusCode::OK, "{config}");
+    assert_eq!(
+        config["values"]["sequences.scene_concatenator.method"]["value"],
+        "Ivf"
+    );
+    assert_eq!(
+        config["values"]["sequences.scene_concatenator.method"]["source"],
+        "inherited"
+    );
+
+    let unknown = Request::put(format!("/api/projects/{id}/config"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"sequences":{"scene_concatenator":{"method":"Bogus"}}}"#,
+        ))
+        .unwrap();
+    let (status, body) = send(app, unknown).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+#[tokio::test]
 async fn an_invalid_configuration_is_rejected_without_writing() {
     let dir = project_dir();
     let app = router(project_state(&dir));
