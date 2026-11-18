@@ -17,7 +17,7 @@ The provider panel chooses the executable for a family. A bundled path, a system
 | Value | The current draft value, or the executable default |
 | Set | Whether the draft differs from the executable default |
 
-Search filters by label. The header counts set parameters. A parameter absent from the schema cannot be added.
+Search matches the label, flag, and description. The header counts descriptors, and **Add parameter** opens the sheet for a parameter the table does not list.
 
 ## Editor sheet
 
@@ -25,7 +25,7 @@ The sheet edits one parameter with the control its type requires: number with bo
 
 ## JSON
 
-The JSON view shows the serialized encoder document. It is read-only in the screen; the service rejects a hand-edited document that fails the schema. The view is useful for support and for comparing two builds' documents.
+The JSON view edits the serialized descriptor document. The contract is checked on every edit, and Save stays disabled until the editor can render it. **Import** replaces the document from a file and **Export** saves a copy, so the view is also useful for support and for comparing two builds' documents.
 
 ## Saved builds
 
@@ -35,9 +35,18 @@ The JSON view shows the serialized encoder document. It is read-only in the scre
 | Family | The parameter schema and probe behaviour |
 | Executable | The probed binary |
 | Version | The parsed version, or unknown if unparsable |
-| Survey | Supported, unsupported, and unknown parameters |
 
 A saved build whose executable disappears remains listed but unavailable. Selecting it refuses the run with the build's name.
+
+## Fork profiles
+
+Two SVT-AV1 forks ship with a complete parameter table but no executable: **SVT-AV1-Essential** (the 4.3.0 pre-release line) and **SVT-AV1-5Fish** (rolling). They are not bundled builds. Add the fork's executable in Settings → Encoders; the profile is detected from its `--full-help` output and the shipped table is applied to the saved row.
+
+A known fork row has a fixed label and cannot be renamed or deleted. **Clear executable** forgets the path, leaves the row resolving on `PATH`, and reports the base encoder's availability; **Reset parameters** restores the shipped table without touching the path. If the executable does not show the profile's signature flags, the row keeps the table and shows a warning instead of rejecting the build; the check is lenient because a fork can rename or rebuild itself.
+
+The table is independent of the executable's version. Help still decides which flags exist and what their defaults are: a flag absent from the help disappears, a new flag is added as an advanced row, and a flag the table does not know is typed generically. When a build shows both signatures, 5Fish wins because it incorporates features from the other forks.
+
+<ForkParameterTables />
 
 ## Overrides
 

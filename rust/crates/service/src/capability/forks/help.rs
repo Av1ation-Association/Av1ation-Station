@@ -27,13 +27,21 @@ pub(super) fn parse_help(text: &str) -> BTreeMap<ParameterKey, ParameterDescript
             token = next;
             tail = after;
         }
+        // x265 spells a short/long pair as `-p/--preset`; x264 uses `-x, --long`.
         let option_token = token
-            .split(',')
+            .split([',', '/'])
             .map(str::trim)
             .filter(|part| !part.is_empty())
             .find(|part| part.starts_with("--"))
             .or_else(|| token.split(',').next().map(str::trim))
             .unwrap_or_default();
+        // `--[no-]wpp` documents two argv spellings in one row. The positive is the
+        // canonical key; the negative switch is added beside it so a default-on feature can
+        // actually be turned off from the editor.
+        let (option_token, negative) = match option_token.strip_prefix("--[no-]") {
+            Some(base) => (format!("--{base}"), Some(format!("--no-{base}"))),
+            None => (option_token.to_owned(), None),
+        };
         let (option, token_metavar) = match option_token.split_once('=') {
             Some((name, value)) => (
                 name,
@@ -44,7 +52,7 @@ pub(super) fn parse_help(text: &str) -> BTreeMap<ParameterKey, ParameterDescript
                         .to_owned(),
                 ),
             ),
-            None => (option_token, None),
+            None => (option_token.as_str(), None),
         };
         if option.len() < 2
             || !option.starts_with('-')
@@ -177,7 +185,7 @@ pub(super) fn parse_help(text: &str) -> BTreeMap<ParameterKey, ParameterDescript
             ParameterKey(option.to_owned()),
             ParameterDescriptor {
                 delimiter,
-                label,
+                label: label.clone(),
                 description,
                 doc_link: None,
                 kind,
@@ -188,6 +196,26 @@ pub(super) fn parse_help(text: &str) -> BTreeMap<ParameterKey, ParameterDescript
                 relations: Vec::new(),
             },
         );
+        if let Some(negative) = negative {
+            parameters.insert(
+                ParameterKey(negative),
+                ParameterDescriptor {
+                    delimiter: None,
+                    label: format!("Disable {label}"),
+                    description: Some(
+                        "Explicitly disable this option; without it the encoder keeps its own default."
+                            .to_owned(),
+                    ),
+                    doc_link: None,
+                    kind: ParameterKind::Flag,
+                    default: Some(ParameterValue::Bool(false)),
+                    widget: Widget::Auto,
+                    advanced: false,
+                    group: None,
+                    relations: Vec::new(),
+                },
+            );
+        }
     }
     parameters
 }

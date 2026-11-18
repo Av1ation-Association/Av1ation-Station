@@ -11,7 +11,7 @@ import { useLeaveGuard } from "../../shared/UnsavedChanges";
 import { AddForkSheet } from "./AddForkSheet";
 import { EncoderParameters } from "./EncoderParameters";
 import { ExecutableCard } from "./ExecutableCard";
-import { friendlyName } from "./encoder-names";
+import { friendlyName, isShipped } from "./encoder-names";
 
 /** The codec family an encoder id belongs to, used as the catalogue's group heading. */
 function encoderGroup(id: string): string {
@@ -33,6 +33,68 @@ function encoderGroup(id: string): string {
     return "AV1";
 }
 
+/** One catalogue row; `compact` is the built-in list, which is grouped by codec family. */
+function EncoderRow({
+    encoder,
+    selected,
+    onSelect,
+    title,
+    detail,
+    compact = false,
+    tone = "status",
+}: {
+    encoder: EncoderDescriptor;
+    selected: boolean;
+    onSelect: () => void;
+    title: string;
+    detail: string;
+    compact?: boolean;
+    /** `brand` marks a user build, so it reads differently from an available provider. */
+    tone?: "status" | "brand";
+}) {
+    return (
+        <li>
+            <button
+                type="button"
+                onClick={onSelect}
+                aria-current={selected ? "true" : undefined}
+                className={`flex w-full items-center gap-2 rounded-md ${compact ? "px-2.5 py-1.5" : "px-2.5 py-2"} text-left ${
+                    selected
+                        ? "bg-raised text-ink"
+                        : "text-ink-secondary hover:bg-hover hover:text-ink"
+                }`}
+            >
+                <span className="min-w-0 flex-1">
+                    <span
+                        className={`block truncate ${compact ? "text-[11.5px]" : "text-[12px]"} font-medium`}
+                    >
+                        {title}
+                    </span>
+                    <span
+                        className={`block truncate font-mono ${compact ? "text-[9.5px]" : "text-[10px]"} text-ink-muted`}
+                    >
+                        {detail}
+                    </span>
+                </span>
+                <span
+                    aria-hidden="true"
+                    data-tip={
+                        encoder.available ? "Available on this machine" : "No executable found"
+                    }
+                    data-tip-align="end"
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        tone === "brand"
+                            ? "bg-brand"
+                            : encoder.available
+                              ? "bg-success"
+                              : "bg-ink-muted"
+                    }`}
+                />
+            </button>
+        </li>
+    );
+}
+
 /**
  * The engine catalogue and the builds beside it.
  *
@@ -50,8 +112,10 @@ export function EncodersPanel() {
 
     const list = encoders.data ?? [];
     const builtIn = list.filter((encoder) => !encoder.fork);
-    const forks = list.filter((encoder) => encoder.fork);
-    const selected = list.find((encoder) => encoder.id === selectedId) ?? builtIn[0] ?? forks[0];
+    const known = list.filter(isShipped);
+    const forks = list.filter((encoder) => encoder.fork && !isShipped(encoder));
+    const selected =
+        list.find((encoder) => encoder.id === selectedId) ?? builtIn[0] ?? known[0] ?? forks[0];
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -67,7 +131,7 @@ export function EncodersPanel() {
     }, [removing]);
 
     const confirmRemove = () => {
-        if (removing === null) {
+        if (removing === null || isShipped(removing)) {
             return;
         }
         const removed = removing;
@@ -154,52 +218,38 @@ export function EncodersPanel() {
                                         {builtIn
                                             .filter((encoder) => encoderGroup(encoder.id) === group)
                                             .map((encoder) => (
-                                                <li key={encoder.id}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => select(encoder.id)}
-                                                        aria-current={
-                                                            encoder.id === selected?.id
-                                                                ? "true"
-                                                                : undefined
-                                                        }
-                                                        className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left ${
-                                                            encoder.id === selected?.id
-                                                                ? "bg-raised text-ink"
-                                                                : "text-ink-secondary hover:bg-hover hover:text-ink"
-                                                        }`}
-                                                    >
-                                                        <span className="min-w-0 flex-1">
-                                                            <span className="block truncate text-[11.5px] font-medium">
-                                                                {friendlyName(encoder)}
-                                                            </span>
-                                                            <span className="block truncate font-mono text-[9.5px] text-ink-muted">
-                                                                {encoder.id}
-                                                                {encoder.overridden
-                                                                    ? " · edited"
-                                                                    : ""}
-                                                            </span>
-                                                        </span>
-                                                        <span
-                                                            aria-hidden="true"
-                                                            data-tip={
-                                                                encoder.available
-                                                                    ? "Available on this machine"
-                                                                    : "No executable found"
-                                                            }
-                                                            data-tip-align="end"
-                                                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                                                                encoder.available
-                                                                    ? "bg-success"
-                                                                    : "bg-ink-muted"
-                                                            }`}
-                                                        />
-                                                    </button>
-                                                </li>
+                                                <EncoderRow
+                                                    key={encoder.id}
+                                                    encoder={encoder}
+                                                    selected={encoder.id === selected?.id}
+                                                    onSelect={() => select(encoder.id)}
+                                                    title={friendlyName(encoder)}
+                                                    detail={`${encoder.id}${encoder.overridden ? " · edited" : ""}`}
+                                                    compact
+                                                />
                                             ))}
                                     </ul>
                                 </div>
                             ),
+                        )}
+                        {known.length === 0 ? null : (
+                            <>
+                                <p className="m-0 px-2.5 pt-3 pb-1 font-mono text-[9px] tracking-[0.14em] text-ink-muted uppercase">
+                                    Shipped builds
+                                </p>
+                                <ul className="m-0 list-none">
+                                    {known.map((encoder) => (
+                                        <EncoderRow
+                                            key={encoder.id}
+                                            encoder={encoder}
+                                            selected={encoder.id === selected?.id}
+                                            onSelect={() => select(encoder.id)}
+                                            title={encoder.label}
+                                            detail={`${encoder.base} · shipped · ${String(Object.keys(encoder.parameters).length)} params`}
+                                        />
+                                    ))}
+                                </ul>
+                            </>
                         )}
                         <p className="m-0 px-2.5 pt-3 pb-1 font-mono text-[9px] tracking-[0.14em] text-ink-muted uppercase">
                             Your builds
@@ -212,42 +262,15 @@ export function EncodersPanel() {
                         ) : (
                             <ul className="m-0 list-none">
                                 {forks.map((encoder) => (
-                                    <li key={encoder.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() => select(encoder.id)}
-                                            aria-current={
-                                                encoder.id === selected?.id ? "true" : undefined
-                                            }
-                                            className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left ${
-                                                encoder.id === selected?.id
-                                                    ? "bg-raised text-ink"
-                                                    : "text-ink-secondary hover:bg-hover hover:text-ink"
-                                            }`}
-                                        >
-                                            <span className="min-w-0 flex-1">
-                                                <span className="block truncate text-[12px] font-medium">
-                                                    {encoder.label}
-                                                </span>
-                                                <span className="block truncate font-mono text-[10px] text-ink-muted">
-                                                    {encoder.base} ·{" "}
-                                                    {Object.keys(encoder.parameters).length} params
-                                                </span>
-                                            </span>
-                                            <span
-                                                aria-hidden="true"
-                                                data-tip={
-                                                    encoder.available
-                                                        ? "Available on this machine"
-                                                        : "No executable found"
-                                                }
-                                                data-tip-align="end"
-                                                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                                                    encoder.available ? "bg-brand" : "bg-ink-muted"
-                                                }`}
-                                            />
-                                        </button>
-                                    </li>
+                                    <EncoderRow
+                                        key={encoder.id}
+                                        encoder={encoder}
+                                        selected={encoder.id === selected?.id}
+                                        onSelect={() => select(encoder.id)}
+                                        title={encoder.label}
+                                        detail={`${encoder.base} · ${String(Object.keys(encoder.parameters).length)} params`}
+                                        tone="brand"
+                                    />
                                 ))}
                             </ul>
                         )}

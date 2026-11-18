@@ -153,6 +153,14 @@ pub struct EncoderFork {
     /// Version line observed by the probe, when it answered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    /// The shipped fork profile this build matched, if any. A known-fork row always names
+    /// its profile; a user-added build naming one gets that profile's table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    /// A non-fatal probe finding, such as a known-fork row whose executable did not show
+    /// the profile's signature. The row still uses the shipped table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
     /// Parameter descriptors parsed from `--help` or added by hand, keyed by canonical
     /// spelling. These become the initial options when the fork is selected.
     #[serde(default)]
@@ -189,6 +197,13 @@ pub struct EncoderForkUpdate {
     /// Replacement parameter map. When absent, the saved map is kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parameters: Option<BTreeMap<ParameterKey, ParameterDescriptor>>,
+    /// Restore a shipped fork's table without touching its executable path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_parameters: Option<bool>,
+    /// Forget the executable path but keep the parameter table. Only shipped rows accept
+    /// this; an ordinary user fork is deleted instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_executable: Option<bool>,
 }
 
 /// User edits to one built-in encoder's descriptors.
@@ -230,6 +245,9 @@ pub struct EncoderForkProbe {
     /// Parameters parsed from the help output, keyed by canonical spelling.
     #[serde(default)]
     pub parameters: BTreeMap<ParameterKey, ParameterDescriptor>,
+    /// The shipped fork profile the help output matched, when one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
 }
 
 /// The complete preflight inventory and its availability counts.
@@ -287,6 +305,9 @@ pub struct EncoderDescriptor {
     /// Whether this entry is a saved fork rather than the engine's built-in encoder.
     #[serde(default)]
     pub fork: bool,
+    /// A non-fatal probe finding for this build.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
     /// Whether the descriptor set differs from the engine's definition because the user
     /// edited it. Resetting the entry restores the engine descriptors.
     #[serde(default)]
@@ -713,6 +734,8 @@ pub enum DescriptorSource {
     Probed,
     /// Authored by the user in `encoders/<id>.json`.
     Declared,
+    /// Shipped by this application as a known fork of an engine encoder.
+    Known,
 }
 
 /// A complete encoder catalogue entry, which is also the shape of a user-authored encoder

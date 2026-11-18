@@ -4,6 +4,11 @@ use super::*;
 ///
 /// The delimiter follows what the engine already seeds for that executable; adding a flag
 /// with the other spelling would produce `--crf=25` for an encoder that expects `--crf 25`.
+/// The shipped rows for a known fork, which has no engine parameter map of its own.
+pub(super) fn fork_catalogue(id: &str) -> Option<&'static [CatalogueEntry]> {
+    forks::table(id)
+}
+
 pub(super) fn catalogue(id: &str) -> Option<(Delimiter, &'static [CatalogueEntry])> {
     let equals = || Delimiter::Joined("=".to_owned());
     let entry = match id {
@@ -25,6 +30,7 @@ pub(super) fn catalogue(id: &str) -> Option<(Delimiter, &'static [CatalogueEntry
 mod aom;
 mod avm;
 mod ffmpeg;
+mod forks;
 mod rav1e;
 mod svt_av1;
 mod vpx;
@@ -48,6 +54,27 @@ pub(super) const fn entry(
     kind: CatalogueKind,
     advanced: bool,
 ) -> CatalogueEntry {
+    entry_default(
+        key,
+        label,
+        description,
+        group,
+        kind,
+        advanced,
+        CatalogueDefault::None,
+    )
+}
+
+/// The same row with the default the encoder uses when the flag is not sent.
+pub(super) const fn entry_default(
+    key: &'static str,
+    label: &'static str,
+    description: &'static str,
+    group: &'static str,
+    kind: CatalogueKind,
+    advanced: bool,
+    default: CatalogueDefault,
+) -> CatalogueEntry {
     CatalogueEntry {
         key,
         label,
@@ -55,6 +82,7 @@ pub(super) const fn entry(
         group,
         kind,
         advanced,
+        default,
     }
 }
 
@@ -97,4 +125,16 @@ pub(super) const fn choice(values: &'static [&'static str]) -> CatalogueKind {
 
 pub(super) const fn numbered(values: &'static [(f64, &'static str)]) -> CatalogueKind {
     CatalogueKind::Numbered(values)
+}
+
+pub(super) const fn path(directory: bool) -> CatalogueKind {
+    CatalogueKind::Path { directory }
+}
+
+pub(super) const fn number_default(value: f64) -> CatalogueDefault {
+    CatalogueDefault::Number(value)
+}
+
+pub(super) const fn text_default(value: &'static str) -> CatalogueDefault {
+    CatalogueDefault::Text(value)
 }

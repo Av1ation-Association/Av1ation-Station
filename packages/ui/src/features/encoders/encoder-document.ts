@@ -1,6 +1,6 @@
 import type { EncoderDescriptor } from "@av1ation/contracts";
 import { resolveSchema, type JsonSchema } from "../../shared/schema/config-schema";
-import { previewOption } from "./encoder-options";
+import { previewOption, readOption } from "./encoder-options";
 
 /**
  * The nine encoders the engine drives, in the engine's own order.
@@ -26,6 +26,26 @@ export function record(value: unknown): Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value)
         ? (value as Record<string, unknown>)
         : {};
+}
+
+/**
+ * The hidden option that records which build a project selected.
+ *
+ * A pathless fork has the same engine document as its base, so the executable alone cannot
+ * identify it after a reload. A `Bool` option is emitted only when true; false is the
+ * engine's own off state, so this marker never reaches argv.
+ */
+export function forkOptionName(forkId: string): string {
+    return `__av1ation_fork_${forkId}`;
+}
+
+export function isForkOption(name: string): boolean {
+    return name.startsWith("__av1ation_fork_");
+}
+
+export function hasForkMarker(options: Record<string, unknown>, forkId: string): boolean {
+    const option = readOption(options[forkOptionName(forkId)]);
+    return option?.kind === "Bool" && option.value === false;
 }
 
 /** The body of the encoder variant this document selects. */
@@ -81,7 +101,11 @@ export function buildDocument(
     }
     const body = { ...record(record(fork.default)[variant]) };
     body.executable = fork.executable ?? null;
-    body.options = record(body.options);
+    const options = record(body.options);
+    if (!fork.executable) {
+        options[forkOptionName(fork.id)] = { Bool: { prefix: "--", value: false } };
+    }
+    body.options = options;
     if (hasField(variant, "pass") && body.pass === undefined) {
         body.pass = { All: 1 };
     }

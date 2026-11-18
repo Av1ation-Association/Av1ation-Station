@@ -33,6 +33,9 @@ const LazyLiveWidget = lazy(() =>
 const LazyLiveSample = lazy(() =>
     import("@av1ation/ui/docs-widgets").then((module) => ({ default: module.DocsSample })),
 );
+const LazyForkParameterTables = lazy(() =>
+    import("./forks").then((module) => ({ default: module.ForkParameterTables })),
+);
 
 function LiveWidget(props: ComponentProps<typeof LazyLiveWidget>) {
     return (
@@ -46,6 +49,14 @@ function LiveSample(props: ComponentProps<typeof LazyLiveSample>) {
     return (
         <Suspense fallback={<p className="docs-loading">Loading the live sample…</p>}>
             <LazyLiveSample {...props} />
+        </Suspense>
+    );
+}
+
+function ForkParameterTables() {
+    return (
+        <Suspense fallback={<p className="docs-loading">Loading the parameter tables…</p>}>
+            <LazyForkParameterTables />
         </Suspense>
     );
 }
@@ -360,6 +371,7 @@ export const DOCS_COMPONENTS: Record<string, ElementType> = {
     PlatformInstall,
     LiveWidget,
     LiveSample,
+    ForkParameterTables,
     DocsPage: DocsPageHeader as ComponentType,
     DocsPageHeading,
 };

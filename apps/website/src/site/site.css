@@ -2405,6 +2405,49 @@
     line-height: 1.5;
 }
 
+.docs-forks {
+    margin: 26px 0 34px;
+}
+
+.docs-fork + .docs-fork {
+    margin-top: 30px;
+}
+
+.docs-fork details {
+    margin-top: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--bg-raised);
+}
+
+.docs-fork summary {
+    padding: 9px 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+}
+
+.docs-fork summary:hover {
+    color: var(--text-primary);
+}
+
+.docs-fork[open] summary {
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.docs-fork .docs-field-table {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+.docs-fork .docs-field-table td {
+    font-size: 11.5px;
+}
+
 /* Active page outline, nested under its sidebar entry */
 
 .docs-sidebar__toc {

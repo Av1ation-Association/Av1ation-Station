@@ -93,9 +93,14 @@ rust/crates/service/src/
 │   │       ├── vpx.rs             libvpx options
 │   │       ├── vvenc.rs           VVenC options
 │   │       ├── x264.rs            x264 options
-│   │       └── x265.rs            x265 options
+│   │       ├── x265.rs            x265 options
+│   │       └── forks/
+│   │           ├── mod.rs         shipped fork table lookup
+│   │           ├── essential.rs   SVT-AV1-Essential options
+│   │           └── five_fish.rs   SVT-AV1-5Fish options
 │   ├── forks/
 │   │   ├── mod.rs                 user encoder-build probes
+│   │   ├── known.rs               shipped fork profiles and detection
 │   │   └── help.rs                encoder help parsing
 │   ├── preflight/
 │   │   ├── mod.rs                 cached dependency inventory

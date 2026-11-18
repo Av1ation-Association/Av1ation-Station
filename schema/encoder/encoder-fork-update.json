@@ -4,6 +4,13 @@
   "description": "Replace the editable fields of one saved fork. A missing field is left unchanged.",
   "type": "object",
   "properties": {
+    "clear_executable": {
+      "description": "Forget the executable path but keep the parameter table. Only shipped rows accept\nthis; an ordinary user fork is deleted instead.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
     "label": {
       "description": "New display name.",
       "type": [
@@ -28,6 +35,13 @@
       "description": "New executable path; the service re-probes it before replacing the saved one.",
       "type": [
         "string",
+        "null"
+      ]
+    },
+    "reset_parameters": {
+      "description": "Restore a shipped fork's table without touching its executable path.",
+      "type": [
+        "boolean",
         "null"
       ]
     }

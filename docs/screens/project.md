@@ -492,7 +492,9 @@ route. Every section is a draft until saved, and the server enforces the run loc
   because it is the decode the encoder workers read.
 - **Encoder selection.** The nine encoders are one radio grid with availability from the
   preflight inventory. Saved builds from Settings → Encoders follow in a **Your builds**
-  grid, each row naming its label and base.
+  grid, each row naming its label and base. A build with no executable is still offered,
+  marked **not located**; selecting one warns that the run falls back to the base encoder's
+  provider and links to **Manage encoders**.
 - **Executable.** One field with **Locate…** and **Use PATH**, which clears the override back
   to the catalogue's provider. There is no second build picker; `Encoder.executable` already
   is the build selection.
@@ -532,13 +534,16 @@ route. Every section is a draft until saved, and the server enforces the run loc
 
 1. **Choose an encoder.** Choosing one writes that variant's own document and never carries
    the previous encoder's executable over. A build of x264 is not a build of SVT-AV1.
-2. **Choose a saved build.** Choosing a build copies its own engine document: executable,
-   starting options, and the value of every field that document states. The parameters
-   section reads the union of the base catalogue and that build's probed descriptors, with
-   the build's label, group, and description winning where both define a flag.
-3. **Match by executable.** The selection is matched by the executable the document runs, not
-   by the base variant alone, so the built-in and any number of builds of the same family are
-   distinct choices. Choosing the built-in from a build clears the executable back to `PATH`.
+2. **Choose a saved build.** Choosing a build copies its own engine document: executable
+   (null for a pathless build), starting options, and the value of every field that document
+   states. The parameters section reads the union of the base catalogue and that build's
+   probed descriptors, with the build's label, group, and description winning where both
+   define a flag. A pathless build also writes a disabled marker option so its identity
+   survives a reload; the marker is hidden from the parameter list and never reaches argv.
+3. **Match by executable or marker.** A located build is matched by the executable the
+   document runs, not by the base variant alone, so the built-in and any number of builds of
+   the same family are distinct choices. A pathless build is matched by its marker. Choosing
+   the built-in from a build clears both the executable back to `PATH` and the marker.
 4. **Set passes.** Passes is a number written as `EncoderPasses::All(n)`; a specific pass has
    no UI.
 5. **Set colour and photon noise.** `append_color_data` is on by default. The Photon noise
@@ -563,8 +568,8 @@ route. Every section is a draft until saved, and the server enforces the run loc
 | --- | --- |
 | Loading | Encoder catalogue and preflight availability load into a skeleton. |
 | Empty | No parameters set reads `0 of m`; no saved builds is valid; Add parameter and Preview command remain available; no FFmpeg filter is set. |
-| Error | Preflight unavailable, probe failure, invalid parameter, or a missing FFmpeg for the filter stays inline with the control that caused it. |
-| Populated | Selected encoder, executable, passes, colour/grain settings, parameter cards, and saved builds are visible. |
+| Error | Preflight unavailable, probe failure, invalid parameter, or a missing FFmpeg for the filter stays inline with the control that caused it. Selecting a pathless build shows its warning inline instead of blocking the selection. |
+| Populated | Selected encoder, executable, passes, colour/grain settings, parameter cards, and saved builds are visible; a pathless build says **not located**. |
 | Locked | All fields are read-only; writes answer `423`. |
 
 ### Encoding data and contracts

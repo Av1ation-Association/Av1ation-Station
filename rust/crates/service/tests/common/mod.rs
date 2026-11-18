@@ -3,7 +3,7 @@
 
 pub(crate) use std::{
     path::{Path, PathBuf},
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 
@@ -37,6 +37,19 @@ impl EncodeRunner for SilentRunner {
             cancel: Arc::new(AtomicBool::new(false)),
             events: receiver,
         })
+    }
+}
+
+/// Records the encoder document preparation hands to the runner, then starts the fake run.
+/// This is the preparation boundary: a route assertion cannot see the resolved document.
+pub(crate) struct EncoderRecordingRunner {
+    pub(crate) encoder: Arc<Mutex<Option<Value>>>,
+}
+
+impl EncodeRunner for EncoderRecordingRunner {
+    fn start(&self, request: EncodeRequest) -> Result<EncodeHandle, EngineError> {
+        *self.encoder.lock().expect("the encoder record") = Some(request.encoder.clone());
+        FakeRunner.start(request)
     }
 }
 

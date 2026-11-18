@@ -60,17 +60,38 @@ pub(super) async fn list_encoders(State(state): State<AppState>) -> Json<Vec<Enc
                     .map(|check| check.detail.clone()),
                 available: check.is_some_and(|check| check.available),
                 fork: false,
+                warning: None,
                 overridden: override_document.is_some(),
             }
         })
         .collect();
-    // Forks are extra catalogue entries beside their base encoder, never a replacement for
-    // the provider row. They load from the settings document so a saved fork is visible to
-    // every host without a restart.
+    // A shipped fork exists as a row before any executable is chosen. Its saved record only
+    // carries the path and the user's parameter edits, so an app update can improve the
+    // shipped table without migrating settings.
+    for known in crate::capability::forks::KNOWN.iter() {
+        let saved = settings
+            .encoder_forks
+            .iter()
+            .find(|fork| fork.id == known.id);
+        // A pathless shipped row runs the base encoder's provider, so availability comes
+        // from the base row rather than from a path the fork does not have.
+        let base_available = entries
+            .iter()
+            .find(|encoder| encoder.id == known.base)
+            .is_some_and(|encoder| encoder.available);
+        entries.push(crate::capability::forks::known_descriptor(
+            known,
+            saved,
+            base_available,
+        ));
+    }
+    // Ordinary forks are extra catalogue entries beside their base encoder, never a
+    // replacement for the provider row.
     entries.extend(
         settings
             .encoder_forks
             .iter()
+            .filter(|fork| crate::capability::forks::find_known(&fork.id).is_none())
             .map(crate::capability::forks::descriptor),
     );
     Json(entries)
@@ -302,13 +323,16 @@ pub(super) async fn create_encoder_fork(
         suffix += 1;
     }
 
+    let merged = crate::capability::forks::merge_probe(None, None, &probe);
     let fork = EncoderFork {
         id: id.clone(),
         label,
         base: body.base,
         executable: path.display().to_string(),
         version: probe.version,
-        parameters: probe.parameters,
+        profile: merged.profile,
+        warning: merged.warning,
+        parameters: merged.parameters,
         parameters_edited: false,
     };
     match state.set_encoder_fork(&id, Some(fork.clone())).await {
@@ -325,18 +349,32 @@ pub(super) async fn create_encoder_fork(
     }
 }
 
+/// Persist a changed fork and return it, so every update path answers the same shape.
+async fn save_fork(state: &AppState, fork: EncoderFork, failure: &str) -> Response {
+    match state.set_encoder_fork(&fork.id, Some(fork.clone())).await {
+        Ok(_) => Json(fork).into_response(),
+        Err(message) => error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::Io,
+            message,
+            Some(failure.to_owned()),
+        ),
+    }
+}
+
 pub(super) async fn update_encoder_fork(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<String>,
     ApiJson(body): ApiJson<EncoderForkUpdate>,
 ) -> Response {
-    let Some(mut fork) = state
+    let known = crate::capability::forks::find_known(&id);
+    let saved = state
         .settings()
         .await
         .encoder_forks
         .into_iter()
-        .find(|fork| fork.id == id)
-    else {
+        .find(|fork| fork.id == id);
+    let Some(mut fork) = saved.or_else(|| known.map(|known| known.seed())) else {
         return error_response(
             StatusCode::NOT_FOUND,
             ErrorCode::NotFound,
@@ -345,7 +383,10 @@ pub(super) async fn update_encoder_fork(
         );
     };
 
-    if let Some(label) = body.label.as_deref() {
+    if let Some(known) = known {
+        // The shipped name is fixed; the row can only change its executable and parameters.
+        fork.label = known.label.to_owned();
+    } else if let Some(label) = body.label.as_deref() {
         match valid_fork_label(label) {
             Ok(label) => fork.label = label,
             Err(message) => {
@@ -358,6 +399,31 @@ pub(super) async fn update_encoder_fork(
             }
         }
     }
+
+    let clear_executable = body.clear_executable.unwrap_or(false);
+    let reset_parameters = body.reset_parameters.unwrap_or(false);
+    if clear_executable || reset_parameters {
+        let Some(known) = known else {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                ErrorCode::InvalidConfig,
+                "Only a shipped fork has an app-owned path or table.".to_owned(),
+                Some("Edit an ordinary fork's path and parameters directly.".to_owned()),
+            );
+        };
+        if clear_executable {
+            fork.executable.clear();
+            fork.version = None;
+            fork.warning = None;
+        }
+        if reset_parameters {
+            fork.parameters = known.table();
+            fork.parameters_edited = false;
+        }
+        fork.profile = Some(known.id.to_owned());
+        return save_fork(&state, fork, "The shipped fork was not changed.").await;
+    }
+
     if let Some(path) = body.path.as_deref() {
         let path = match valid_fork_path(path) {
             Ok(path) => path,
@@ -395,10 +461,13 @@ pub(super) async fn update_encoder_fork(
                 Some("The saved path was left unchanged.".to_owned()),
             );
         }
+        let merged = crate::capability::forks::merge_probe(known, None, &probe);
         fork.executable = path.display().to_string();
         fork.version = probe.version;
+        fork.profile = merged.profile;
+        fork.warning = merged.warning;
         if body.parameters.is_none() {
-            fork.parameters = probe.parameters;
+            fork.parameters = merged.parameters;
             // A new executable's help is the source of the map again, so a restart may
             // refresh it; the user asked for that probe by changing the path.
             fork.parameters_edited = false;
@@ -414,31 +483,39 @@ pub(super) async fn update_encoder_fork(
         fork.parameters_edited = true;
     }
 
-    match state
-        .set_encoder_fork(&fork.id.clone(), Some(fork.clone()))
-        .await
-    {
-        Ok(_) => Json(fork).into_response(),
-        Err(message) => error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorCode::Io,
-            message,
-            Some("The fork was not changed.".to_owned()),
-        ),
-    }
+    save_fork(&state, fork, "The fork was not changed.").await
 }
 
 pub(super) async fn delete_encoder_fork(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<String>,
 ) -> Response {
-    if !state
+    let known = crate::capability::forks::find_known(&id);
+    let saved = state
         .settings()
         .await
         .encoder_forks
-        .iter()
-        .any(|fork| fork.id == id)
-    {
+        .into_iter()
+        .find(|fork| fork.id == id);
+    if let Some(known) = known {
+        // A shipped row cannot be deleted; DELETE is the same reset as the explicit action.
+        let Some(mut fork) = saved else {
+            return StatusCode::NO_CONTENT.into_response();
+        };
+        fork.parameters = known.table();
+        fork.parameters_edited = false;
+        fork.profile = Some(known.id.to_owned());
+        return match state.set_encoder_fork(&id, Some(fork)).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(message) => error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::Io,
+                message,
+                Some("The shipped parameters were not restored.".to_owned()),
+            ),
+        };
+    }
+    if saved.is_none() {
         return error_response(
             StatusCode::NOT_FOUND,
             ErrorCode::NotFound,

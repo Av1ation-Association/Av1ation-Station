@@ -164,6 +164,13 @@ export function AddForkSheet({
                                 : "The executable was rejected"}
                             {probe.data.version === undefined ? "" : ` · ${probe.data.version}`}
                         </p>
+                        {probe.data.profile === undefined ? null : (
+                            <p className="m-0 mt-1 text-[10.5px] leading-relaxed text-ink-secondary">
+                                Detected shipped profile{" "}
+                                <span className="font-mono text-ink">{probe.data.profile}</span>.
+                                Its table is the starting point for this build.
+                            </p>
+                        )}
                         <details className="mt-1">
                             <summary className="cursor-pointer text-[10.5px] text-ink-muted">
                                 Show probe output

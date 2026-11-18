@@ -36,8 +36,22 @@
       "type": "boolean",
       "default": false
     },
+    "profile": {
+      "description": "The shipped fork profile this build matched, if any. A known-fork row always names\nits profile; a user-added build naming one gets that profile's table.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "version": {
       "description": "Version line observed by the probe, when it answered.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "warning": {
+      "description": "A non-fatal probe finding, such as a known-fork row whose executable did not show\nthe profile's signature. The row still uses the shipped table.",
       "type": [
         "string",
         "null"

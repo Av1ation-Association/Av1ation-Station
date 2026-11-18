@@ -59,6 +59,13 @@
         "string",
         "null"
       ]
+    },
+    "warning": {
+      "description": "A non-fatal probe finding for this build.",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "additionalProperties": false,
@@ -352,6 +359,11 @@
           "description": "Authored by the user in `encoders/<id>.json`.",
           "type": "string",
           "const": "Declared"
+        },
+        {
+          "description": "Shipped by this application as a known fork of an engine encoder.",
+          "type": "string",
+          "const": "Known"
         }
       ]
     },

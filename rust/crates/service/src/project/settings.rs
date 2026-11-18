@@ -916,6 +916,8 @@ mod tests {
             base: "svt-av1".to_owned(),
             executable: "C:/Tools/SvtAv1EncApp.exe".to_owned(),
             version: Some("1.8.0".to_owned()),
+            profile: None,
+            warning: None,
             parameters,
             parameters_edited: true,
         };
@@ -1039,6 +1041,8 @@ mod tests {
                     base: "svt-av1".to_owned(),
                     executable: "C:/Tools/SvtAv1EncApp.exe".to_owned(),
                     version: None,
+                    profile: None,
+                    warning: None,
                     parameters,
                     parameters_edited: true,
                 }),

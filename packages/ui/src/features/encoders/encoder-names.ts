@@ -23,3 +23,8 @@ const FRIENDLY_NAMES: Record<string, string> = {
 export function friendlyName(encoder: EncoderDescriptor): string {
     return encoder.fork ? encoder.label : (FRIENDLY_NAMES[encoder.base] ?? encoder.label);
 }
+
+/** A shipped profile has an app-owned name and table, so it has no rename or delete. */
+export function isShipped(encoder: EncoderDescriptor): boolean {
+    return encoder.source === "Known";
+}

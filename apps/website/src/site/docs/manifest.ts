@@ -761,10 +761,20 @@ export const DOCS_PAGES: readonly DocsPage[] = [
         path: "/docs/reference/encoders",
         title: "Encoders",
         description:
-            "The catalogue, provider, parameter table, editor sheet, JSON, saved builds, overrides, and states.",
+            "The catalogue, provider, parameter table, editor sheet, JSON, saved builds, shipped fork profiles, overrides, and states.",
         group: "reference",
         kind: "reference",
-        sections: ["Catalogue", "Provider", "Parameter table", "Editor sheet", "JSON", "Saved builds", "Overrides", "States"],
+        sections: [
+            "Catalogue",
+            "Provider",
+            "Parameter table",
+            "Editor sheet",
+            "JSON",
+            "Saved builds",
+            "Fork profiles",
+            "Overrides",
+            "States",
+        ],
         related: ["G05", "R06", "G15"],
     },
     {

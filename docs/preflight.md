@@ -111,24 +111,47 @@ server and is not a VapourSynth runtime.
 ## Custom encoder definitions
 
 A saved fork uses the same family probe. The definition owns the executable and its probe
-arguments (`--version` and `--help`); the service runs only those arguments, never project
-media or encode arguments. The family stamp check rejects a path that does not identify as
-the requested encoder, and the help parse produces the fork's descriptor map. Saving a fork
-is separate from the Settings → Dependencies provider probe in [Custom executables](#custom-executables): a fork is additive and
-is selected per project, while a provider probe replaces the built-in row's executable. A
-saved fork's map is that probe result, so it is re-probed when the service starts; without
+arguments. The probe runs `--version` and then the fullest help the family offers:
+`--full-help` for SVT-AV1, `--fullhelp` for x264/x265, and `--help` for the rest. It never
+runs project media or encode arguments. The family stamp check rejects a path that does not
+identify as the requested encoder, and the help parse produces the fork's descriptor map.
+Saving a fork is separate from the Settings → Dependencies provider probe in [Custom
+executables](#custom-executables): a fork is additive and is selected per project, while a
+provider probe replaces the built-in row's executable.
+
+Two SVT-AV1 forks ship as **known rows** with a complete catalogue table but no executable:
+`svt-av1-essential` and `svt-av1-5fish`. A known row exists even when the user has not chosen
+a path, so it is always available in Settings → Encoders. Detection reads the full help and
+looks for the profile's signature flags; a build that shows both signatures is labelled
+5Fish. A known row's table is the shipped table merged with the executable's help: the help
+decides which flags exist and what their defaults are, the table supplies labels,
+descriptions, and ranges, an unknown help flag becomes an advanced generic row, and a flag
+the help no longer lists disappears. The table is version-agnostic. When the executable does
+not show the expected signature, the row keeps the table and reports a warning rather than
+rejecting the build.
+
+A user fork's map is the probe result, so it is re-probed when the service starts; without
 that, a description the parser has since learned to type would stay wrong on disk forever.
 `parameters_edited` records that the user changed the map, and such a fork is never
 re-probed; saving an executable path clears the flag because that probe is what the user
-asked for. An executable that cannot be read at startup keeps its last good map.
+asked for. An executable that cannot be read at startup keeps its last good map. A known
+row starts from its shipped table and is refreshed from the profile on startup, so a table
+change ships without the user resetting the row.
 
 Forks live in `AppSettings.encoder_forks`, under `encoder_forks` in `config.json`. Each one
-is `{ id, label, base, executable, version, parameters }`, where `base` is the engine encoder
-id (`aom`, `svt-av1`, `rav1e`, `vpx`, `avm`, `x264`, `x265`, or `vvenc`). `GET /api/encoders`
-appends one `EncoderDescriptor` per fork with `fork: true` and `base` naming its family, so
-the Encoders list can group builds without guessing from the label. Selecting a fork in a
-project writes `executable` and the fork's starting `options` into that project's engine
-`Encoder` document; the project keeps those values and never references the catalogue.
+is `{ id, label, base, executable, version, profile, warning, parameters,
+parameters_edited }`, where `base` is the engine encoder id (`aom`, `svt-av1`, `rav1e`,
+`vpx`, `avm`, `x264`, `x265`, or `vvenc`). `profile` names the detected shipped profile and
+`warning` carries a signature mismatch; both are optional. `GET /api/encoders` lists known
+rows first, then one `EncoderDescriptor` per saved fork, all with `fork: true`, `base`
+naming the family, and `source: Known` distinguishing a shipped profile from a user
+build. Selecting a fork in a project writes its `executable` and starting `options` into
+that project's engine `Encoder` document; the project keeps those values and never
+references the catalogue. A pathless fork writes `executable: null` and a disabled `Bool`
+marker: the marker keeps the selection identifiable across a reload and is never emitted
+by the engine because its value is false. A run with a null executable falls back to the
+base encoder's provider, so the Encoding section warns and links to Settings → Encoders
+until the fork is located.
 
 A built-in's descriptor edits are an `EncoderParameterOverride` under
 `AppSettings.encoder_overrides`, keyed by encoder id. It stores the complete descriptor map
@@ -137,6 +160,12 @@ the editor showed plus the engine keys that map omits, so the merge on read is
 by a later build visible without resurrecting one the user deleted. `PUT` with the engine's
 own map is treated as a reset; `DELETE` always clears the override. A fork is rejected by
 this route because its parameters are part of the fork document.
+
+A known row accepts two update flags that an ordinary fork does not need:
+`reset_parameters` restores its shipped table without touching the executable path, and
+`clear_executable` forgets the path while keeping the table, so the row resolves on `PATH`
+again. Known rows cannot be renamed or deleted; only the path and the parameter copy are
+user-owned.
 
 The probe is best-effort by design (`screens/settings.md`). Lines shaped like
 `--flag <value>   description` become descriptors; numeric metavars and `[min - max]` ranges

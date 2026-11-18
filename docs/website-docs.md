@@ -174,7 +174,7 @@ result**, **If it goes wrong**, and **Related reference**. The step H2s are list
 | R12 | `/docs/reference/history-logs` | History and logs | History cards · Logs viewer · Filters and search · Sort · Follow · Export · Delete · States | `history`, `history-failed`, `logs`, `log-export`. |
 | R13 | `/docs/reference/settings` | Settings | Appearance · Dependencies · Encoders · Project Templates · Storage · Network · About | `appearance` focused sample; six existing settings captures plus `settings-dependencies-missing`, `settings-network-disabled`. |
 | R14 | `/docs/reference/templates` | Project templates | List and default · Overview · Section editor · Script · Apply to a project · Reset and delete · States | `settings-templates`, `template`, `template-section`, `template-script`. |
-| R15 | `/docs/reference/encoders` | Encoders | Catalogue · Provider · Parameter table · Editor sheet · JSON · Saved builds · Overrides · States | Live widget W05; `settings-encoders`, `parameter-editor`, `encoder-json`, `encoder-build-form`. |
+| R15 | `/docs/reference/encoders` | Encoders | Catalogue · Provider · Parameter table · Editor sheet · JSON · Saved builds · Fork profiles · Overrides · States | Live widget W05; `settings-encoders`, `parameter-editor`, `encoder-json`, `encoder-build-form`. |
 | R16 | `/docs/reference/filters` | Input filters | Two targets · Composer · FFMS2 OutputFormat · VapourSynth filters · Cross-field rules · Availability · States | `filter-composer`, `project-general`. |
 | R17 | `/docs/reference/script-api` | Script data API | Scope · Variables · Scene fields · Sequence data · Enums and types · Validation · Examples | `video-script`, `project-script`, `template-script`. |
 | R18 | `/docs/reference/shortcuts` | Keyboard shortcuts | Global commands · Player keys · Platform conventions · Command palette | `shortcuts-dialog`, `command-palette`. |
@@ -468,7 +468,7 @@ where a state cannot occur.
 | R12 | Run cards, attempts, outcomes, log levels, server-side filters/sort, follow, export/redaction, delete, live/locked states. | `history`, `history-failed`, `logs`, `log-export`. |
 | R13 | Appearance, Dependencies, Encoders, Project Templates, Storage, Network, About; per-tab actions and states. | Six existing settings captures plus `settings-dependencies-missing`, `settings-network-disabled`. |
 | R14 | Template list/default, overview cards, section editor, template script, apply/reset/delete, states. | `settings-templates`, `template`, `template-section`, `template-script`. |
-| R15 | Catalogue, provider, parameter table, editor sheet, JSON import/export/validation, saved builds, overrides, states. | W05; `settings-encoders`, `parameter-editor`, `encoder-json`, `encoder-build-form`. |
+| R15 | Catalogue, provider, parameter table, editor sheet, JSON import/export/validation, saved builds, shipped fork profiles and their full tables, overrides, states. | W05; `settings-encoders`, `parameter-editor`, `encoder-json`, `encoder-build-form`. |
 | R16 | FFMS2 vs VapourSynth targets, composer, filter fields, cross-field rules, plugin availability, states. | `filter-composer`, `project-general`. |
 | R17 | Script scope, reserved variables, scene fields, sequence data, generated types, validation, examples. | `video-script`, `project-script`, `template-script`. |
 | R18 | Save, discard, undo, redo, palette, run, player keys, platform modifier labels. | `shortcuts-dialog`, `command-palette`. |

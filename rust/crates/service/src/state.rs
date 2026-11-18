@@ -450,14 +450,32 @@ impl AppState {
             else {
                 continue;
             };
-            if !probe.available || probe.parameters.is_empty() {
+            if !probe.available {
                 continue;
             }
-            if fork.parameters == probe.parameters && fork.version == probe.version {
+            // A shipped row keeps its table across a probe; a user fork that matched a
+            // shipped profile keeps that table when the help no longer shows the signature.
+            let merged = crate::capability::forks::merge_probe(
+                crate::capability::forks::find_known(&fork.id),
+                fork.profile.as_deref(),
+                &probe,
+            );
+            // No table and no parsed help means the probe read nothing useful; keep the last
+            // good map rather than emptying the editor.
+            if merged.parameters.is_empty() {
                 continue;
             }
-            fork.parameters = probe.parameters;
+            if fork.parameters == merged.parameters
+                && fork.version == probe.version
+                && fork.profile == merged.profile
+                && fork.warning == merged.warning
+            {
+                continue;
+            }
+            fork.parameters = merged.parameters;
             fork.version = probe.version;
+            fork.profile = merged.profile;
+            fork.warning = merged.warning;
             let id = fork.id.clone();
             if let Err(message) = self.set_encoder_fork(&id, Some(fork)).await {
                 tracing::warn!(%message, "a saved encoder build could not be refreshed");

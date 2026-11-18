@@ -24,6 +24,9 @@ export const DescriptorSourceSchema = z
             z.literal("Builtin").describe("Shipped by the engine for a known encoder."),
             z.literal("Probed").describe("Parsed from the executable's help output at probe time."),
             z.literal("Declared").describe("Authored by the user in `encoders/<id>.json`."),
+            z
+                .literal("Known")
+                .describe("Shipped by this application as a known fork of an engine encoder."),
         ];
         const { errors, failed } = schemas.reduce<{
             errors: z.core.$ZodIssue[];
@@ -222,6 +225,13 @@ export const EncoderDescriptorSchema = z
             ])
             .describe("The observed version or executable description, when a provider was found.")
             .optional(),
+        warning: z
+            .union([
+                z.string().describe("A non-fatal probe finding for this build."),
+                z.null().describe("A non-fatal probe finding for this build."),
+            ])
+            .describe("A non-fatal probe finding for this build.")
+            .optional(),
     })
     .strict()
     .describe("One encoder this build can offer, with the engine's own defaults.");
@@ -274,6 +284,17 @@ export const EncoderForkProbeSchema = z
             })
             .describe("Parameters parsed from the help output, keyed by canonical spelling.")
             .default({}),
+        profile: z
+            .union([
+                z
+                    .string()
+                    .describe("The shipped fork profile the help output matched, when one did."),
+                z
+                    .null()
+                    .describe("The shipped fork profile the help output matched, when one did."),
+            ])
+            .describe("The shipped fork profile the help output matched, when one did.")
+            .optional(),
         version: z
             .union([
                 z.string().describe("Version line, when one was printed."),
@@ -302,6 +323,23 @@ export type EncoderForkRequest = z.infer<typeof EncoderForkRequestSchema>;
 /** Generated from `schema/encoder/encoder-fork-update.json`. */
 export const EncoderForkUpdateSchema = z
     .object({
+        clear_executable: z
+            .union([
+                z
+                    .boolean()
+                    .describe(
+                        "Forget the executable path but keep the parameter table. Only shipped rows accept\nthis; an ordinary user fork is deleted instead.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "Forget the executable path but keep the parameter table. Only shipped rows accept\nthis; an ordinary user fork is deleted instead.",
+                    ),
+            ])
+            .describe(
+                "Forget the executable path but keep the parameter table. Only shipped rows accept\nthis; an ordinary user fork is deleted instead.",
+            )
+            .optional(),
         label: z
             .union([
                 z.string().describe("New display name."),
@@ -372,6 +410,21 @@ export const EncoderForkUpdateSchema = z
                 "New executable path; the service re-probes it before replacing the saved one.",
             )
             .optional(),
+        reset_parameters: z
+            .union([
+                z
+                    .boolean()
+                    .describe(
+                        "Restore a shipped fork's table without touching its executable path.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "Restore a shipped fork's table without touching its executable path.",
+                    ),
+            ])
+            .describe("Restore a shipped fork's table without touching its executable path.")
+            .optional(),
     })
     .strict()
     .describe("Replace the editable fields of one saved fork. A missing field is left unchanged.");
@@ -434,12 +487,46 @@ export const EncoderForkSchema = z
                 "Whether the user changed the parameter map after it was saved. A service restart\nre-probes an executable to refresh the map it parsed, but never replaces an edited\none; saving a path or clearing the flag is what asks for a fresh probe.",
             )
             .default(false),
+        profile: z
+            .union([
+                z
+                    .string()
+                    .describe(
+                        "The shipped fork profile this build matched, if any. A known-fork row always names\nits profile; a user-added build naming one gets that profile's table.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "The shipped fork profile this build matched, if any. A known-fork row always names\nits profile; a user-added build naming one gets that profile's table.",
+                    ),
+            ])
+            .describe(
+                "The shipped fork profile this build matched, if any. A known-fork row always names\nits profile; a user-added build naming one gets that profile's table.",
+            )
+            .optional(),
         version: z
             .union([
                 z.string().describe("Version line observed by the probe, when it answered."),
                 z.null().describe("Version line observed by the probe, when it answered."),
             ])
             .describe("Version line observed by the probe, when it answered.")
+            .optional(),
+        warning: z
+            .union([
+                z
+                    .string()
+                    .describe(
+                        "A non-fatal probe finding, such as a known-fork row whose executable did not show\nthe profile's signature. The row still uses the shipped table.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "A non-fatal probe finding, such as a known-fork row whose executable did not show\nthe profile's signature. The row still uses the shipped table.",
+                    ),
+            ])
+            .describe(
+                "A non-fatal probe finding, such as a known-fork row whose executable did not show\nthe profile's signature. The row still uses the shipped table.",
+            )
             .optional(),
     })
     .strict()

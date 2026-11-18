@@ -49,6 +49,14 @@ describe("ExecutableCard", () => {
         expect(field.value).toBe("");
     });
 
+    it("states how the provider resolves when no version was reported", async () => {
+        const transport = new MockTransport();
+        const encoder = { ...(await x265(transport)), version: null };
+        renderWithApi(<ExecutableCard encoder={encoder} onRemove={() => {}} />, { transport });
+
+        expect(screen.getByText("Resolved on PATH")).toBeTruthy();
+    });
+
     it("shows the provider failure beside the card", async () => {
         const transport = new MockTransport();
         vi.spyOn(transport, "post").mockRejectedValue(new Error("The service refused this build."));

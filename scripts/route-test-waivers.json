@@ -5,12 +5,6 @@
         "reason": "The handler performs a live GitHub release lookup. Route tests are hermetic; the release mapping is unit-tested separately. Reviewed 2026-11-12."
     },
     {
-        "method": "POST",
-        "route": "/api/encoders/forks",
-        "categories": ["success"],
-        "reason": "A successful save requires a real encoder executable whose version stamp and --help output identify the selected family. The fork validation and probe-refusal paths are route-tested; the probe parser is unit-tested. Reviewed 2026-11-13."
-    },
-    {
         "method": "GET",
         "route": "/api/editor/lsp",
         "categories": ["success"],

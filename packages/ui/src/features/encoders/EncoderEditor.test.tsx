@@ -5,10 +5,12 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, expect, it, vi } from "vitest";
 
 import { MockTransport } from "@av1ation/api";
+import type { EncoderDescriptor } from "@av1ation/contracts";
 
 import type { JsonSchema } from "../../shared/schema/config-schema";
 import { renderRoute } from "../../test/render";
 import { EncoderEditor } from "./EncoderEditor";
+import { forkOptionName } from "./encoder-document";
 
 afterEach(cleanup);
 
@@ -124,6 +126,78 @@ it("switches encoder and seeds the new encoder's required fields", async () => {
     // The fixture carries every built-in encoder as available, including SVT-AV1.
     expect(screen.getByText("Available")).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: "Encoder passes" })).toBeTruthy();
+});
+
+it("offers a pathless fork, warns, and keeps it selected without counting its marker", async () => {
+    const forkId = "fork:pathless-x265";
+    const descriptor: EncoderDescriptor = {
+        id: forkId,
+        base: "x265",
+        label: "Pathless x265",
+        default: {
+            X265: {
+                executable: null,
+                options: {},
+                pass: { All: 1 },
+                append_color_data: true,
+                ffmpeg_filter: null,
+            },
+        },
+        parameters: {},
+        source: "Known",
+        executable: null,
+        version: null,
+        available: true,
+        fork: true,
+        warning: null,
+        overridden: false,
+    };
+    const transport = new MockTransport();
+    transport.forks.push({
+        record: {
+            id: forkId,
+            label: "Pathless x265",
+            base: "x265",
+            executable: "",
+            version: null,
+            profile: null,
+            warning: null,
+            parameters: {},
+            parameters_edited: false,
+        },
+        descriptor,
+    });
+    const onChange = vi.fn();
+    renderRoute(<Harness onChange={onChange} />, {
+        transport,
+        route: "/settings",
+        initialEntry: "/settings",
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    const option = await within(select).findByRole("option", { name: /Pathless x265/u });
+    expect(option.textContent).toContain("not located");
+
+    fireEvent.change(select, { target: { value: `fork:${forkId}` } });
+    await waitFor(() => expect(select.value).toBe(`fork:${forkId}`));
+
+    const warning = await screen.findByRole("alert");
+    expect(within(warning).getByText(/Pathless x265 has no executable yet/u)).toBeTruthy();
+    expect(
+        within(warning).getByRole("link", { name: "Manage encoders" }).getAttribute("href"),
+    ).toBe("/settings#encoders");
+    expect(
+        screen.getByText("No parameter set. The executable runs with its own defaults."),
+    ).toBeTruthy();
+
+    const next = onChange.mock.lastCall?.[0] as {
+        X265: { executable: unknown; options: Record<string, unknown> };
+    };
+    expect(next.X265.executable).toBeNull();
+    expect(next.X265.options[forkOptionName(forkId)]).toEqual({
+        Bool: { prefix: "--", value: false },
+    });
 });
 
 it("writes passes as All(n) and toggles colour and filter fields", async () => {

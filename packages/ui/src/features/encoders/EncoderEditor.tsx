@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useEncoders } from "@av1ation/api";
 import type { EncoderDescriptor, ParameterDescriptor } from "@av1ation/contracts";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, Copy, Plus, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import type { JsonSchema } from "../../shared/schema/config-schema";
@@ -18,6 +18,8 @@ import {
     commandPreview,
     forkVariant,
     hasField,
+    hasForkMarker,
+    isForkOption,
     nullableNumber,
     passCount,
     record,
@@ -120,24 +122,21 @@ export function EncoderEditor({
     const encoders = useEncoders();
     const { variant, body } = selectedBody(value);
     const choice = ENCODER_CHOICES.find((entry) => entry.variant === variant);
-    // A saved build is another provider of a base encoder. It is selected by the path the
-    // document actually runs, so the choice survives a reload without a second field.
+    // A saved build is another provider of a base encoder. A located build is matched by
+    // the path the document runs; a pathless one by the marker that keeps its identity.
     const forks = useMemo(
-        () =>
-            (encoders.data ?? []).filter(
-                (entry) =>
-                    entry.fork &&
-                    entry.executable !== null &&
-                    entry.executable !== undefined &&
-                    forkVariant(entry) !== null,
-            ),
+        () => (encoders.data ?? []).filter((entry) => entry.fork && forkVariant(entry) !== null),
         [encoders.data],
     );
     const bodyExecutable = typeof body.executable === "string" ? body.executable : null;
-    const selectedFork = forks.find(
-        (entry) =>
-            forkVariant(entry) === variant && sameBuildPath(entry.executable, bodyExecutable),
-    );
+    const options = record(body.options);
+    const visibleOptions = Object.entries(options).filter(([name]) => !isForkOption(name));
+    const selectedFork =
+        forks.find((entry) => forkVariant(entry) === variant && hasForkMarker(options, entry.id)) ??
+        forks.find(
+            (entry) =>
+                forkVariant(entry) === variant && sameBuildPath(entry.executable, bodyExecutable),
+        );
     const base = selectedFork?.base ?? choice?.base;
     const schema = variantSchema(root, node, variant);
     const builtIn = useMemo(
@@ -161,7 +160,6 @@ export function EncoderEditor({
         return merged;
     }, [builtIn, selectedFork]);
     const buildLabel = selectedFork?.label ?? choice?.label ?? base ?? "this encoder";
-    const options = record(body.options);
     const [addOpen, setAddOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [parameterSearch, setParameterSearch] = useState("");
@@ -300,7 +298,7 @@ export function EncoderEditor({
     const parameterNeedle = parameterSearch.trim().toLowerCase();
     const setGroups = new Map<string, ParameterValueEntry[]>();
     let shownParameters = 0;
-    for (const [name, parameter] of Object.entries(options)) {
+    for (const [name, parameter] of visibleOptions) {
         const entry = byName.get(name);
         const descriptor = entry?.descriptor;
         const canonical = entry?.canonical ?? canonicalOf(name, parameter);
@@ -385,7 +383,8 @@ export function EncoderEditor({
                                     }
                                     disabled={locked}
                                     onChange={(event) => {
-                                        const [kind, id] = event.target.value.split(":");
+                                        const [kind, ...rest] = event.target.value.split(":");
+                                        const id = rest.join(":");
                                         if (kind === "fork") {
                                             const fork = forks.find((entry) => entry.id === id);
                                             if (fork !== undefined) {
@@ -437,7 +436,11 @@ export function EncoderEditor({
                                             {forks.map((fork) => (
                                                 <option key={fork.id} value={`fork:${fork.id}`}>
                                                     {fork.label} — {fork.base}
-                                                    {fork.available ? "" : " — missing"}
+                                                    {fork.executable
+                                                        ? fork.available
+                                                            ? ""
+                                                            : " — missing"
+                                                        : " — not located"}
                                                 </option>
                                             ))}
                                         </optgroup>
@@ -485,6 +488,32 @@ export function EncoderEditor({
                             <div className="min-w-0 flex-1 basis-72">{workers}</div>
                         )}
                     </div>
+
+                    {selectedFork !== undefined && !selectedFork.executable ? (
+                        <div
+                            role="alert"
+                            className="mt-3 flex flex-wrap items-start gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2"
+                        >
+                            <AlertTriangle
+                                aria-hidden="true"
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning"
+                            />
+                            <p className="m-0 min-w-0 flex-1 text-[10.5px] leading-relaxed text-ink-secondary">
+                                <span className="font-medium text-ink">
+                                    {selectedFork.label} has no executable yet.
+                                </span>{" "}
+                                Runs fall back to the base encoder&apos;s provider on PATH, so this
+                                build&apos;s flags may not apply.
+                            </p>
+                            <Link
+                                to="/settings"
+                                hash="encoders"
+                                className="text-[10.5px] font-medium text-brand-text hover:underline"
+                            >
+                                Manage encoders
+                            </Link>
+                        </div>
+                    ) : null}
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px]">
                         <span className="font-mono text-[10px] text-ink-muted">
@@ -722,7 +751,7 @@ export function EncoderEditor({
                     <div className="min-w-0 flex-1">
                         <h2 className="m-0 text-base font-semibold text-ink">Parameters</h2>
                         <p className="mt-0.5 mb-0 text-[11.5px] leading-relaxed text-ink-muted">
-                            {buildLabel} · {String(Object.keys(options).length)} of{" "}
+                            {buildLabel} · {String(visibleOptions.length)} of{" "}
                             {String(catalogue.size)} set
                             {parameterNeedle === ""
                                 ? null
@@ -777,7 +806,7 @@ export function EncoderEditor({
                 </div>
 
                 <div className="px-4 py-4 sm:px-5">
-                    {Object.keys(options).length === 0 ? (
+                    {visibleOptions.length === 0 ? (
                         <p className="m-0 rounded-md border border-dashed border-line px-3 py-3 text-[11px] leading-relaxed text-ink-muted">
                             No parameter set. The executable runs with its own defaults.
                         </p>

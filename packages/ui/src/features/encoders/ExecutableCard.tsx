@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
 import { RemoveButton } from "../../shared/RemoveButton";
-import { friendlyName } from "./encoder-names";
+import { friendlyName, isShipped } from "./encoder-names";
 import { FIELD } from "./encoder-fields";
 
 /** The provider a row actually runs, and the two ways to change it. */
@@ -33,6 +33,7 @@ export function ExecutableCard({
     const [path, setPath] = useState("");
     const [renaming, setRenaming] = useState(false);
     const [label, setLabel] = useState(encoder.label);
+    const shipped = isShipped(encoder);
     const custom = !encoder.fork && encoder.executable !== undefined;
 
     useEffect(() => {
@@ -108,9 +109,9 @@ export function ExecutableCard({
     const pending = add.isPending || updateFork.isPending;
     const error = add.error ?? updateFork.error ?? remove.error;
     // The provider in use is the field's placeholder; the field itself only points at a
-    // different build. A built-in with no path of its own states how it is provided.
-    const providerPlaceholder =
-        encoder.executable ?? (encoder.available ? "Resolved on PATH" : "Not found on PATH");
+    // different build. The Version line reuses the same status when nothing was probed.
+    const pathStatus = encoder.available ? "Resolved on PATH" : "Not found on PATH";
+    const providerPlaceholder = encoder.executable || pathStatus;
 
     return (
         <section className="min-w-0 rounded-lg border border-line bg-surface p-4 sm:p-5">
@@ -144,7 +145,7 @@ export function ExecutableCard({
                                 <h2 className="m-0 truncate text-sm font-semibold text-ink">
                                     {friendlyName(encoder)}
                                 </h2>
-                                {encoder.fork ? (
+                                {encoder.fork && !shipped ? (
                                     <button
                                         type="button"
                                         aria-label={`Rename ${encoder.label}`}
@@ -160,7 +161,11 @@ export function ExecutableCard({
                     </div>
                     <p className="mt-0.5 mb-0 font-mono text-[10.5px] text-ink-muted">
                         {encoder.base}
-                        {encoder.fork ? " · saved build" : " · built-in"}
+                        {shipped
+                            ? " · shipped build"
+                            : encoder.fork
+                              ? " · saved build"
+                              : " · built-in"}
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -176,7 +181,35 @@ export function ExecutableCard({
                             Locate…
                         </Button>
                     )}
-                    {encoder.fork ? (
+                    {shipped ? (
+                        <>
+                            {encoder.executable ? (
+                                <Button
+                                    variant="secondary"
+                                    className="h-7 px-2 text-[11.5px]"
+                                    disabled={pending}
+                                    data-tip="Forget the saved executable and use the build on PATH"
+                                    onClick={() =>
+                                        updateFork.mutate(
+                                            {
+                                                id: encoder.id.replace(/^fork:/u, ""),
+                                                update: { clear_executable: true },
+                                            },
+                                            {
+                                                onSuccess: () =>
+                                                    toast.success(
+                                                        `${encoder.label} now resolves on PATH again`,
+                                                    ),
+                                            },
+                                        )
+                                    }
+                                >
+                                    <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
+                                    Clear executable
+                                </Button>
+                            ) : null}
+                        </>
+                    ) : encoder.fork ? (
                         <RemoveButton target={`${encoder.label} build`} onClick={onRemove} />
                     ) : null}
                 </div>
@@ -230,10 +263,18 @@ export function ExecutableCard({
                         Version
                     </p>
                     <p className="mt-2 mb-0 text-[11.5px] leading-relaxed break-all text-ink-secondary">
-                        {encoder.version ?? "No executable was found."}
+                        {encoder.version ?? pathStatus}
                     </p>
                 </div>
             </div>
+            {encoder.warning ? (
+                <p
+                    role="status"
+                    className="mt-3 mb-0 rounded-md border border-warning/40 bg-warning-soft px-2.5 py-2 text-[11.5px] leading-relaxed text-warning"
+                >
+                    {encoder.warning}
+                </p>
+            ) : null}
             {error === null ? null : (
                 <p role="alert" className="mt-3 mb-0 text-[11.5px] leading-relaxed text-danger">
                     {error instanceof Error

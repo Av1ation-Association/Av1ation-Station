@@ -191,11 +191,16 @@ asks save / discard / stay before the panel changes.
 ### Encoders layout
 
 - A master-detail catalogue of the encoders this engine build exposes, grouped into
-  **Built-in** and **Your builds**.
+  **Built-in**, **Shipped builds**, and **Your builds**. The shipped group is always present
+  even when no fork executable has been chosen.
 - A built-in detail carries identity, availability from the preflight inventory, its
-  provider, and an editable parameter table, in that order.
+  provider, and an editable parameter table, in that order. A shipped fork uses the same
+  detail, with a fixed label, a profile line, and a warning when its executable does not
+  show the expected signature.
 - The provider line names the executable in use and, when it is a saved override, carries
-  **Use the build on PATH** beside it.
+  **Use the build on PATH** beside it. A shipped fork with a saved path carries **Clear
+  executable**; a fork whose parameter copy differs from its table carries **Reset
+  parameters**. Neither action changes the other field.
 - **Locate…** is the only executable action on a host with a native dialog. A host without a
   picker keeps the text field and one probe button; a typed path applies with Enter.
 - **+ Add build…** form: base encoder, display name, executable, **Locate…**, **Probe help
@@ -225,71 +230,88 @@ asks save / discard / stay before the panel changes.
 4. **Add a build.** **+ Add build…** saves a build of an existing encoder as an additive fork.
    - The form picks the base encoder, a display name, and an executable.
    - **Locate…** probes at once; **Probe help output** re-runs it for a typed path.
-   - The probe runs only `--version` and `--help`, verifies the family stamp, and parses option
-     lines into typed descriptors.
+   - The probe runs `--version` and the fullest help the family offers (`--full-help` for
+     SVT-AV1, `--fullhelp` for x264/x265, `--help` otherwise), verifies the family stamp,
+     and parses option lines into typed descriptors.
+   - When the help matches a shipped profile, the form names it and starts from that table;
+     a mismatch is shown as a warning, not a rejection.
    - **Save build** persists the executable and parsed parameters in
      `AppSettings.encoder_forks`; the new row appears at once, without a restart.
 5. **Keep forks additive.** A fork is not a provider replacement: probing a built-in provider
    and adding a fork are different actions, and the built-in provider stays where it is.
-6. **Curate from the encoder.** Names, descriptions, groups, and documentation links come
+6. **Use a shipped profile.** SVT-AV1-Essential and SVT-AV1-5Fish are always listed under
+   **Shipped builds**, with no executable bundled. Choose one, set its path, and its table
+   is ready to use; the profile is detected from full help, and 5Fish wins when both
+   signatures are present. The label is fixed and the row cannot be renamed or deleted.
+   **Reset parameters** restores the shipped table; **Clear executable** removes the path
+   while keeping the row, so it resolves on `PATH` again and reports the base encoder's
+   availability. A build without the expected
+   signature keeps the table and shows a warning so the user can decide whether it is the
+   binary they intended.
+7. **Curate from the encoder.** Names, descriptions, groups, and documentation links come
    from each encoder's own repository — the SVT-AV1 `Docs/Parameters.md` table, the aomenc
    source for AOM and AVM, `x265`'s CLI reference, vvenc's wiki, and the FFmpeg codec
    documentation. The table only adds flags the encoder accepts. An entry the engine already
    seeds keeps its observed kind, delimiter, and default; the curated row may fill a minimum,
    maximum, or step the engine leaves unstated.
-7. **Use documented defaults.** A curated row the engine does not seed carries the shipped
+8. **Use documented defaults.** A curated row the engine does not seed carries the shipped
    build's documented default — the SVT-AV1 `--full-help` output, which supersedes the
    upstream table where the two disagree — so a switch starts in the state the encoder
    actually uses. A preset-dependent default stays unset, because no single value is right for
    every preset. `vvenc` and `ffmpeg` seed no options at all, so their catalogue rows come
    entirely from this table.
-8. **Edit a row.** Every parameter table is editable, for a built-in and for a fork. Clicking
+9. **Edit a row.** Every parameter table is editable, for a built-in and for a fork. Clicking
    the label opens the parameter editor; there is no separate Edit button. The trash icon
    widens on hover or focus without changing the row height, and the widening is disabled
    under reduced motion.
-9. **Edit a choice.** A choice kind declares whether its values are Text or Number.
+10. **Edit a choice.** A choice kind declares whether its values are Text or Number.
    - Edits are a compact grid of rows — Value, optional Label, optional Description, and a
      remove action — with **Add value** appending a row.
    - A numbered choice stores the number the encoder receives while the row shows its label.
    - Values are drawn as radio, segmented, or a dropdown; `Auto` is the documented rule, radio
      or segmented up to four values and a dropdown above that.
    - A selected value's description appears beneath the control.
-10. **Edit a path or text.** A path kind is a text field with a **Browse** button inside its
+11. **Edit a path or text.** A path kind is a text field with a **Browse** button inside its
     right edge (the host picker; a browser keeps the field alone). A text kind can declare
     Email, URL, or ISO-8601 date-time so the field validates as the user types.
-11. **Infer a switch.** A number whose range is 0–1 draws as a switch: `Auto` infers it from
+12. **Infer a switch.** A number whose range is 0–1 draws as a switch: `Auto` infers it from
     the range, and the Widget choice can force **Switch (0/1)**, which also sets the range. A
     switch always writes `0` or `1`, so its row action reads **Unset** — clearing the row is
     the only way back to the encoder's own default. A choice never degrades into a text field
     when the sheet reopens.
-12. **Read the preview.** The preview carries the same info icon as a rendered parameter field
+13. **Read the preview.** The preview carries the same info icon as a rendered parameter field
     (`01 Components / Parameter info`): click or keyboard focus opens the CLI key, the
     separator as a visible glyph and name (`␠ Space`, `⇥ Tab`, `⏎ Return`, or `=` for a joined
     delimiter) with its argv shape, the description, and the documentation link; Escape closes
     it and returns focus to the icon.
-13. **Refuse invalid descriptors.** Keys are unique by prefix and name; a duplicate, an empty
+14. **Refuse invalid descriptors.** Keys are unique by prefix and name; a duplicate, an empty
     label, a non-numeric number default, an inverted range, or a relation that names the
     parameter itself is refused in the sheet and again by the service.
-14. **Store overrides.** A built-in's edits are stored as an override beside its encoder id,
+15. **Store overrides.** A built-in's edits are stored as an override beside its encoder id,
     not written over the engine definition: the override records the descriptors the user
     added or replaced and the engine keys the user removed, so an engine parameter added in a
     later build still appears unless it was deliberately hidden. **Restore engine
     descriptors** clears the override. A fork's edits are its own map.
-15. **Re-probe a fork.** A saved fork is re-probed when the service starts, so its map follows
+16. **Re-probe a fork.** A user fork is re-probed when the service starts, so its map follows
     the executable's current help instead of the one recorded when it was saved; an executable
-    that cannot be read keeps its last good map. The probe remains best-effort: a help line
-    with no value evidence stays a switch, prose that names a path or format stays text, and
-    the raw help output stays available under the probe result for correction.
-16. **Use a fork in a project.** Selecting a fork in a project's Encoding section writes its
-    executable and starting options into that project's engine encoder document; the catalogue
-    entry itself is never mutated by a project.
-17. **Commit from the top bar.** The table's draft is committed from the shell's top bar like
+    that cannot be read keeps its last good map. A shipped profile is refreshed from its
+    shipped table and profile instead. The probe remains best-effort: a help line with no
+    value evidence stays a switch, prose that names a path or format stays text, and the raw
+    help output stays available under the probe result for correction.
+17. **Use a fork in a project.** Selecting a fork in a project's Encoding section writes its
+    executable (null when the fork has none) and starting options into that project's engine
+    encoder document; the catalogue entry itself is never mutated by a project. A pathless
+    fork is offered too, marked **not located**, and the project warns that the run falls back
+    to the base encoder's provider on `PATH`, with a **Manage encoders** link back here. The
+    project records the choice with a disabled marker option so it survives a reload; the
+    marker is hidden from the parameter editor and never reaches argv.
+18. **Commit from the top bar.** The table's draft is committed from the shell's top bar like
     every other screen: while dirty, the bar shows **Unsaved changes** and the expandable
     **Undo**, **Redo**, **Discard**, and **Save** actions
     ([frontend.md §5](../frontend.md#5-draft-undoredo-and-save)); when clean it shows only the
     disabled Save, because a second **Saved** badge would repeat what the disabled action
     already says.
-18. **Open JSON.** It validates against the generated contract on every edit, for JSON syntax
+19. **Open JSON.** It validates against the generated contract on every edit, for JSON syntax
     and for the descriptor schema, and every problem is located.
     - The editor shades the exact characters and the list under it states `line 4, col 7`, the
       descriptor path, and the contract's message.
@@ -302,12 +324,12 @@ asks save / discard / stay before the panel changes.
       descriptor key that should contain it.
     - The parameter preview appears only once the document validates, and **Save** stays
       disabled until then; a saved change rewrites the document in its pretty-printed form.
-19. **Switch safely.** Switching to another encoder, another Settings destination, or another
+20. **Switch safely.** Switching to another encoder, another Settings destination, or another
     route with a dirty table asks before discarding it
     ([frontend.md §5](../frontend.md#5-draft-undoredo-and-save)). The card is keyed by
     encoder; the parameter pane and executable pane have distinct keys, so switching replaces
     both panes rather than appending a stale one.
-20. **Preview parameters.** The preview is not a second rendering of the parameters: it is the
+21. **Preview parameters.** The preview is not a second rendering of the parameters: it is the
     same `ParameterValueGrid` that Configuration → Encoding draws, down to the control each
     descriptor's kind selects, so a flag is a switch here when it is a switch there and a
     bounded number is a slider with its default marked. A descriptor's curated marks are
@@ -317,12 +339,12 @@ asks save / discard / stay before the panel changes.
     - Its values are scratch — the document states descriptors, not values — so they start at
       each descriptor's default and never reach the draft.
     - Only a row whose descriptor documents a default is marked once the user changes it.
-21. **Import and export.** **Export** writes the validated document to a file named in the
+22. **Import and export.** **Export** writes the validated document to a file named in the
     host's save dialog. **Import** reads one, checks it before replacing anything, and asks
     before it replaces a dirty draft; a file the contract rejects is still opened, with its
     problems located under the editor, because a refused file cannot be corrected. A host
     with no filesystem keeps its download fallback.
-22. **Use the bundled language service.** The editor's JSON language service is bundled and
+23. **Use the bundled language service.** The editor's JSON language service is bundled and
     runs in its JSON worker, the same way the script page bundles Monaco because the window
     has no network.
     - It reads the emitted `schema/encoder/parameter-descriptor.json`, not a second hand-written
@@ -332,7 +354,7 @@ asks save / discard / stay before the panel changes.
       (`kind`'s `Flag`).
     - The service's own validation stays off, so it never paints a second, differently located
       set of squiggles. Word-based suggestions are off for the same reason.
-23. **Reuse in Target Quality.** Target Quality has its own parameter override in the Target
+24. **Reuse in Target Quality.** Target Quality has its own parameter override in the Target
     Quality section; it defaults to "Same as Encoding" and uses the same table. It is not a
     second encoder screen.
 

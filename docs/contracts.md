@@ -587,17 +587,30 @@ additive catalogue entry for another build of a known encoder; it is not a provi
 replacement.
 
 A fork is stored as an `EncoderFork` in `AppSettings.encoder_forks` (`config.json`), with
-`id`, `label`, `base`, `executable`, `version`, `parameters`, and `parameters_edited`.
-`base` names the engine family (`aom`, `svt-av1`, `rav1e`, `vpx`, `avm`, `x264`, `x265`,
-or `vvenc`). `POST /api/encoders/probe` returns an `EncoderForkProbe` without saving it;
-`POST /api/encoders/forks` saves the accepted result, and `PUT`/`DELETE
-/api/encoders/forks/:id` update or remove it. On startup the service re-probes a fork whose
-parameters the user has not edited; `parameters_edited` keeps hand-authored changes.
-`GET /api/encoders` appends each fork with `fork: true` and its `base`.
+`id`, `label`, `base`, `executable`, `version`, `profile`, `warning`, `parameters`, and
+`parameters_edited`. `base` names the engine family (`aom`, `svt-av1`, `rav1e`, `vpx`,
+`avm`, `x264`, `x265`, or `vvenc`). `profile` and `warning` are optional: the first names
+the detected shipped profile, the second explains a signature mismatch. `POST
+/api/encoders/probe` returns an `EncoderForkProbe` without saving it; `POST
+/api/encoders/forks` saves the accepted result, and `PUT`/`DELETE /api/encoders/forks/:id`
+update or remove it. On startup the service re-probes a user fork whose parameters the user
+has not edited; `parameters_edited` keeps hand-authored changes. `GET /api/encoders` lists
+each shipped profile first and then each saved fork, with `fork: true`, its `base`, and
+`source: Known` telling a shipped profile from a user build.
+
+The build ships complete tables for `svt-av1-essential` and `svt-av1-5fish` without their
+executables. Those rows always exist, have app-owned labels, and cannot be renamed or
+deleted. Their update carries `reset_parameters` and `clear_executable` alongside the
+ordinary `label`, `path`, and `parameters` fields: reset restores the shipped table, clear
+forgets the path, and neither touches the other. Detection and table merging are described
+in [preflight.md](preflight.md#custom-encoder-definitions).
 
 Selecting a fork writes its executable and starting options into the project's engine
-encoder document, so the run uses that binary and never resolves the catalogue. The
-settings screen owns the probe, save, edit, and delete flow; see
+encoder document, so the project never references the catalogue. A located fork's
+executable makes the run use that binary. A pathless fork writes null and a disabled marker
+option, so the run resolves the base encoder's provider instead; the marker is a false
+`Bool`, which the engine omits from argv. The settings screen owns the probe, save, edit,
+reset, clear, and delete flow; see
 [preflight.md](preflight.md#custom-encoder-definitions) and
 [screens/settings.md](screens/settings.md#encoders).
 

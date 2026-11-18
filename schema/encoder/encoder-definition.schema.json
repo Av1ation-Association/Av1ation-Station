@@ -336,6 +336,11 @@
           "description": "Authored by the user in `encoders/<id>.json`.",
           "type": "string",
           "const": "Declared"
+        },
+        {
+          "description": "Shipped by this application as a known fork of an engine encoder.",
+          "type": "string",
+          "const": "Known"
         }
       ]
     },

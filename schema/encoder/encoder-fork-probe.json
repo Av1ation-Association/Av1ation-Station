@@ -23,6 +23,13 @@
         }
       }
     },
+    "profile": {
+      "description": "The shipped fork profile the help output matched, when one did.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "version": {
       "description": "Version line, when one was printed.",
       "type": [

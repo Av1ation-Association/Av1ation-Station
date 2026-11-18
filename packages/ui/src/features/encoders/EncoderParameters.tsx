@@ -16,6 +16,7 @@ import { DraftActions } from "../../shared/TopBarActions";
 import { useDraftHistory } from "../../shared/useDraftHistory";
 import { useUnsavedChanges } from "../../shared/UnsavedChanges";
 import { InfoPopover } from "./InfoPopover";
+import { isShipped } from "./encoder-names";
 import { ParameterSheet } from "./ParameterSheet";
 import {
     defaultLabel,
@@ -179,6 +180,27 @@ export function EncoderParameters({ encoder }: { encoder: EncoderDescriptor }) {
                             }
                         >
                             Restore engine descriptors
+                        </Button>
+                    ) : null}
+                    {isShipped(encoder) && encoder.overridden ? (
+                        <Button
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px]"
+                            disabled={pending}
+                            onClick={() =>
+                                updateFork.mutate(
+                                    {
+                                        id: encoder.id.replace(/^fork:/u, ""),
+                                        update: { reset_parameters: true },
+                                    },
+                                    {
+                                        onSuccess: () =>
+                                            toast.success(`${encoder.label} parameters restored`),
+                                    },
+                                )
+                            }
+                        >
+                            Reset parameters
                         </Button>
                     ) : null}
                     {/* Both header actions are the same compact treatment as every other

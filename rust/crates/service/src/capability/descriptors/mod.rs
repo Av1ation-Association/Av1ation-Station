@@ -16,7 +16,8 @@ use std::collections::BTreeMap;
 
 use av1ation_contracts::encoder::{
     Choice, ChoicePresentation, ChoiceSpec, ChoiceValueKind, CollectionPresentation, Delimiter,
-    NumberSpec, ParameterDescriptor, ParameterKind, ParameterValue, TextSpec, Widget,
+    NumberSpec, ParameterDescriptor, ParameterKey, ParameterKind, ParameterValue, PathSpec,
+    TextSpec, Widget,
 };
 use serde_json::Value;
 
@@ -42,6 +43,31 @@ enum CatalogueKind {
     /// number; the labels are what the user reads.
     Numbered(&'static [(f64, &'static str)]),
     Text,
+    /// A filesystem path, so the editor can offer the host picker where it exists.
+    Path {
+        directory: bool,
+    },
+}
+
+/// The value a curated row starts at when the engine seeds none of its own.
+///
+/// It lives on the row so a table entry is self-contained; there is no second keyed table
+/// to keep in step with the entry list.
+#[derive(Clone, Copy)]
+enum CatalogueDefault {
+    None,
+    Number(f64),
+    Text(&'static str),
+}
+
+impl CatalogueDefault {
+    fn value(self) -> Option<ParameterValue> {
+        match self {
+            Self::None => None,
+            Self::Number(value) => Some(ParameterValue::Number(value)),
+            Self::Text(value) => Some(ParameterValue::Text(value.to_owned())),
+        }
+    }
 }
 
 /// One parameter this build knows by its canonical CLI spelling.
@@ -53,6 +79,8 @@ struct CatalogueEntry {
     group: &'static str,
     kind: CatalogueKind,
     advanced: bool,
+    /// The value the encoder uses when this row is not sent and the engine seeds no value.
+    default: CatalogueDefault,
 }
 
 /// Map the engine's parameter document to descriptors keyed by canonical CLI spelling.
@@ -161,63 +189,15 @@ pub(crate) fn builtin(id: &str, raw: &Value) -> BTreeMap<String, ParameterDescri
             descriptor.advanced = entry.advanced;
             descriptor.doc_link = docs(id).map(str::to_owned);
             apply_catalogue_kind(&mut descriptor.kind, &entry.kind);
+            if descriptor.default.is_none() {
+                descriptor.default = entry.default.value();
+            }
             prune_choice_default(descriptor);
             continue;
         }
-        let documented = catalogue_default(id, entry.key).map(ParameterValue::Number);
-        let documented_text = catalogue_text_default(id, entry.key)
-            .map(|value| ParameterValue::Text(value.to_owned()));
-        let (kind, default) = match &entry.kind {
-            CatalogueKind::Flag => (ParameterKind::Flag, Some(ParameterValue::Bool(false))),
-            CatalogueKind::Integer { min, max, unit } => (
-                ParameterKind::Number(NumberSpec {
-                    integer: true,
-                    min: *min,
-                    max: *max,
-                    step: None,
-                    unit: (*unit).map(str::to_owned),
-                }),
-                documented,
-            ),
-            CatalogueKind::Float { min, max, step } => (
-                ParameterKind::Number(NumberSpec {
-                    integer: false,
-                    min: *min,
-                    max: *max,
-                    step: *step,
-                    unit: None,
-                }),
-                documented,
-            ),
-            CatalogueKind::Choice(values) => (choice_kind(values), documented_text),
-            CatalogueKind::Numbered(values) => (numbered_kind(values), documented),
-            CatalogueKind::Text => (
-                ParameterKind::Text(TextSpec {
-                    max_len: None,
-                    pattern: None,
-                    multiline: false,
-                    format: None,
-                }),
-                documented_text,
-            ),
-        };
         descriptors.insert(
             entry.key.to_owned(),
-            ParameterDescriptor {
-                delimiter: match &kind {
-                    ParameterKind::Flag => None,
-                    _ => Some(delimiter.clone()),
-                },
-                label: entry.label.to_owned(),
-                description: Some(entry.description.to_owned()),
-                doc_link: docs(id).map(str::to_owned),
-                kind,
-                default,
-                widget: Widget::Auto,
-                advanced: entry.advanced,
-                group: Some(entry.group.to_owned()),
-                relations: Vec::new(),
-            },
+            catalogue_descriptor(entry, &delimiter, docs(id)),
         );
     }
 
@@ -225,9 +205,94 @@ pub(crate) fn builtin(id: &str, raw: &Value) -> BTreeMap<String, ParameterDescri
     descriptors
 }
 
+/// The shipped table for a known fork. It has no engine map, so every row is catalogue-only.
+pub(crate) fn fork_parameters(
+    id: &str,
+    doc_link: &str,
+) -> BTreeMap<ParameterKey, ParameterDescriptor> {
+    let Some(entries) = catalogue::fork_catalogue(id) else {
+        return BTreeMap::new();
+    };
+    let delimiter = Delimiter::Space;
+    let mut descriptors = BTreeMap::new();
+    for entry in entries {
+        descriptors.insert(
+            ParameterKey(entry.key.to_owned()),
+            catalogue_descriptor(entry, &delimiter, Some(doc_link)),
+        );
+    }
+    resolve_descriptors(&mut descriptors);
+    descriptors
+}
+
+/// Build one descriptor from a catalogue row.
+fn catalogue_descriptor(
+    entry: &CatalogueEntry,
+    delimiter: &Delimiter,
+    doc_link: Option<&str>,
+) -> ParameterDescriptor {
+    let default = entry.default.value();
+    let (kind, default) = match &entry.kind {
+        CatalogueKind::Flag => (ParameterKind::Flag, Some(ParameterValue::Bool(false))),
+        CatalogueKind::Integer { min, max, unit } => (
+            ParameterKind::Number(NumberSpec {
+                integer: true,
+                min: *min,
+                max: *max,
+                step: None,
+                unit: (*unit).map(str::to_owned),
+            }),
+            default,
+        ),
+        CatalogueKind::Float { min, max, step } => (
+            ParameterKind::Number(NumberSpec {
+                integer: false,
+                min: *min,
+                max: *max,
+                step: *step,
+                unit: None,
+            }),
+            default,
+        ),
+        CatalogueKind::Choice(values) => (choice_kind(values), default),
+        CatalogueKind::Numbered(values) => (numbered_kind(values), default),
+        CatalogueKind::Text => (
+            ParameterKind::Text(TextSpec {
+                max_len: None,
+                pattern: None,
+                multiline: false,
+                format: None,
+            }),
+            default,
+        ),
+        CatalogueKind::Path { directory } => (
+            ParameterKind::Path(PathSpec {
+                directory: *directory,
+                accept: Vec::new(),
+            }),
+            default,
+        ),
+    };
+    ParameterDescriptor {
+        delimiter: match &kind {
+            ParameterKind::Flag => None,
+            _ => Some(delimiter.clone()),
+        },
+        label: entry.label.to_owned(),
+        description: Some(entry.description.to_owned()),
+        doc_link: doc_link.map(str::to_owned),
+        kind,
+        default,
+        widget: Widget::Auto,
+        advanced: entry.advanced,
+        group: Some(entry.group.to_owned()),
+        relations: Vec::new(),
+    }
+}
+
 /// Resolve every `Auto` widget once, so the API, the docs snapshot and the renderer agree.
 /// An explicit widget is evidence and is left alone.
-pub(crate) fn resolve_descriptors(descriptors: &mut BTreeMap<String, ParameterDescriptor>) {
+pub(crate) fn resolve_descriptors<K>(descriptors: &mut BTreeMap<K, ParameterDescriptor>) {
     for descriptor in descriptors.values_mut() {
         if matches!(descriptor.widget, Widget::Auto) {
             descriptor.widget = auto_widget(&descriptor.kind);
@@ -268,89 +333,6 @@ fn auto_widget(kind: &ParameterKind) -> Widget {
     }
 }
 
-/// The value a closed-set or text parameter uses when the encoder does not seed it.
-///
-/// Kept apart from `catalogue_default` because a choice's default is its own value, not a
-/// number. Only a default the shipped build's help states is listed here.
-fn catalogue_text_default(id: &str, key: &str) -> Option<&'static str> {
-    match (id, key) {
-        ("svt-av1", "--asm") => Some("max"),
-        ("svt-av1", "--level") => Some("0"),
-        ("vvenc", "--preset") => Some("medium"),
-        _ => None,
-    }
-}
-
-/// The value the encoder uses when a catalogue-only parameter is not sent.
-///
-/// A row the engine seeded keeps the engine's own default, because that is the value a run
-/// actually sends. Every other row starts unset, which would show a switch as off even where
-/// the encoder defaults it on, and would hide a quantiser default the user needs to know
-/// about. These are the values the shipped SVT-AV1 4.0.1 build prints in `--full-help`
-/// (which supersedes the upstream table where the two disagree) and the values aomenc's help
-/// states for its numeric booleans. A parameter whose help states no fixed default, or a
-/// preset-dependent one, stays unset.
-fn catalogue_default(id: &str, key: &str) -> Option<f64> {
-    let value = match (id, key) {
-        ("svt-av1", "--max-qp") => 63.0,
-        ("svt-av1", "--min-qp") => 1.0,
-        ("svt-av1", "--aq-mode") => 2.0,
-        ("svt-av1", "--gop-constraint-rc") => 0.0,
-        ("svt-av1", "--enable-variance-boost") => 1.0,
-        ("svt-av1", "--variance-boost-strength") => 1.0,
-        ("svt-av1", "--variance-octile") => 4.0,
-        ("svt-av1", "--enable-qm") => 1.0,
-        ("svt-av1", "--qm-min") => 2.0,
-        ("svt-av1", "--qm-max") => 15.0,
-        ("svt-av1", "--chroma-qm-min") => 4.0,
-        ("svt-av1", "--chroma-qm-max") => 15.0,
-        ("svt-av1", "--lossless") => 0.0,
-        ("svt-av1", "--sharp-tx") => 0.0,
-        ("svt-av1", "--complex-hvs") => 0.0,
-        ("svt-av1", "--sharpness") => 1.0,
-        ("svt-av1", "--ac-bias") => 0.25,
-        ("svt-av1", "--tf-strength") => 1.0,
-        ("svt-av1", "--luminance-qp-bias") => 10.0,
-        ("svt-av1", "--qp-scale-compress-strength") => 1.0,
-        ("svt-av1", "--tune") => 1.0,
-        ("svt-av1", "--film-grain") => 0.0,
-        ("svt-av1", "--film-grain-denoise") => 0.0,
-        ("svt-av1", "--adaptive-film-grain") => 0.0,
-        ("svt-av1", "--photon-noise-chroma") => 0.0,
-        ("svt-av1", "--keyint") => -2.0,
-        ("svt-av1", "--min-keyint") => -1.0,
-        ("svt-av1", "--irefresh-type") => 2.0,
-        ("svt-av1", "--scd") => 1.0,
-        ("svt-av1", "--lookahead") => -1.0,
-        ("svt-av1", "--pred-struct") => 2.0,
-        ("svt-av1", "--enable-dg") => 0.0,
-        ("svt-av1", "--rtc") => 0.0,
-        ("svt-av1", "--startup-mg-size") => 0.0,
-        ("svt-av1", "--auto-tiling") => 1.0,
-        ("svt-av1", "--enable-tf") => 1.0,
-        ("svt-av1", "--enable-dlf") => 2.0,
-        ("svt-av1", "--enable-cdef") => 1.0,
-        ("svt-av1", "--enable-restoration") => 1.0,
-        ("svt-av1", "--enable-mfmv") => -1.0,
-        ("svt-av1", "--enable-overlays") => 0.0,
-        ("svt-av1", "--scm") => 2.0,
-        ("svt-av1", "--tile-columns") => 0.0,
-        ("svt-av1", "--tile-rows") => 0.0,
-        ("svt-av1", "--lp") => 0.0,
-        ("svt-av1", "--profile") => 0.0,
-        ("svt-av1", "--color-format") => 1.0,
-        ("svt-av1", "--avif") => 0.0,
-        ("svt-av1", "--progress") => 2.0,
-        ("svt-av1", "--enable-stat-report") => 0.0,
-        ("svt-av1", "--fast-decode") => 0.0,
-        ("svt-av1", "--low-memory") => 0.0,
-        ("vvenc", "--qp") => 32.0,
-        ("aom", "--enable-qm") => 1.0,
-        _ => return None,
-    };
-    Some(value)
-}
-
 /// The reference document for one engine encoder's CLI, usually its own repository.
 ///
 /// Every curated row points at the same authoritative page: the repositories publish one
@@ -380,6 +362,17 @@ fn apply_catalogue_kind(kind: &mut ParameterKind, catalogue: &CatalogueKind) {
     if let CatalogueKind::Choice(values) = catalogue {
         if matches!(kind, ParameterKind::Text(_)) {
             *kind = choice_kind(values);
+        }
+        return;
+    }
+    // A path is more specific than the engine's untyped string, and only replaces text:
+    // an engine that already reports a path keeps its own spec.
+    if let CatalogueKind::Path { directory } = catalogue {
+        if matches!(kind, ParameterKind::Text(_)) {
+            *kind = ParameterKind::Path(PathSpec {
+                directory: *directory,
+                accept: Vec::new(),
+            });
         }
         return;
     }
@@ -577,10 +570,10 @@ mod tests {
         let ParameterKind::Choice(spec) = &tune.kind else {
             panic!("tune is a labeled numeric choice");
         };
-        // `--tune` accepts 0-4 in this build; option 5 was removed upstream.
-        assert_eq!(spec.options.len(), 5);
+        // `--tune` accepts 0-5 in the bundled 4.3.0 build; option 5 is VMAF.
+        assert_eq!(spec.options.len(), 6);
         assert_eq!(spec.options[0].label, "VQ");
-        assert_eq!(spec.options[4].label, "MS-SSIM");
+        assert_eq!(spec.options[5].label, "VMAF");
         assert_eq!(spec.value_kind, Some(ChoiceValueKind::Number));
         // A closed set carries its default as its own kind of value.
         assert_eq!(
@@ -800,6 +793,74 @@ mod tests {
                     serde_json::to_value(descriptor).expect("resolved descriptor"),
                     "{encoder} {key} drifted from the website snapshot"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn website_fork_snapshot_matches_shipped_profiles() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../apps/website/src/gallery/encoder-forks.json");
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        let snapshot: BTreeMap<String, serde_json::Value> =
+            serde_json::from_str(&text).expect("website fork snapshot parses");
+        for known in &crate::capability::forks::KNOWN {
+            let published = snapshot
+                .get(known.id)
+                .unwrap_or_else(|| panic!("{} is in the website fork snapshot", known.id));
+            assert_eq!(
+                published.get("parameters"),
+                Some(&serde_json::to_value(known.table()).expect("fork descriptors")),
+                "{} parameters drifted from the website fork snapshot",
+                known.id
+            );
+        }
+    }
+
+    #[test]
+    fn every_shipped_fork_descriptor_is_complete_and_valid() {
+        for known in &crate::capability::forks::KNOWN {
+            let descriptors = known.table();
+            assert!(!descriptors.is_empty(), "{} has no parameters", known.label);
+            for (key, descriptor) in descriptors {
+                let key = key.canonical();
+                assert!(
+                    !descriptor.label.trim().is_empty(),
+                    "{} {key} label",
+                    known.label
+                );
+                assert_ne!(
+                    descriptor.label.as_str(),
+                    key,
+                    "{} {key} label is its flag",
+                    known.label
+                );
+                assert!(
+                    descriptor
+                        .description
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no description",
+                    known.label
+                );
+                assert!(
+                    descriptor
+                        .group
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no group",
+                    known.label
+                );
+                assert!(
+                    descriptor
+                        .doc_link
+                        .as_deref()
+                        .is_some_and(|text| !text.trim().is_empty()),
+                    "{} {key} has no documentation link",
+                    known.label
+                );
+                assert_valid_descriptor(known.label, key, &descriptor);
             }
         }
     }
