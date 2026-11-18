@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 
@@ -70,6 +70,9 @@ export function FilterList({
     const [editing, setEditing] = useState<number | null>(null);
     const [dragging, setDragging] = useState<number | null>(null);
     const [dropAt, setDropAt] = useState<number | null>(null);
+    // A native drag's first dragover can arrive before React has committed the dragstart
+    // state. The ref is the synchronous authority for that event; the state only paints it.
+    const dragged = useRef<number | null>(null);
 
     const move = (from: number, to: number) => {
         if (from === to) {
@@ -121,7 +124,7 @@ export function FilterList({
                                 <li
                                     key={`${String(index)}-${summary}`}
                                     onDragOver={(event) => {
-                                        if (disabled || dragging === null) {
+                                        if (disabled || dragged.current === null) {
                                             return;
                                         }
                                         event.preventDefault();
@@ -132,10 +135,15 @@ export function FilterList({
                                         setDropAt((current) => (current === index ? null : current))
                                     }
                                     onDrop={(event) => {
+                                        if (disabled) {
+                                            return;
+                                        }
                                         event.preventDefault();
-                                        const from = Number(
+                                        const transferred = Number(
                                             event.dataTransfer.getData("text/plain"),
                                         );
+                                        const from = dragged.current ?? transferred;
+                                        dragged.current = null;
                                         setDropAt(null);
                                         setDragging(null);
                                         if (Number.isInteger(from) && from !== index) {
@@ -148,25 +156,47 @@ export function FilterList({
                                             : "border-line"
                                     } ${dragging === index ? "opacity-50" : ""}`}
                                 >
-                                    <button
-                                        type="button"
+                                    <span
+                                        role="button"
+                                        tabIndex={disabled ? -1 : 0}
                                         draggable={!disabled}
-                                        disabled={disabled}
+                                        aria-disabled={disabled || undefined}
                                         aria-label={`Reorder ${summary}`}
                                         title={disabled ? undefined : "Drag to reorder"}
                                         onDragStart={(event) => {
+                                            if (disabled) {
+                                                event.preventDefault();
+                                                return;
+                                            }
                                             event.dataTransfer.setData("text/plain", String(index));
                                             event.dataTransfer.effectAllowed = "move";
+                                            dragged.current = index;
                                             setDragging(index);
                                         }}
                                         onDragEnd={() => {
+                                            dragged.current = null;
                                             setDragging(null);
                                             setDropAt(null);
                                         }}
-                                        className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-ink-muted hover:text-ink active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+                                        onKeyDown={(event) => {
+                                            if (disabled) {
+                                                return;
+                                            }
+                                            if (event.key === "ArrowUp" && index > 0) {
+                                                event.preventDefault();
+                                                move(index, index - 1);
+                                            } else if (
+                                                event.key === "ArrowDown" &&
+                                                index + 1 < filters.length
+                                            ) {
+                                                event.preventDefault();
+                                                move(index, index + 1);
+                                            }
+                                        }}
+                                        className={`flex h-6 w-4 shrink-0 items-center justify-center text-ink-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-brand ${disabled ? "cursor-not-allowed opacity-40" : "cursor-grab active:cursor-grabbing"}`}
                                     >
                                         <GripVertical aria-hidden="true" className="h-4 w-4" />
-                                    </button>
+                                    </span>
                                     <button
                                         type="button"
                                         aria-label={`Edit ${summary}`}
