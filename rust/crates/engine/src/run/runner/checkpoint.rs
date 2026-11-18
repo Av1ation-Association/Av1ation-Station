@@ -2,6 +2,11 @@
 
 use super::*;
 
+use andean_condor::models::sequence::{
+    provenance::{self, ResultProvenance},
+    target_quality::TargetQualityConfig,
+};
+
 /// What the save before this one already announced.
 ///
 /// A checkpoint carries the whole table, so the callback needs to know how much of it the
@@ -248,7 +253,7 @@ pub(super) fn emit_chunk(
 /// Remove the runner-derived variables from the checkpoint the service persists; the scene
 /// table stays derived from `scenes` and is rebuilt on the next run. User variables with
 /// other names survive, because they are configuration.
-pub(super) fn without_injected_variables(value: serde_json::Value) -> serde_json::Value {
+pub(super) fn without_injected_variables(mut value: serde_json::Value) -> serde_json::Value {
     fn strip(value: &mut serde_json::Value) {
         match value {
             serde_json::Value::Object(map) => {
@@ -269,7 +274,165 @@ pub(super) fn without_injected_variables(value: serde_json::Value) -> serde_json
             _ => {}
         }
     }
-    let mut value = value;
     strip(&mut value);
+    // The strip above also changes the input identities stored inside saved Target Quality
+    // passes. The selection stamp is a hash of those passes, so leaving the old stamp in
+    // place makes a later Scene Concatenator reject its own retained chunks. Recompute the
+    // derived stamp against the same stripped history the checkpoint persists.
+    restamp_target_quality_selection(&mut value);
     value
+}
+
+/// Recompute each scene's Target Quality selection after checkpoint cleanup.
+///
+/// The selection is derived data: it hashes the saved pass contexts. Cleanup removes
+/// runner-only script variables from those contexts, so the old hash cannot describe the
+/// document that was actually written. Rebuilding it here keeps selection admission and a
+/// saved-project retry using one history.
+fn restamp_target_quality_selection(value: &mut serde_json::Value) {
+    let Some(config) = value
+        .get("sequence_config")
+        .and_then(|config| config.get("target_quality"))
+        .cloned()
+    else {
+        return;
+    };
+    let Ok(config) = serde_json::from_value::<TargetQualityConfig>(config) else {
+        return;
+    };
+    let Some(scenes) = value
+        .get_mut("scenes")
+        .and_then(|scenes| scenes.as_array_mut())
+    else {
+        return;
+    };
+    for scene_value in scenes {
+        let Ok(mut scene) =
+            serde_json::from_value::<Scene<DefaultSequenceData>>(scene_value.clone())
+        else {
+            continue;
+        };
+        if scene.sequence_data.target_quality.passes.is_empty() {
+            continue;
+        }
+        let Ok(context) = provenance::selection_context(&scene, &config) else {
+            continue;
+        };
+        scene.sequence_data.target_quality.selection = Some(ResultProvenance::new(context));
+        // Parallel Encoder records the selection its chunk was built against. The chunk
+        // provenance is not a hash input for the selection, so it must be updated alongside
+        // the restamp or a saved retry compares a new selection with the old dependency.
+        let dependency = scene
+            .sequence_data
+            .target_quality
+            .selection
+            .as_ref()
+            .and_then(|selection| serde_json::to_value(selection).ok())
+            .unwrap_or(serde_json::Value::Null);
+        if let Some(provenance) = scene.sequence_data.parallel_encoder.provenance.as_mut()
+            && let Some(context) = provenance.context.as_object_mut()
+        {
+            context.insert("tq_dependency".to_owned(), dependency);
+        }
+        if let Ok(updated) = serde_json::to_value(&scene) {
+            *scene_value = updated;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use andean_condor::models::{
+        encoder::{Encoder, EncoderBase},
+        sequence::{
+            parallel_encoder::ParallelEncoderData,
+            target_quality::{TargetQualityData, types::QualityPass},
+        },
+    };
+    use serde_json::json;
+
+    #[test]
+    fn checkpoint_cleanup_restamps_tq_selection_against_its_saved_history() {
+        let config = TargetQualityConfig::default();
+        let pass = QualityPass {
+            provenance: Some(ResultProvenance::new(json!({
+                "input": {
+                    "settings": {
+                        "VapourSynthScript": {
+                            "variables": {
+                                "condor_temp_dir": "C:\\\\temp",
+                                "user_value": "keep me"
+                            }
+                        }
+                    }
+                }
+            }))),
+            backend: None,
+            quantizer: 30.0,
+            scores: vec![5.0],
+            bitrate: 1.0,
+            started_on: 1,
+            completed_on: 2,
+        };
+        let scene = Scene {
+            start_frame: 0,
+            end_frame: 24,
+            sub_scenes: None,
+            encoder: Encoder::default_from_base(&EncoderBase::X264, false),
+            sequence_data: DefaultSequenceData {
+                target_quality: TargetQualityData {
+                    passes: vec![pass],
+                    selection: Some(ResultProvenance::new(json!({ "stale": true }))),
+                    speed_transition: None,
+                },
+                parallel_encoder: ParallelEncoderData {
+                    provenance: Some(ResultProvenance::new(json!({
+                        "tq_dependency": { "stale": true }
+                    }))),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        };
+        let value = json!({
+            "scenes": [serde_json::to_value(&scene).expect("scene")],
+            "sequence_config": { "target_quality": serde_json::to_value(&config).expect("config") }
+        });
+
+        let clean = without_injected_variables(value);
+        let clean_scene: Scene<DefaultSequenceData> =
+            serde_json::from_value(clean["scenes"][0].clone()).expect("clean scene");
+        let variables = &clean_scene.sequence_data.target_quality.passes[0]
+            .provenance
+            .as_ref()
+            .expect("pass provenance")
+            .context["input"]["settings"]["VapourSynthScript"]["variables"];
+        assert_eq!(variables["user_value"], "keep me");
+        assert!(variables.get("condor_temp_dir").is_none());
+
+        let expected = provenance::selection_context(&clean_scene, &config).expect("selection");
+        assert_eq!(
+            clean_scene.sequence_data.target_quality.selection,
+            Some(ResultProvenance::new(expected))
+        );
+        assert_eq!(
+            clean_scene
+                .sequence_data
+                .parallel_encoder
+                .provenance
+                .as_ref()
+                .expect("chunk provenance")
+                .context["tq_dependency"],
+            serde_json::to_value(
+                clean_scene
+                    .sequence_data
+                    .target_quality
+                    .selection
+                    .as_ref()
+                    .expect("selection")
+            )
+            .expect("selection document")
+        );
+    }
 }

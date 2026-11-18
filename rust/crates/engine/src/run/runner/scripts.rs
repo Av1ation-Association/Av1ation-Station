@@ -90,22 +90,26 @@ pub(super) fn has_script_override(config: &RunnerConfig) -> bool {
 
 /// Apply the latest scene data to every per-sequence script input, so an override is
 /// re-evaluated on the same footing as the Condor input.
+///
+/// Each input is labelled with the sequence that owns it, not the sequence currently being
+/// built. Target Quality's probe document is also read when Parallel Encoder is admitted,
+/// so its injected variables must stay identical across that boundary or the engine sees
+/// the same script as a changed source.
 pub(super) fn with_config_scene_data(
     config: &RunnerConfig,
     scenes: &[Scene<DefaultSequenceData>],
     scope: &ScriptScope<'_>,
-    sequence: Option<&str>,
 ) -> Result<RunnerConfig, String> {
     fn inject(
         input: &mut Option<InputModel>,
         scenes: &[Scene<DefaultSequenceData>],
         config: &RunnerConfig,
         scope: &ScriptScope<'_>,
-        sequence: Option<&str>,
+        sequence: &str,
     ) -> Result<(), String> {
         if let Some(prepared) = input
             .as_ref()
-            .map(|model| with_scene_data(model, scenes, config, scope, sequence))
+            .map(|model| with_scene_data(model, scenes, config, scope, Some(sequence)))
             .transpose()?
             .flatten()
         {
@@ -123,19 +127,25 @@ pub(super) fn with_config_scene_data(
         scenes,
         &document,
         scope,
-        sequence,
+        "SceneDetector",
     )?;
     if let Some(noise) = config.noise_detector.as_mut() {
-        inject(&mut noise.input, scenes, &document, scope, sequence)?;
+        inject(&mut noise.input, scenes, &document, scope, "NoiseDetector")?;
     }
     if let Some(quality) = config.target_quality.as_mut() {
-        inject(&mut quality.input, scenes, &document, scope, sequence)?;
+        inject(
+            &mut quality.input,
+            scenes,
+            &document,
+            scope,
+            "TargetQuality",
+        )?;
         inject(
             &mut quality.metric_input,
             scenes,
             &document,
             scope,
-            sequence,
+            "TargetQuality",
         )?;
     }
     inject(
@@ -143,10 +153,10 @@ pub(super) fn with_config_scene_data(
         scenes,
         &document,
         scope,
-        sequence,
+        "ParallelEncoder",
     )?;
     if let Some(quality) = config.quality_check.as_mut() {
-        inject(&mut quality.input, scenes, &document, scope, sequence)?;
+        inject(&mut quality.input, scenes, &document, scope, "QualityCheck")?;
     }
     Ok(config)
 }

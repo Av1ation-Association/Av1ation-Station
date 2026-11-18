@@ -390,7 +390,15 @@ mod tests {
 
     #[test]
     fn a_script_override_is_prepared_with_the_same_sequence_data() {
-        let mut config = RunnerConfig::default();
+        let mut config = RunnerConfig {
+            target_quality: Some(Default::default()),
+            ..RunnerConfig::default()
+        };
+        config
+            .target_quality
+            .as_mut()
+            .expect("a target quality config")
+            .input = Some(script_model());
         config.parallel_encoder.input = Some(script_model());
         let custom = script_data::CustomSceneData::default();
         let temp_dir = scratch_dir("script-override");
@@ -400,8 +408,19 @@ mod tests {
             run_id: "run-1",
             video_path: "C:\\media\\clip.mkv",
         };
-        let prepared = with_config_scene_data(&config, &[], &scope, Some("ParallelEncoder"))
-            .expect("the data module writes");
+        let prepared =
+            with_config_scene_data(&config, &[], &scope).expect("the data module writes");
+        let Some(InputModel::VapourSynthScript { variables, .. }) = prepared
+            .target_quality
+            .as_ref()
+            .and_then(|quality| quality.input.as_ref())
+        else {
+            panic!("the probe input is still a script");
+        };
+        assert_eq!(
+            variables["condor_sequence"], "TargetQuality",
+            "Parallel Encoder admits passes against this document and must see the label it was probed under"
+        );
         let Some(InputModel::VapourSynthScript { variables, .. }) = prepared.parallel_encoder.input
         else {
             panic!("the override is still a script");

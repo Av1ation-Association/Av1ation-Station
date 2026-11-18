@@ -17,7 +17,7 @@ pub(super) fn encode(
     // The log names the encoder the run actually resolves; the typed value moves into the
     // engine below, so its document is captured first.
     let encoder_document = serde_json::to_value(&encoder).ok();
-    let config: RunnerConfig = serde_json::from_value(request.sequence_config)
+    let mut config: RunnerConfig = serde_json::from_value(request.sequence_config)
         .map_err(|error| format!("The sequence configuration is not valid: {error}"))?;
     // Read before the blob is moved into the engine: the pairs are not part of the
     // checkpoint the engine loads, and they must survive every reopen of the script.
@@ -53,6 +53,15 @@ pub(super) fn encode(
     // first open (empty on a first run, the saved scenes on a later one), and the graph is
     // rebuilt before every sequence with the current scene table and sequence data.
     let base_input = input_model.clone();
+    // Target Quality's probe document is the reference Parallel Encoder admits saved passes
+    // against. When it inherits the root script, materialise that document so it has a stable
+    // identity instead of being the root input rewritten with Parallel Encoder's variables.
+    if matches!(&base_input, InputModel::VapourSynthScript { .. })
+        && let Some(quality) = config.target_quality.as_mut()
+        && quality.input.is_none()
+    {
+        quality.input = Some(base_input.clone());
+    }
     let temp_dir = config
         .parallel_encoder
         .scenes_directory
@@ -92,8 +101,30 @@ pub(super) fn encode(
     // Per-sequence input overrides are prepared with the same scene data before the first
     // sequence. Later sequences replace this snapshot only when a script needs the current
     // table; each sequence's input is opened when that sequence is built, not here.
-    let initial_config =
-        with_config_scene_data(&config, &scenes_for_initial, &script_scope, first_sequence)?;
+    let initial_config = with_config_scene_data(&config, &scenes_for_initial, &script_scope)?;
+
+    // Target Quality stamps each pass against the input it opened. Parallel Encoder admits
+    // those passes against the same document later, so the document must not be re-injected
+    // with the scene table that TQ itself produced. Keep the exact probe inputs from the TQ
+    // open; a resumed run has no TQ sequence to capture from and already stores the stripped
+    // inputs, so use those directly.
+    let mut probe_inputs = if request.sequences.iter().any(|id| id == "TargetQuality") {
+        None
+    } else {
+        config
+            .target_quality
+            .as_ref()
+            .map(|quality| (quality.input.clone(), quality.metric_input.clone()))
+    };
+    // Parallel Encoder's saved chunk context names the document it encoded from. Scene
+    // Concatenator admits those chunks later, so re-injecting the same document with the
+    // completed scene table would make every chunk unreadable. Freeze the encoder input at
+    // the PE open; a resumed run without PE already has the stripped input to use.
+    let mut encoded_input = if request.sequences.iter().any(|id| id == "ParallelEncoder") {
+        None
+    } else {
+        config.parallel_encoder.input.clone()
+    };
 
     let checkpoint_error = Arc::new(Mutex::new(None::<String>));
     let checkpoint = Arc::clone(&request.checkpoint);
@@ -214,22 +245,39 @@ pub(super) fn encode(
                     &config,
                     &app.condor.scenes,
                     &script_scope,
-                    Some(id),
                 )?)
             } else {
                 None
             };
-            let sequence_config = match &prepared {
-                Some(prepared) => prepared,
-                None if position == 0 => &initial_config,
-                None => &config,
+            let mut sequence_config = match &prepared {
+                Some(prepared) => prepared.clone(),
+                None if position == 0 => initial_config.clone(),
+                None => config.clone(),
             };
+            if id == "TargetQuality" {
+                probe_inputs = sequence_config
+                    .target_quality
+                    .as_ref()
+                    .map(|quality| (quality.input.clone(), quality.metric_input.clone()));
+            } else if let (Some((input, metric_input)), Some(quality)) =
+                (&probe_inputs, sequence_config.target_quality.as_mut())
+            {
+                quality.input = input.clone();
+                quality.metric_input = metric_input.clone();
+            }
+            if id == "ParallelEncoder" {
+                encoded_input = sequence_config.parallel_encoder.input.clone();
+            } else if id == "SceneConcatenator"
+                && let Some(input) = &encoded_input
+            {
+                sequence_config.parallel_encoder.input = Some(input.clone());
+            }
             // Sequences such as Target Quality inherit an input from the condor's own
             // configuration rather than from their sequence document. The engine must hold the
             // prepared graph, or an inherited script opens without this run's injected values
             // and fails on `condor_temp_dir`.
             app.condor.sequence_config = sequence_config.clone();
-            build_sequence(id, sequence_config, &opener)
+            build_sequence(id, &sequence_config, &opener)
         })();
         let sequence = match built {
             Ok(sequence) => sequence,

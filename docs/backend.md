@@ -554,6 +554,14 @@ produced. The runner opens the script before every sequence with the engine's cu
 scenes are unchanged. A per-sequence script override receives the same current table when
 that sequence is built, immediately before it runs.
 
+Target Quality's probe input and Parallel Encoder's encode input are prepared once, when
+their sequence opens, and kept for the rest of the run. Re-injecting the completed scene
+table into Target Quality's probe input or Parallel Encoder's encode input would change the
+document identity that the later sequence admits, so a fresh run freezes those documents after their owning sequence starts;
+a resumed run without that sequence uses the stored input unchanged. This freezes only the
+model's injected values: the generated `condor_data` module still reflects the scene table
+while the owning sequence is running.
+
 A script must tolerate an empty scene table: Scene Detector is the first sequence, so its
 graph is evaluated before any scene exists. It must also return the same frame count and
 format that Scene Detector measured, because detection ran on the unmodified graph.
