@@ -543,6 +543,7 @@ async fn a_cached_thumbnail_is_served_as_a_jpeg() {
         available: true,
         detail: "ffmpeg version 7".to_owned(),
         remediation: None,
+        plugins: Vec::new(),
     });
     let app = router(AppState::with_runner_probes_and_data_dir(
         None,
@@ -1086,6 +1087,7 @@ async fn a_missing_vapoursynth_only_blocks_the_script_inputs_that_need_it() {
                 available: false,
                 detail: "VSScript could not be loaded".to_owned(),
                 remediation: Some("Install or repair the bundled VapourSynth runtime.".to_owned()),
+                plugins: Vec::new(),
             },
             Probe {
                 id: "ffmpeg".to_owned(),
@@ -1094,6 +1096,7 @@ async fn a_missing_vapoursynth_only_blocks_the_script_inputs_that_need_it() {
                 available: true,
                 detail: "ffmpeg 8.1".to_owned(),
                 remediation: None,
+                plugins: Vec::new(),
             },
         ],
         dir.clone(),
@@ -1176,6 +1179,7 @@ async fn a_missing_ffmpeg_does_not_block_encoding_when_mkvtoolnix_is_available()
                 available: false,
                 detail: "ffmpeg was not found".to_owned(),
                 remediation: Some("Install FFmpeg or select MKVToolNix.".to_owned()),
+                plugins: Vec::new(),
             },
             Probe {
                 id: "mkvmerge".to_owned(),
@@ -1184,6 +1188,7 @@ async fn a_missing_ffmpeg_does_not_block_encoding_when_mkvtoolnix_is_available()
                 available: true,
                 detail: "mkvmerge v90.0".to_owned(),
                 remediation: None,
+                plugins: Vec::new(),
             },
         ],
         dir.clone(),

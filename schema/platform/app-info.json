@@ -86,6 +86,13 @@
             "null"
           ]
         },
+        "plugins": {
+          "description": "The VapourSynth plugin namespaces this row checked, when the dependency has them.\n\nA missing plugin narrows the filters a script can use without making the VapourSynth\ncore itself unavailable, so it is reported beside the row rather than replacing it.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PreflightPlugin"
+          }
+        },
         "providers": {
           "description": "Every source this row offers. Empty for a row with a single discovered provider.",
           "type": "array",
@@ -113,6 +120,35 @@
         "id",
         "label",
         "capability",
+        "available",
+        "detail"
+      ]
+    },
+    "PreflightPlugin": {
+      "description": "One VapourSynth plugin namespace the dependency inventory checked.",
+      "type": "object",
+      "properties": {
+        "available": {
+          "description": "Whether the loaded core exposes the namespace.",
+          "type": "boolean"
+        },
+        "detail": {
+          "description": "The plugin path when it loaded, or the reason it is absent.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human-readable plugin name for the sub-list.",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "The namespace a script calls, for example `vszip`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "label",
         "available",
         "detail"
       ]

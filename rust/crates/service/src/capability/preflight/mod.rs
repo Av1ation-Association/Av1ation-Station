@@ -15,7 +15,9 @@ use std::{
     sync::Arc,
 };
 
-use av1ation_contracts::encoder::{CustomTool, PreflightCheck, PreflightProvider, PreflightReport};
+use av1ation_contracts::encoder::{
+    CustomTool, PreflightCheck, PreflightPlugin, PreflightProvider, PreflightReport,
+};
 use av1ation_engine::capability::preflight::{Capability, Probe, ToolFamily, probe_tool};
 use av1ation_engine::capability::scene_model::transnetv2_model;
 use tokio::sync::Mutex;
@@ -502,6 +504,7 @@ fn scene_model_probe(configured: Option<&str>) -> Probe {
             available: true,
             detail: path.to_string_lossy().into_owned(),
             remediation: None,
+            plugins: Vec::new(),
         },
         Err(detail) => Probe {
             id: "scene-model".to_owned(),
@@ -510,6 +513,7 @@ fn scene_model_probe(configured: Option<&str>) -> Probe {
             available: false,
             remediation: Some(detail.clone()),
             detail,
+            plugins: Vec::new(),
         },
     }
 }
@@ -560,6 +564,7 @@ fn probeless(family: ToolFamily, detail: String) -> Probe {
             family.label(),
             family.executable_name()
         )),
+        plugins: Vec::new(),
     }
 }
 
@@ -627,6 +632,7 @@ mod tests {
             available,
             detail: if available { "1.0" } else { "not found" }.to_owned(),
             remediation: (!available).then(|| "Install it.".to_owned()),
+            plugins: Vec::new(),
         }
     }
 
@@ -646,6 +652,7 @@ mod tests {
                 }
                 .to_owned(),
                 remediation: (!available).then(|| "Choose another path.".to_owned()),
+                plugins: Vec::new(),
             },
         }
     }
@@ -658,6 +665,23 @@ mod tests {
             path: format!("C:/tools/{}.exe", family.executable_name()),
             probe,
         }
+    }
+
+    #[test]
+    fn plugin_probes_cross_the_contract_boundary() {
+        let mut probe = probe("vapoursynth", true);
+        probe.plugins = vec![av1ation_engine::capability::preflight::PluginProbe {
+            namespace: "bs".to_owned(),
+            label: "BestSource".to_owned(),
+            available: true,
+            detail: "Loaded · C:/plugins/libbestsource.dll".to_owned(),
+        }];
+
+        let check = check_from(probe, None, None, &BTreeMap::new(), None, None);
+        assert_eq!(check.plugins.len(), 1);
+        assert_eq!(check.plugins[0].namespace, "bs");
+        assert!(check.plugins[0].available);
+        assert!(check.plugins[0].detail.contains("libbestsource.dll"));
     }
 
     #[tokio::test]

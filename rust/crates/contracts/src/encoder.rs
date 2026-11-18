@@ -42,6 +42,26 @@ pub struct PreflightCheck {
     /// Every source this row offers. Empty for a row with a single discovered provider.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<PreflightProvider>,
+    /// The VapourSynth plugin namespaces this row checked, when the dependency has them.
+    ///
+    /// A missing plugin narrows the filters a script can use without making the VapourSynth
+    /// core itself unavailable, so it is reported beside the row rather than replacing it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugins: Vec<PreflightPlugin>,
+}
+
+/// One VapourSynth plugin namespace the dependency inventory checked.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PreflightPlugin {
+    /// The namespace a script calls, for example `vszip`.
+    pub namespace: String,
+    /// Human-readable plugin name for the sub-list.
+    pub label: String,
+    /// Whether the loaded core exposes the namespace.
+    pub available: bool,
+    /// The plugin path when it loaded, or the reason it is absent.
+    pub detail: String,
 }
 
 /// One source a dependency row can use, as the preflight inventory sees it.

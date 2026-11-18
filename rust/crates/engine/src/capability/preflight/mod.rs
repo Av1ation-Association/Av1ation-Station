@@ -59,6 +59,21 @@ pub struct Probe {
     pub detail: String,
     /// What to install or configure when the dependency is unavailable.
     pub remediation: Option<String>,
+    /// Plugin namespaces checked inside this dependency, when it has any.
+    pub plugins: Vec<PluginProbe>,
+}
+
+/// One plugin namespace a dependency exposes, such as a VapourSynth plugin.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginProbe {
+    /// The namespace a script calls, for example `vszip`.
+    pub namespace: String,
+    /// Human-readable plugin name.
+    pub label: String,
+    /// Whether the loaded dependency exposes the namespace.
+    pub available: bool,
+    /// The path the plugin loaded from, or why it is absent.
+    pub detail: String,
 }
 
 impl Probe {
@@ -70,6 +85,7 @@ impl Probe {
             available: true,
             detail,
             remediation: None,
+            plugins: Vec::new(),
         }
     }
 
@@ -87,6 +103,7 @@ impl Probe {
             available: false,
             detail,
             remediation: Some(remediation.to_owned()),
+            plugins: Vec::new(),
         }
     }
 }
@@ -96,8 +113,9 @@ impl Probe {
 /// The service caches the result in `AppState` and serves it from `/api/health`; the UI
 /// never re-runs `which` itself and the desktop host does not keep a second probe table.
 pub fn detect() -> Vec<Probe> {
+    let (vapoursynth, plugins) = vapoursynth();
     let mut probes = vec![
-        vapoursynth(),
+        vapoursynth,
         command(
             "ffmpeg",
             "FFmpeg",
@@ -117,7 +135,7 @@ pub fn detect() -> Vec<Probe> {
     ];
     probes.extend(encoders());
     let libraries = andean_condor::metrics::libraries();
-    probes.extend(metric_probes(&libraries, vapoursynth_plugins()));
+    probes.extend(metric_probes(&libraries, plugins));
     probes
 }
 
@@ -126,7 +144,7 @@ mod tools;
 
 #[cfg(test)]
 use runtime::PluginPresence;
-use runtime::{command, metric_probes, vapoursynth, vapoursynth_plugins};
+use runtime::{command, metric_probes, vapoursynth};
 use tools::encoders;
 #[cfg(test)]
 use tools::{ENCODER_BASES, encoder_id};
@@ -138,7 +156,7 @@ mod tests {
 
     use andean_condor::metrics::MetricLibraryInfo;
 
-    use super::*;
+    use super::{runtime::plugin_probes, *};
 
     fn library(name: &'static str, available: bool) -> MetricLibraryInfo {
         MetricLibraryInfo {
@@ -262,6 +280,45 @@ mod tests {
         assert_eq!(Capability::Muxing.as_str(), "muxing");
         assert_eq!(Capability::Metric.as_str(), "metric");
         assert_eq!(Capability::Application.as_str(), "application");
+    }
+
+    #[test]
+    fn a_missing_runtime_still_names_the_plugins_a_script_can_require() {
+        let plugins = plugin_probes(None);
+        let namespaces: Vec<&str> = plugins
+            .iter()
+            .map(|plugin| plugin.namespace.as_str())
+            .collect();
+        for expected in [
+            "bs",
+            "ffms2",
+            "dgdecodenv",
+            "lsmas",
+            "vszip",
+            "mvu",
+            "zoomv",
+            "fgs",
+            "vship",
+        ] {
+            assert!(namespaces.contains(&expected), "{expected}");
+        }
+        // Namespaces are the strings a script writes after `core.`; package names such as
+        // `bestsource`, `mvutensils`, or `zoomvtools` never match a loaded plugin.
+        for absent in [
+            "bestsource",
+            "mvutensils",
+            "zoomvtools",
+            "mvtools",
+            "fmtconv",
+        ] {
+            assert!(!namespaces.contains(&absent), "{absent}");
+        }
+        assert_eq!(namespaces.len(), 9, "one row per required plugin");
+        assert!(
+            plugins
+                .iter()
+                .all(|plugin| !plugin.available && plugin.detail == "Not loaded")
+        );
     }
 
     #[test]

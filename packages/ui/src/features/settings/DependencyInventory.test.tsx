@@ -100,6 +100,40 @@ it("shows the dependency loading skeleton", () => {
     expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull();
 });
 
+it("lists each VapourSynth plugin with its own availability", () => {
+    renderInventory(
+        report([
+            check({
+                id: "vapoursynth",
+                label: "VapourSynth",
+                capability: "decode",
+                available: true,
+                detail: "Core R82",
+                plugins: [
+                    {
+                        namespace: "bs",
+                        label: "BestSource",
+                        available: true,
+                        detail: "Loaded · C:/plugins/libbestsource.dll",
+                    },
+                    {
+                        namespace: "ffms2",
+                        label: "FFMS2",
+                        available: false,
+                        detail: "Not loaded",
+                    },
+                ],
+            }),
+        ]),
+    );
+
+    screen.getByText("VapourSynth").closest("summary")?.click();
+    screen.getByText("BestSource");
+    screen.getByText("bs");
+    screen.getByText("FFMS2");
+    screen.getByText("Not installed");
+});
+
 class RecordingDependencyTransport extends MockTransport {
     readonly writes: string[] = [];
     readonly custom: Array<{ kind: string; path: string }> = [];

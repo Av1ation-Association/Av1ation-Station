@@ -28,6 +28,8 @@ async fn health_reports_the_package_and_engine_versions() {
     assert_eq!(preflight["checks"][0]["id"], "vapoursynth");
     assert_eq!(preflight["checks"][0]["capability"], "decode");
     assert_eq!(preflight["checks"][0]["available"], true);
+    assert_eq!(preflight["checks"][0]["plugins"][0]["namespace"], "bs");
+    assert_eq!(preflight["checks"][0]["plugins"][0]["available"], true);
     assert_eq!(
         preflight["checks"][1]["remediation"],
         "Install `vvencapp` and put it on PATH."

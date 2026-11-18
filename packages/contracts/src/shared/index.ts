@@ -631,6 +631,12 @@ export const PreflightCheckSchema = z
             ])
             .describe("The saved executable path for a custom row.")
             .optional(),
+        plugins: z
+            .array(z.lazy(() => PreflightPluginSchema))
+            .describe(
+                "The VapourSynth plugin namespaces this row checked, when the dependency has them.\n\nA missing plugin narrows the filters a script can use without making the VapourSynth\ncore itself unavailable, so it is reported beside the row rather than replacing it.",
+            )
+            .optional(),
         providers: z
             .array(z.lazy(() => PreflightProviderSchema))
             .describe(
@@ -669,6 +675,18 @@ export const PreflightCheckSchema = z
     .strict()
     .describe("One dependency result in the preflight inventory.");
 export type PreflightCheck = z.infer<typeof PreflightCheckSchema>;
+
+/** Generated from `schema/encoder/preflight-report.json`. */
+export const PreflightPluginSchema = z
+    .object({
+        available: z.boolean().describe("Whether the loaded core exposes the namespace."),
+        detail: z.string().describe("The plugin path when it loaded, or the reason it is absent."),
+        label: z.string().describe("Human-readable plugin name for the sub-list."),
+        namespace: z.string().describe("The namespace a script calls, for example `vszip`."),
+    })
+    .strict()
+    .describe("One VapourSynth plugin namespace the dependency inventory checked.");
+export type PreflightPlugin = z.infer<typeof PreflightPluginSchema>;
 
 /** Generated from `schema/encoder/preflight-report.json`. */
 export const PreflightProviderSchema = z

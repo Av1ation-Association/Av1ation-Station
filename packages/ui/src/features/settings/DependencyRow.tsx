@@ -269,7 +269,9 @@ export function DependencyRow({
     // A row whose source is selectable must open even when it is healthy: the Bundled/System
     // choice lives in the expanded body, and an Available row has no remediation to reveal.
     const selectable = (check.providers?.length ?? 0) > 0;
-    const expandable = family !== null || check.remediation !== undefined || selectable;
+    const hasPlugins = (check.plugins?.length ?? 0) > 0;
+    const expandable =
+        family !== null || check.remediation !== undefined || selectable || hasPlugins;
 
     const summary = (
         <>
@@ -313,6 +315,34 @@ export function DependencyRow({
                 {summary}
             </summary>
             <div className="border-t border-line px-4 py-3">
+                {check.plugins !== undefined && check.plugins.length > 0 ? (
+                    <div className="mb-3">
+                        <p className="m-0 mb-1.5 text-[10.5px] font-medium text-ink-muted">
+                            Plugins
+                        </p>
+                        <ul className="m-0 grid list-none gap-1.5 p-0 sm:grid-cols-2">
+                            {check.plugins.map((plugin) => (
+                                <li
+                                    key={plugin.namespace}
+                                    className="flex min-w-0 items-center gap-2 rounded-md border border-line bg-raised px-2.5 py-1.5"
+                                >
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-[11.5px] text-ink">
+                                            {plugin.label}
+                                        </span>
+                                        <span
+                                            className="block truncate font-mono text-[10px] text-ink-muted"
+                                            title={plugin.detail}
+                                        >
+                                            {plugin.namespace}
+                                        </span>
+                                    </span>
+                                    <StatusChip available={plugin.available} />
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ) : null}
                 {selectable ? (
                     <ToolSource
                         check={check}

@@ -110,6 +110,7 @@ fn fake_probes() -> Vec<Probe> {
             available: true,
             detail: "Fake E2E provider".to_owned(),
             remediation: None,
+            plugins: Vec::new(),
         }
     }
 

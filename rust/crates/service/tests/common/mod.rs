@@ -299,6 +299,12 @@ pub(crate) fn test_probes() -> Vec<Probe> {
             available: true,
             detail: "Core R80 · API 4.3".to_owned(),
             remediation: None,
+            plugins: vec![av1ation_engine::capability::preflight::PluginProbe {
+                namespace: "bs".to_owned(),
+                label: "BestSource".to_owned(),
+                available: true,
+                detail: "Loaded · C:/plugins/libbestsource.dll".to_owned(),
+            }],
         },
         Probe {
             id: "encoder:vvenc".to_owned(),
@@ -307,6 +313,7 @@ pub(crate) fn test_probes() -> Vec<Probe> {
             available: false,
             detail: "vvencapp not found on PATH".to_owned(),
             remediation: Some("Install `vvencapp` and put it on PATH.".to_owned()),
+            plugins: Vec::new(),
         },
     ]
 }

@@ -222,5 +222,15 @@ pub(super) fn check_from(
         selected_source,
         configured_source,
         providers,
+        plugins: probe
+            .plugins
+            .into_iter()
+            .map(|plugin| PreflightPlugin {
+                namespace: plugin.namespace,
+                label: plugin.label,
+                available: plugin.available,
+                detail: plugin.detail,
+            })
+            .collect(),
     }
 }

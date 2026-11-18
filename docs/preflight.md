@@ -77,14 +77,36 @@ VapourSynth is a library the engine opens in-process, not a CLI it shells out to
 is VSScript's: `VSSCRIPT_PATH`, the path printed by `vapoursynth get-vsscript`, or the
 platform `VSScript` library, or the `vsscript.dll` inside the selected bundled Python.
 On Windows, once the wheel's `vsscript.dll` is loaded, its four-parent probe finds the
-bundled interpreter implicitly. On macOS/Linux the service writes `<app-data>/vapoursynth/vapoursynth.toml` before the first
+bundled interpreter implicitly. On macOS/Linux the service writes `<data-root>/vapoursynth/vapoursynth.toml` before the first
 probe, keyed by the staged `libvsscript` path and checking the staged `python3` mtime, and
-points this process's `XDG_CONFIG_HOME` at app data; it preserves entries for other
+points this process's `XDG_CONFIG_HOME` at the selected data root; it preserves entries for other
 VapourSynth installations and never writes the user's config. `vspipe` is not part of that
 path — a machine can have a loadable VapourSynth and no `vspipe`, and the reverse is not a
 usable probe. The engine probe therefore loads the API, creates a VSScript environment and
 a core, and reports the core version and API revision. Encoder probes use the engine's own `EncoderBase` list and
 `Encoder::validate`, so executable names never drift from the encoder defaults.
+
+That same core is checked for the plugin namespaces this application's inputs, filters, and
+metrics require: `bs` (BestSource), `ffms2`, `dgdecodenv` (DGDecNV), `lsmas`, `vszip`,
+`mvu` (MVUtensils), `zoomv` (ZoomVTools), `fgs` (vs-fgs), and `vship`. The namespace is
+what a script writes after `core.`, which is often an abbreviation rather than the package
+name;
+vs-fgs registers the identifier `com.vs.fgs` but the namespace `fgs`. `Rescale` needs the
+`vsscale`/`vskernels` Python modules, not a plugin namespace, so it is outside this list.
+The VapourSynth row carries one `plugins` entry per namespace with its label, whether it
+loaded, and the loaded path. A missing plugin narrows the filters and script sections that
+need it; it does not make the VapourSynth core itself unavailable.
+
+The wrapper exposes namespace lookup but not a stable all-plugin enumeration or a version
+accessor, so the list is fixed and the path is the reported source rather than a version
+string. VapourSynth's C API has `getPluginVersion` and `getNextPlugin`, but `vapoursynth`
+0.5.6 surfaces neither, so plugin versions are not part of this inventory. The engine,
+contract, HTTP, and UI tests use synthetic probes. A manual enumeration of the staged R82
+tree confirmed the shipped plugin names; that tree ships `vszip` and `mvu` but not `zoomv`
+or `fgs`, so ZoomDegrain and FGS report a missing plugin until the user selects a system
+VapourSynth that has it. Provider selection still comes from
+the row's Bundled/System choice; the Custom Python field chooses the editor's language
+server and is not a VapourSynth runtime.
 
 ## Custom encoder definitions
 
@@ -220,12 +242,13 @@ When a metric is unavailable, remediation names the concrete install, not the ab
 | At least one encoder executable from the selected provider or `PATH` (or configured), using the engine's encoder list | encode disabled                                                                                        |
 | The _selected_ encoder's executable present                                                                           | that encoder unavailable in the catalogue                                                              |
 | VapourSynth loadable through VSScript, with a matching architecture                                                   | VapourSynth input kinds unavailable; noise detection unavailable                                       |
+| The fixed VapourSynth plugin namespaces listed under [what is actually required](#what-is-actually-required)          | the VapourSynth row lists each plugin separately; only filters/scripts that need a missing one are affected |
 | FFMS2 library loadable                                                                                                | native input kind unavailable                                                                          |
 | `ffmpeg` present                                                                                                      | muxing paths that need it unavailable                                                                  |
 | `mkvmerge` present                                                                                                    | muxing fallback unavailable                                                                            |
 | `metrics::availability::libraries()` per-library status                                                               | filters the metric catalogue per [Metrics](#metrics)                                                                  |
 | VapourSynth plugin presence, per plugin-backed metric                                                                 | removes that metric when no native backend covers it                                                   |
-| VapourSynth filter plugins (`vszip`, `mvutensils`, `zoomvtools`, `com.vs.fgs`, `vodesfunc`/`vskernels`/`vsscale`)     | removes exactly the filters that need the missing module; core `Crop`/`Resize`/`Trim` remain available |
+| VapourSynth filter plugins (`vszip`, `mvu`, `zoomv`, `fgs`) and the `Rescale` Python modules (`vsscale`/`vskernels`) | removes exactly the filters that need the missing module; core `Crop`/`Resize`/`Trim` remain available |
 | VapourSynth namespaces referenced by a video's script inputs                                                          | `/validate` lists them in `plugin_problems`; a run returns `422` for the sequences it would open       |
 | output directory writable                                                                                             | encode disabled                                                                                        |
 | temp directory writable and at least 512 MiB free                                                                     | encode disabled (`507`)                                                                                |
