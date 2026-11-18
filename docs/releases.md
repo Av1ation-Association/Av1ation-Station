@@ -6,10 +6,13 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 [packaging.md](packaging.md).
 
 The release gate is **open** for the RC channel: hosted package validation and a tag-driven
-workflow run pass. `v0.1.0-rc.3` is published as a prerelease; no tag has been moved. Windows
-and Linux installs are validated. macOS is published **best-effort**: without a macOS host or
-certificate, its install, ad-hoc signing, and runtime behaviour are not guaranteed. The
-updater is deferred, so no `latest.json` is produced. The
+workflow run pass. The first **stable** release also waits for the Phase 6 product backlog to
+be closed or explicitly deferred ([progress.md](progress.md), [plan/06-product-backlog.md](plan/06-product-backlog.md));
+an RC is not blocked by that gate. `v0.1.0-rc.3` is published as a prerelease; no stable tag
+has been created or moved. Windows and Linux installs are validated. macOS is published
+**best-effort**: without a macOS host or certificate, its install, ad-hoc signing, and
+runtime behaviour are not guaranteed. The updater is deferred, so no `latest.json` is
+produced. The
 reviewed manifest, recipes, three-target lock, reusable toolchain and security workflows, the
 tag-driven `release.yml`, and the readiness record are present. The local artifacts under
 `dist/release/` remain development evidence; tag-built assets are the candidate.
@@ -172,8 +175,15 @@ On Windows, the MSI and NSIS uninstallers remove the installed application tree,
 shortcut, and uninstall registration. They deliberately leave the app-data directory
 (`%APPDATA%\com.av1ation.station` on Windows) in place: it contains the user's settings,
 projects, logs, caches, and unpacked tools. Delete that directory manually to remove all
-user data and reclaim its space. The portable ZIP has no uninstaller; delete its extracted
-folder and, if desired, the same app-data directory.
+user data and reclaim its space. The portable ZIP has no uninstaller and no app-data
+directory: its `portable` marker roots every project, setting, log, cache, VapourSynth
+configuration and scratch file inside the extracted folder's `data` directory, so deleting
+that folder removes the application and its data together.
+
+The macOS app ZIP carries the same marker beside the `.app`, so deleting the unzipped folder
+also removes its `data` directory. The AppImage is portable only when an empty `portable`
+file sits beside it; without that opt-in it uses the platform app-data directory, which must
+be removed separately.
 
 A Windows NSIS check measured an installed tree of 1,165.5 MiB over 8,931 files, with no
 helper process left after installation. On 2026-11-16, fresh bundled and system NSIS installs
@@ -358,8 +368,13 @@ before publishing; hand editing is expected and does not feed back into the mani
 
 ## Current gate
 
-The RC publication gate has passed. The remaining items are platform verification and
-optional channel coverage, not build blockers:
+The RC publication gate has passed. The first stable tag is not yet approved; it additionally
+waits for the Phase 6 backlog closure or per-item deferral recorded in
+[progress.md](progress.md). A local stable `0.1.0` check has installed the bundled MSI in
+its logged `INSTALLDIR`, launched it, passed `/api/health`, completed a real eight-sequence
+encode, and uninstalled both MSIs; the hosted stable package job still has to reproduce that
+evidence. The remaining RC items are platform verification and optional channel coverage,
+not build blockers:
 
 1. **RC publication.** `v0.1.0-rc.3` is published as a prerelease with 32 assets, provenance
    attestation, checksums, audit files, and unsigned/no-updater labels. The website snapshot

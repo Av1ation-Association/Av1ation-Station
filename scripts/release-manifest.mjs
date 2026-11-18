@@ -590,14 +590,14 @@ Windows 10 or 11 x64 and the WebView2 Runtime are required. WebView2 is normally
     if (hasMacos) {
         installSections.push(`### macOS
 
-Open the \`.dmg\` and drag the application to Applications, or unzip the \`.app.zip\` portable. ${release.notarized ? "The application is code-signed and notarised; the stapled ticket is ready for Gatekeeper." : release.codeSigned ? "The application is code-signed but not notarised; use the documented Gatekeeper override after verifying the SHA-256." : "The application is unsigned and not notarised; use the documented Gatekeeper override after verifying the SHA-256."}`);
+Open the \`.dmg\` and drag the application to Applications, or unzip the \`.app.zip\` portable. The archive carries a \`portable\` marker beside the app, so projects, settings and scratch stay in a \`data\` folder inside the unzipped folder. ${release.notarized ? "The application is code-signed and notarised; the stapled ticket is ready for Gatekeeper." : release.codeSigned ? "The application is code-signed but not notarised; use the documented Gatekeeper override after verifying the SHA-256." : "The application is unsigned and not notarised; use the documented Gatekeeper override after verifying the SHA-256."}`);
     }
     if (hasLinux) {
         installSections.push(`### Linux
 
 Install the \`.deb\` with \`sudo apt install ./<file>.deb\`. It declares WebKitGTK 4.1; the system variant also declares the system FFMS2 library.
 
-The AppImage is the portable form. Make it executable with \`chmod +x <file>.AppImage\` and run it. If FUSE 2 is unavailable, run it with \`--appimage-extract-and-run\`.
+The AppImage is the portable form. Make it executable with \`chmod +x <file>.AppImage\` and run it. If FUSE 2 is unavailable, run it with \`--appimage-extract-and-run\`. To keep its data beside the file, create an empty \`portable\` file next to the AppImage; without it the AppImage uses the platform app-data directory.
 
 ${hasLinuxBundled ? "The bundled Linux variant carries the full pinned toolchain, including VapourSynth/Python, the encoders, FFmpeg, MKVToolNix, the scene model, and the native metrics, together with their staged runtime libraries.\n\n" : ""}${hasLinuxSystem ? "The system Linux variant uses the distribution's Python, VapourSynth, FFmpeg, MKVToolNix, and encoders.\n\n" : ""}The build was produced on a supported Linux build host (Ubuntu 24.04 or Debian 13) and requires glibc 2.39 or newer; Debian 12 and Ubuntu 22.04 are not supported by this release. The \`.deb\` is the native installer and the AppImage is the portable fallback.`);
     }

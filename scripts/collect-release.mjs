@@ -5,7 +5,8 @@
 // Bundled and system builds share one Tauri output tree, so each variant owns a subdirectory
 // and is filtered by its product name and version. A Windows portable is the release binary
 // plus the resources Tauri resolves from the executable's directory; a macOS portable is a
-// zip of the `.app`; a Linux AppImage is already the portable form.
+// zip of the `.app` plus the `portable` marker beside it; a Linux AppImage is already the
+// portable form, with an opt-in marker beside it for install-local data.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -77,20 +78,26 @@ function normalizedProduct(value) {
         .replace(/^-|-$/gu, "");
 }
 
-function matchesProduct(name, productName, version, directory) {
+export function matchesProduct(name, productName, version, directory) {
     if (directory) {
         return name === `${productName}.app`;
     }
     // Tauri keeps product names on Windows and AppImage, but Debian and RPM package names
     // are lower-cased and hyphenated. Accept both spellings and either version separator.
+    // The character after the version must end the stem or introduce a platform or release
+    // suffix: `0.1.0-rc.2` is a different version, not a suffix of `0.1.0`.
     const lower = name.toLowerCase();
     const direct = productName.toLowerCase();
     const slug = normalizedProduct(productName);
     const versionLower = version.toLowerCase();
-    return (
-        lower.startsWith(`${direct}_${versionLower}`) ||
-        lower.startsWith(`${slug}_${versionLower}`) ||
-        lower.startsWith(`${slug}-${versionLower}`)
+    return [`${direct}_${versionLower}`, `${slug}_${versionLower}`, `${slug}-${versionLower}`].some(
+        (prefix) => {
+            if (!lower.startsWith(prefix)) {
+                return false;
+            }
+            const rest = lower.slice(prefix.length);
+            return rest === "" || rest.startsWith("_") || rest.startsWith(".") || /^-\d/u.test(rest);
+        },
     );
 }
 
@@ -196,7 +203,7 @@ function zipDirectory(source, destination) {
     run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", source, destination]);
 }
 
-function portableReadme(productName, version, variant) {
+function windowsPortableReadme(productName, version, variant) {
     const toolchain =
         variant === "bundled"
             ? "The bundled toolchain lives in the tools folder beside the executable."
@@ -206,6 +213,7 @@ function portableReadme(productName, version, variant) {
         "",
         "Unzip this folder anywhere and run av1ation-desktop.exe.",
         "The web folder must stay beside the executable.",
+        "The portable marker keeps projects, settings, thumbnails, logs, scratch and VapourSynth data in the data folder beside the executable. Delete this folder to remove them.",
         toolchain,
         "WebView2 Runtime is required; Windows 10 and 11 normally include it.",
         "",
@@ -247,7 +255,13 @@ function createWindowsPortable({ destination, productName, version, variant }) {
             cpSync(nativeFfms2, join(appRoot, "ffms2.dll"));
         }
     }
-    writeFileSync(join(appRoot, "PORTABLE.txt"), portableReadme(productName, version, variant));
+    // The host looks for this marker beside the executable and roots every service write in
+    // a sibling `data` directory. A README alone is documentation, not a launch mode.
+    writeFileSync(join(appRoot, "portable"), "");
+    writeFileSync(
+        join(appRoot, "PORTABLE.txt"),
+        windowsPortableReadme(productName, version, variant),
+    );
 
     const zipName = `${productName}_${version}_${targetArch()}_portable.zip`;
     zipDirectory(appRoot, join(destination, zipName));
@@ -259,9 +273,36 @@ function createWindowsPortable({ destination, productName, version, variant }) {
     return zipName;
 }
 
-function createMacPortable({ artifact, destination, productName, version }) {
+function macPortableReadme(productName, version) {
+    return [
+        `${productName} ${version} - portable (macOS)`,
+        "",
+        `Unzip this folder anywhere and open ${productName}.app.`,
+        "The portable marker keeps projects, settings, thumbnails, logs, scratch and VapourSynth data in the data folder beside the app. Delete this folder to remove them.",
+        "This build is ad-hoc signed and not notarised; use the documented Gatekeeper override after verifying the SHA-256.",
+        "",
+    ].join("\n");
+}
+
+function createMacPortable({ artifact, destination, productName, version, variant }) {
+    const stagingParent = join(releaseDir, releasePlatform(), "portable", variant);
+    const stagingRoot = join(stagingParent, productName);
+    rmSync(stagingParent, { recursive: true, force: true });
+    mkdirSync(stagingRoot, { recursive: true });
+    cpSync(artifact.path, join(stagingRoot, artifact.name), { recursive: true });
+    // The host resolves the directory holding the `.app`, so the marker has to be a sibling
+    // of the bundle. Inside `Contents` it would put generated state in the signed tree and
+    // be lost on the next application update.
+    writeFileSync(join(stagingRoot, "portable"), "");
+    writeFileSync(join(stagingRoot, "PORTABLE.txt"), macPortableReadme(productName, version));
+
     const zipName = `${productName}_${version}_${targetArch()}.app.zip`;
-    zipDirectory(artifact.path, join(destination, zipName));
+    zipDirectory(stagingRoot, join(destination, zipName));
+    rmSync(stagingParent, { recursive: true, force: true });
+    const portableRoot = join(releaseDir, releasePlatform(), "portable");
+    if (existsSync(portableRoot) && readdirSync(portableRoot).length === 0) {
+        rmSync(portableRoot, { recursive: true, force: true });
+    }
     return zipName;
 }
 
@@ -344,7 +385,13 @@ export function collectReleaseArtifacts({
     for (const artifact of unique.values()) {
         if (artifact.directory) {
             if (process.platform === "darwin") {
-                const zipName = createMacPortable({ artifact, destination, productName, version });
+                const zipName = createMacPortable({
+                    artifact,
+                    destination,
+                    productName,
+                    version,
+                    variant,
+                });
                 const size = sizeOf(join(destination, zipName));
                 total += size;
                 console.log(`release: ${zipName} (${mib(size)})`);
