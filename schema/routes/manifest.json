@@ -61,6 +61,18 @@
       ]
     },
     {
+      "id": "preflight.probe",
+      "path": "/api/preflight/probe",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "system::probe_custom_preflight",
+          "owner": "api::routes::system",
+          "purpose": "probe one user-provided executable against a family and return its candidate check without saving it"
+        }
+      ]
+    },
+    {
       "id": "preflight.custom",
       "path": "/api/preflight/custom",
       "methods": [

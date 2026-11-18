@@ -290,6 +290,27 @@ export async function post<T>(
         });
         return schema.parse(record);
     }
+    if (path === "/api/preflight/probe") {
+        const input = body as { kind?: unknown; path?: unknown };
+        const kind = typeof input.kind === "string" ? input.kind : "";
+        const executable = typeof input.path === "string" ? input.path.trim() : "";
+        const family = FAMILIES[kind];
+        if (family === undefined) {
+            throw new ApiError(400, null, `Unknown executable family ${kind}.`);
+        }
+        if (executable === "") {
+            throw new ApiError(400, null, "A custom executable needs a path.");
+        }
+        return schema.parse({
+            id: `custom:${kind}`,
+            label: `${family.label} (custom)`,
+            capability: family.capability,
+            available: true,
+            detail: `${executable} · demo build`,
+            origin: "custom",
+            path: executable,
+        } satisfies PreflightCheck);
+    }
     if (path === "/api/preflight/custom") {
         const input = body as { kind?: unknown; path?: unknown };
         const kind = typeof input.kind === "string" ? input.kind : "";

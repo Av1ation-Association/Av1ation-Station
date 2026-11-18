@@ -101,6 +101,43 @@ pub(super) async fn refresh_preflight(State(state): State<AppState>) -> Json<Pre
     Json(report)
 }
 
+pub(super) async fn probe_custom_preflight(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<CustomToolRequest>,
+) -> Response {
+    let Some(family) = ToolFamily::parse(&body.kind) else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidConfig,
+            format!("Unknown executable family `{}`", body.kind),
+            Some(format!(
+                "Choose one of: {}.",
+                ToolFamily::ALL
+                    .iter()
+                    .map(|family| family.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )),
+        );
+    };
+
+    let path = body.path.trim();
+    if path.is_empty() {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidConfig,
+            "A custom executable needs a path.".to_owned(),
+            Some("Choose the executable file, then probe it again.".to_owned()),
+        );
+    }
+
+    (
+        StatusCode::OK,
+        Json(state.probe_custom_tool(family, PathBuf::from(path)).await),
+    )
+        .into_response()
+}
+
 pub(super) async fn add_custom_preflight(
     State(state): State<AppState>,
     ApiJson(body): ApiJson<CustomToolRequest>,

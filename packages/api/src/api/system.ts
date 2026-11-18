@@ -12,6 +12,7 @@ import {
     lanSessionRevokePath,
     preflightCustomItemPath,
     preflightCustomPath,
+    preflightProbePath,
     preflightRefreshPath,
     settingsPath,
     settingsPythonInterpreterPath,
@@ -93,6 +94,18 @@ export function useDiagnosticsBundle() {
                 DiagnosticsBundleSchema,
             );
         },
+    });
+}
+
+/**
+ * Interrogates a candidate executable without saving it. The dependency draft uses this
+ * so Locate can report whether a file is usable before the page-level Save commits it.
+ */
+export function useProbeCustomTool() {
+    const transport = useTransport();
+    return useMutation({
+        mutationFn: (input: CustomToolRequest) =>
+            transport.post(preflightProbePath(), input, PreflightCheckSchema),
     });
 }
 

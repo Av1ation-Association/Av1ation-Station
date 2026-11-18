@@ -2,9 +2,11 @@ import { useRefreshPreflight } from "@av1ation/api";
 import type { PreflightCheck, PreflightReport } from "@av1ation/contracts";
 
 import { Button } from "../../shared/Button";
-import { DependencyRow } from "./DependencyRow";
+import { DraftActions } from "../../shared/TopBarActions";
+import { DependencyRow, type DependencyRowDraft } from "./DependencyRow";
 import { PythonInterpreterGroup } from "./PythonInterpreterGroup";
 import { SceneModelGroup } from "./SceneModelGroup";
+import { sourceOf, useDependencyDraft } from "./useDependencyDraft";
 
 const GROUPS = [
     { id: "decode", label: "Decode" },
@@ -61,7 +63,15 @@ function dependencySections(checks: PreflightCheck[]) {
     });
 }
 
-function DependencyGroup({ label, checks }: { label: string; checks: PreflightCheck[] }) {
+function DependencyGroup({
+    label,
+    checks,
+    rowDraft,
+}: {
+    label: string;
+    checks: PreflightCheck[];
+    rowDraft?: ((check: PreflightCheck) => DependencyRowDraft) | undefined;
+}) {
     if (checks.length === 0) {
         return null;
     }
@@ -77,7 +87,11 @@ function DependencyGroup({ label, checks }: { label: string; checks: PreflightCh
             </h2>
             <div className="space-y-2">
                 {checks.map((check) => (
-                    <DependencyRow key={check.id} check={check} />
+                    <DependencyRow
+                        key={check.id}
+                        check={check}
+                        {...(rowDraft === undefined ? {} : { draft: rowDraft(check) })}
+                    />
                 ))}
             </div>
         </section>
@@ -98,9 +112,36 @@ export function DependencyInventory({
     const other = report.checks.filter(
         (check) => !known.has(check.capability) && check.id !== "scene-model",
     );
+    const draft = useDependencyDraft(report, !compact);
+    const rowDraft = (check: PreflightCheck): DependencyRowDraft => ({
+        source: draft.value.sources[check.id] ?? sourceOf(check),
+        onSource: (source) => draft.setSource(check.id, source),
+        candidate: draft.value.candidates[check.id],
+        onCandidate: (path, result) => draft.setCandidate(check.id, path, result),
+        removal: draft.value.removals[check.id] === true,
+        onRemove: () => draft.requestRemoval(check.id),
+    });
 
     return (
         <div className="min-w-0">
+            {compact ? null : (
+                <DraftActions
+                    dirty={draft.actions.dirty}
+                    pending={draft.actions.pending}
+                    onSave={draft.actions.onSave}
+                    onDiscard={draft.actions.onDiscard}
+                    canSave={draft.canSave}
+                    canUndo={draft.actions.canUndo}
+                    canRedo={draft.actions.canRedo}
+                    onUndo={draft.actions.onUndo}
+                    onRedo={draft.actions.onRedo}
+                />
+            )}
+            {draft.error === null ? null : (
+                <p role="alert" className="mb-3 mt-0 text-[11.5px] leading-relaxed text-danger">
+                    {draft.error}
+                </p>
+            )}
             {/* A masonry flow, not a grid: capability groups have very different heights,
                 and a grid pins every section in a row to the tallest one, leaving holes
                 under the short sections. Columns pack them, and each section opts out of
@@ -115,9 +156,14 @@ export function DependencyInventory({
                                 key={section.key}
                                 label={section.label}
                                 checks={section.checks}
+                                rowDraft={compact ? undefined : rowDraft}
                             />
                         ))}
-                        <DependencyGroup label="Other" checks={other} />
+                        <DependencyGroup
+                            label="Other"
+                            checks={other}
+                            rowDraft={compact ? undefined : rowDraft}
+                        />
                     </>
                 )}
             </div>

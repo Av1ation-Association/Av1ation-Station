@@ -191,6 +191,53 @@ async fn engine_catalogues_and_the_storage_overview_are_served() {
 }
 
 #[tokio::test]
+async fn a_custom_probe_returns_a_candidate_without_adding_an_inventory_row() {
+    let app = router(health_state());
+    let request = Request::post("/api/preflight/probe")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"kind":"x265","path":"av1ation-definitely-not-installed"}"#,
+        ))
+        .unwrap();
+    let (status, body) = send(app.clone(), request).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["id"], "custom:x265");
+    assert_eq!(body["origin"], "custom");
+    assert_eq!(body["path"], "av1ation-definitely-not-installed");
+    assert_eq!(body["available"], false);
+
+    let (status, health) = send(
+        app,
+        Request::get("/api/health").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(health["preflight"]["total_count"], 3);
+    assert!(
+        health["preflight"]["checks"]
+            .as_array()
+            .expect("checks array")
+            .iter()
+            .all(|check| check["id"] != "custom:x265"),
+        "a probe must not add a custom row before Save"
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_probe_family_is_rejected_before_probing() {
+    let app = router(health_state());
+    let request = Request::post("/api/preflight/probe")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"kind":"not-a-tool","path":"/tmp/tool"}"#))
+        .unwrap();
+    let (status, body) = send(app, request).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "INVALID_CONFIG");
+}
+
+#[tokio::test]
 async fn a_malformed_custom_probe_still_returns_the_error_envelope() {
     let app = router(health_state());
     let request = Request::post("/api/preflight/custom")

@@ -265,6 +265,32 @@ impl PreflightCache {
         report
     }
 
+    /// Interrogate one executable without changing the inventory or saving its path.
+    ///
+    /// The settings screen uses this for Locate: a candidate has to be probed before the
+    /// draft can say whether it is usable, but choosing a file must not commit it. The
+    /// returned check is built with the same projection as an accepted custom row so the
+    /// draft and the saved inventory cannot disagree about availability or detail.
+    pub(crate) async fn probe_custom(&self, family: ToolFamily, path: PathBuf) -> PreflightCheck {
+        let probe_path = path.clone();
+        let probe = match tokio::task::spawn_blocking(move || probe_tool(family, &probe_path)).await
+        {
+            Ok(probe) => probe,
+            Err(error) => {
+                tracing::error!(%error, "the custom executable probe task failed");
+                probeless(family, "the probe task did not run".to_owned())
+            }
+        };
+        check_from(
+            probe,
+            Some(path.to_string_lossy().into_owned()),
+            None,
+            &BTreeMap::new(),
+            self.tools_dir.as_deref(),
+            None,
+        )
+    }
+
     /// Interrogate one custom executable. Accepted probes are persisted before the cache
     /// changes, so a failed write returns an error instead of pretending the setting stuck.
     /// Rejected probes are transient and do not overwrite a working saved path.

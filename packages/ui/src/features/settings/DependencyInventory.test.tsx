@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
 import { MockTransport } from "@av1ation/api";
 import type { PreflightCheck, PreflightReport } from "@av1ation/contracts";
 
+import { TopBarTargetContext } from "../../shared/TopBarActions";
 import { renderWithApi } from "../../test/render";
 import { DependencyInventory, Diagnostics, LoadingSettings } from "./DependencyInventory";
 
@@ -97,6 +98,152 @@ it("shows the dependency loading skeleton", () => {
     const view = render(<LoadingSettings />);
 
     expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+});
+
+class RecordingDependencyTransport extends MockTransport {
+    readonly writes: string[] = [];
+    readonly custom: Array<{ kind: string; path: string }> = [];
+
+    override async putJson<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+        if (path === "/api/settings/tool-source") {
+            this.writes.push((body as { id: string }).id);
+        }
+        return super.putJson(path, body, schema);
+    }
+
+    override async post<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+        if (path === "/api/preflight/custom") {
+            this.custom.push(body as { kind: string; path: string });
+        }
+        return super.post(path, body, schema);
+    }
+}
+
+function providerCheck(id: string, label: string): PreflightCheck {
+    return check({
+        id,
+        label,
+        capability: id === "vapoursynth" ? "decode" : "metric",
+        available: true,
+        detail: "system build",
+        selected_source: "system",
+        providers: [
+            {
+                source: "bundled",
+                available: true,
+                detail: "bundled build",
+                active: false,
+                checked: true,
+            },
+            {
+                source: "system",
+                available: true,
+                detail: "system build",
+                active: true,
+                checked: true,
+            },
+        ],
+    });
+}
+
+it("keeps provider changes in a page draft and discards both together", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    renderWithApi(
+        <TopBarTargetContext.Provider value={target}>
+            <DependencyInventory
+                report={report([
+                    providerCheck("vapoursynth", "VapourSynth"),
+                    providerCheck("metric:vmaf", "VMAF"),
+                ])}
+            />
+        </TopBarTargetContext.Provider>,
+        { transport: new MockTransport() },
+    );
+
+    screen.getByText("VapourSynth").closest("summary")?.click();
+    screen.getByText("VMAF").closest("summary")?.click();
+    const bundled = screen.getAllByRole<HTMLButtonElement>("radio", { name: /^Bundled/u });
+    bundled.forEach((button) => fireEvent.click(button));
+
+    await screen.findByText(/Save to use the bundled runtime/u);
+    fireEvent.click(within(target).getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => {
+        expect(
+            screen
+                .getAllByRole<HTMLButtonElement>("radio", { name: /^System/u })
+                .every((button) => button.getAttribute("aria-checked") === "true"),
+        ).toBe(true);
+    });
+});
+
+it("saves every drafted provider when the page Save is pressed", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const transport = new RecordingDependencyTransport();
+    renderWithApi(
+        <TopBarTargetContext.Provider value={target}>
+            <DependencyInventory
+                report={report([
+                    providerCheck("vapoursynth", "VapourSynth"),
+                    providerCheck("metric:vmaf", "VMAF"),
+                ])}
+            />
+        </TopBarTargetContext.Provider>,
+        { transport },
+    );
+
+    screen.getByText("VapourSynth").closest("summary")?.click();
+    screen.getByText("VMAF").closest("summary")?.click();
+    screen
+        .getAllByRole<HTMLButtonElement>("radio", { name: /^Bundled/u })
+        .forEach((button) => fireEvent.click(button));
+
+    fireEvent.click(within(target).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+        expect(transport.writes).toEqual(["vapoursynth", "metric:vmaf"]);
+    });
+});
+
+it("probes a located executable without accepting it until Save", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const picked = "C:/Tools/MKVToolNix/mkvmerge.exe";
+    const transport = new RecordingDependencyTransport({}, { pickExecutable: async () => picked });
+    renderWithApi(
+        <TopBarTargetContext.Provider value={target}>
+            <DependencyInventory
+                report={report([
+                    check({
+                        id: "mkvmerge",
+                        label: "MKVToolNix",
+                        capability: "muxing",
+                        detail: "mkvmerge not found on PATH",
+                        remediation: "Install MKVToolNix and put `mkvmerge` on PATH.",
+                    }),
+                ])}
+            />
+        </TopBarTargetContext.Provider>,
+        { transport },
+    );
+
+    const row = screen.getByText("MKVToolNix").closest("details");
+    if (row === null) {
+        throw new Error("the MKVToolNix row did not render");
+    }
+    fireEvent.click(within(row).getByRole("button", { name: /Locate/ }));
+    await screen.findByText(/passed the probe\. Save to use it/u);
+    expect(transport.custom).toEqual([]);
+    expect(within(target).getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(
+        false,
+    );
+
+    fireEvent.click(within(target).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+        expect(transport.custom).toEqual([{ kind: "mkvmerge", path: picked }]);
+    });
 });
 
 class FailingRefreshTransport extends MockTransport {

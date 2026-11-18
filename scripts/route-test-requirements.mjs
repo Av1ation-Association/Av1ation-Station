@@ -16,6 +16,7 @@ export const ROUTE_TEST_REQUIREMENTS = {
     "GET /api/update": ["success"],
     "GET /api/diagnostics/bundle": ["success", "validation", "not-found"],
     "POST /api/preflight/refresh": ["success"],
+    "POST /api/preflight/probe": ["success", "validation"],
     "POST /api/preflight/custom": ["success", "validation"],
     "DELETE /api/preflight/custom/{id}": ["success", "not-found"],
     "POST /api/script/materialise": ["success", "validation", "not-found"],

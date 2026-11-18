@@ -615,6 +615,15 @@ impl AppState {
         self.preflight.add_custom(family, path).await
     }
 
+    /// Probe a candidate executable for the dependency draft without saving it.
+    pub(crate) async fn probe_custom_tool(
+        &self,
+        family: ToolFamily,
+        path: PathBuf,
+    ) -> PreflightCheck {
+        self.preflight.probe_custom(family, path).await
+    }
+
     /// Remove a user-provided executable by its inventory id.
     pub(crate) async fn remove_custom_tool(&self, id: &str) -> Result<bool, String> {
         self.preflight.remove_custom(id).await

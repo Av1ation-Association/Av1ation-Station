@@ -4,6 +4,7 @@ export const toolchainPath = () => `/api/toolchain`;
 export const updatePath = () => `/api/update`;
 export const diagnosticsBundlePath = () => `/api/diagnostics/bundle`;
 export const preflightRefreshPath = () => `/api/preflight/refresh`;
+export const preflightProbePath = () => `/api/preflight/probe`;
 export const preflightCustomPath = () => `/api/preflight/custom`;
 export const preflightCustomItemPath = (id: string | number) =>
     `/api/preflight/custom/${encodeURIComponent(String(id))}`;

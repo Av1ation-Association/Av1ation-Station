@@ -123,6 +123,12 @@ routes! {
             post => (system::refresh_preflight, "api::routes::system", "discard the cached report, probe again, and return the new report"),
         },
     },
+    "preflight.probe" => {
+        path: "/api/preflight/probe",
+        methods: {
+            post => (system::probe_custom_preflight, "api::routes::system", "probe one user-provided executable against a family and return its candidate check without saving it"),
+        },
+    },
     "preflight.custom" => {
         path: "/api/preflight/custom",
         methods: {

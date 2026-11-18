@@ -65,7 +65,8 @@ export function SettingsScreen() {
                                 }`}
                             >
                                 {value}
-                                {value === "Encoders" && draftDirty ? (
+                                {(value === "Encoders" || value === "Dependencies") &&
+                                draftDirty ? (
                                     <span
                                         data-tip="Changes unsaved"
                                         className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-warning align-middle"
