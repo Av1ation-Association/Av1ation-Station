@@ -544,6 +544,9 @@ function notesFor({
     const hasBundled = artifacts.some((artifact) => artifact.variant === "bundled");
     const hasSystem = artifacts.some((artifact) => artifact.variant === "system");
     const hasWindows = platforms.some((platform) => platform.os === "windows");
+    const hasWindowsMsi = artifacts.some(
+        (artifact) => artifact.platform === "windows" && artifact.format === "msi",
+    );
     const hasMacos = platforms.some((platform) => platform.os === "macos");
     const hasLinux = platforms.some((platform) => platform.os === "linux");
     const hasWindowsBundled = artifacts.some(
@@ -576,7 +579,7 @@ function notesFor({
     if (hasWindows) {
         installSections.push(`### Windows
 
-Run the \`.msi\` or \`-setup.exe\` for the variant you want. ${release.codeSigned ? "The installers are Authenticode-signed." : "The installers are unsigned, so Windows SmartScreen may show a warning; verify the SHA-256 below before choosing **More info → Run anyway**."}
+${hasWindowsMsi ? "Run the `.msi` or `-setup.exe`" : "Run the `-setup.exe`"} for the variant you want. ${release.codeSigned ? "The installers are Authenticode-signed." : "The installers are unsigned, so Windows SmartScreen may show a warning; verify the SHA-256 below before choosing **More info → Run anyway**."}
 
 To use a portable ZIP, unzip it and run \`av1ation-desktop.exe\`. Keep \`web/\` beside the executable. The bundled portable also needs its \`tools/\` directory beside the executable. The system portable has no \`tools/\` directory and expects system providers.
 
@@ -948,6 +951,7 @@ function writeReleaseManifest({ tag: requestedTag, branch: requestedBranch } = {
 }
 
 export {
+    notesFor,
     parseBranchArgument,
     parseReleaseTag,
     parseTagArgument,

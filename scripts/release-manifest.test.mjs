@@ -10,6 +10,7 @@ import { projectRoot } from "./build-paths.mjs";
 import {
     collectReleaseChanges,
     isReleaseAssetPath,
+    notesFor,
     parseConventionalCommit,
     parseBranchArgument,
     parseReleaseTag,
@@ -328,5 +329,57 @@ describe("release note changes", () => {
         expect(text).toContain("### Fixes");
         expect(text).toContain("### Other changes");
         expect(text).toContain("`abc1234`");
+    });
+});
+
+describe("release note installer guidance", () => {
+    const release = releaseShape({ tag: rcTag, version: rcVersion });
+    const exe = {
+        name: "Av1ation Station_0.1.0-rc.1_x64-setup-bundled.exe",
+        platform: "windows",
+        arch: "x86_64",
+        variant: "bundled",
+        format: "exe",
+        kind: "installer",
+        size: 1024,
+        sha256: "a".repeat(64),
+    };
+    const windows = (artifacts) => ({
+        os: "windows",
+        arch: "x86_64",
+        target: "x86_64-pc-windows-msvc",
+        label: "Windows x64",
+        variants: new Map([["bundled", artifacts]]),
+    });
+    const notes = (artifacts) =>
+        notesFor({
+            artifacts,
+            platforms: [windows(artifacts)],
+            featureScreenshots: [],
+            changes: "## Changes\n\n",
+            version: rcVersion,
+            tag: rcTag,
+            sourceCommit: "abc1234",
+            branch: "main",
+            release,
+        });
+
+    it("offers only the NSIS installer when the candidate has no MSI", () => {
+        const text = notes([exe]);
+
+        expect(text).toContain("Run the `-setup.exe` for the variant you want.");
+        expect(text).not.toContain("`.msi`");
+    });
+
+    it("offers both installers when the artifact set includes an MSI", () => {
+        const msi = {
+            ...exe,
+            name: "Av1ation Station_0.1.0-rc.1_x64-bundled.msi",
+            format: "msi",
+        };
+
+        expect(notes([exe, msi])).toContain(
+            "Run the `.msi` or `-setup.exe` for the variant you want.",
+        );
     });
 });
