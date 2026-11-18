@@ -54,3 +54,51 @@ publishes no `latest.json`. Clean-VM and the manual release plan are deferred as
 labels; `docs/packaging.md` records the unverified macOS bundle; `docs/progress.md` marks
 5.8/5.25/5.26 as partial and 5.6/5.13 as deferred. The package job keeps macOS artifacts in
 the release but does not require a macOS host to pass it.
+
+### 4. Phase 6 screens proceed from checked-in boards while Penpot is unavailable
+
+**Status:** accepted provisionally; live-board reconciliation required before the stable tag.
+
+**Context.** The Penpot MCP service is no longer available in this environment. Several Phase
+6 items still need screen work, and the owner has authorised continuing the backlog without
+the live file rather than stopping delivery.
+
+**Decision.** Remaining Phase 6 screen work may be built from the checked-in
+`design/penpot/boards/*.js` generators, the existing components, and the semantic tokens. A
+screen built this way is accepted provisionally: it is called out in the hand-off, and every
+changed screen is reconciled against the live board as soon as the Penpot service is
+available. A surface with no checked-in generator at all is not invented; it is deferred for
+design input instead.
+
+**Consequences.** `AGENTS.md` §2.12 and `docs/frontend-penpot.md` describe the exception.
+`docs/progress.md` records the provisional screens and the outstanding reconciliation. This
+entry is removed only when the live comparison is recorded.
+
+### 5. Portable data root follows the launch artifact
+
+**Status:** accepted.
+
+**Context.** A3 required every portable installation to keep projects, settings, logs,
+thumbnails, scratch and VapourSynth configuration inside the installation directory. The
+first slice shipped a `portable` marker only in the Windows ZIP. The macOS and Linux
+portable forms were labelled portable but still wrote to the platform app-data directory,
+and their executables do not run from a writable install directory: a macOS binary lives
+inside `<Name>.app/Contents/MacOS`, and an AppImage binary lives in a read-only temporary
+mount.
+
+**Decision.** Portable mode stays an opt-in empty file named `portable`, resolved against
+the artifact the user downloaded rather than the running binary:
+
+- Windows: the executable's directory (the extracted ZIP).
+- macOS: the directory holding the `.app` bundle. The ZIP ships the marker beside the
+  bundle, outside its signature, and the data folder lands beside it on first run.
+- Linux: the AppImage runtime's `$APPIMAGE` directory. The AppImage cannot carry a sibling
+  file, so the user opts in by creating an empty `portable` file beside it. Without the
+  marker it keeps the platform app-data directory.
+
+**Consequences.** `rust/desktop-shell/src/main.rs` owns the artifact-directory resolution
+and its tests; the service keeps deriving portable mode from the data root's parent, so no
+second flag crosses the boundary. `scripts/collect-release.mjs` writes the marker into the
+Windows ZIP and the macOS app ZIP, `scripts/release-package-check.mjs` checks both, and
+`docs/packaging.md` and `docs/releases.md` record the three forms. Packaged unzip-and-run
+checks remain pending, especially on macOS.

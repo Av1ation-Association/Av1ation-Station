@@ -21,15 +21,15 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 | POST   | `/api/preflight/custom`                                                     | 3     | success, validation                    | yes     | yes        | no        | no     | —       | —         |
 | DELETE | `/api/preflight/custom/{id}`                                                | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | POST   | `/api/script/materialise`                                                   | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
-| GET    | `/api/settings`                                                             | 12    | success                                | yes     | no         | no        | no     | —       | —         |
+| GET    | `/api/settings`                                                             | 13    | success                                | yes     | no         | no        | no     | —       | —         |
 | PATCH  | `/api/settings`                                                             | 8     | success, validation                    | yes     | yes        | no        | no     | —       | —         |
 | PUT    | `/api/settings/scene-model`                                                 | 2     | success, validation, locked            | yes     | yes        | no        | yes    | —       | —         |
 | PUT    | `/api/settings/python-interpreter`                                          | 2     | success, validation                    | yes     | yes        | no        | no     | —       | —         |
 | PUT    | `/api/settings/tool-source`                                                 | 2     | success, validation                    | yes     | yes        | no        | no     | —       | —         |
 | GET    | `/api/settings/templates`                                                   | 1     | success                                | yes     | no         | no        | no     | —       | —         |
 | POST   | `/api/settings/templates`                                                   | 7     | success, validation                    | yes     | yes        | no        | no     | —       | —         |
-| PUT    | `/api/settings/templates/default`                                           | 2     | success, validation                    | yes     | yes        | yes       | no     | —       | —         |
-| PUT    | `/api/settings/templates/{template_id}`                                     | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
+| PUT    | `/api/settings/templates/default`                                           | 3     | success, validation                    | yes     | yes        | yes       | no     | —       | —         |
+| PUT    | `/api/settings/templates/{template_id}`                                     | 3     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | DELETE | `/api/settings/templates/{template_id}`                                     | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | GET    | `/api/settings/templates/{template_id}/defaults`                            | 1     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | PUT    | `/api/settings/templates/{template_id}/defaults`                            | 4     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
@@ -39,20 +39,20 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 | PUT    | `/api/settings/templates/{template_id}/general`                             | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | GET    | `/api/settings/templates/{template_id}/scripts`                             | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | GET    | `/api/projects`                                                             | 7     | success                                | yes     | no         | no        | no     | —       | —         |
-| POST   | `/api/projects`                                                             | 87    | success, validation                    | yes     | yes        | no        | no     | —       | —         |
+| POST   | `/api/projects`                                                             | 92    | success, validation                    | yes     | yes        | no        | no     | —       | —         |
 | POST   | `/api/projects/import`                                                      | 2     | success, validation, not found         | yes     | yes        | no        | no     | —       | not found |
 | GET    | `/api/projects/{project_id}`                                                | 6     | success, not found                     | yes     | yes        | yes       | no     | —       | —         |
 | PATCH  | `/api/projects/{project_id}`                                                | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | DELETE | `/api/projects/{project_id}`                                                | 4     | success, not found, locked             | yes     | no         | yes       | yes    | —       | —         |
-| GET    | `/api/projects/{project_id}/config`                                         | 6     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
-| PUT    | `/api/projects/{project_id}/config`                                         | 18    | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
+| GET    | `/api/projects/{project_id}/config`                                         | 7     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
+| PUT    | `/api/projects/{project_id}/config`                                         | 21    | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | PUT    | `/api/projects/{project_id}/general`                                        | 3     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | POST   | `/api/projects/{project_id}/template`                                       | 2     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | PUT    | `/api/projects/{project_id}/defaults`                                       | 2     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | GET    | `/api/projects/{project_id}/scripts`                                        | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | GET    | `/api/projects/{project_id}/export`                                         | 3     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | GET    | `/api/projects/{project_id}/videos`                                         | 5     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
-| POST   | `/api/projects/{project_id}/videos`                                         | 71    | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
+| POST   | `/api/projects/{project_id}/videos`                                         | 74    | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | PATCH  | `/api/projects/{project_id}/videos/order`                                   | 3     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | POST   | `/api/projects/{project_id}/videos/remove`                                  | 3     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | GET    | `/api/projects/{project_id}/videos/{video_id}`                              | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
@@ -62,10 +62,10 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 | GET    | `/api/projects/{project_id}/videos/{video_id}/config`                       | 3     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | GET    | `/api/projects/{project_id}/videos/{video_id}/general`                      | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | PUT    | `/api/projects/{project_id}/videos/{video_id}/general`                      | 2     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
-| GET    | `/api/projects/{project_id}/videos/{video_id}/storage`                      | 3     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
+| GET    | `/api/projects/{project_id}/videos/{video_id}/storage`                      | 4     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | PUT    | `/api/projects/{project_id}/videos/{video_id}/storage`                      | 5     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | GET    | `/api/projects/{project_id}/videos/{video_id}/history`                      | 3     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
-| GET    | `/api/projects/{project_id}/videos/{video_id}/media`                        | 1     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
+| GET    | `/api/projects/{project_id}/videos/{video_id}/media`                        | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | GET    | `/api/projects/{project_id}/videos/{video_id}/frame`                        | 2     | success, validation, not found         | no      | yes        | yes       | no     | —       | success   |
 | GET    | `/api/projects/{project_id}/videos/{video_id}/audio-tracks`                 | 1     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | POST   | `/api/projects/{project_id}/videos/{video_id}/concat-inventory`             | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
@@ -90,7 +90,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 | PUT    | `/api/projects/{project_id}/videos/{video_id}/scenes/{index}/sequence-data` | 2     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | POST   | `/api/projects/{project_id}/videos/{video_id}/validate`                     | 5     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | POST   | `/api/projects/{project_id}/videos/{video_id}/run`                          | 2     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
-| POST   | `/api/projects/{project_id}/videos/{video_id}/encode`                       | 28    | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
+| POST   | `/api/projects/{project_id}/videos/{video_id}/encode`                       | 29    | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | DELETE | `/api/projects/{project_id}/videos/{video_id}/encode`                       | 1     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | POST   | `/api/projects/{project_id}/videos/{video_id}/sequences/{sequence}/reset`   | 3     | success, validation, not found, locked | yes     | yes        | yes       | yes    | —       | —         |
 | GET    | `/api/projects/{project_id}/videos/{video_id}/runs`                         | 3     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
@@ -104,7 +104,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 | DELETE | `/api/encoders/forks/{id}`                                                  | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
 | PUT    | `/api/encoders/{id}/parameters`                                             | 2     | success, validation, not found         | yes     | yes        | yes       | no     | —       | —         |
 | DELETE | `/api/encoders/{id}/parameters`                                             | 2     | success, not found                     | yes     | no         | yes       | no     | —       | —         |
-| GET    | `/api/storage`                                                              | 1     | success                                | yes     | no         | no        | no     | —       | —         |
+| GET    | `/api/storage`                                                              | 2     | success                                | yes     | no         | no        | no     | —       | —         |
 | GET    | `/api/sequences`                                                            | 1     | success                                | yes     | no         | no        | no     | —       | —         |
 | GET    | `/api/config/schema`                                                        | 1     | success                                | yes     | no         | no        | no     | —       | —         |
 | GET    | `/api/config/filters`                                                       | 1     | success                                | yes     | no         | no        | no     | —       | —         |
@@ -153,6 +153,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - GET /api/settings: `rust/crates/service/tests/api/encoders.rs::a_saved_encoder_build_keeps_its_parameters_when_the_file_is_missing`
 - GET /api/settings: `rust/crates/service/tests/api/script.rs::a_missing_plugin_is_reported_for_a_project_and_the_template`
 - GET /api/settings: `rust/crates/service/tests/api/settings.rs::settings_are_readable_before_any_write`
+- GET /api/settings: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
 - GET /api/settings: `rust/crates/service/tests/api/settings.rs::concurrent_settings_patches_keep_both_fields`
 - GET /api/settings: `rust/crates/service/tests/api/settings.rs::a_template_write_and_a_settings_patch_share_one_document`
 - GET /api/settings: `rust/crates/service/tests/api/settings.rs::the_scene_model_is_stored_only_when_the_file_exists`
@@ -184,8 +185,10 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - POST /api/settings/templates: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
 - POST /api/settings/templates: `rust/crates/service/tests/api/settings.rs::a_section_reset_leaves_the_other_sections_alone`
 - POST /api/settings/templates: `rust/crates/service/tests/api/settings.rs::template_routes_serve_validate_bodies_and_report_unknown_ids`
+- PUT /api/settings/templates/default: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
 - PUT /api/settings/templates/default: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
 - PUT /api/settings/templates/default: `rust/crates/service/tests/api/settings.rs::template_routes_serve_validate_bodies_and_report_unknown_ids`
+- PUT /api/settings/templates/{template_id}: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
 - PUT /api/settings/templates/{template_id}: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
 - PUT /api/settings/templates/{template_id}: `rust/crates/service/tests/api/settings.rs::template_routes_serve_validate_bodies_and_report_unknown_ids`
 - DELETE /api/settings/templates/{template_id}: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
@@ -217,6 +220,8 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::a_project_config_resolves_the_engine_defaults_with_provenance`
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::reading_a_config_does_not_rewrite_the_project_document`
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::a_project_config_write_materialises_and_persists_the_document`
+- POST /api/projects: `rust/crates/service/tests/api/project.rs::a_project_config_accepts_descriptor_backed_encoder_options`
+- POST /api/projects: `rust/crates/service/tests/api/project.rs::a_project_config_accepts_the_ivf_unit_variant_and_rejects_unknown_methods`
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::an_invalid_configuration_is_rejected_without_writing`
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::deleting_a_project_removes_every_queued_video_chunk_directory`
 - POST /api/projects: `rust/crates/service/tests/api/project.rs::opt_in_chunk_deletion_waits_for_a_non_empty_output`
@@ -266,12 +271,15 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - POST /api/projects: `rust/crates/service/tests/api/scenes.rs::scene_routes_report_the_lock_unknown_videos_and_bad_bodies`
 - POST /api/projects: `rust/crates/service/tests/api/script.rs::a_video_script_export_reads_live_data_and_omits_the_embedded_module`
 - POST /api/projects: `rust/crates/service/tests/api/script.rs::a_missing_plugin_is_reported_for_a_project_and_the_template`
+- POST /api/projects: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
+- POST /api/projects: `rust/crates/service/tests/api/settings.rs::a_portable_data_root_keeps_storage_inside_the_installation`
 - POST /api/projects: `rust/crates/service/tests/api/settings.rs::a_temp_directory_setting_moves_the_scratch_root_for_new_work`
 - POST /api/projects: `rust/crates/service/tests/api/settings.rs::project_defaults_are_saved_and_copied_into_new_projects`
 - POST /api/projects: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
 - POST /api/projects: `rust/crates/service/tests/api/settings.rs::the_scene_model_is_locked_while_a_run_is_active`
 - POST /api/projects: `rust/crates/service/tests/api/system.rs::a_support_bundle_carries_every_chosen_manifest_and_redacts_the_host_paths`
 - POST /api/projects: `rust/crates/service/tests/api/video.rs::deleting_chunks_is_idempotent_and_leaves_the_video`
+- POST /api/projects: `rust/crates/service/tests/api/video.rs::the_media_route_serves_prepared_decoded_and_encoded_proxies`
 - POST /api/projects: `rust/crates/service/tests/api/video.rs::a_video_storage_directory_can_be_chosen_and_cleared`
 - POST /api/projects: `rust/crates/service/tests/api/video.rs::deleting_custom_video_chunks_removes_the_adopted_directory`
 - POST /api/projects: `rust/crates/service/tests/api/video.rs::a_non_empty_video_storage_directory_is_refused`
@@ -314,9 +322,12 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::reading_a_config_does_not_rewrite_the_project_document`
 - GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_config_for_an_unknown_project_is_not_found`
 - GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_project_config_write_materialises_and_persists_the_document`
+- GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_project_config_accepts_descriptor_backed_encoder_options`
 - GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/settings.rs::project_defaults_are_saved_and_copied_into_new_projects`
 - GET /api/projects/{project_id}/config: `rust/crates/service/tests/api/settings.rs::multiple_templates_are_created_applied_defaulted_and_deleted`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_project_config_write_materialises_and_persists_the_document`
+- PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_project_config_accepts_descriptor_backed_encoder_options`
+- PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::a_project_config_accepts_the_ivf_unit_variant_and_rejects_unknown_methods`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::an_invalid_configuration_is_rejected_without_writing`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/project.rs::project_writes_report_the_lock_validation_and_unknown_projects`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/run.rs::a_second_encode_is_rejected_and_config_is_locked`
@@ -332,6 +343,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/run.rs::a_failure_at_each_pipeline_sequence_names_that_sequence`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/run.rs::run_routes_report_events_queue_and_sequence_reset_statuses`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/scenes.rs::scene_routes_report_the_lock_unknown_videos_and_bad_bodies`
+- PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/settings.rs::the_scene_model_is_locked_while_a_run_is_active`
 - PUT /api/projects/{project_id}/config: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
 - PUT /api/projects/{project_id}/general: `rust/crates/service/tests/api/project.rs::general_defaults_round_trip_and_derive_the_next_output_path`
@@ -395,9 +407,12 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/scenes.rs::scene_routes_report_the_lock_unknown_videos_and_bad_bodies`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/script.rs::a_video_script_export_reads_live_data_and_omits_the_embedded_module`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/script.rs::a_missing_plugin_is_reported_for_a_project_and_the_template`
+- POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
+- POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/settings.rs::a_portable_data_root_keeps_storage_inside_the_installation`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/settings.rs::a_temp_directory_setting_moves_the_scratch_root_for_new_work`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/settings.rs::the_scene_model_is_locked_while_a_run_is_active`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/video.rs::deleting_chunks_is_idempotent_and_leaves_the_video`
+- POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/video.rs::the_media_route_serves_prepared_decoded_and_encoded_proxies`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/video.rs::a_video_storage_directory_can_be_chosen_and_cleared`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/video.rs::deleting_custom_video_chunks_removes_the_adopted_directory`
 - POST /api/projects/{project_id}/videos: `rust/crates/service/tests/api/video.rs::a_non_empty_video_storage_directory_is_refused`
@@ -444,6 +459,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - GET /api/projects/{project_id}/videos/{video_id}/general: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
 - PUT /api/projects/{project_id}/videos/{video_id}/general: `rust/crates/service/tests/api/video.rs::a_video_general_document_round_trips_and_rejects_a_relative_output`
 - PUT /api/projects/{project_id}/videos/{video_id}/general: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
+- GET /api/projects/{project_id}/videos/{video_id}/storage: `rust/crates/service/tests/api/settings.rs::a_portable_data_root_keeps_storage_inside_the_installation`
 - GET /api/projects/{project_id}/videos/{video_id}/storage: `rust/crates/service/tests/api/video.rs::a_video_storage_directory_can_be_chosen_and_cleared`
 - GET /api/projects/{project_id}/videos/{video_id}/storage: `rust/crates/service/tests/api/video.rs::video_storage_names_the_scratch_directory_and_probe_failure_is_data`
 - GET /api/projects/{project_id}/videos/{video_id}/storage: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
@@ -455,6 +471,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - GET /api/projects/{project_id}/videos/{video_id}/history: `rust/crates/service/tests/api/logging.rs::deleting_a_run_removes_its_history_and_its_log`
 - GET /api/projects/{project_id}/videos/{video_id}/history: `rust/crates/service/tests/api/run.rs::a_closed_event_stream_releases_the_singleton`
 - GET /api/projects/{project_id}/videos/{video_id}/history: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
+- GET /api/projects/{project_id}/videos/{video_id}/media: `rust/crates/service/tests/api/video.rs::the_media_route_serves_prepared_decoded_and_encoded_proxies`
 - GET /api/projects/{project_id}/videos/{video_id}/media: `rust/crates/service/tests/api/video.rs::a_video_media_route_streams_its_source_and_honours_ranges`
 - **GET /api/projects/{project_id}/videos/{video_id}/frame**: reviewed waiver (success) — A decoded frame needs a real decoder and a valid video fixture, neither of which is guaranteed in the hermetic route-test host. The missing-frame and unsupported-source refusals are route-tested, and the decoder is exercised by real-media tests where one is available. Reviewed 2026-11-13.
 - GET /api/projects/{project_id}/videos/{video_id}/audio-tracks: `rust/crates/service/tests/api/scenes.rs::a_manual_scene_fills_a_gap_and_an_overlap_is_refused`
@@ -551,6 +568,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/run.rs::a_failure_at_each_pipeline_sequence_names_that_sequence`
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/run.rs::run_routes_report_events_queue_and_sequence_reset_statuses`
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/scenes.rs::scene_routes_report_the_lock_unknown_videos_and_bad_bodies`
+- POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/settings.rs::a_fresh_data_dir_seeds_one_recommended_template_and_it_runs`
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/settings.rs::the_scene_model_is_locked_while_a_run_is_active`
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/video.rs::removing_a_video_removes_its_history_directory`
 - POST /api/projects/{project_id}/videos/{video_id}/encode: `rust/crates/service/tests/api/video.rs::video_routes_report_missing_videos_validation_and_the_run_lock`
@@ -581,6 +599,7 @@ The categories are success (`2xx`), validation (`400`, `422`, `507`), not found 
 - PUT /api/encoders/{id}/parameters: `rust/crates/service/tests/api/encoders.rs::encoder_forks_and_parameter_routes_report_their_status_surface`
 - DELETE /api/encoders/{id}/parameters: `rust/crates/service/tests/api/encoders.rs::a_built_in_encoder_keeps_its_edited_descriptors_until_reset`
 - DELETE /api/encoders/{id}/parameters: `rust/crates/service/tests/api/encoders.rs::encoder_forks_and_parameter_routes_report_their_status_surface`
+- GET /api/storage: `rust/crates/service/tests/api/settings.rs::a_portable_data_root_keeps_storage_inside_the_installation`
 - GET /api/storage: `rust/crates/service/tests/api/system.rs::engine_catalogues_and_the_storage_overview_are_served`
 - GET /api/sequences: `rust/crates/service/tests/api/encoders.rs::the_encoder_and_sequence_catalogues_come_from_the_engine`
 - GET /api/config/schema: `rust/crates/service/tests/api/system.rs::engine_catalogues_and_the_storage_overview_are_served`

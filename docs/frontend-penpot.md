@@ -313,3 +313,12 @@ snapshot is the reviewable audit trail, while the Penpot library remains the sou
 the reviewed file ID, revision, named version and external export checksum. The recovery
 procedure, inventory, and snapshot guidance are in
 [`design/penpot/README.md`](../design/penpot/README.md).
+
+### 10.3 Phase 6 provisional exception
+
+The live Penpot service is no longer reachable in this environment, and the owner has
+authorised finishing the Phase 6 backlog without it. Remaining screen work may proceed from
+the checked-in generators, components and semantic tokens; each changed screen is accepted
+provisionally and must be compared against the live board before the stable tag, as recorded
+in [`docs/decisions.md`](decisions.md). A surface that has no checked-in generator is
+deferred for design input rather than invented.

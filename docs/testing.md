@@ -120,6 +120,11 @@ rejected-row retention, and the FFmpeg muxing target. Settings are tested separa
 round-trip keeps an unrelated `theme` key, and a `config.json` written before startup is
 re-probed into `/api/health` through `AppState::hydrate_preflight`.
 
+The VapourSynth row also carries the fixed plugin list, so a core that loads but lacks a
+script's plugin is not reported as healthy for that script. The engine test checks the list
+with no runtime, the service test checks the contract mapping, `/api/health` checks the
+serialized array, and the dependency-row component test checks available and missing states.
+
 The API route tests are one binary with a thin harness. `tests/api.rs` declares
 `tests/api/{encoders,lan,logging,project,run,scenes,script,settings,system,video}.rs`,
 mirroring the production route modules. A test belongs in the module that owns the handler
@@ -392,8 +397,14 @@ clips with FFmpeg into a per-test `tempfile` directory: native FFMS2 with x264, 
 default, a script that modifies one detected scene, and a live Noise Detector → Parallel
 Encoder run. Generation uses FFV1 (lossless) except where the test needs a keyframe
 interval, which uses the native `mpeg4` encoder; clip generation never requires `libx264`.
-The preview test does need FFmpeg's `libx264` encoder for its H.264 proxy, so the weekly
-job installs a full FFmpeg build rather than the application's LGPL bundle. The service suite also drives
+The preview test prefers FFmpeg's `libx264` encoder for its H.264 proxy and falls back to the
+bundled `x264` or `vpxenc` when that encoder is absent, so the weekly job still installs a
+full FFmpeg build rather than relying on the application's LGPL bundle.
+The service route test `the_media_route_serves_prepared_decoded_and_encoded_proxies` is not
+environment-gated: an injected prepared writer returns a small fragmented MP4, so both the
+decoded and encoded media responses are checked without a GPU, VapourSynth, or a real encode.
+It also asserts that the route received the absolute bundled FFmpeg path with `x264` and
+`vpxenc` beside it. The service suite also drives
 create→encode→concatenate over HTTP and checks the persisted chunks, derived state,
 timeline, and log. No test reads a committed clip: `AV1ATION_FFMPEG` selects a specific
 binary, and `PATH` is the fallback.
