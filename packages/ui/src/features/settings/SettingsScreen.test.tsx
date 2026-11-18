@@ -39,6 +39,22 @@ describe("SettingsScreen", () => {
         }
     });
 
+    it("opens template import from the split Add control", async () => {
+        renderRoute(<SettingsScreen />, {
+            transport: new MockTransport(),
+            route: "/settings",
+            initialEntry: "/settings#project-templates",
+            stubs: ["/settings/encoders/$encoderId/json"],
+            topBar: true,
+        });
+
+        const trigger = await screen.findByRole("button", { name: "More template actions" });
+        fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+        fireEvent.click(trigger);
+
+        expect(await screen.findByRole("menuitem", { name: "Import template…" })).toBeTruthy();
+    });
+
     it("switches from Appearance to Network through the tab strip", async () => {
         const view = renderRoute(<SettingsScreen />, {
             transport: new MockTransport(),

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateExportReport",
+  "description": "What export removed so the file opens on another machine.\n\nLabels only: a removed value is a host path, and echoing it into the response would put\nthe very data the export is removing back into the client and its logs.",
+  "type": "object",
+  "properties": {
+    "includes_scripts": {
+      "description": "Whether the template carries an inline VapourSynth script.",
+      "type": "boolean"
+    },
+    "includes_variables": {
+      "description": "Whether the template carries script variables.",
+      "type": "boolean"
+    },
+    "removed": {
+      "description": "Human-readable labels for values cleared from the archive, in a stable order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "removed",
+    "includes_scripts",
+    "includes_variables"
+  ]
+}

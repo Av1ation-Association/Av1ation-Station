@@ -542,6 +542,19 @@ impl AppState {
         }
     }
 
+    /// Add one imported template under a unique name without changing the default marker.
+    pub(crate) async fn import_template(
+        &self,
+        name: &str,
+        config: serde_json::Value,
+        general: av1ation_contracts::settings::GeneralDefaults,
+    ) -> Result<av1ation_contracts::project::ProjectTemplate, String> {
+        match &self.settings {
+            Some(store) => store.import_template(name, config, general).await,
+            None => Err("Settings persistence is disabled for this host.".to_owned()),
+        }
+    }
+
     /// Replace one template's name, configuration, and General section.
     pub(crate) async fn update_template(
         &self,

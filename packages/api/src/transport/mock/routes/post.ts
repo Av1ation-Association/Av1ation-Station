@@ -111,6 +111,50 @@ export async function post<T>(
         });
         return schema.parse(template);
     }
+    if (path === "/api/settings/templates/import") {
+        const archive = body as {
+            kind?: unknown;
+            schema_version?: unknown;
+            template?: { name?: unknown; config?: unknown; general?: unknown };
+        };
+        if (archive.kind !== "av1ation.project-template") {
+            throw new ApiError(422, null, "This JSON file is not a project template archive.");
+        }
+        if (archive.schema_version !== 1) {
+            throw new ApiError(
+                422,
+                null,
+                "This template uses a schema version this build cannot read.",
+            );
+        }
+        if (archive.template === undefined || typeof archive.template.name !== "string") {
+            throw new ApiError(400, null, "This file is not a valid project template.");
+        }
+        const settings = state.routes.get("/api/settings") as AppSettings;
+        const base = archive.template.name.trim() || "Imported template";
+        let name = base;
+        let index = 2;
+        while (
+            settings.project_templates.some(
+                (template) => template.name.toLowerCase() === name.toLowerCase(),
+            )
+        ) {
+            name = `${base} (${index})`;
+            index += 1;
+        }
+        const template: ProjectTemplate = {
+            id: demoId("template"),
+            name,
+            config: (archive.template.config ?? {}) as ProjectTemplate["config"],
+            general: (archive.template.general ?? {}) as ProjectTemplate["general"],
+            updated_at: new Date().toISOString(),
+        };
+        state.routes.set("/api/settings", {
+            ...settings,
+            project_templates: [...settings.project_templates, template],
+        });
+        return schema.parse({ template, removed: [] });
+    }
     const applyTemplate = /^\/api\/projects\/([^/]+)\/template$/u.exec(path);
     if (applyTemplate !== null) {
         const projectId = decodeURIComponent(applyTemplate[1] ?? "");

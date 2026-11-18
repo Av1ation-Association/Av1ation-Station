@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateArchiveKind",
+  "description": "The discriminator a project-template file carries.\n\nA file is one template, so the kind is explicit rather than inferred from its shape: a\nproject archive or an arbitrary JSON document must be refused with a message that names\nthe file as the wrong kind, not as a malformed template.",
+  "oneOf": [
+    {
+      "description": "The only kind this build reads and writes.",
+      "type": "string",
+      "const": "av1ation.project-template"
+    }
+  ]
+}

@@ -206,20 +206,34 @@ impl SettingsStore {
             }
             let mut general = GeneralDefaults::default();
             crate::project::projects::seed_default_filters(&mut general);
-            let template = ProjectTemplate {
-                id: uuid::Uuid::new_v4().to_string(),
-                name,
-                config: crate::project::projects::default_config(),
-                general,
-                updated_at: Some(crate::project::videos::iso8601(
-                    crate::project::videos::now_epoch(),
-                )),
-            };
+            let template = new_template(name, crate::project::projects::default_config(), general);
             settings.project_templates.push(template.clone());
             sort_templates(&mut settings.project_templates);
             if settings.default_project_template_id.is_none() {
                 settings.default_project_template_id = Some(template.id.clone());
             }
+            Ok((template, true))
+        })
+        .await
+    }
+
+    /// Add one imported template under a name that does not collide with an existing row.
+    ///
+    /// Import is additive: an archive never overwrites a template, and a new row never
+    /// becomes the default. The suffix is applied inside the same write as the insert so two
+    /// concurrent imports cannot choose the same name.
+    pub(crate) async fn import_template(
+        &self,
+        name: &str,
+        config: Value,
+        general: GeneralDefaults,
+    ) -> Result<ProjectTemplate, String> {
+        let name = valid_template_name(name)?;
+        self.write(|settings| {
+            let name = unique_template_name(settings, &name);
+            let template = new_template(name, config, general);
+            settings.project_templates.push(template.clone());
+            sort_templates(&mut settings.project_templates);
             Ok((template, true))
         })
         .await
@@ -664,6 +678,45 @@ fn default_template_id(value: &Value) -> Option<String> {
 
 fn sort_templates(templates: &mut [ProjectTemplate]) {
     templates.sort_by_key(|template| template.name.to_lowercase());
+}
+
+/// Build one template row with the service-owned id and write time.
+fn new_template(name: String, config: Value, general: GeneralDefaults) -> ProjectTemplate {
+    ProjectTemplate {
+        id: uuid::Uuid::new_v4().to_string(),
+        name,
+        config,
+        general,
+        updated_at: Some(crate::project::videos::iso8601(
+            crate::project::videos::now_epoch(),
+        )),
+    }
+}
+
+fn unique_template_name(settings: &AppSettings, name: &str) -> String {
+    if !settings
+        .project_templates
+        .iter()
+        .any(|template| template.name.eq_ignore_ascii_case(name))
+    {
+        return name.to_owned();
+    }
+    let base = name.trim();
+    let mut index = 2;
+    loop {
+        let suffix = format!(" ({index})");
+        let limit = 120usize.saturating_sub(suffix.chars().count());
+        let stem: String = base.chars().take(limit).collect();
+        let candidate = format!("{}{suffix}", stem.trim_end());
+        if !settings
+            .project_templates
+            .iter()
+            .any(|template| template.name.eq_ignore_ascii_case(&candidate))
+        {
+            return candidate;
+        }
+        index += 1;
+    }
 }
 
 fn valid_template_name(name: &str) -> Result<String, String> {
@@ -1257,6 +1310,32 @@ mod tests {
                 .await
                 .expect("read"),
             "not json"
+        );
+        tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn an_imported_template_gets_a_unique_name_and_never_the_default_marker() {
+        let dir = temporary_dir();
+        let store = SettingsStore::new(&dir);
+        let first = store.add_template("Hero").await.expect("add template");
+        let imported = store
+            .import_template(
+                "hero",
+                crate::project::projects::default_config(),
+                GeneralDefaults::default(),
+            )
+            .await
+            .expect("import");
+
+        assert_eq!(imported.name, "hero (2)");
+        assert_ne!(imported.id, first.id);
+        let loaded = store.load().await;
+        assert_eq!(loaded.project_templates.len(), 2);
+        assert_eq!(
+            loaded.default_project_template_id.as_deref(),
+            Some(first.id.as_str()),
+            "an import must not take the default marker"
         );
         tokio::fs::remove_dir_all(dir).await.expect("cleanup");
     }

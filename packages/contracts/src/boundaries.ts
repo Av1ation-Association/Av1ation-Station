@@ -23,6 +23,8 @@ import preflightReportFixture from "./fixtures/boundary/encoder/preflight-report
 import projectFixture from "./fixtures/boundary/project/project.json";
 import projectSummaryFixture from "./fixtures/boundary/project/project-summary.json";
 import projectTemplateAppliedFixture from "./fixtures/boundary/project/project-template-applied.json";
+import projectTemplateExportFixture from "./fixtures/boundary/project/project-template-export.json";
+import projectTemplateImportResultFixture from "./fixtures/boundary/project/project-template-import-result.json";
 import projectTemplateFixture from "./fixtures/boundary/project/project-template.json";
 import pythonInterpretersFixture from "./fixtures/boundary/encoder/python-interpreters.json";
 import queueBatchStatusFixture from "./fixtures/boundary/queue/queue-batch-status.json";
@@ -70,6 +72,8 @@ import {
     ProjectSchema,
     ProjectSummarySchema,
     ProjectTemplateAppliedSchema,
+    ProjectTemplateExportSchema,
+    ProjectTemplateImportResultSchema,
     ProjectTemplateSchema,
     PythonInterpretersSchema,
     QueueBatchStatusSchema,
@@ -264,6 +268,18 @@ export const BOUNDARY_FIXTURES = [
         schema: ProjectTemplateSchema,
         fixturePath: "project/project-template.json",
         fixture: projectTemplateFixture,
+    },
+    {
+        name: "ProjectTemplateExport",
+        schema: ProjectTemplateExportSchema,
+        fixturePath: "project/project-template-export.json",
+        fixture: projectTemplateExportFixture,
+    },
+    {
+        name: "ProjectTemplateImportResult",
+        schema: ProjectTemplateImportResultSchema,
+        fixturePath: "project/project-template-import-result.json",
+        fixture: projectTemplateImportResultFixture,
     },
     {
         name: "PythonInterpreters",

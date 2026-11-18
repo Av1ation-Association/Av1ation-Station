@@ -1,0 +1,12 @@
+{
+  "template": {
+    "id": "fixture-id",
+    "name": "fixture",
+    "config": {},
+    "general": {
+      "input_kind": "ffms2",
+      "output_mode": "next_to_input"
+    }
+  },
+  "removed": []
+}

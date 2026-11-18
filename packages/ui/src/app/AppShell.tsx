@@ -406,6 +406,23 @@ export function AppShell() {
     const [shortcutsQueued, setShortcutsQueued] = useState(false);
     const [topBarTarget, setTopBarTarget] = useState<HTMLDivElement | null>(null);
 
+    // A file dropped outside the Project Templates target must not navigate the webview to
+    // that file. Only file drags are swallowed; the queue's HTML5 reorder keeps its own
+    // non-file drag events.
+    useEffect(() => {
+        const guard = (event: DragEvent) => {
+            if (event.dataTransfer?.types.includes("Files") === true) {
+                event.preventDefault();
+            }
+        };
+        window.addEventListener("dragover", guard);
+        window.addEventListener("drop", guard);
+        return () => {
+            window.removeEventListener("dragover", guard);
+            window.removeEventListener("drop", guard);
+        };
+    }, []);
+
     // The palette is reachable from anywhere, including a focused editor, so its chord is
     // the shared one rather than a listener this shell owns alone. While the reference is
     // open, the chord belongs to that modal.

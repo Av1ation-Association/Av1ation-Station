@@ -78,6 +78,39 @@ export async function get<T>(state: MockTransport, path: string, schema: ZodType
     if (templateScripts !== null) {
         return schema.parse({ problems: [] });
     }
+    const templateExport = /^\/api\/settings\/templates\/([^/]+)\/export$/u.exec(path);
+    if (templateExport !== null) {
+        const id = decodeURIComponent(templateExport[1] ?? "");
+        const settings = state.routes.get("/api/settings") as AppSettings;
+        const template = settings.project_templates.find((entry) => entry.id === id);
+        if (template === undefined) {
+            throw new ApiError(404, null, "No project template matches that id.");
+        }
+        const slug =
+            template.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/gu, "-")
+                .replace(/^-|-$/gu, "") || "template";
+        const stem = slug.endsWith("-template") ? slug.slice(0, -"-template".length) : slug;
+        return schema.parse({
+            filename: `${stem}-template.json`,
+            archive: {
+                kind: "av1ation.project-template",
+                schema_version: 1,
+                exported_at: new Date().toISOString(),
+                template: {
+                    name: template.name,
+                    config: template.config,
+                    general: template.general,
+                },
+            },
+            report: {
+                removed: [],
+                includes_scripts: false,
+                includes_variables: false,
+            },
+        });
+    }
     if (path === "/api/settings/templates") {
         const settings = state.routes.get("/api/settings") as AppSettings;
         return schema.parse(settings.project_templates);

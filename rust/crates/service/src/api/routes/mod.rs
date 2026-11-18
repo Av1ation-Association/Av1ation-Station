@@ -21,7 +21,8 @@ use av1ation_contracts::platform::{
     AppInfo, LanPairing, LanStatus, PairRequest, StorageOverview, ToolchainInfo, UpdateStatus,
 };
 use av1ation_contracts::project::{
-    ProjectTemplate, ProjectTemplateCreateRequest, ProjectTemplateDefaultRequest,
+    ProjectTemplate, ProjectTemplateArchive, ProjectTemplateCreateRequest,
+    ProjectTemplateDefaultRequest, ProjectTemplateExport, ProjectTemplateImportResult,
     ProjectTemplateUpdate,
 };
 use av1ation_contracts::protocol::{ErrorCode, EventTicket, MediaTicket};
@@ -167,11 +168,11 @@ mod tests {
         let routes = value["routes"]
             .as_array()
             .expect("the route manifest has a routes array");
-        assert_eq!(routes.len(), 93);
+        assert_eq!(routes.len(), 95);
         let methods: usize = routes
             .iter()
             .map(|route| route["methods"].as_array().map_or(0, Vec::len))
             .sum();
-        assert_eq!(methods, 115);
+        assert_eq!(methods, 117);
     }
 }

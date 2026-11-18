@@ -193,6 +193,18 @@
       ]
     },
     {
+      "id": "templates.import",
+      "path": "/api/settings/templates/import",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "settings::import_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "import one portable template archive under a unique name"
+        }
+      ]
+    },
+    {
       "id": "template",
       "path": "/api/settings/templates/{template_id}",
       "methods": [
@@ -207,6 +219,18 @@
           "handler": "settings::delete_project_template",
           "owner": "api::routes::settings",
           "purpose": "delete a project template"
+        }
+      ]
+    },
+    {
+      "id": "template.export",
+      "path": "/api/settings/templates/{template_id}/export",
+      "methods": [
+        {
+          "method": "GET",
+          "handler": "settings::export_project_template",
+          "owner": "api::routes::settings",
+          "purpose": "export one template with host paths removed and report them"
         }
       ]
     },

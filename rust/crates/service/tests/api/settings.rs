@@ -1138,13 +1138,290 @@ async fn template_routes_serve_validate_bodies_and_report_unknown_ids() {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
     let (status, body) = send(
-        app,
+        app.clone(),
         Request::get(format!("/api/settings/templates/{missing}/scripts"))
             .body(Body::empty())
             .unwrap(),
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, body) = send(
+        app,
+        Request::get(format!("/api/settings/templates/{missing}/export"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+/// A template file is one sanitized document. Export clears every host path, import accepts
+/// the same shape, a duplicate name is suffixed, and the default marker never moves.
+#[tokio::test]
+async fn a_template_round_trips_without_host_paths_and_import_suffixes_its_name() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+
+    let (status, created) = send(
+        app.clone(),
+        Request::post("/api/settings/templates")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"name":"Portable"}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let template_id = created["id"].as_str().expect("template id").to_owned();
+
+    let mut config = created["config"].clone();
+    config["encoder"]["SVTAV1"]["executable"] = serde_json::json!("C:/Tools/x265.exe");
+    config["sequences"]["parallel_encoder"]["scenes_directory"] = serde_json::json!("C:/scenes");
+    config["sequences"]["scene_concatenator"]["scenes_directory"] = serde_json::json!("C:/scenes");
+    config["sequences"]["scene_concatenator"]["output"] = serde_json::json!("C:/out.mkv");
+    config["sequences"]["scene_detector"]["input"]["Video"]["path"] =
+        serde_json::json!("C:/media/clip.mkv");
+    let mut general = created["general"].clone();
+    general["output_mode"] = serde_json::json!("folder");
+    general["output_folder"] = serde_json::json!(dir.to_string_lossy().to_string());
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{template_id}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "name": "Portable",
+                    "config": config,
+                    "general": general,
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(
+        saved["config"]["encoder"]["SVTAV1"]["executable"],
+        "C:/Tools/x265.exe"
+    );
+    assert_eq!(saved["general"]["output_mode"], "folder");
+
+    let (status, exported) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{template_id}/export"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{exported}");
+    assert_eq!(exported["filename"], "portable-template.json");
+    assert_eq!(exported["archive"]["kind"], "av1ation.project-template");
+    assert_eq!(exported["archive"]["schema_version"], 1);
+    assert_eq!(
+        exported["archive"]["template"]["config"]["encoder"]["SVTAV1"]["executable"],
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        exported["archive"]["template"]["config"]["sequences"]["scene_detector"]["input"],
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        exported["archive"]["template"]["general"]["output_mode"],
+        "next_to_input"
+    );
+    assert_eq!(
+        exported["report"]["removed"],
+        serde_json::json!([
+            "Custom encoder executable",
+            "Output folder",
+            "Scene directories",
+            "Sequence input paths",
+            "Sequence output path",
+        ])
+    );
+    assert_eq!(exported["report"]["includes_scripts"], false);
+    assert_eq!(exported["report"]["includes_variables"], false);
+
+    let (_, settings) = send(
+        app.clone(),
+        Request::get("/api/settings").body(Body::empty()).unwrap(),
+    )
+    .await;
+    let default_before = settings["default_project_template_id"].clone();
+
+    let (status, imported) = send(
+        app.clone(),
+        Request::post("/api/settings/templates/import")
+            .header("content-type", "application/json")
+            .body(Body::from(exported["archive"].to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{imported}");
+    assert_eq!(imported["template"]["name"], "Portable (2)");
+    assert_ne!(imported["template"]["id"], template_id);
+    assert_eq!(
+        imported["removed"],
+        serde_json::json!([]),
+        "the exported archive is already sanitized"
+    );
+
+    let (_, settings) = send(
+        app.clone(),
+        Request::get("/api/settings").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(settings["default_project_template_id"], default_before);
+
+    tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+#[tokio::test]
+async fn a_template_file_rejects_a_wrong_kind_version_or_shape() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+
+    let (_, created) = send(
+        app.clone(),
+        Request::post("/api/settings/templates")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"name":"Portable"}"#))
+            .unwrap(),
+    )
+    .await;
+    let template_id = created["id"].as_str().expect("template id").to_owned();
+    let (_, exported) = send(
+        app.clone(),
+        Request::get(format!("/api/settings/templates/{template_id}/export"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    let archive = exported["archive"].clone();
+
+    let mut wrong_kind = archive.clone();
+    wrong_kind["kind"] = serde_json::json!("av1ation.project-archive");
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/settings/templates/import")
+            .header("content-type", "application/json")
+            .body(Body::from(wrong_kind.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(
+        body["message"],
+        "This JSON file is not a project template archive."
+    );
+
+    let mut newer = archive.clone();
+    newer["schema_version"] = serde_json::json!(2);
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/settings/templates/import")
+            .header("content-type", "application/json")
+            .body(Body::from(newer.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("schema version 2"))
+    );
+
+    let mut unknown = archive.clone();
+    unknown["future"] = serde_json::json!(true);
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/settings/templates/import")
+            .header("content-type", "application/json")
+            .body(Body::from(unknown.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(
+        body["message"],
+        "This file is not a valid project template."
+    );
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post("/api/settings/templates/import")
+            .header("content-type", "application/json")
+            .body(Body::from("{"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["message"], "The request body could not be read.");
+
+    tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
+/// A General input that names a `.vpy` file cannot be made portable, so export refuses it
+/// with the action that resolves it rather than writing an archive import would reject.
+#[tokio::test]
+async fn export_refuses_a_general_script_file() {
+    let dir = project_dir();
+    tokio::fs::create_dir_all(&dir).await.expect("temp dir");
+    let app = router(project_state(&dir));
+    let script = dir.join("portable.vpy");
+    tokio::fs::write(&script, "clip = None\n")
+        .await
+        .expect("script");
+
+    let (_, created) = send(
+        app.clone(),
+        Request::post("/api/settings/templates")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"name":"Scripted"}"#))
+            .unwrap(),
+    )
+    .await;
+    let template_id = created["id"].as_str().expect("template id").to_owned();
+    let mut general = created["general"].clone();
+    general["input_kind"] = serde_json::json!("vapour_synth_script");
+    general["script_mode"] = serde_json::json!("file");
+    general["script"] = serde_json::json!(script.to_string_lossy().to_string());
+    general["script_text"] = serde_json::Value::Null;
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{template_id}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "name": "Scripted",
+                    "config": created["config"],
+                    "general": general,
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+
+    let (status, body) = send(
+        app,
+        Request::get(format!("/api/settings/templates/{template_id}/export"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("script file"))
+    );
 
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
 }

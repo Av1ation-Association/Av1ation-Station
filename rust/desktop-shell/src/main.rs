@@ -303,6 +303,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 .title("Av1ation Station")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(960.0, 640.0)
+                // The templates screen owns HTML5 file drops. Tauri's native handler would
+                // consume them on Windows before the page sees a drag event.
+                .disable_drag_drop_handler()
                 .initialization_script(&script)
                 .build()?;
 

@@ -100,6 +100,86 @@ pub struct ProjectTemplate {
     pub updated_at: Option<String>,
 }
 
+/// The discriminator a project-template file carries.
+///
+/// A file is one template, so the kind is explicit rather than inferred from its shape: a
+/// project archive or an arbitrary JSON document must be refused with a message that names
+/// the file as the wrong kind, not as a malformed template.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ProjectTemplateArchiveKind {
+    /// The only kind this build reads and writes.
+    #[serde(rename = "av1ation.project-template")]
+    ProjectTemplate,
+}
+
+/// The portable part of one template.
+///
+/// Host paths, the template id, and the default marker are deliberately absent: they belong
+/// to the machine that exported the file, and an imported template is a new row rather than
+/// a replacement for one that already exists.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectTemplateArchiveTemplate {
+    /// Display name, validated and made unique on import.
+    #[schemars(length(min = 1, max = 120))]
+    pub name: String,
+    /// The complete engine configuration.
+    pub config: Value,
+    /// The General defaults, with machine paths removed.
+    pub general: GeneralDefaults,
+}
+
+/// One template in the portable JSON envelope used by export and import.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectTemplateArchive {
+    /// File kind; a wrong value is a different file, not a malformed one.
+    pub kind: ProjectTemplateArchiveKind,
+    /// Envelope schema version, currently `1`.
+    pub schema_version: u32,
+    /// Export instant in UTC ISO-8601 form.
+    pub exported_at: String,
+    /// The template itself.
+    pub template: ProjectTemplateArchiveTemplate,
+}
+
+/// What export removed so the file opens on another machine.
+///
+/// Labels only: a removed value is a host path, and echoing it into the response would put
+/// the very data the export is removing back into the client and its logs.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectTemplateExportReport {
+    /// Human-readable labels for values cleared from the archive, in a stable order.
+    pub removed: Vec<String>,
+    /// Whether the template carries an inline VapourSynth script.
+    pub includes_scripts: bool,
+    /// Whether the template carries script variables.
+    pub includes_variables: bool,
+}
+
+/// One exported template plus the name and report the manager needs.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectTemplateExport {
+    /// Suggested download name, `<slug>-template.json`.
+    pub filename: String,
+    /// The exact bytes to save as that file.
+    pub archive: ProjectTemplateArchive,
+    /// What the archive kept and what portability removed.
+    pub report: ProjectTemplateExportReport,
+}
+
+/// The result of importing one template file.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectTemplateImportResult {
+    /// The newly created template, with its unique name and generated id.
+    pub template: ProjectTemplate,
+    /// Labels for values the import sanitizer removed before saving.
+    pub removed: Vec<String>,
+}
+
 /// Creates a template seeded from the engine defaults.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

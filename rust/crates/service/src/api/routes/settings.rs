@@ -51,6 +51,134 @@ pub(super) async fn add_project_template(
     }
 }
 
+/// Import one portable template file.
+///
+/// The kind and version are read before the strict parse so a project archive or a file
+/// from a newer build gets an explanatory refusal rather than the generic malformed-body
+/// message. The template is then sanitized with the same rule as export, because a file on
+/// disk can be edited by hand.
+pub(super) async fn import_project_template(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<Value>,
+) -> Response {
+    if let Some(kind) = body.get("kind").and_then(Value::as_str)
+        && kind != "av1ation.project-template"
+    {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            "This JSON file is not a project template archive.".to_owned(),
+            Some("Choose a file exported from Settings → Project Templates.".to_owned()),
+        );
+    }
+    if let Some(version) = body.get("schema_version").and_then(Value::as_u64)
+        && version != 1
+    {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            format!("This template uses schema version {version}, which this build cannot read."),
+            Some("Update Av1ation Station, or export the template with this build.".to_owned()),
+        );
+    }
+    let Ok(archive) = serde_json::from_value::<ProjectTemplateArchive>(body) else {
+        return invalid_template_file();
+    };
+    let Ok(sanitized) = crate::project::templates::sanitize(archive.template) else {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            "This template's General input opens a script file on the exporting machine."
+                .to_owned(),
+            Some("Change that template's General input to inline script text before exporting it, then import again.".to_owned()),
+        );
+    };
+
+    let engine = default_config();
+    if let Err(message) = crate::project::config::validate(&sanitized.template.config, &engine) {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            message,
+            Some("Correct the template's configuration before importing it.".to_owned()),
+        );
+    }
+    let general = match crate::project::projects::validate_general(&sanitized.template.general) {
+        Ok(general) => general,
+        Err(error) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidConfig,
+                error.message(),
+                error.hint(),
+            );
+        }
+    };
+    let config = crate::project::config::materialise(
+        &engine,
+        &sanitized.template.config,
+        &std::collections::BTreeMap::new(),
+    );
+    match state
+        .import_template(&sanitized.template.name, config, general)
+        .await
+    {
+        Ok(template) => (
+            StatusCode::CREATED,
+            Json(ProjectTemplateImportResult {
+                template,
+                removed: sanitized.removed,
+            }),
+        )
+            .into_response(),
+        Err(message) => error_response(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidConfig,
+            message,
+            Some("Correct the template name and try again.".to_owned()),
+        ),
+    }
+}
+
+fn invalid_template_file() -> Response {
+    error_response(
+        StatusCode::BAD_REQUEST,
+        ErrorCode::InvalidConfig,
+        "This file is not a valid project template.".to_owned(),
+        Some("Choose a file exported from Settings → Project Templates.".to_owned()),
+    )
+}
+
+/// Export one template as the exact file the manager downloads.
+///
+/// The report is computed from the sanitizer rather than from a diff, so the dialog and the
+/// bytes cannot disagree about what was removed.
+pub(super) async fn export_project_template(
+    State(state): State<AppState>,
+    AxumPath(template_id): AxumPath<String>,
+) -> Response {
+    let Some(template) = template_by_id(&state.settings().await, &template_id) else {
+        return template_not_found(&template_id);
+    };
+    match crate::project::templates::export_document(&template) {
+        Ok((archive, report)) => Json(ProjectTemplateExport {
+            filename: crate::project::templates::filename_for(&template.name),
+            archive,
+            report,
+        })
+        .into_response(),
+        Err(message) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidConfig,
+            message,
+            Some(
+                "Change the template's General input to inline script text, then export again."
+                    .to_owned(),
+            ),
+        ),
+    }
+}
+
 pub(super) async fn update_project_template(
     State(state): State<AppState>,
     AxumPath(template_id): AxumPath<String>,

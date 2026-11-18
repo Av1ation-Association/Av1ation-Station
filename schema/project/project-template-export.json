@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateExport",
+  "description": "One exported template plus the name and report the manager needs.",
+  "type": "object",
+  "properties": {
+    "archive": {
+      "description": "The exact bytes to save as that file.",
+      "$ref": "#/$defs/ProjectTemplateArchive"
+    },
+    "filename": {
+      "description": "Suggested download name, `<slug>-template.json`.",
+      "type": "string"
+    },
+    "report": {
+      "description": "What the archive kept and what portability removed.",
+      "$ref": "#/$defs/ProjectTemplateExportReport"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "filename",
+    "archive",
+    "report"
+  ],
+  "$defs": {
+    "GeneralDefaults": {
+      "description": "Project-level defaults applied to videos added from now on.\n\nExisting queue entries keep the input and output they were created with. The defaults are\nstored on the project rather than inferred at add time, so the LAN browser and the desktop\nwindow add the same video from the same document.",
+      "type": "object",
+      "properties": {
+        "ffms2_filters": {
+          "description": "Native FFMS2 filters, kept as the engine's own typed JSON so the contract never\nmirrors an enum that changes with the engine revision.",
+          "type": "array",
+          "items": true
+        },
+        "import_method": {
+          "description": "Source plugin for the two VapourSynth input kinds. `None` means BestSource, the\nengine's default, so a project written before this field existed keeps its decode\npath.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VapourSynthImporter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index_file": {
+          "description": "Optional `.ffindex` path for the native FFMS2 input. `None` lets the engine place the\nindex beside the source, which is what a machine without a prepared index expects.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "input_kind": {
+          "description": "Decode path for a newly added source.",
+          "$ref": "#/$defs/InputKind"
+        },
+        "output_folder": {
+          "description": "Absolute folder used when `output_mode` is `folder`; absent otherwise.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_mode": {
+          "description": "Where a newly added video's output path is derived.",
+          "$ref": "#/$defs/OutputMode"
+        },
+        "script": {
+          "description": "Absolute path to the `.vpy` file when `input_kind` is `vapour_synth_script` and\n`script_mode` is `file`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "script_mode": {
+          "description": "How the script input is supplied. A document written before this field existed has\n`script` set and no mode, which is read as `file`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptInputMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "script_text": {
+          "description": "Inline VapourSynth script when `script_mode` is `text`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vapour_synth_filters": {
+          "description": "VapourSynth filters, in the same engine-owned JSON form.",
+          "type": "array",
+          "items": true
+        },
+        "variables": {
+          "description": "Extra variables the script reads as `condor_<name>`.\n\nThe runner injects its own reserved keys into the same map and replaces them on every\nopen, so a document cannot change what the scene table, the paths, or the sequence\nconfiguration say.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input_kind",
+        "output_mode"
+      ]
+    },
+    "InputKind": {
+      "description": "How the project decodes the sources of videos added to its queue.",
+      "oneOf": [
+        {
+          "description": "Native FFMS2 decode; requires no optional dependency.",
+          "type": "string",
+          "const": "ffms2"
+        },
+        {
+          "description": "VapourSynth decode through the project's selected import method.",
+          "type": "string",
+          "const": "vapour_synth"
+        },
+        {
+          "description": "A VapourSynth script file the engine loads and feeds its scene variables to.",
+          "type": "string",
+          "const": "vapour_synth_script"
+        }
+      ]
+    },
+    "OutputMode": {
+      "description": "Where the output of a newly added video is written.",
+      "oneOf": [
+        {
+          "description": "Beside the source file, named after it.",
+          "type": "string",
+          "const": "next_to_input"
+        },
+        {
+          "description": "Into one folder, named after the source file.",
+          "type": "string",
+          "const": "folder"
+        }
+      ]
+    },
+    "ProjectTemplateArchive": {
+      "description": "One template in the portable JSON envelope used by export and import.",
+      "type": "object",
+      "properties": {
+        "exported_at": {
+          "description": "Export instant in UTC ISO-8601 form.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "File kind; a wrong value is a different file, not a malformed one.",
+          "$ref": "#/$defs/ProjectTemplateArchiveKind"
+        },
+        "schema_version": {
+          "description": "Envelope schema version, currently `1`.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "template": {
+          "description": "The template itself.",
+          "$ref": "#/$defs/ProjectTemplateArchiveTemplate"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schema_version",
+        "exported_at",
+        "template"
+      ]
+    },
+    "ProjectTemplateArchiveKind": {
+      "description": "The discriminator a project-template file carries.\n\nA file is one template, so the kind is explicit rather than inferred from its shape: a\nproject archive or an arbitrary JSON document must be refused with a message that names\nthe file as the wrong kind, not as a malformed template.",
+      "oneOf": [
+        {
+          "description": "The only kind this build reads and writes.",
+          "type": "string",
+          "const": "av1ation.project-template"
+        }
+      ]
+    },
+    "ProjectTemplateArchiveTemplate": {
+      "description": "The portable part of one template.\n\nHost paths, the template id, and the default marker are deliberately absent: they belong\nto the machine that exported the file, and an imported template is a new row rather than\na replacement for one that already exists.",
+      "type": "object",
+      "properties": {
+        "config": {
+          "description": "The complete engine configuration."
+        },
+        "general": {
+          "description": "The General defaults, with machine paths removed.",
+          "$ref": "#/$defs/GeneralDefaults"
+        },
+        "name": {
+          "description": "Display name, validated and made unique on import.",
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "config",
+        "general"
+      ]
+    },
+    "ProjectTemplateExportReport": {
+      "description": "What export removed so the file opens on another machine.\n\nLabels only: a removed value is a host path, and echoing it into the response would put\nthe very data the export is removing back into the client and its logs.",
+      "type": "object",
+      "properties": {
+        "includes_scripts": {
+          "description": "Whether the template carries an inline VapourSynth script.",
+          "type": "boolean"
+        },
+        "includes_variables": {
+          "description": "Whether the template carries script variables.",
+          "type": "boolean"
+        },
+        "removed": {
+          "description": "Human-readable labels for values cleared from the archive, in a stable order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "removed",
+        "includes_scripts",
+        "includes_variables"
+      ]
+    },
+    "ScriptInputMode": {
+      "description": "How a `vapour_synth_script` input supplies its script.",
+      "oneOf": [
+        {
+          "description": "A `.vpy` file on disk, used as written.",
+          "type": "string",
+          "const": "file"
+        },
+        {
+          "description": "Script text stored in the project document.",
+          "type": "string",
+          "const": "text"
+        }
+      ]
+    },
+    "VapourSynthImporter": {
+      "description": "The VapourSynth source plugin that imports a video into the decode graph.",
+      "oneOf": [
+        {
+          "description": "FFmpegSource, which needs no index file of its own.",
+          "type": "string",
+          "const": "ffms2"
+        },
+        {
+          "description": "BestSource, the engine's default and the fastest of the four for most sources.",
+          "type": "string",
+          "const": "best_source"
+        },
+        {
+          "description": "L-SMASH-Works.",
+          "type": "string",
+          "const": "lsmash"
+        },
+        {
+          "description": "DGDecodeNV, which needs the `dgindexnv` executable.",
+          "type": "string",
+          "const": "dgdecnv"
+        }
+      ]
+    }
+  }
+}

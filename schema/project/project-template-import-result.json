@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectTemplateImportResult",
+  "description": "The result of importing one template file.",
+  "type": "object",
+  "properties": {
+    "removed": {
+      "description": "Labels for values the import sanitizer removed before saving.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "template": {
+      "description": "The newly created template, with its unique name and generated id.",
+      "$ref": "#/$defs/ProjectTemplate"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "template",
+    "removed"
+  ],
+  "$defs": {
+    "GeneralDefaults": {
+      "description": "Project-level defaults applied to videos added from now on.\n\nExisting queue entries keep the input and output they were created with. The defaults are\nstored on the project rather than inferred at add time, so the LAN browser and the desktop\nwindow add the same video from the same document.",
+      "type": "object",
+      "properties": {
+        "ffms2_filters": {
+          "description": "Native FFMS2 filters, kept as the engine's own typed JSON so the contract never\nmirrors an enum that changes with the engine revision.",
+          "type": "array",
+          "items": true
+        },
+        "import_method": {
+          "description": "Source plugin for the two VapourSynth input kinds. `None` means BestSource, the\nengine's default, so a project written before this field existed keeps its decode\npath.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VapourSynthImporter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index_file": {
+          "description": "Optional `.ffindex` path for the native FFMS2 input. `None` lets the engine place the\nindex beside the source, which is what a machine without a prepared index expects.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "input_kind": {
+          "description": "Decode path for a newly added source.",
+          "$ref": "#/$defs/InputKind"
+        },
+        "output_folder": {
+          "description": "Absolute folder used when `output_mode` is `folder`; absent otherwise.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_mode": {
+          "description": "Where a newly added video's output path is derived.",
+          "$ref": "#/$defs/OutputMode"
+        },
+        "script": {
+          "description": "Absolute path to the `.vpy` file when `input_kind` is `vapour_synth_script` and\n`script_mode` is `file`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "script_mode": {
+          "description": "How the script input is supplied. A document written before this field existed has\n`script` set and no mode, which is read as `file`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptInputMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "script_text": {
+          "description": "Inline VapourSynth script when `script_mode` is `text`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vapour_synth_filters": {
+          "description": "VapourSynth filters, in the same engine-owned JSON form.",
+          "type": "array",
+          "items": true
+        },
+        "variables": {
+          "description": "Extra variables the script reads as `condor_<name>`.\n\nThe runner injects its own reserved keys into the same map and replaces them on every\nopen, so a document cannot change what the scene table, the paths, or the sequence\nconfiguration say.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input_kind",
+        "output_mode"
+      ]
+    },
+    "InputKind": {
+      "description": "How the project decodes the sources of videos added to its queue.",
+      "oneOf": [
+        {
+          "description": "Native FFMS2 decode; requires no optional dependency.",
+          "type": "string",
+          "const": "ffms2"
+        },
+        {
+          "description": "VapourSynth decode through the project's selected import method.",
+          "type": "string",
+          "const": "vapour_synth"
+        },
+        {
+          "description": "A VapourSynth script file the engine loads and feeds its scene variables to.",
+          "type": "string",
+          "const": "vapour_synth_script"
+        }
+      ]
+    },
+    "OutputMode": {
+      "description": "Where the output of a newly added video is written.",
+      "oneOf": [
+        {
+          "description": "Beside the source file, named after it.",
+          "type": "string",
+          "const": "next_to_input"
+        },
+        {
+          "description": "Into one folder, named after the source file.",
+          "type": "string",
+          "const": "folder"
+        }
+      ]
+    },
+    "ProjectTemplate": {
+      "description": "One named project template.\n\nThe configuration is materialised when the template is saved, so applying it needs no\nengine default at read time and a later engine revision cannot change what a saved\ntemplate means. A project copies both documents and never references the template.",
+      "type": "object",
+      "properties": {
+        "config": {
+          "description": "The complete engine configuration a project copies."
+        },
+        "general": {
+          "description": "The General defaults a project copies.",
+          "$ref": "#/$defs/GeneralDefaults"
+        },
+        "id": {
+          "description": "Stable identifier; generated by the service, never reused.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Display name, unique case-insensitively among templates.",
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "updated_at": {
+          "description": "Last write, in UTC ISO-8601 form.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "config",
+        "general"
+      ]
+    },
+    "ScriptInputMode": {
+      "description": "How a `vapour_synth_script` input supplies its script.",
+      "oneOf": [
+        {
+          "description": "A `.vpy` file on disk, used as written.",
+          "type": "string",
+          "const": "file"
+        },
+        {
+          "description": "Script text stored in the project document.",
+          "type": "string",
+          "const": "text"
+        }
+      ]
+    },
+    "VapourSynthImporter": {
+      "description": "The VapourSynth source plugin that imports a video into the decode graph.",
+      "oneOf": [
+        {
+          "description": "FFmpegSource, which needs no index file of its own.",
+          "type": "string",
+          "const": "ffms2"
+        },
+        {
+          "description": "BestSource, the engine's default and the fastest of the four for most sources.",
+          "type": "string",
+          "const": "best_source"
+        },
+        {
+          "description": "L-SMASH-Works.",
+          "type": "string",
+          "const": "lsmash"
+        },
+        {
+          "description": "DGDecodeNV, which needs the `dgindexnv` executable.",
+          "type": "string",
+          "const": "dgdecnv"
+        }
+      ]
+    }
+  }
+}

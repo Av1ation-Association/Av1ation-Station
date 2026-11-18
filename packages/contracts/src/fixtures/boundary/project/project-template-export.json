@@ -1,0 +1,21 @@
+{
+  "filename": "fixture-template.json",
+  "archive": {
+    "kind": "av1ation.project-template",
+    "schema_version": 1,
+    "exported_at": "2026-11-18T00:00:00Z",
+    "template": {
+      "name": "fixture",
+      "config": {},
+      "general": {
+        "input_kind": "ffms2",
+        "output_mode": "next_to_input"
+      }
+    }
+  },
+  "report": {
+    "removed": ["Output folder"],
+    "includes_scripts": false,
+    "includes_variables": false
+  }
+}

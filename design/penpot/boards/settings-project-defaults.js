@@ -10,6 +10,8 @@ const page = penpot.currentFile.pages.find((p) => p.name === '04 Settings');
 if (penpot.currentPage.id !== page.id) await penpot.openPage(page);
 
 const OVERVIEW = 'Settings / Project Templates';
+const IMPORT = 'Settings / Project Templates / Import';
+const EXPORT = 'Settings / Project Templates / Export';
 const ENCODING = 'Settings / Project Templates / Encoding';
 const LEGACY = {
   [OVERVIEW]: 'Settings / Project Template',
@@ -102,9 +104,9 @@ function sectionCard(board, name, x, y, w, title, lines, tone) {
   );
 }
 
-function buildOverview() {
-  replaceBoard(OVERVIEW);
-  const b = K.board(null, OVERVIEW, 1504, 1672, W, 900);
+function buildManager(boardName) {
+  replaceBoard(boardName);
+  const b = K.board(null, boardName, 1504, 1672, W, 900);
   settingsChrome(b, W, [
     { label: 'Settings' },
     { label: 'Project Templates', current: true },
@@ -187,13 +189,26 @@ function buildOverview() {
     14,
     { color: 'color.text.on-brand', sw: 2 },
   );
-  K.text(b, 'templates add label', 'Add template', 1292, 126, 108, {
+  K.text(b, 'templates add label', 'Add template', 1292, 126, 82, {
     size: 10.5,
     weight: 'semibold',
     color: 'color.text.on-brand',
     h: 32,
     valign: 'center',
   });
+  K.rect(b, 'templates add divider', 1376, 132, 1, 20, {
+    fill: 'color.brand.hover',
+    r: 0,
+  });
+  K.icon(
+    b,
+    'templates add chevron',
+    '<path d="m6 9 6 6 6-6"/>',
+    1383,
+    134,
+    14,
+    { color: 'color.text.on-brand', sw: 1.8 },
+  );
 
   K.rect(b, 'templates list', 32, 190, 1376, 194, {
     fill: 'color.bg.surface',
@@ -237,7 +252,7 @@ function buildOverview() {
       h: 18,
     });
     if (isDefault) {
-      K.rect(b, 'templates default chip', 1230, y + 18, 84, 22, {
+      K.rect(b, 'templates default chip', 1204, y + 18, 84, 22, {
         fill: 'color.brand.subtle',
         r: 999,
         stroke: 'color.brand.default',
@@ -246,18 +261,27 @@ function buildOverview() {
         b,
         'templates default check',
         '<path d="m5 12 4 4 10-10"/>',
-        1238,
+        1212,
         y + 24,
         11,
         { color: 'color.brand.text', sw: 2 },
       );
-      K.text(b, 'templates default label', 'Default', 1254, y + 18, 55, {
+      K.text(b, 'templates default label', 'Default', 1228, y + 18, 55, {
         size: 10,
         color: 'color.brand.text',
         h: 22,
         valign: 'center',
       });
     }
+    K.icon(
+      b,
+      'templates download ' + i,
+      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+      1296,
+      y + 25,
+      15,
+      { color: 'color.text.secondary', sw: 1.6 },
+    );
     K.icon(
       b,
       'templates delete ' + i,
@@ -268,6 +292,11 @@ function buildOverview() {
       { color: 'color.text.secondary', sw: 1.6 },
     );
   });
+  return b;
+}
+
+function buildOverview() {
+  buildManager(OVERVIEW);
 }
 function field(board, name, x, y, w, value, options = {}) {
   const h = options.h || 32;
@@ -308,6 +337,150 @@ function toggle(board, name, x, y, on) {
   K.rect(board, 'toggle knob ' + name, on ? x + 18 : x + 2, y + 2, 14, 14, {
     fill: on ? 'color.text.on-brand' : 'color.text.muted',
     r: 7,
+  });
+}
+
+function scrim(b) {
+  const sheet = penpot.createRectangle();
+  sheet.name = 'state scrim';
+  b.appendChild(sheet);
+  sheet.x = b.x;
+  sheet.y = b.y + 100;
+  sheet.resize(1504, 1572);
+  sheet.fills = [K.fill('color.bg.base', 0.76)];
+}
+
+// The drop state is its own board because the overlay covers the list it imports into.
+// It is drawn from the same manager above, so the header, split control and rows cannot
+// drift from the overview while the live Penpot file is unavailable.
+function buildImport() {
+  const b = buildManager(IMPORT);
+  scrim(b);
+  K.rect(b, 'drop target', 332, 360, 840, 300, {
+    fill: 'color.bg.surface',
+    r: 12,
+    stroke: 'color.brand.default',
+  });
+  K.icon(
+    b,
+    'drop target icon',
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+    720,
+    402,
+    48,
+    { color: 'color.brand.text', sw: 1.5 },
+  );
+  K.text(b, 'drop title', 'Drop to import templates', 332, 466, 840, {
+    size: 22,
+    weight: 'semibold',
+    align: 'center',
+    h: 30,
+  });
+  K.text(b, 'drop limit', 'Up to 10 .json files', 332, 502, 840, {
+    size: 11.5,
+    color: 'color.text.secondary',
+    align: 'center',
+    h: 20,
+  });
+  K.text(
+    b,
+    'drop note',
+    'Files are read one at a time; a failed file does not stop the batch.',
+    332,
+    540,
+    840,
+    { size: 10.5, color: 'color.text.muted', align: 'center', h: 18 },
+  );
+}
+
+// The portability report is the one modal that stands between a click and the download.
+function buildExport() {
+  const b = buildManager(EXPORT);
+  scrim(b);
+  K.rect(b, 'export dialog', 410, 300, 620, 350, {
+    fill: 'color.bg.surface',
+    r: 12,
+    stroke: 'color.border.strong',
+  });
+  K.text(b, 'export title', 'Export “Default”?', 434, 326, 572, {
+    size: 18,
+    weight: 'semibold',
+    h: 26,
+  });
+  K.text(
+    b,
+    'export body',
+    'The file keeps the configuration and General defaults. These machine-specific values are removed so it opens on another computer.',
+    434,
+    356,
+    572,
+    { size: 11.5, color: 'color.text.secondary', lh: 1.45, h: 38 },
+  );
+  K.rect(b, 'export included', 434, 408, 266, 150, {
+    fill: 'color.bg.sunken',
+    r: 6,
+    stroke: 'color.border.default',
+  });
+  K.text(b, 'export included heading', 'INCLUDED IN THE FILE', 450, 420, 234, {
+    size: 8.5,
+    family: 'JetBrains Mono',
+    color: 'color.text.muted',
+    h: 14,
+  });
+  ['Configuration', 'General defaults', 'Inline VapourSynth script', 'Script variables'].forEach(
+    (line, i) =>
+      K.text(b, 'export included line ' + i, line, 450, 444 + i * 20, 234, {
+        size: 11,
+        color: 'color.text.secondary',
+        h: 18,
+      }),
+  );
+  K.rect(b, 'export removed', 716, 408, 266, 150, {
+    fill: 'color.bg.sunken',
+    r: 6,
+    stroke: 'color.state.warning',
+  });
+  K.text(b, 'export removed heading', 'REMOVED FOR PORTABILITY', 732, 420, 234, {
+    size: 8.5,
+    family: 'JetBrains Mono',
+    color: 'color.state.warning',
+    h: 14,
+  });
+  ['Output folder', 'Scene directories', 'Sequence input paths', 'Sequence output path', 'Custom encoder executable'].forEach(
+    (line, i) =>
+      K.text(b, 'export removed line ' + i, line, 732, 444 + i * 18, 234, {
+        size: 10.5,
+        color: 'color.text.secondary',
+        h: 16,
+      }),
+  );
+  K.rect(b, 'export rule', 434, 578, 572, 1, {
+    fill: 'color.border.default',
+    r: 0,
+  });
+  K.rect(b, 'export cancel', 754, 596, 100, 30, {
+    fill: 'color.bg.raised',
+    r: 6,
+    stroke: 'color.border.strong',
+  });
+  K.text(b, 'export cancel label', 'Cancel', 754, 596, 100, {
+    size: 10.5,
+    color: 'color.text.primary',
+    align: 'center',
+    valign: 'center',
+    h: 30,
+  });
+  K.rect(b, 'export download', 866, 596, 140, 30, {
+    fill: 'color.brand.default',
+    r: 6,
+  });
+  K.text(b, 'export download label', 'Download', 866, 596, 140, {
+    size: 10.5,
+    weight: 'semibold',
+    color: 'color.text.on-brand',
+    align: 'center',
+    valign: 'center',
+    h: 30,
   });
 }
 
@@ -575,10 +748,14 @@ function buildEncoding() {
 }
 
 buildOverview();
+buildImport();
+buildExport();
 buildEncoding();
 K.organize(page);
 return {
-  boards: [OVERVIEW, ENCODING],
+  boards: [OVERVIEW, IMPORT, EXPORT, ENCODING],
   overview: page.findShapes({ type: 'board' }).find((b) => b.name === OVERVIEW)?.children.length,
+  importState: page.findShapes({ type: 'board' }).find((b) => b.name === IMPORT)?.children.length,
+  exportState: page.findShapes({ type: 'board' }).find((b) => b.name === EXPORT)?.children.length,
   encoding: page.findShapes({ type: 'board' }).find((b) => b.name === ENCODING)?.children.length,
 };

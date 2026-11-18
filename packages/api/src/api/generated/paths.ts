@@ -15,8 +15,11 @@ export const settingsPythonInterpreterPath = () => `/api/settings/python-interpr
 export const settingsToolSourcePath = () => `/api/settings/tool-source`;
 export const templatesPath = () => `/api/settings/templates`;
 export const templatesDefaultPath = () => `/api/settings/templates/default`;
+export const templatesImportPath = () => `/api/settings/templates/import`;
 export const templatePath = (templateId: string | number) =>
     `/api/settings/templates/${encodeURIComponent(String(templateId))}`;
+export const templateExportPath = (templateId: string | number) =>
+    `/api/settings/templates/${encodeURIComponent(String(templateId))}/export`;
 export const templateDefaultsPath = (templateId: string | number) =>
     `/api/settings/templates/${encodeURIComponent(String(templateId))}/defaults`;
 export const templateDefaultsResetPath = (templateId: string | number) =>

@@ -185,11 +185,23 @@ routes! {
             put => (settings::set_default_project_template, "api::routes::settings", "set or clear the template a new project copies"),
         },
     },
+    "templates.import" => {
+        path: "/api/settings/templates/import",
+        methods: {
+            post => (settings::import_project_template, "api::routes::settings", "import one portable template archive under a unique name"),
+        },
+    },
     "template" => {
         path: "/api/settings/templates/{template_id}",
         methods: {
             put => (settings::update_project_template, "api::routes::settings", "replace a template's name, configuration, and General defaults"),
             delete => (settings::delete_project_template, "api::routes::settings", "delete a project template"),
+        },
+    },
+    "template.export" => {
+        path: "/api/settings/templates/{template_id}/export",
+        methods: {
+            get => (settings::export_project_template, "api::routes::settings", "export one template with host paths removed and report them"),
         },
     },
     "template.defaults" => {

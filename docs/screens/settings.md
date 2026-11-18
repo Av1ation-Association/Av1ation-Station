@@ -359,12 +359,23 @@ asks save / discard / stay before the panel changes.
 ### Project Templates layout
 
 - **A searchable template list, not one global document.** The list carries the template
-  count, a search field, and **Add template**. Each row has a star toggle, the template name,
-  a detail line, and a delete action. The template marked default also carries a **Default**
-  chip. On a data directory with no `config.json`, the list starts with one ordinary
-  **Recommended** template; it has no badge and no separate Copy action.
+  count, a search field, and a split **Add template** control. The primary side opens the
+  Add dialog; the chevron menu carries **Import template…**. Each row has a star toggle, the
+  template name, a detail line, a download action, and a delete action. The template marked
+  default also carries a **Default** chip. On a data directory with no `config.json`, the list
+  starts with one ordinary **Recommended** template; it has no badge and no separate Copy
+  action.
 - **Add template** opens a dialog with one name field, **Cancel**, and **Create**. Its copy
   says the new template starts from the engine defaults and is configured afterwards.
+- **Import template…** opens a multi-file picker. The same importer accepts files dropped
+  onto the Project Templates screen; an overlay names the drop action and the ten-file
+  limit. The desktop host disables its native drop handler so the page receives the HTML5
+  drop.
+- **A row's download action** exports one template. An export with nothing removed saves
+  immediately; an export that removed a host path first opens the portability report with
+  **Included in the file** and **Removed for portability** columns. The exporting row's
+  download button is disabled while its file is prepared, and a failure appears in the
+  inline notice above the list.
 - **One template's overview** carries an inline-editable name, a one-line explanation, seven
   cards in project order, and **Reset all to engine defaults**. The cards are General plus
   the six pipeline sections.
@@ -387,7 +398,8 @@ asks save / discard / stay before the panel changes.
    the default promotes another existing template, or leaves no default when none remain.
 3. **Add a template.** **Add template** requires a non-empty name. The service creates the
    template from the engine defaults and the new row appears in the list; open it to configure
-   its sections. A refusal stays inline in the dialog.
+   its sections. A refusal stays inline in the dialog. The chevron beside it opens **Import
+   template…** without adding a second header button.
 4. **Open and edit.** A row opens that template's overview. A card opens exactly one section
    editor, so a draft cannot be swapped for a sibling section without the shared leave guard.
 5. **Rename.** The name on the overview is inline-editable. Enter or blur saves; Escape
@@ -419,6 +431,24 @@ asks save / discard / stay before the panel changes.
     queued video.
 13. **Guard a dirty template.** Switching a section, Settings tab, or route with a dirty draft
     asks first. The guard names the template document, never a project.
+14. **Import a batch.** The picker and a drop share one importer. Up to ten `.json` files are
+    read sequentially; an over-limit selection is refused before any file is read. Each
+    imported template is a new row under a case-insensitive unique name (`Name`, `Name (2)`, …)
+    and never becomes the default. A full success raises one toast. A partial failure keeps
+    the rows that succeeded and shows an inline warning with one line per rejected file and
+    **Choose another file**; the batch continues after each failure.
+15. **Normalise on import.** The imported document is sanitized with the same rules as export
+    before it is validated and saved, so a hand-edited archive cannot reintroduce a path the
+    exporter would have removed.
+16. **Report portability.** Export clears the output folder, the FFMS2 index, custom encoder
+    executables, sequence scene directories, sequence input paths, a TransNetV2 model path,
+    and a sequence output path. Labels name what was removed and never repeat the value. The
+    General file-mode `.vpy` input is the one refusal: the file is the input, so export asks
+    the user to switch to inline text or a different input kind.
+17. **Keep authored content.** Inline VapourSynth scripts and script variables stay in the
+    archive; the report states that they are included.
+18. **Drop onto Project Templates.** A file drop is accepted only on that screen. A
+    document-level guard prevents a dropped file elsewhere from navigating the webview.
 
 ### Project Templates states
 
@@ -426,7 +456,7 @@ asks save / discard / stay before the panel changes.
 | --- | --- |
 | Loading | The list, overview cards, section editor, and script page render layout-matching skeletons. |
 | Empty | No templates is valid: the list offers **Add template**, and a new project starts from the engine defaults until one is marked default. |
-| Error | A list, template, section, or script load failure offers retry. Add, rename, save, reset, delete, and script failures stay inline with the action that caused them. |
+| Error | A list, template, section, or script load failure offers retry. Add, rename, save, reset, delete, export, import, and script failures stay inline with the action that caused them. |
 | Populated | The list shows every template and its default marker; the overview shows all seven cards; a section shows its saved values and provenance. |
 | Locked | Not applicable; template edits are independent of run locks. |
 
@@ -446,6 +476,16 @@ asks save / discard / stay before the panel changes.
   `POST /api/settings/templates/{template_id}/defaults/reset/{section}`.
 - **General.** `GET`/`PUT /api/settings/templates/{template_id}/general`.
 - **Script scan.** `GET /api/settings/templates/{template_id}/scripts`.
+- **Export.** `GET /api/settings/templates/{template_id}/export` returns
+  `{ filename, archive, report }`. `archive` is the exact file; `report` carries removed
+  labels, `includes_scripts`, and `includes_variables`.
+- **Import.** `POST /api/settings/templates/import` takes one archive and returns
+  `{ template, removed }`. The envelope is
+  `{ kind: "av1ation.project-template", schema_version: 1, exported_at, template: { name,
+  config, general } }`. Unknown fields are rejected; a wrong kind or an unknown version is a
+  distinct `422`; malformed JSON is `400`.
+- **Duplicate names.** Import suffixes the display name case-insensitively; it never
+  overwrites a row and never sets `default_project_template_id`.
 - **Apply to a project.** `POST /api/projects/{project_id}/template` with `{ template_id }`;
   `PUT /api/projects/{project_id}/defaults` restores the before/after snapshot used by
   Undo/Redo.

@@ -9,4 +9,5 @@ pub(crate) mod derive;
 pub(crate) mod projects;
 pub(crate) mod settings;
 pub(crate) mod starter;
+pub(crate) mod templates;
 pub(crate) mod videos;

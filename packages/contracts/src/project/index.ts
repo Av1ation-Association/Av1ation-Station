@@ -97,6 +97,50 @@ export const ProjectTemplateApplyRequestSchema = z
     .describe("Applies one saved template to an existing project.");
 export type ProjectTemplateApplyRequest = z.infer<typeof ProjectTemplateApplyRequestSchema>;
 
+/** Generated from `schema/project/project-template-archive-kind.json`. */
+export const ProjectTemplateArchiveKindSchema = z
+    .literal("av1ation.project-template")
+    .describe("The only kind this build reads and writes.")
+    .describe(
+        "The discriminator a project-template file carries.\n\nA file is one template, so the kind is explicit rather than inferred from its shape: a\nproject archive or an arbitrary JSON document must be refused with a message that names\nthe file as the wrong kind, not as a malformed template.",
+    );
+export type ProjectTemplateArchiveKind = z.infer<typeof ProjectTemplateArchiveKindSchema>;
+
+/** Generated from `schema/project/project-template-archive-template.json`. */
+export const ProjectTemplateArchiveTemplateSchema = z
+    .object({
+        config: z.any().describe("The complete engine configuration."),
+        general: z
+            .lazy(() => GeneralDefaultsSchema)
+            .describe("The General defaults, with machine paths removed."),
+        name: z
+            .string()
+            .min(1)
+            .max(120)
+            .describe("Display name, validated and made unique on import."),
+    })
+    .strict()
+    .describe(
+        "The portable part of one template.\n\nHost paths, the template id, and the default marker are deliberately absent: they belong\nto the machine that exported the file, and an imported template is a new row rather than\na replacement for one that already exists.",
+    );
+export type ProjectTemplateArchiveTemplate = z.infer<typeof ProjectTemplateArchiveTemplateSchema>;
+
+/** Generated from `schema/project/project-template-archive.json`. */
+export const ProjectTemplateArchiveSchema = z
+    .object({
+        exported_at: z.string().describe("Export instant in UTC ISO-8601 form."),
+        kind: z
+            .lazy(() => ProjectTemplateArchiveKindSchema)
+            .describe("File kind; a wrong value is a different file, not a malformed one."),
+        schema_version: z.number().int().gte(0).describe("Envelope schema version, currently `1`."),
+        template: z
+            .lazy(() => ProjectTemplateArchiveTemplateSchema)
+            .describe("The template itself."),
+    })
+    .strict()
+    .describe("One template in the portable JSON envelope used by export and import.");
+export type ProjectTemplateArchive = z.infer<typeof ProjectTemplateArchiveSchema>;
+
 /** Generated from `schema/project/project-template-create-request.json`. */
 export const ProjectTemplateCreateRequestSchema = z
     .object({
@@ -136,6 +180,54 @@ export const ProjectTemplateDefaultRequestSchema = z
     .strict()
     .describe("Marks one template as the one a new project copies.");
 export type ProjectTemplateDefaultRequest = z.infer<typeof ProjectTemplateDefaultRequestSchema>;
+
+/** Generated from `schema/project/project-template-export-report.json`. */
+export const ProjectTemplateExportReportSchema = z
+    .object({
+        includes_scripts: z
+            .boolean()
+            .describe("Whether the template carries an inline VapourSynth script."),
+        includes_variables: z.boolean().describe("Whether the template carries script variables."),
+        removed: z
+            .array(z.string())
+            .describe(
+                "Human-readable labels for values cleared from the archive, in a stable order.",
+            ),
+    })
+    .strict()
+    .describe(
+        "What export removed so the file opens on another machine.\n\nLabels only: a removed value is a host path, and echoing it into the response would put\nthe very data the export is removing back into the client and its logs.",
+    );
+export type ProjectTemplateExportReport = z.infer<typeof ProjectTemplateExportReportSchema>;
+
+/** Generated from `schema/project/project-template-export.json`. */
+export const ProjectTemplateExportSchema = z
+    .object({
+        archive: z
+            .lazy(() => ProjectTemplateArchiveSchema)
+            .describe("The exact bytes to save as that file."),
+        filename: z.string().describe("Suggested download name, `<slug>-template.json`."),
+        report: z
+            .lazy(() => ProjectTemplateExportReportSchema)
+            .describe("What the archive kept and what portability removed."),
+    })
+    .strict()
+    .describe("One exported template plus the name and report the manager needs.");
+export type ProjectTemplateExport = z.infer<typeof ProjectTemplateExportSchema>;
+
+/** Generated from `schema/project/project-template-import-result.json`. */
+export const ProjectTemplateImportResultSchema = z
+    .object({
+        removed: z
+            .array(z.string())
+            .describe("Labels for values the import sanitizer removed before saving."),
+        template: z
+            .lazy(() => ProjectTemplateSchema)
+            .describe("The newly created template, with its unique name and generated id."),
+    })
+    .strict()
+    .describe("The result of importing one template file.");
+export type ProjectTemplateImportResult = z.infer<typeof ProjectTemplateImportResultSchema>;
 
 /** Generated from `schema/project/project-template-update.json`. */
 export const ProjectTemplateUpdateSchema = z

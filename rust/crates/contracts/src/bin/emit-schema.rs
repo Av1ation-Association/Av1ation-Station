@@ -24,8 +24,10 @@ use av1ation_contracts::platform::{
 };
 use av1ation_contracts::project::{
     Project, ProjectCreateRequest, ProjectDefaultsState, ProjectSummary, ProjectTemplate,
-    ProjectTemplateApplied, ProjectTemplateApplyRequest, ProjectTemplateCreateRequest,
-    ProjectTemplateDefaultRequest, ProjectTemplateUpdate, ProjectUpdateRequest,
+    ProjectTemplateApplied, ProjectTemplateApplyRequest, ProjectTemplateArchive,
+    ProjectTemplateArchiveKind, ProjectTemplateArchiveTemplate, ProjectTemplateCreateRequest,
+    ProjectTemplateDefaultRequest, ProjectTemplateExport, ProjectTemplateExportReport,
+    ProjectTemplateImportResult, ProjectTemplateUpdate, ProjectUpdateRequest,
 };
 use av1ation_contracts::protocol::{ErrorBody, EventTicket, InputKind, MediaTicket, OutputMode};
 use av1ation_contracts::queue::{QueueBatchRequest, QueueBatchStatus, VideoOrderRequest};
@@ -158,6 +160,21 @@ fn main() -> ExitCode {
         ),
         (
             "project",
+            "project-template-archive-kind.json",
+            schema_for!(ProjectTemplateArchiveKind),
+        ),
+        (
+            "project",
+            "project-template-archive-template.json",
+            schema_for!(ProjectTemplateArchiveTemplate),
+        ),
+        (
+            "project",
+            "project-template-archive.json",
+            schema_for!(ProjectTemplateArchive),
+        ),
+        (
+            "project",
             "project-template-apply-request.json",
             schema_for!(ProjectTemplateApplyRequest),
         ),
@@ -170,6 +187,21 @@ fn main() -> ExitCode {
             "project",
             "project-template-default-request.json",
             schema_for!(ProjectTemplateDefaultRequest),
+        ),
+        (
+            "project",
+            "project-template-export-report.json",
+            schema_for!(ProjectTemplateExportReport),
+        ),
+        (
+            "project",
+            "project-template-export.json",
+            schema_for!(ProjectTemplateExport),
+        ),
+        (
+            "project",
+            "project-template-import-result.json",
+            schema_for!(ProjectTemplateImportResult),
         ),
         (
             "project",

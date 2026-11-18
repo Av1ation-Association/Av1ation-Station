@@ -4,10 +4,12 @@ import { invalidateTemplates } from "./invalidate";
 import { queryKeys } from "./keys";
 import {
     templatesDefaultPath,
+    templatesImportPath,
     templatesPath,
     templateDefaultsPath,
     templateDefaultsResetPath,
     templateDefaultsResetSectionPath,
+    templateExportPath,
     templateGeneralPath,
     templatePath,
     templateScriptsPath,
@@ -15,10 +17,14 @@ import {
 import {
     EffectiveConfigSchema,
     GeneralDefaultsSchema,
+    ProjectTemplateExportSchema,
+    ProjectTemplateImportResultSchema,
     ProjectTemplateSchema,
     ScriptPluginReportSchema,
     type GeneralDefaults,
+    type ProjectTemplate,
 } from "@av1ation/contracts";
+import { ApiError } from "../transport/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 /** One template's configuration, resolved against the engine's own defaults. */
@@ -52,6 +58,103 @@ export function useAddProjectTemplate() {
             transport.post(templatesPath(), { name }, ProjectTemplateSchema),
         onSuccess: () => invalidateTemplates(queryClient),
     });
+}
+
+/** The most template files one picker session accepts. */
+export const MAX_TEMPLATE_IMPORT_FILES = 10;
+
+/** One file chosen for import; the reader runs only after the batch limit is checked. */
+export interface TemplateImportSource {
+    readonly name: string;
+    readonly text: () => Promise<string>;
+}
+
+/** One file that could not be imported, with the message shown beside its name. */
+export interface TemplateImportFailure {
+    readonly filename: string;
+    readonly message: string;
+}
+
+/** The per-file result of one import batch. */
+export interface TemplateImportBatch {
+    readonly imported: ProjectTemplate[];
+    readonly failures: TemplateImportFailure[];
+}
+
+/** The files and progress callback one batch import takes. */
+export interface TemplateImportRequest {
+    readonly files: readonly TemplateImportSource[];
+    readonly onProgress?: ((current: number, total: number) => void) | undefined;
+}
+
+/**
+ * Import one or more exported template files, continuing after a per-file failure.
+ *
+ * The files are read sequentially so the progress line is truthful and one malformed file
+ * cannot reject the whole batch. Invalid JSON and a service refusal are both captured per
+ * file; only an unexpected failure of the mutation itself escapes.
+ */
+export function useImportProjectTemplates() {
+    const transport = useTransport();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({
+            files,
+            onProgress,
+        }: TemplateImportRequest): Promise<TemplateImportBatch> => {
+            if (files.length > MAX_TEMPLATE_IMPORT_FILES) {
+                throw new Error(
+                    `Choose at most ${MAX_TEMPLATE_IMPORT_FILES} template files at a time.`,
+                );
+            }
+            const imported: ProjectTemplate[] = [];
+            const failures: TemplateImportFailure[] = [];
+            for (const [index, file] of files.entries()) {
+                onProgress?.(index + 1, files.length);
+                if (!file.name.toLowerCase().endsWith(".json")) {
+                    failures.push({
+                        filename: file.name,
+                        message: "Only .json template files can be imported.",
+                    });
+                    continue;
+                }
+                try {
+                    let body: unknown;
+                    try {
+                        body = JSON.parse(await file.text());
+                    } catch {
+                        throw new Error("This file is not valid JSON.");
+                    }
+                    const result = await transport.post(
+                        templatesImportPath(),
+                        body,
+                        ProjectTemplateImportResultSchema,
+                    );
+                    imported.push(result.template);
+                } catch (error) {
+                    failures.push({ filename: file.name, message: templateImportMessage(error) });
+                }
+            }
+            return { imported, failures };
+        },
+        onSuccess: () => invalidateTemplates(queryClient),
+    });
+}
+
+/** Export one template as the portable file the manager downloads. */
+export function useExportProjectTemplate() {
+    const transport = useTransport();
+    return useMutation({
+        mutationFn: (id: string) =>
+            transport.get(templateExportPath(id), ProjectTemplateExportSchema),
+    });
+}
+
+function templateImportMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        return error.body?.message ?? error.message;
+    }
+    return error instanceof Error ? error.message : "The file could not be imported.";
 }
 
 /** Replaces one template's name, configuration, and General section. */
