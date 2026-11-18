@@ -17,3 +17,8 @@ commands.allow = ["set_webview_zoom"]
 identifier = "allow-quit-app"
 description = "Allows the webview to confirm quitting and stop the embedded service."
 commands.allow = ["quit_app"]
+
+[[permission]]
+identifier = "allow-set-quit-guard"
+description = "Allows the webview to report whether an active run needs close confirmation."
+commands.allow = ["set_quit_guard"]

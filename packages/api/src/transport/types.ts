@@ -111,6 +111,13 @@ export interface Transport {
      * in a browser, where the tab closes without the service's consent.
      */
     readonly onQuitRequest?: ((handler: () => void) => () => void) | undefined;
+    /**
+     * Tell the host whether closing the window would cancel an active run.
+     *
+     * The host uses this synchronously to decide whether a close needs confirmation; it
+     * must not wait for the asynchronous quit-request listener on the common no-run path.
+     */
+    readonly setQuitGuard?: ((active: boolean) => Promise<void>) | undefined;
     /** Quit the desktop host after the user confirms; absent in a browser. */
     readonly quit?: (() => Promise<void>) | undefined;
     /**

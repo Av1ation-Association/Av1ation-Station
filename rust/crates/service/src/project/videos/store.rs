@@ -7,6 +7,7 @@ impl VideoStore {
         Self {
             projects: data_dir.join("projects"),
             temp: data_dir.join("temp"),
+            portable: crate::platform::storage::is_portable_root(data_dir),
             temp_override: Arc::new(RwLock::new(None)),
         }
     }
@@ -34,6 +35,9 @@ impl VideoStore {
     /// The scratch root in use: the override when one is saved, otherwise the app-data
     /// default. Storage shows this path because it is where chunks are actually written.
     pub(crate) fn effective_temp_root(&self) -> PathBuf {
+        if self.portable {
+            return self.temp.clone();
+        }
         self.temp_override
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -47,6 +51,9 @@ impl VideoStore {
     /// read on every call, so a save takes effect without rebuilding the store or restarting
     /// the service. A video with no directory of its own inherits the settings root.
     pub(crate) fn chunk_directory(&self, video_id: &str, temp_directory: Option<&str>) -> PathBuf {
+        if self.portable {
+            return self.temp.join(video_id);
+        }
         if let Some(directory) = temp_directory.map(str::trim).filter(|dir| !dir.is_empty()) {
             // The named directory is the video's own scratch directory, not a parent: the
             // engine writes chunks straight into it, exactly as it does for the inherited

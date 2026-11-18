@@ -12,6 +12,7 @@
         "allow-save-text-file",
         "allow-restart-app",
         "allow-set-webview-zoom",
+        "allow-set-quit-guard",
         "allow-quit-app",
         "dialog:allow-open",
         "dialog:allow-save",

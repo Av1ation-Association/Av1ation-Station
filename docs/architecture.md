@@ -442,7 +442,7 @@ is the list that was committed.
 | Concern | Approach |
 | --- | --- |
 | **Errors** | One `AppError` enum in Rust with a stable `code`, serialized into a uniform envelope; the frontend maps `code` to a message and a recovery action. Never surface a raw engine string without a code. |
-| **Logging** | `tracing` writes stderr and `<app-data>/logs/application.log`; each run's records are appended as `logs/<run>/run.jsonl` beside `meta.json`. The live viewer pages the log with `tail`/`offset`; the anonymiser is a pure transform over the records. |
+| **Logging** | `tracing` writes stderr and `<data-root>/logs/application.log`; each run's records are appended as `logs/<run>/run.jsonl` beside `meta.json`. The host chooses one data root: the platform app-data directory, or `<install>/data` when the portable marker is beside the executable. The live viewer pages the log with `tail`/`offset`; the anonymiser is a pure transform over the records. |
 | **Time** | All timestamps server-side as UTC ISO-8601; formatting is a frontend concern. |
 | **IDs** | UUID v4 strings for projects, videos, runs and encoder forks; the engine's own indices for scenes. |
 | **Feature flags** | Runtime capability discovery. The application crates declare no optional Cargo features; an absent optional dependency removes only the capability it provides (`AGENTS.md` §2.8). |

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
         handlers,
         activeRun: null as unknown,
         quit: vi.fn(() => Promise.resolve()),
+        setQuitGuard: vi.fn(() => Promise.resolve()),
         onQuitRequest: vi.fn((handler: () => void) => {
             handlers.push(handler);
             return () => undefined;
@@ -21,6 +22,7 @@ vi.mock("@av1ation/api", () => ({
     useActiveRun: () => mocks.activeRun,
     useTransport: () => ({
         onQuitRequest: mocks.onQuitRequest,
+        setQuitGuard: mocks.setQuitGuard,
         quit: mocks.quit,
     }),
 }));
@@ -29,6 +31,7 @@ beforeEach(() => {
     mocks.handlers.length = 0;
     mocks.activeRun = null;
     mocks.quit.mockClear();
+    mocks.setQuitGuard.mockClear();
     mocks.onQuitRequest.mockClear();
 });
 
@@ -47,6 +50,7 @@ it("quits immediately when no run can be cancelled", () => {
 
     requestQuit();
 
+    expect(mocks.setQuitGuard).toHaveBeenCalledWith(false);
     expect(mocks.quit).toHaveBeenCalledTimes(1);
     expect(document.querySelector("dialog")?.open).toBe(false);
 });
@@ -61,6 +65,7 @@ it("asks before quitting while a run is active", () => {
 
     requestQuit();
 
+    expect(mocks.setQuitGuard).toHaveBeenCalledWith(true);
     expect(mocks.quit).not.toHaveBeenCalled();
     expect(document.querySelector("dialog")?.open).toBe(true);
 });

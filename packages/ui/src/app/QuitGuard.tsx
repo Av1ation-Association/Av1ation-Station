@@ -42,6 +42,14 @@ export function QuitGuard() {
         );
     }, [transport, activeRun, quit]);
 
+    // The host close handler must answer without waiting for this React tree. Publish the
+    // run state as it changes so the common no-run close happens on the first press.
+    useEffect(() => {
+        void transport.setQuitGuard?.(activeRun !== null).catch(() => {
+            // The host is unavailable or going away; its close path still works.
+        });
+    }, [transport, activeRun]);
+
     useEffect(() => {
         const element = dialog.current;
         if (element === null) {

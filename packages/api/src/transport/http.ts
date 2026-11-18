@@ -49,6 +49,8 @@ export interface HttpTransportOptions {
     restartApp?: () => Promise<void>;
     /** Host-supplied quit-request subscription. Omitted in a plain browser. */
     onQuitRequest?: (handler: () => void) => () => void;
+    /** Host-supplied active-run state for the window close decision. */
+    setQuitGuard?: (active: boolean) => Promise<void>;
     /** Host-supplied process quit after confirmation. Omitted in a plain browser. */
     quit?: () => Promise<void>;
     /** Host-supplied webview zoom. Omitted in a plain browser. */
@@ -85,6 +87,7 @@ export class HttpTransport implements Transport {
     readonly openPath: ((path: string) => Promise<void>) | undefined;
     readonly restartApp: (() => Promise<void>) | undefined;
     readonly onQuitRequest: ((handler: () => void) => () => void) | undefined;
+    readonly setQuitGuard: ((active: boolean) => Promise<void>) | undefined;
     readonly quit: (() => Promise<void>) | undefined;
     readonly setZoom: ((factor: number) => Promise<void>) | undefined;
     readonly mediaUrl: ((path: string) => string) | undefined;
@@ -109,6 +112,7 @@ export class HttpTransport implements Transport {
         this.openPath = options.openPath;
         this.restartApp = options.restartApp;
         this.onQuitRequest = options.onQuitRequest;
+        this.setQuitGuard = options.setQuitGuard;
         this.quit = options.quit;
         this.setZoom = options.setZoom;
         // The embedded loopback listener needs no credential, so a media element can address

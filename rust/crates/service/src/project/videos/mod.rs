@@ -143,6 +143,9 @@ pub(crate) struct VideoImport {
 pub(crate) struct VideoStore {
     projects: PathBuf,
     temp: PathBuf,
+    /// A portable installation owns its scratch beside the executable, so saved scratch
+    /// overrides are not allowed to move work out of the portable tree.
+    portable: bool,
     /// Settings can move the scratch root while the service runs. The default stays under
     /// app-data; a `None` here means no override is active.
     temp_override: Arc<RwLock<Option<PathBuf>>>,
@@ -534,5 +537,32 @@ mod tests {
         assert_eq!(cleared.temp_directory, None, "empty means inherit again");
 
         let _ = tokio::fs::remove_dir_all(dir).await;
+    }
+
+    #[tokio::test]
+    async fn a_portable_data_root_ignores_saved_scratch_overrides() {
+        let root = temporary_dir();
+        let install = root.join("install");
+        let data = install.join("data");
+        tokio::fs::create_dir_all(&data).await.expect("data dir");
+        tokio::fs::write(install.join("portable"), b"")
+            .await
+            .expect("portable marker");
+        let store = VideoStore::new(&data);
+        let outside = root.join("outside");
+
+        store.set_temp_root(Some(outside.clone()));
+        assert_eq!(
+            store.effective_temp_root(),
+            data.join("temp"),
+            "portable mode keeps its scratch inside the installation"
+        );
+        assert_eq!(
+            store.chunk_directory("video", Some(&outside.display().to_string())),
+            data.join("temp").join("video"),
+            "a saved per-video directory cannot move portable chunks"
+        );
+
+        let _ = tokio::fs::remove_dir_all(root).await;
     }
 }

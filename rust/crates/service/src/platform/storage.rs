@@ -10,6 +10,18 @@ use av1ation_contracts::platform::{StorageOverview, StorageProject};
 
 use crate::state::AppState;
 
+/// Whether the service state is rooted beside a portable executable.
+///
+/// The desktop host passes `<install>/data` only when it found the `portable` marker beside
+/// the executable. Looking for that marker from the parent keeps the decision in one place
+/// and lets the video store ignore every saved scratch override, so a portable copy can
+/// never write chunks into another installation's data directory.
+pub(crate) fn is_portable_root(data_dir: &Path) -> bool {
+    data_dir
+        .parent()
+        .is_some_and(|install| install.join("portable").is_file())
+}
+
 /// Read the storage summary. A host without persistence returns empty rows rather than an
 /// error, matching the rest of the read routes.
 pub(crate) async fn overview(state: &AppState) -> StorageOverview {

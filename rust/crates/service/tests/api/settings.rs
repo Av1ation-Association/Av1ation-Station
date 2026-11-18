@@ -116,6 +116,87 @@ async fn a_settings_write_preserves_the_custom_tool_list() {
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
 }
 
+/// A portable installation owns its config, project data, and scratch under the install
+/// directory. A saved scratch preference must not move work back out of that tree.
+#[tokio::test]
+async fn a_portable_data_root_keeps_storage_inside_the_installation() {
+    let install = project_dir();
+    let data = install.join("data");
+    let outside = install.join("outside-temp");
+    tokio::fs::create_dir_all(&data).await.expect("data dir");
+    tokio::fs::write(install.join("portable"), b"")
+        .await
+        .expect("portable marker");
+    tokio::fs::write(
+        data.join("config.json"),
+        serde_json::json!({ "temp_dir": outside.display().to_string() }).to_string(),
+    )
+    .await
+    .expect("seed settings");
+
+    let state = AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(FakeRunner),
+        test_probes(),
+        data.clone(),
+    );
+    state.hydrate_storage().await;
+    let app = router(state);
+    let project = create_project(app.clone(), "Portable").await;
+    let video = add_video(app.clone(), &project, &install).await;
+
+    let document = data
+        .join("projects")
+        .join(&project)
+        .join("videos")
+        .join(format!("{video}.json"));
+    let mut record: Value =
+        serde_json::from_str(&tokio::fs::read_to_string(&document).await.expect("video"))
+            .expect("video json");
+    record["temp_directory"] = Value::from(outside.display().to_string());
+    tokio::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .await
+    .expect("rewrite video");
+
+    let (status, storage) = send(
+        app.clone(),
+        Request::get("/api/storage").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{storage}");
+    assert_eq!(
+        storage["temporary_directory"],
+        data.join("temp").display().to_string()
+    );
+    assert_eq!(
+        storage["default_directory"],
+        data.join("temp").display().to_string()
+    );
+
+    let (status, video_storage) = send(
+        app,
+        Request::get(format!("/api/projects/{project}/videos/{video}/storage"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{video_storage}");
+    assert_eq!(
+        video_storage["directory"],
+        data.join("temp").join(&video).display().to_string(),
+        "a portable video cannot keep a saved scratch directory outside the install"
+    );
+    assert_eq!(
+        video_storage["inherited_directory"],
+        data.join("temp").join(&video).display().to_string()
+    );
+
+    std::fs::remove_dir_all(install).expect("cleanup");
+}
+
 #[tokio::test]
 async fn a_partial_settings_patch_preserves_omitted_fields_and_clears_a_null_temp_dir() {
     let dir = std::env::temp_dir().join(format!("av1ation-api-{}", uuid::Uuid::new_v4()));

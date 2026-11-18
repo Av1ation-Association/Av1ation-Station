@@ -164,6 +164,9 @@ const host: HttpTransportOptions =
                       unlisten?.();
                   };
               },
+              setQuitGuard: async (active) => {
+                  await invoke("set_quit_guard", { active });
+              },
               quit: async () => {
                   await invoke("quit_app");
               },

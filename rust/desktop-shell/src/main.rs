@@ -2,13 +2,104 @@
 
 //! Desktop host: one embedded service, one window, no sidecar process.
 
-use std::{error::Error, io, sync::Mutex};
+use std::{
+    error::Error,
+    io,
+    path::{Path, PathBuf},
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use av1ation_service::ServiceHandle;
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 
 struct ServiceTask(Mutex<Option<ServiceHandle>>);
+
+/// Whether the webview currently has a run whose cancellation needs confirmation.
+///
+/// The close button must not depend on a round trip through JavaScript to decide whether it
+/// can simply close: the first press with no active run used to be swallowed while the
+/// asynchronous quit-request listener was still being consulted. The webview publishes this
+/// state whenever the active run changes, so the host can close immediately in the common
+/// case and only intercept when there is something to cancel.
+struct QuitGuardState(AtomicBool);
+
+#[derive(Debug, PartialEq, Eq)]
+enum CloseAction {
+    Close,
+    Confirm,
+}
+
+fn close_action(active_run: bool) -> CloseAction {
+    if active_run {
+        CloseAction::Confirm
+    } else {
+        CloseAction::Close
+    }
+}
+
+/// The marker a portable release ships beside its executable.
+const PORTABLE_MARKER: &str = "portable";
+
+/// Choose the one data root the embedded service owns.
+///
+/// A portable distribution is unpacked into a writable directory, so its state belongs in a
+/// `data` sibling that can be copied or deleted with it. An installed build keeps Tauri's
+/// platform app-data directory; the marker is a file, not a directory, so an accidental
+/// folder cannot move a normal install.
+fn resolve_data_root(executable: &Path, appimage: Option<&Path>, app_data: PathBuf) -> PathBuf {
+    install_directory(executable, appimage)
+        .filter(|install| install.join(PORTABLE_MARKER).is_file())
+        .map_or(app_data, |install| install.join("data"))
+}
+
+/// The directory holding the artifact the user downloaded, not the binary inside it.
+///
+/// The marker has to sit beside that artifact: a macOS executable lives inside
+/// `<Name>.app/Contents/MacOS`, and an AppImage's executable lives in a read-only temporary
+/// mount. Writing a marker or data into either place would be lost on the next launch, so
+/// both forms resolve to the artifact's own directory instead.
+fn install_directory(executable: &Path, appimage: Option<&Path>) -> Option<PathBuf> {
+    if let Some(appimage) = appimage.filter(|path| path.is_file()) {
+        return appimage.parent().map(Path::to_path_buf);
+    }
+    // A macOS app is a bundle. The marker belongs beside the bundle, where the portable zip
+    // can carry it and an application update cannot replace it. Every other platform runs
+    // the executable from the directory the user extracted, so only macOS walks outward.
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(bundle) = bundle_parent(executable) {
+            return Some(bundle);
+        }
+    }
+    executable.parent().map(Path::to_path_buf)
+}
+
+/// The directory above the innermost `.app` bundle that contains `executable`.
+///
+/// It is compiled for tests on every host so the bundle layout is covered by the resolver
+/// suite even where no `.app` can be launched.
+#[cfg(any(target_os = "macos", test))]
+fn bundle_parent(executable: &Path) -> Option<PathBuf> {
+    executable
+        .ancestors()
+        .find(|ancestor| {
+            ancestor
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+        })
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+}
+
+/// Publish the webview's current run state to the window-close decision.
+#[tauri::command]
+fn set_quit_guard(state: tauri::State<'_, QuitGuardState>, active: bool) {
+    state.0.store(active, Ordering::SeqCst);
+}
 
 /// Keep only the final component of the suggested export name.
 ///
@@ -138,6 +229,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             save_text_file,
             restart_app,
             set_webview_zoom,
+            set_quit_guard,
             quit_app
         ])
         .setup(|app| {
@@ -172,7 +264,13 @@ fn run() -> Result<(), Box<dyn Error>> {
 
             // Tauri resolves the platform app-data directory; the service never derives it
             // from the manifest or the current directory.
-            let data_dir = app.path().app_data_dir()?;
+            let app_data = app.path().app_data_dir()?;
+            let appimage = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from);
+            let data_dir = std::env::current_exe()
+                .map(|executable| {
+                    resolve_data_root(&executable, appimage.as_deref(), app_data.clone())
+                })
+                .unwrap_or(app_data);
             // The service owns the one process-wide subscriber: stderr plus the
             // application-scope file under the resolved app-data directory.
             av1ation_service::init_tracing_with_app_data(Some(&data_dir));
@@ -181,6 +279,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             )
             .map_err(|error| io::Error::other(error.to_string()))?;
             app.manage(ServiceTask(Mutex::new(Some(service))));
+            app.manage(QuitGuardState(AtomicBool::new(false)));
 
             let origin = format!("http://{address}");
             tracing::info!(%origin, "embedded service is listening");
@@ -211,10 +310,18 @@ fn run() -> Result<(), Box<dyn Error>> {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                // The shared modal asks before anything is cancelled; a second close request
-                // while it is open is ignored by the webview's own dialog handling.
-                api.prevent_close();
-                let _ = window.emit("quit-requested", ());
+                let active_run = window
+                    .app_handle()
+                    .try_state::<QuitGuardState>()
+                    .is_some_and(|state| state.0.load(Ordering::SeqCst));
+                if close_action(active_run) == CloseAction::Confirm {
+                    // The shared modal asks before anything is cancelled; a second close
+                    // request while it is open is ignored by the webview's own dialog.
+                    api.prevent_close();
+                    let _ = window.emit("quit-requested", ());
+                }
+                // With no active run, leave the close request alone. Tauri closes the last
+                // window and the exit path below shuts the service down.
             }
         })
         .build(tauri::generate_context!())?
@@ -233,9 +340,120 @@ fn run() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use tauri::{Url, utils::acl::RemoteUrlPattern};
 
-    use super::{export_file_name, zoom_factor};
+    use super::{
+        CloseAction, bundle_parent, close_action, export_file_name, resolve_data_root, zoom_factor,
+    };
+
+    fn scratch_install(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "av1ation-desktop-data-root-{}-{name}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn a_portable_marker_beside_the_executable_moves_the_data_root() {
+        let root = scratch_install("windows");
+        let install = root.join("install");
+        let app_data = root.join("appdata");
+        std::fs::create_dir_all(&install).expect("install directory");
+        let executable = install.join("av1ation-desktop.exe");
+
+        std::fs::write(install.join("portable"), b"").expect("portable marker");
+        assert_eq!(
+            resolve_data_root(&executable, None, app_data.clone()),
+            install.join("data"),
+            "a portable marker keeps all service state beside the executable"
+        );
+
+        std::fs::remove_file(install.join("portable")).expect("remove marker");
+        assert_eq!(
+            resolve_data_root(&executable, None, app_data.clone()),
+            app_data,
+            "an installed build keeps the platform app-data directory"
+        );
+
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn a_macos_bundle_resolves_to_the_directory_above_it() {
+        let root = scratch_install("macos");
+        let install = root.join("install");
+        let bundle = install.join("Av1ation Station.app");
+        let executable = bundle
+            .join("Contents")
+            .join("MacOS")
+            .join("av1ation-desktop");
+        std::fs::create_dir_all(executable.parent().expect("Contents/MacOS"))
+            .expect("bundle directory");
+
+        assert_eq!(
+            bundle_parent(&executable),
+            Some(install.clone()),
+            "the install directory is the one holding the .app, not Contents/MacOS"
+        );
+        assert_eq!(
+            bundle_parent(&install.join("av1ation-desktop")),
+            None,
+            "a plain executable is not inside a bundle"
+        );
+
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn an_appimage_marker_beside_the_artifact_moves_the_data_root() {
+        let root = scratch_install("appimage");
+        let artifacts = root.join("artifacts");
+        std::fs::create_dir_all(&artifacts).expect("artifact directory");
+        let appimage = artifacts.join("Av1ation Station_0.1.0_x86_64.AppImage");
+        std::fs::write(&appimage, b"").expect("appimage artifact");
+        // The AppImage runtime executes from a read-only mount, so the executable's own
+        // parent is never the install directory.
+        let executable = root
+            .join("mount")
+            .join("usr")
+            .join("bin")
+            .join("av1ation-desktop");
+        std::fs::create_dir_all(executable.parent().expect("mount bin")).expect("mount directory");
+        let app_data = root.join("appdata");
+
+        std::fs::write(artifacts.join("portable"), b"").expect("portable marker");
+        assert_eq!(
+            resolve_data_root(&executable, Some(&appimage), app_data.clone()),
+            artifacts.join("data"),
+            "an AppImage keeps data beside the file the user launched"
+        );
+
+        std::fs::remove_file(artifacts.join("portable")).expect("remove marker");
+        assert_eq!(
+            resolve_data_root(&executable, Some(&appimage), app_data.clone()),
+            app_data,
+            "without the marker the AppImage keeps the platform app-data directory"
+        );
+
+        // A stale APPIMAGE value must not turn a normal launch into portable mode.
+        std::fs::write(artifacts.join("portable"), b"").expect("portable marker");
+        let missing = root.join("moved.AppImage");
+        assert_eq!(
+            resolve_data_root(&executable, Some(&missing), app_data.clone()),
+            app_data,
+            "a missing APPIMAGE path falls back to the executable's own directory"
+        );
+
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn a_close_without_an_active_run_is_not_intercepted() {
+        assert_eq!(close_action(false), CloseAction::Close);
+        assert_eq!(close_action(true), CloseAction::Confirm);
+    }
 
     #[test]
     fn an_export_name_cannot_supply_a_directory() {
@@ -301,6 +519,7 @@ mod tests {
         assert!(permissions.contains(&"core:event:allow-unlisten"));
         assert!(!permissions.contains(&"core:event:default"));
         assert!(permissions.contains(&"allow-save-text-file"));
+        assert!(permissions.contains(&"allow-set-quit-guard"));
         assert!(!permissions.contains(&"allow-write-text-file"));
     }
 }
