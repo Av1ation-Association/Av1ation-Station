@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Film, Loader2, TriangleAlert, X } from "lucide-react";
 
 import { type PreviewSource } from "./preview-player";
@@ -32,6 +34,7 @@ export function ScenePlayer({
     encoderFingerprints = [],
     sceneFingerprint = "",
     totalFrames = 0,
+    overlay,
     className = "",
 }: {
     projectId: string;
@@ -70,6 +73,8 @@ export function ScenePlayer({
     sceneFingerprint?: string;
     /** Source length, so a live decoded stream has a seek range without an MP4 duration. */
     totalFrames?: number;
+    /** The optional scene overlay; it never receives pointer events. */
+    overlay?: ReactNode;
     className?: string | undefined;
 }) {
     const session = usePreviewSession({
@@ -652,6 +657,7 @@ export function ScenePlayer({
                         </div>
                     </div>
                 ) : null}
+                {url === null ? null : overlay}
             </div>
 
             <PlayerTransport

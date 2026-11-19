@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { PanelBottom, PanelLeft } from "lucide-react";
 
 import type { SceneIssue } from "../../shared/model/scene-layout";
+import { PreviewOverlayMenu } from "../preview/PreviewOverlayMenu";
 import { VideoTabs } from "../videos/VideoTabs";
 import { SceneValidationMenu } from "./SceneValidationMenu";
 
@@ -33,6 +34,7 @@ export function ScenesVideoTabs({
             note={note}
             trailing={
                 <div className="flex items-center gap-1">
+                    <PreviewOverlayMenu />
                     {compact ? null : (
                         <button
                             type="button"

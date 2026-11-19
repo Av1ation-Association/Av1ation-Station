@@ -338,6 +338,13 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
 - Source selection is a transport control that opens a popover; there is no source column
   beside the player. The transport bar wraps its settings cluster onto a second row when the
   pane is too narrow for one row, so no control is clipped.
+- The tab strip carries an **Preview overlay** control beside the details-placement toggle.
+  The optional overlay sits at the stage's top-left and never receives pointer events, so it
+  works in normal and fullscreen playback. Its header always names the scene at the playhead
+  and its frame range; eight checkboxes choose Target quality, Quality check, Noise, Chunk,
+  Encoder, Live stage, Progress, and FPS + ETA. The master switch is off by default and the
+  choices save immediately in a popover. A host without a media surface keeps the control
+  visible but disabled with an explanation.
 - The scene rail appears at `lg`; below that it is hidden and the details/player row uses the
   full width. Below `md` the tab is one scrolling column: the player takes 52 vh (clamped to
   200–420 px), the timeline follows, and the details sit under the timeline, so the tab bar's
@@ -455,18 +462,24 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
     previous scene's end to the next scene's start (or the source end). The action bar's split
     is enabled only for one selected scene with a playhead; both edits clear the selection and
     retain one undo step.
-19. **Merge.** Select two or more adjacent scenes and choose **Merge selected scenes**. The
+19. **Read the overlay.** Turn on **Preview overlay** in the tab strip to draw the current
+    scene's Target quality, Quality check, Noise, Chunk, and Encoder facts over the picture.
+    A running video also adds its live stage, progress, and (when selected) FPS + ETA. The
+    scene header follows the playhead; the overlay is absent when the playhead is outside
+    every scene. The control reads the same scene row and live store as the details panel and
+    the run chip, so it cannot show a second measurement.
+20. **Merge.** Select two or more adjacent scenes and choose **Merge selected scenes**. The
     selection becomes one scene from its first start to its last end. Every later index moves,
     so retained chunks and probe scratch for the affected table are deleted. The selection is
     cleared and one undo step is available. A non-adjacent selection is refused.
-20. **Delete.** Delete is enabled for exactly one selected scene. The confirmation states that
+21. **Delete.** Delete is enabled for exactly one selected scene. The confirmation states that
     the scene leaves the table, its frames become uncovered, its retained chunk and later
     scenes' scratch are deleted, and one undo step is available. The chunks themselves are not
     restored by that undo; encoding writes them again.
-21. **Reset chunks.** **Reset chunks** deletes retained chunks for every selected scene after
+22. **Reset chunks.** **Reset chunks** deletes retained chunks for every selected scene after
     confirmation. Scene ranges, custom sequence data, and the finished output stay. There is no
     undo; run Encoding to write the chunks again.
-22. **Undo.** **Undo** restores the scene table before the last structural edit or bulk scene
+23. **Undo.** **Undo** restores the scene table before the last structural edit or bulk scene
     encoder assignment and clears the selection. One bulk write is one entry, so a single
     undo restores every scene in the selection. It does not restore chunks already deleted,
     and **Reset chunks** is not undoable.

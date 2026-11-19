@@ -28,6 +28,7 @@ import { SceneDetailsPanel } from "./SceneDetailsPanel";
 import { SceneEditDialogs } from "./SceneEditDialogs";
 import { useSceneCommands, type SceneCommandEffects } from "./useSceneCommands";
 import { SceneEncoderSheet } from "./SceneEncoderSheet";
+import { PreviewOverlay } from "../preview/PreviewOverlay";
 import { ScenePlayer, type PreviewSource } from "../preview/ScenePlayer";
 import { SceneRail } from "./SceneRail";
 import { SceneTimeline } from "./SceneTimeline";
@@ -151,6 +152,7 @@ export function ScenesScreen() {
             ? index
             : null;
     }, [scenes, playhead]);
+    const previewScene = sceneIndex === null ? null : (scenes[sceneIndex] ?? null);
     // Decoded owns its own stream start: one continuous stream from wherever the user
     // chose it. Only an encoded scene has a fixed first frame the player must align to.
     const previewBaseFrame =
@@ -702,6 +704,13 @@ export function ScenesScreen() {
                                 encoderFingerprints={encoderFingerprints}
                                 sceneFingerprint={list.data?.scene_fingerprint ?? ""}
                                 totalFrames={sourceFrames}
+                                overlay={
+                                    <PreviewOverlay
+                                        projectId={projectId}
+                                        videoId={videoId}
+                                        scene={previewScene}
+                                    />
+                                }
                                 className={
                                     compact
                                         ? "h-[clamp(200px,52vh,420px)] shrink-0"
