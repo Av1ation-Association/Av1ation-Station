@@ -134,7 +134,7 @@ except `POST /api/pair`, which exchanges a shortcode for that token.
 | `Origin` check | cross-origin state-changing requests on the LAN listener rejected (`Origin` must match the served origin) |
 | CORS | not enabled for service origins; a debug desktop build additionally allows only the Vite dev origins on port 1420 |
 | `X-Frame-Options` | `DENY` — never framed by a third party |
-| `Content-Security-Policy` | `default-src 'self'`; `media-src 'self'`; `img-src 'self' data:`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self' ipc: ipc.localhost` for the desktop webview's Tauri IPC; no `unsafe-eval` (Monaco is loaded as a worker, not eval'd) |
+| `Content-Security-Policy` | `default-src 'self'`; `media-src 'self' blob:` for the MediaSource preview; `img-src 'self' data:`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self' ipc: ipc.localhost` for the desktop webview's Tauri IPC; no `unsafe-eval` (Monaco is loaded as a worker, not eval'd) |
 | HSTS | not applicable (plain HTTP on LAN); documented as a limitation |
 | TLS | **not** provided. Self-signed certs are worse UX than transparent plaintext for a LAN tool, and the token is the protection. Documented explicitly, with a recommendation to use a trusted LAN or a VPN. |
 | Bind scope | LAN mode binds every interface; the loopback listener remains separate |

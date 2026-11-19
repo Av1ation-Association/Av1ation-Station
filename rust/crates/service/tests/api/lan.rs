@@ -168,6 +168,7 @@ async fn lan_access_is_opt_in_and_requires_its_token() {
     let (authorized, response) = raw_get(port, "/api/health", Some(&token)).await;
     assert_eq!(authorized, 200);
     assert!(response.contains("x-frame-options: DENY"));
+    assert!(response.contains("media-src 'self' blob:"));
     assert!(response.contains("connect-src 'self' ipc: ipc.localhost"));
 
     // A browser that closes an event stream is an ordinary disconnect, not a reason to
