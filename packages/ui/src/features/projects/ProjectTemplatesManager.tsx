@@ -25,6 +25,7 @@ import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
 import { DialogFrame } from "../../shared/DialogFrame";
+import { ExpandableActionButton } from "../../shared/ExpandableActionButton";
 import { ListRow, ROW_NAME_CLASS } from "../../shared/ListRow";
 import { LoadErrorPanel } from "../../shared/LoadErrorPanel";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../../shared/Menu";
@@ -516,31 +517,33 @@ export function ProjectTemplatesManager() {
                                                 Default
                                             </span>
                                         ) : null}
-                                        <button
-                                            type="button"
-                                            aria-label={`Export ${template.name}`}
-                                            data-tip={`Export ${template.name}`}
-                                            data-tip-align="end"
+                                        <ExpandableActionButton
+                                            label="Export"
+                                            ariaLabel={`Export ${template.name}`}
+                                            icon={
+                                                <Download
+                                                    aria-hidden="true"
+                                                    className="h-3.5 w-3.5"
+                                                    strokeWidth={1.8}
+                                                />
+                                            }
                                             disabled={exportingThis}
                                             onClick={() => requestExport(template.id)}
-                                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line-strong bg-raised text-ink-muted hover:border-brand/40 hover:bg-brand-soft hover:text-brand disabled:opacity-40"
-                                        >
-                                            <Download
-                                                aria-hidden="true"
-                                                className="h-3.5 w-3.5"
-                                                strokeWidth={1.8}
-                                            />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            aria-label={`Delete ${template.name}`}
-                                            data-tip={`Delete ${template.name}`}
-                                            data-tip-align="end"
+                                            className="border border-line-strong bg-raised hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+                                        />
+                                        <ExpandableActionButton
+                                            label="Delete"
+                                            ariaLabel={`Delete ${template.name}`}
+                                            icon={
+                                                <Trash2
+                                                    aria-hidden="true"
+                                                    className="h-3.5 w-3.5"
+                                                />
+                                            }
+                                            tone="danger"
                                             onClick={() => setRemoving(template.id)}
-                                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line-strong bg-raised text-ink-muted hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
-                                        >
-                                            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
-                                        </button>
+                                            className="border border-line-strong bg-raised hover:border-danger/40"
+                                        />
                                     </>
                                 }
                             />

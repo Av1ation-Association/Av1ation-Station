@@ -20,6 +20,7 @@ import { expectAxeClean } from "./support/axe";
  */
 const PANEL_MARKERS: Record<SettingsTab, string> = {
     Appearance: "Row density",
+    Notifications: "Run notifications",
     Dependencies: "TransNetV2 model",
     Encoders: "Parameters",
     "Project Templates": "Add template",

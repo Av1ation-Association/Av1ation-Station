@@ -1,36 +1,12 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { GripVertical, Plus } from "lucide-react";
 
 import { type JsonSchema } from "../../shared/schema/config-schema";
 import { Button } from "../../shared/Button";
+import { RemoveButton } from "../../shared/RemoveButton";
 import { FilterComposer } from "./FilterComposer";
 import { filterSummary } from "./filter-summary";
-
-function IconAction({
-    label,
-    onClick,
-    disabled,
-    children,
-}: {
-    label: string;
-    onClick: () => void;
-    disabled: boolean;
-    children: ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            title={label}
-            disabled={disabled}
-            onClick={onClick}
-            className="rounded p-1 text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-30"
-        >
-            {children}
-        </button>
-    );
-}
 
 /**
  * One reorderable engine filter chain.
@@ -206,17 +182,15 @@ export function FilterList({
                                     >
                                         {summary}
                                     </button>
-                                    <IconAction
-                                        label={`Remove ${summary}`}
+                                    <RemoveButton
+                                        target={summary}
                                         disabled={disabled}
                                         onClick={() =>
                                             onChange(
                                                 filters.filter((_, cursor) => cursor !== index),
                                             )
                                         }
-                                    >
-                                        <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
-                                    </IconAction>
+                                    />
                                 </li>
                             );
                         })}

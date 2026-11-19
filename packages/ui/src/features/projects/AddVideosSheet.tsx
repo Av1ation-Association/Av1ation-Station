@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { deriveOutputPath } from "../../shared/format";
 import { randomId } from "../../shared/random-id";
 import { Button } from "../../shared/Button";
+import { ExpandableActionButton } from "../../shared/ExpandableActionButton";
 import { Sheet } from "../../shared/Sheet";
 
 const FIELD =
@@ -163,15 +164,14 @@ export function AddVideosSheet({
                                         ? `Video ${String(index + 1)}`
                                         : fileName(row.input)}
                                 </p>
-                                <button
-                                    type="button"
-                                    aria-label={`Remove ${fileName(row.input) || "this video"}`}
-                                    data-tip="Remove from this batch"
+                                <ExpandableActionButton
+                                    label="Remove"
+                                    ariaLabel={`Remove ${fileName(row.input) || "this video"}`}
+                                    icon={<X aria-hidden="true" className="h-3.5 w-3.5" />}
                                     onClick={() => remove(row.key)}
-                                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:bg-danger-soft hover:text-danger"
-                                >
-                                    <X aria-hidden="true" className="h-3.5 w-3.5" />
-                                </button>
+                                    size="sm"
+                                    tone="danger"
+                                />
                             </div>
 
                             <div className="mt-2 grid gap-2">

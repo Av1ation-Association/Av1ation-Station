@@ -8,12 +8,13 @@ import {
     useScriptGuide,
 } from "@av1ation/api";
 import type { InputKind, VapourSynthImporter } from "@av1ation/contracts";
-import { FolderOpen, Plus, Trash2 } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { type JsonSchema } from "../../shared/schema/config-schema";
 import { setDraftBlocker } from "../../shared/draft-blockers";
 import { Button } from "../../shared/Button";
+import { RemoveButton } from "../../shared/RemoveButton";
 import { FilterList } from "./FilterList";
 import {
     variablesObject,
@@ -241,18 +242,17 @@ function ScriptVariablesEditor({
                                         }
                                         className={`${FIELD} min-w-0 flex-1 font-mono`}
                                     />
-                                    <button
-                                        type="button"
-                                        aria-label={`Remove variable ${row.key.trim() === "" ? String(index + 1) : row.key}`}
-                                        title="Remove variable"
+                                    <RemoveButton
+                                        target={
+                                            row.key.trim() === ""
+                                                ? `variable ${String(index + 1)}`
+                                                : row.key
+                                        }
                                         disabled={disabled}
                                         onClick={() =>
                                             commit(drafts.filter((_, cursor) => cursor !== index))
                                         }
-                                        className="rounded p-1 text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-danger disabled:pointer-events-none disabled:opacity-40"
-                                    >
-                                        <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
-                                    </button>
+                                    />
                                 </div>
                                 {problem === null ? null : (
                                     <p

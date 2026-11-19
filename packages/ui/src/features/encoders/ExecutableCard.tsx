@@ -11,6 +11,7 @@ import { FolderOpen, Pencil, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { ExpandableActionButton } from "../../shared/ExpandableActionButton";
 import { RemoveButton } from "../../shared/RemoveButton";
 import { friendlyName, isShipped } from "./encoder-names";
 import { FIELD } from "./encoder-fields";
@@ -146,15 +147,13 @@ export function ExecutableCard({
                                     {friendlyName(encoder)}
                                 </h2>
                                 {encoder.fork && !shipped ? (
-                                    <button
-                                        type="button"
-                                        aria-label={`Rename ${encoder.label}`}
-                                        data-tip="Rename this build"
+                                    <ExpandableActionButton
+                                        label="Rename"
+                                        ariaLabel={`Rename ${encoder.label}`}
+                                        icon={<Pencil aria-hidden="true" className="h-3 w-3" />}
                                         onClick={() => setRenaming(true)}
-                                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
-                                    >
-                                        <Pencil aria-hidden="true" className="h-3 w-3" />
-                                    </button>
+                                        size="sm"
+                                    />
                                 ) : null}
                             </>
                         )}

@@ -2,9 +2,10 @@ import { useState, type ReactNode } from "react";
 
 import { useConcatInventory, usePickFile } from "@av1ation/api";
 import type { ConcatMethodName } from "@av1ation/contracts";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 
 import { Button } from "../../shared/Button";
+import { RemoveButton } from "../../shared/RemoveButton";
 import { Switch } from "../../shared/Switch";
 import type { JsonSchema } from "../../shared/schema/config-schema";
 import {
@@ -305,21 +306,15 @@ export function MetadataPanel({
                                                 })
                                             }
                                         />
-                                        <button
-                                            type="button"
-                                            aria-label={`Remove tag ${key}`}
-                                            data-tip={`Remove tag ${key}`}
-                                            data-tip-align="end"
+                                        <RemoveButton
+                                            target={`tag ${key}`}
                                             disabled={locked}
                                             onClick={() => {
                                                 const next = { ...metadata.tags };
                                                 delete next[key];
                                                 setTags(next);
                                             }}
-                                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-danger disabled:opacity-40"
-                                        >
-                                            <X aria-hidden="true" className="h-3.5 w-3.5" />
-                                        </button>
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -442,17 +437,11 @@ function ExtraInputCard({
                     >
                         ↓
                     </button>
-                    <button
-                        type="button"
-                        aria-label={`Remove extra input ${String(index + 1)}`}
-                        data-tip={`Remove extra input ${String(index + 1)}`}
-                        data-tip-align="end"
+                    <RemoveButton
+                        target={`extra input ${String(index + 1)}`}
                         disabled={locked}
                         onClick={onRemove}
-                        className="flex h-6 w-6 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-danger disabled:opacity-40"
-                    >
-                        <X aria-hidden="true" className="h-3.5 w-3.5" />
-                    </button>
+                    />
                 </div>
             </div>
 

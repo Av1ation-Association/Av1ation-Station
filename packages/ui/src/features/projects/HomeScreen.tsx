@@ -13,6 +13,7 @@ import { FolderOpen, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "../../shared/Button";
+import { ExpandableActionButton } from "../../shared/ExpandableActionButton";
 import { NewProjectButton, NewProjectForm } from "./NewProject";
 import { ListRow, ROW_NAME_CLASS } from "../../shared/ListRow";
 import { RemoveButton } from "../../shared/RemoveButton";
@@ -24,8 +25,6 @@ import { DOCUMENTATION, REPOSITORY, WEBSITE } from "../../shared/links";
 
 const MAX_NAME = 120;
 const ROW_GRID = "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3";
-const ICON_BUTTON =
-    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-40";
 function videosLabel(project: ProjectSummary): string {
     if (project.video_count === 0) {
         return "0 videos";
@@ -140,15 +139,16 @@ export function ProjectRow({
                         >
                             {project.name}
                         </Link>
-                        <button
-                            type="button"
+                        <ExpandableActionButton
+                            label="Rename"
+                            ariaLabel={`Rename ${project.name}`}
+                            icon={
+                                <Pencil aria-hidden="true" className="h-3 w-3" strokeWidth={1.6} />
+                            }
                             onClick={startRename}
-                            aria-label={`Rename ${project.name}`}
-                            data-tip="Rename project"
-                            className={`${ICON_BUTTON} h-5 w-5 shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100`}
-                        >
-                            <Pencil aria-hidden="true" className="h-3 w-3" strokeWidth={1.6} />
-                        </button>
+                            size="xs"
+                            className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100"
+                        />
                     </>
                 )
             }
@@ -159,19 +159,19 @@ export function ProjectRow({
                             <FolderOpen aria-hidden="true" className="h-3.5 w-3.5 text-ink-muted" />
                         </span>
                     ) : (
-                        <button
-                            type="button"
+                        <ExpandableActionButton
+                            label="Open folder"
+                            ariaLabel={`Open the folder for ${project.name}`}
+                            icon={
+                                <FolderOpen
+                                    aria-hidden="true"
+                                    className="h-3.5 w-3.5"
+                                    strokeWidth={1.6}
+                                />
+                            }
                             onClick={reveal}
-                            aria-label={`Open the folder for ${project.name}`}
-                            data-tip="Open project folder"
-                            className={`${ICON_BUTTON} h-5 w-5`}
-                        >
-                            <FolderOpen
-                                aria-hidden="true"
-                                className="h-3.5 w-3.5"
-                                strokeWidth={1.6}
-                            />
-                        </button>
+                            size="xs"
+                        />
                     )}
                     <code
                         data-tip={project.path}

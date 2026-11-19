@@ -6,9 +6,10 @@ import type {
     ConcatSourceTrack,
     ConcatTrackKind,
 } from "@av1ation/contracts";
-import { ChevronDown, FolderOpen, Lock, RefreshCw, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, FolderOpen, Lock, RefreshCw, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "../../shared/Button";
+import { RemoveButton } from "../../shared/RemoveButton";
 import { setDraftBlocker } from "../../shared/draft-blockers";
 import { Sheet } from "../../shared/Sheet";
 import { Switch } from "../../shared/Switch";
@@ -565,19 +566,13 @@ export function TrackMapPanel({
                                                 <span className="shrink-0 rounded-full border border-brand/40 bg-brand/10 px-1.5 py-0.5 font-mono text-[8px] tracking-[0.1em] text-brand uppercase">
                                                     Added
                                                 </span>
-                                                <button
-                                                    type="button"
-                                                    aria-label={`Remove attachment ${key}`}
-                                                    data-tip={`Remove attachment ${key}`}
-                                                    data-tip-align="end"
+                                                <RemoveButton
+                                                    target={`attachment ${key}`}
                                                     disabled={locked}
                                                     onClick={() =>
                                                         onChange(withoutKey(tracks, key))
                                                     }
-                                                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent text-ink-muted hover:border-line hover:text-danger disabled:opacity-40"
-                                                >
-                                                    <X aria-hidden="true" className="h-3.5 w-3.5" />
-                                                </button>
+                                                />
                                             </div>
                                             <div className="grid gap-2 px-3 pb-3 sm:grid-cols-2">
                                                 <div className="block sm:col-span-2">
