@@ -8,6 +8,7 @@ import {
     takesNewPass,
 } from "../encode-events";
 import { recordLive } from "../encode-live";
+import { publishRunLifecycle } from "../run-notifications";
 import { trackLiveNoise } from "../live-noise";
 import { trackLiveQuality } from "../live-quality";
 import { useTransport } from "./client";
@@ -169,6 +170,9 @@ export function useEncodeEvents(): void {
         };
 
         const unsubscribe = transport.subscribe(eventsPath(), EncodeEventSchema, (event) => {
+            // The notification writer is the one other consumer of lifecycle transitions.
+            // It leaves cancellation and ordinary progress alone.
+            publishRunLifecycle(event);
             // The live snapshot is what a running bar shows: frames, speed, ETA, and the
             // pass or worker a tick belongs to. It is client-only and cleared by the
             // run's terminal event, so a reload never shows a stale clock. Progress is

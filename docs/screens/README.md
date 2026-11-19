@@ -32,7 +32,7 @@ is sequenced in Phase 3 of `docs/plan/03-ui.md`; the review checkpoint is record
 | Document | Covers |
 | --- | --- |
 | [Home](home.md) | project list, search, creation, deletion, retained-work size |
-| [Settings](settings.md) | seven tabs: appearance, dependencies, encoders, project templates, storage, network, about |
+| [Settings](settings.md) | eight tabs: appearance, notifications, dependencies, encoders, project templates, storage, network, about |
 | [Shell and navigation](shell.md) | top bar, back control, breadcrumb, section grid, palette and shortcuts |
 | [Project and configuration](project.md) | section grid and queue, General, filter list, detection, noise, encoding, target quality, concatenation, quality check |
 | [Script editor](script-editor.md) | Monaco, generated scene-data stub, save/cancel/dirty |

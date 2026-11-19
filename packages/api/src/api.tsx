@@ -2,6 +2,7 @@
 export { ApiProvider } from "./api/client";
 export * from "./api/system";
 export * from "./api/host";
+export * from "./api/notifications";
 export * from "./api/templates";
 export * from "./api/projects";
 export * from "./api/queue";

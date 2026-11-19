@@ -143,6 +143,8 @@ export class MockTransport implements Transport {
     readonly restartApp: Transport["restartApp"] = undefined;
     /** The demo has no media bytes to range over unless its fixture supplies a mapping. */
     readonly mediaUrl: Transport["mediaUrl"];
+    /** A test seam for the desktop notification surface; the browser demo has none. */
+    readonly notify: Transport["notify"];
     /** The demo cannot own a language-server process, so completion stays bundled. */
     readonly openLanguageServer = undefined;
 
@@ -159,9 +161,11 @@ export class MockTransport implements Transport {
             pickModel?: () => Promise<string | null>;
             saveTextFile?: Transport["saveTextFile"];
             restartApp?: Transport["restartApp"];
+            notify?: Transport["notify"];
         } = {},
     ) {
         this.restartApp = pickers.restartApp;
+        this.notify = pickers.notify;
         this.pickFile = pickers.pickFile ?? this.pickFile;
         this.saveTextFile = pickers.saveTextFile;
         this.pickExecutable = pickers.pickExecutable;

@@ -80,7 +80,8 @@ identity, kind, choice, number, default, and relation sections are independent c
 The settings screen is the tab shell. `DependencyInventory` and `Diagnostics` own the
 preflight inventory, its loading and empty states, and the probe action; `DependencyRow`
 edits one provider, `SceneModelGroup` and `PythonInterpreterGroup` are the two capabilities
-that are not executable rows, and `AppearancePanel` owns theme, density, and reduced motion.
+that are not executable rows, `AppearancePanel` owns theme, density, and reduced motion,
+and `NotificationsPanel` owns the desktop run choices and host-disabled explanation.
 The project-template surface is three route modules: `ProjectTemplatesManager` owns the
 searchable list, `ProjectTemplateOverview` owns one template's section grid, and
 `ProjectDefaultsSectionScreen` owns one section editor. Only `project-defaults-parts` holds
@@ -336,8 +337,8 @@ stateDiagram-v2
 - A failed save keeps the draft and shows a field-level error; it never discards user work.
 - The draft-aware surfaces and their history: the seven project section editors (General and
   the six sequence sections), Settings → Project Templates **General** and each template section, and Settings
-  → Encoders → one encoder's parameter table. The app-settings panels (Appearance, Storage,
-  Network, Dependencies) write field by field and have no draft, so they have nothing to
+  → Encoders → one encoder's parameter table. The app-settings panels (Appearance,
+  Notifications, Storage, Network, Dependencies) write field by field and have no draft, so they have nothing to
   undo; a destructive action there is confirmed instead. The script page keeps Monaco's own
   undo stack and deliberately does not join the configuration history.
 - Save replaces the resource (project config or the video's sparse overrides), never a

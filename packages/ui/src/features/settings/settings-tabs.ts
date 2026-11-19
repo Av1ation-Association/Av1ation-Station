@@ -1,11 +1,12 @@
 /**
  * The Settings tab list, its URL spelling, and the tab a hash names.
  *
- * The strip, the palette, and a link from another screen all name the same seven tabs. One
+ * The strip, the palette, and a link from another screen all name the same eight tabs. One
  * list keeps them from drifting apart: adding a tab is one entry here plus its panel.
  */
 export const SETTINGS_TABS = [
     "Appearance",
+    "Notifications",
     "Dependencies",
     "Encoders",
     "Project Templates",
@@ -18,6 +19,7 @@ export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 export const SETTINGS_TAB_SLUGS: Record<SettingsTab, string> = {
     Appearance: "appearance",
+    Notifications: "notifications",
     Dependencies: "dependencies",
     Encoders: "encoders",
     "Project Templates": "project-templates",

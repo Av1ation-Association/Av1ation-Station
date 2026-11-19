@@ -11,6 +11,7 @@ import { SETTINGS_TABS, SETTINGS_TAB_SLUGS, type SettingsTab } from "./settings-
 /** Text only the named panel renders; the tab strip alone cannot satisfy these. */
 const PANEL_MARKERS: Record<SettingsTab, string> = {
     Appearance: "Row density",
+    Notifications: "Run notifications",
     Dependencies: "TransNetV2 model",
     Encoders: "Parameters",
     "Project Templates": "Add template",

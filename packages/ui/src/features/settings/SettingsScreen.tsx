@@ -8,6 +8,7 @@ import { ProjectTemplatesManager } from "../projects/ProjectTemplatesManager";
 import { AboutPanel } from "./AboutPanel";
 import { AppearancePanel } from "./AppearancePanel";
 import { DependencyInventory, Diagnostics, LoadingSettings } from "./DependencyInventory";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { NetworkPanel, StoragePanel } from "./settings-panels";
 import {
     SETTINGS_TAB_SLUGS,
@@ -79,6 +80,8 @@ export function SettingsScreen() {
             </div>
 
             {tab === "Appearance" ? <AppearancePanel /> : null}
+
+            {tab === "Notifications" ? <NotificationsPanel /> : null}
 
             {tab === "Encoders" ? <EncodersPanel /> : null}
 

@@ -2,7 +2,14 @@ import { HttpTransport, type HttpTransportOptions } from "@av1ation/api";
 import { isLoopbackOrigin, mountApp, mountBrowserApp, mountHttpApp } from "@av1ation/ui";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import {
+    isPermissionGranted,
+    onAction,
+    requestPermission,
+    sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 /// In a native window the host injects the origin. In a browser dev session the same
@@ -173,7 +180,33 @@ const host: HttpTransportOptions =
               setZoom: async (factor) => {
                   await invoke("set_webview_zoom", { factor });
               },
+              notify: async ({ title, body }) => {
+                  // The shared writer cannot see focus. Suppress a toast while the user is
+                  // already looking at the window; a minimized window reports unfocused.
+                  if (await getCurrentWindow().isFocused()) {
+                      return;
+                  }
+                  // The plugin reports Granted on desktop, but request defensively: a
+                  // future permission model must not turn an OS refusal into an app error.
+                  let granted = await isPermissionGranted();
+                  if (!granted) {
+                      granted = (await requestPermission()) === "granted";
+                  }
+                  if (!granted) {
+                      return;
+                  }
+                  sendNotification({ title, body });
+              },
           };
+
+/** A toast click should bring a minimized window forward. */
+if (typeof window.__TAURI_INTERNALS__ !== "undefined") {
+    void onAction(async () => {
+        const current = getCurrentWindow();
+        await current.unminimize();
+        await current.setFocus();
+    });
+}
 
 if (!origin) {
     // A packaged build serves this same bundle from the service, where there is no Tauri

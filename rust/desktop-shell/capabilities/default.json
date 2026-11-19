@@ -9,6 +9,9 @@
     "permissions": [
         "core:event:allow-listen",
         "core:event:allow-unlisten",
+        "core:window:allow-is-focused",
+        "core:window:allow-unminimize",
+        "core:window:allow-set-focus",
         "allow-save-text-file",
         "allow-restart-app",
         "allow-set-webview-zoom",
@@ -16,6 +19,7 @@
         "allow-quit-app",
         "dialog:allow-open",
         "dialog:allow-save",
+        "notification:default",
         "opener:allow-open-path",
         "opener:allow-reveal-item-in-dir"
     ]

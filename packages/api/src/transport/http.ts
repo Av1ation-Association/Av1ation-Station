@@ -6,6 +6,7 @@ import { editorLspPath, eventsTicketPath } from "../api/paths";
 import { subscribeToEvents } from "./event-stream";
 import {
     ApiError,
+    type DesktopNotification,
     type FilePickerRequest,
     type LanguageServerChannel,
     type SaveTextOptions,
@@ -55,6 +56,8 @@ export interface HttpTransportOptions {
     quit?: () => Promise<void>;
     /** Host-supplied webview zoom. Omitted in a plain browser. */
     setZoom?: (factor: number) => Promise<void>;
+    /** Host-supplied desktop notification. Omitted in a plain browser. */
+    notify?: (notification: DesktopNotification) => Promise<void>;
     /** LAN bearer token. The desktop loopback host leaves it absent. */
     token?: string;
     /**
@@ -90,6 +93,7 @@ export class HttpTransport implements Transport {
     readonly setQuitGuard: ((active: boolean) => Promise<void>) | undefined;
     readonly quit: (() => Promise<void>) | undefined;
     readonly setZoom: ((factor: number) => Promise<void>) | undefined;
+    readonly notify: ((notification: DesktopNotification) => Promise<void>) | undefined;
     readonly mediaUrl: ((path: string) => string) | undefined;
     readonly openLanguageServer: (() => Promise<LanguageServerChannel | null>) | undefined;
 
@@ -115,6 +119,7 @@ export class HttpTransport implements Transport {
         this.setQuitGuard = options.setQuitGuard;
         this.quit = options.quit;
         this.setZoom = options.setZoom;
+        this.notify = options.notify;
         // The embedded loopback listener needs no credential, so a media element can address
         // it directly. A paired LAN browser appends the media ticket it minted at startup:
         // that credential reads a source or a frame and nothing else, which is why the URL

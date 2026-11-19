@@ -223,6 +223,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             },
         ))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
@@ -521,7 +522,12 @@ mod tests {
         assert!(permissions.contains(&"core:event:allow-listen"));
         assert!(permissions.contains(&"core:event:allow-unlisten"));
         assert!(!permissions.contains(&"core:event:default"));
+        // The notification host reads focus; a toast click restores a minimized window.
+        assert!(permissions.contains(&"core:window:allow-is-focused"));
+        assert!(permissions.contains(&"core:window:allow-unminimize"));
+        assert!(permissions.contains(&"core:window:allow-set-focus"));
         assert!(permissions.contains(&"allow-save-text-file"));
+        assert!(permissions.contains(&"notification:default"));
         assert!(permissions.contains(&"allow-set-quit-guard"));
         assert!(!permissions.contains(&"allow-write-text-file"));
     }

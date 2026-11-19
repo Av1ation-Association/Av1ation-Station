@@ -1,13 +1,14 @@
 # Settings
 
-Settings is a tabbed screen: `Appearance`, `Dependencies`, `Encoders`, `Project Templates`,
-`Storage`, `Network`, `About`. The tab strip replaces the page heading; the breadcrumb
+Settings is a tabbed screen: `Appearance`, `Notifications`, `Dependencies`, `Encoders`,
+`Project Templates`, `Storage`, `Network`, `About`. The tab strip replaces the page heading; the breadcrumb
 already names the screen, so the content does not repeat it. A tab switch with a dirty draft
 asks save / discard / stay before the panel changes.
 
 ## Contents
 
 - [Appearance](#appearance)
+- [Notifications](#notifications)
 - [Dependencies](#dependencies)
 - [Encoders](#encoders)
 - [Project Templates](#project-templates)
@@ -52,6 +53,53 @@ asks save / discard / stay before the panel changes.
 - **Tokens.** Theme values come from the shared token source; see
   [frontend-penpot.md](../frontend-penpot.md).
 - **No Apply state.** Every change is persisted immediately.
+
+## Notifications
+
+### Notifications layout
+
+- A **Run notifications** master switch, off by default, and three event choices:
+  **A run starts**, **A run finishes**, and **A run fails**.
+- The three choices are on by default but disabled until the master switch is on. Each
+  choice carries one line of explanation; **A run fails** says that the toast includes a
+  short reason from the run's error.
+- A footer states that the operating system owns final permission and display settings.
+- In a LAN or site window the tab remains visible; the panel explains that desktop
+  notifications need the desktop application and every control is disabled.
+
+### Notifications behavior
+
+1. **Enable notifications.** The master switch allows the event choices to be edited. Its
+   default is off, so an existing settings file never starts sending notifications after an
+   update.
+2. **Choose events.** Start, finish, and failure are selected independently. Cancellation is
+   not a choice and never sends a notification. The first sequence start of a run is the only
+   start notification; later sequence transitions stay quiet.
+3. **Respect attention.** The desktop host checks focus and permission before showing a
+   notification, and suppresses one while the window is focused. A minimized window reports
+   unfocused, so it is notified. Clicking a toast brings the window forward.
+4. **Persist.** Every switch and checkbox writes the complete
+   `desktop_notifications` object immediately; there is no Apply button.
+
+### Notifications states
+
+| State | Contract |
+| --- | --- |
+| Loading | Controls stay disabled until settings resolve. |
+| Empty | Not applicable; every event choice has a stored boolean. |
+| Error | A failed read is named in the panel; a failed save keeps the last saved values and is named inline. |
+| Unsupported host | The tab is present, the explanation is visible, and every control is disabled. |
+| Locked | Not applicable; Settings is not part of an encode lock. |
+
+### Notifications data and contracts
+
+- **Settings document.** `GET` / `PATCH /api/settings`, field
+  `desktop_notifications { enabled, started, finished, failed }`.
+- **Transport capability.** `Transport.notify` is present only on the desktop host. The
+  shared panel reads `useCanNotify()`; the Tauri window owns the OS permission request, focus
+  check, and click-to-focus action.
+- **No browser fallback.** A LAN or site host has no operating-system notification surface
+  and shows the disabled explanation instead.
 
 ## Dependencies
 
@@ -412,7 +460,7 @@ asks save / discard / stay before the panel changes.
   script.
 - **Delete template** opens a confirmation stating that existing projects keep their copies
   and that the deletion cannot be undone.
-- The Settings tab strip is one tab stop and its arrow keys move between the seven tabs.
+- The Settings tab strip is one tab stop and its arrow keys move between the eight tabs.
 
 ### Project Templates behavior
 
