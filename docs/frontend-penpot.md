@@ -44,7 +44,7 @@ Penpot pages have no per-file cap and no rate limit on the hosted service.
 | `01 Components` | primitives and composed components with all variants and states |
 | `02 Shell` | top bar (way back, mark and wordmark, breadcrumb, actions), content outlet, command palette, toast region |
 | `03 Home` | whole-row project list, empty state, create, delete confirm |
-| `04 Settings` | tabbed appearance with theme and density previews, masonry dependency inventory with diagnostics, encoder catalogue and parameter/JSON editor, project templates, storage, network and pairing, about, and the seven-tab state specimen |
+| `04 Settings` | tabbed appearance with theme and density previews, notifications, masonry dependency inventory with diagnostics, encoder catalogue and parameter/JSON editor, project templates, storage, network and pairing, about, and the tab-strip state specimen |
 | `05 Project` | configuration section grid, queue, the five project states, and the script editor as its own surface |
 | `06 Video` | `Configuration` with provenance and status; `Scenes` with one player, its `Original`/`Decode`/`Encode` sources behind one transport control, proportional timeline, scene details with honest per-sequence data, validation, charts; `Logs` as its own tab; source menu; scene encoder sheet; `Concatenation` with the track map inside its Method card |
 | `07 Overlays` | dialogs, popovers, menus, banners, notification variants |
@@ -117,7 +117,7 @@ section surface, not a standalone state surface: its populated board is the revi
 while full-page loading, error, narrow and wide states come from the `02 Shell` and
 `05 Project` sets. A section-specific loading or error belongs inside the section card, not
 in a duplicate full-page board. `04 Settings` carries one tab board per tab, plus
-`Project Templates` and the encoder parameter editor; each tab board repeats the same seven-tab
+`Project Templates` and the encoder parameter editor; each tab board repeats the same tab
 strip, so adding a tab is one change in every board, not a bespoke header.
 
 ### 3.1 Public website
@@ -314,11 +314,11 @@ the reviewed file ID, revision, named version and external export checksum. The 
 procedure, inventory, and snapshot guidance are in
 [`design/penpot/README.md`](../design/penpot/README.md).
 
-### 10.3 Phase 6 provisional exception
+### 10.3 Phase 6 design source
 
-The live Penpot service is no longer reachable in this environment, and the owner has
-authorised finishing the Phase 6 backlog without it. Remaining screen work may proceed from
-the checked-in generators, components and semantic tokens; each changed screen is accepted
-provisionally and must be compared against the live board before the stable tag, as recorded
-in [`docs/decisions.md`](decisions.md). A surface that has no checked-in generator is
-deferred for design input rather than invented.
+The live Penpot service is no longer available, and the owner has waived live-board
+reconciliation. Remaining screen work proceeds from the checked-in generators, components
+and semantic tokens; this is the normal design source for this phase, not a provisional
+exception, and it is not a release gate. A surface that has no checked-in generator still
+needs design input rather than an invented layout. See
+[`docs/decisions.md`](decisions.md).

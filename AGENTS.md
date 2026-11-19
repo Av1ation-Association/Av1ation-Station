@@ -161,17 +161,13 @@ The checked-in `design/penpot/boards/*.js` scripts are not the whole file: board
 project. Read the live file through the Penpot MCP before building a screen, and export the
 board rather than inferring its layout from a neighbouring one.
 
-**The generator scripts are never a substitute for the live board while the live file is
-reachable.** Compare the rendered screen against the exported live board, not against the
-script that is supposed to have produced it: the live file may contain later manual edits,
-and the scripts may describe a board that was never imported.
-
-If the live Penpot file cannot be reached, stop screen work and tell the user. Only a minor,
-local change may proceed from the checked-in generator code, and it must be flagged in the
-hand-off for review against the live board as soon as the connection is available. When the
-service is down and the owner authorises it, a larger surface may be built provisionally from
-the checked-in generators; record the exception in `docs/decisions.md` and reconcile the live
-boards before release.
+**The live Penpot service is unavailable and live-board reconciliation is waived.** The
+owner has withdrawn it as a release dependency. The checked-in `design/penpot/boards/*.js`
+generators, existing components, and semantic tokens are the design source for remaining
+screen work. Do not stop work waiting for Penpot, and do not treat the missing live
+comparison as an open release gate. A surface with no checked-in generator at all still
+needs design input rather than an invented layout; record that separately in
+`docs/decisions.md`.
 
 **The public website is exempt from this rule.** Marketing and documentation pages are
 composed from the application's identity — its logo mark, semantic tokens, Inter and

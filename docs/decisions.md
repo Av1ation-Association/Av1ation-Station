@@ -55,24 +55,22 @@ labels; `docs/packaging.md` records the unverified macOS bundle; `docs/progress.
 5.8/5.25/5.26 as partial and 5.6/5.13 as deferred. The package job keeps macOS artifacts in
 the release but does not require a macOS host to pass it.
 
-### 4. Phase 6 screens proceed from checked-in boards while Penpot is unavailable
+### 4. Phase 6 screens proceed from checked-in boards; Penpot is waived
 
-**Status:** accepted provisionally; live-board reconciliation required before the stable tag.
+**Status:** accepted; live-board reconciliation is waived.
 
-**Context.** The Penpot MCP service is no longer available in this environment. Several Phase
-6 items still need screen work, and the owner has authorised continuing the backlog without
-the live file rather than stopping delivery.
+**Context.** The Penpot MCP service is no longer available in this environment, and the
+owner has directed that it must not block remaining work. Several Phase 6 items still need
+screen work.
 
-**Decision.** Remaining Phase 6 screen work may be built from the checked-in
-`design/penpot/boards/*.js` generators, the existing components, and the semantic tokens. A
-screen built this way is accepted provisionally: it is called out in the hand-off, and every
-changed screen is reconciled against the live board as soon as the Penpot service is
-available. A surface with no checked-in generator at all is not invented; it is deferred for
-design input instead.
+**Decision.** Remaining screen work is built from the checked-in
+`design/penpot/boards/*.js` generators, the existing components, and the semantic tokens.
+The missing live comparison is not a delivery or release gate. A surface with no checked-in
+generator at all is not invented; it still needs design input instead.
 
-**Consequences.** `AGENTS.md` §2.12 and `docs/frontend-penpot.md` describe the exception.
-`docs/progress.md` records the provisional screens and the outstanding reconciliation. This
-entry is removed only when the live comparison is recorded.
+**Consequences.** `AGENTS.md` §2.12 and `docs/frontend-penpot.md` own the waiver.
+`docs/progress.md` may describe screens as built from checked-in sources; it does not carry
+an outstanding live-board reconciliation. This entry remains as the owner's waiver record.
 
 ### 5. Portable data root follows the launch artifact
 
