@@ -27,11 +27,13 @@ type MenuProps = {
  * second, subtly different menu implementation.
  */
 export function Menu({ mode = "dropdown", modal, ...props }: MenuProps) {
-    // A modal Radix menu locks body scrolling and marks every sibling aria-hidden. That is
-    // correct for the desktop document, but in the marketing embed it would hide the article
-    // around the demo. The host context is the single switch for every menu call site.
+    // A modal Radix menu locks body scrolling and marks every sibling aria-hidden. In this
+    // shell that lock resets the document to the top, so a menu opened near the bottom is
+    // positioned against an off-screen trigger and its lower half is unreachable. The
+    // marketing embed must also keep the article around the demo interactive. Menus are
+    // therefore non-modal by default; a host that needs a focus trap can opt in.
     const embedded = useEmbeddedDemoHost() !== null;
-    const resolvedModal = embedded ? false : (modal ?? true);
+    const resolvedModal = embedded ? false : (modal ?? false);
     if (mode === "context") {
         return (
             <MenuModeContext.Provider value="context">
