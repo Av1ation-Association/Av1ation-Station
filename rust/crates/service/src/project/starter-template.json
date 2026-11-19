@@ -1,241 +1,212 @@
 {
-  "config": {
-    "encoder": {
-      "SVTAV1": {
-        "append_color_data": true,
-        "executable": null,
-        "ffmpeg_filter": null,
-        "options": {
-          "crf": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 25
-            }
-          },
-          "keyint": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 0
-            }
-          },
-          "preset": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 4
-            }
-          },
-          "progress": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 2
-            }
-          },
-          "rc": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 0
-            }
-          },
-          "scd": {
-            "Number": {
-              "delimiter": " ",
-              "prefix": "--",
-              "value": 0
-            }
-          }
-        },
-        "pass": {
-          "All": 1
-        },
-        "photon_noise": {
-          "c_y": null,
-          "ccb": null,
-          "ccr": null,
-          "chroma_iso": null,
-          "height": null,
-          "iso": 200,
-          "width": null
-        }
-      }
-    },
-    "sequences": {
-      "benchmarker": {
-        "max_memory": null,
-        "threshold": 5
-      },
-      "bitrate_optimizer": {
-        "bitrate_sigma_threshold": 3
-      },
-      "noise_detector": {
-        "denoised_filters": [
-          {
-            "Degrain": {
-              "planes": [
-                0
-              ]
-            }
-          },
-          {
-            "WNNM": {
-              "sigma": [
-                6
-              ]
-            }
-          }
-        ],
-        "input": null,
-        "reference_filters": [
-          {
-            "WNNM": {
-              "sigma": [
-                3,
-                0,
-                0
-              ]
-            }
-          }
-        ]
-      },
-      "noise_scaler": {
-        "maximum_scaler": 10,
-        "minimum_scaler": 2,
-        "scale_chroma": false,
-        "threshold": 0.002
-      },
-      "parallel_encoder": {
-        "input": null,
-        "scenes_directory": "",
-        "workers": 2
-      },
-      "quality_check": null,
-      "scene_concatenator": {
-        "method": {
-          "mkvmerge": {
-            "chapters": null,
-            "extra_inputs": [],
-            "metadata": null,
-            "tracks": null
-          }
-        },
-        "output": null,
-        "scenes_directory": ""
-      },
-      "scene_detector": {
-        "input": {
-          "Video": {
-            "filters": [
-              {
-                "OutputFormat": {
-                  "height": 540,
-                  "width": 960
+    "config": {
+        "encoder": {
+            "SVTAV1": {
+                "append_color_data": true,
+                "executable": null,
+                "ffmpeg_filter": null,
+                "options": {
+                    "crf": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 25
+                        }
+                    },
+                    "keyint": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 0
+                        }
+                    },
+                    "preset": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 4
+                        }
+                    },
+                    "progress": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 2
+                        }
+                    },
+                    "rc": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 0
+                        }
+                    },
+                    "scd": {
+                        "Number": {
+                            "delimiter": " ",
+                            "prefix": "--",
+                            "value": 0
+                        }
+                    }
+                },
+                "pass": {
+                    "All": 1
+                },
+                "photon_noise": {
+                    "c_y": null,
+                    "ccb": null,
+                    "ccr": null,
+                    "chroma_iso": null,
+                    "height": null,
+                    "iso": 200,
+                    "width": null
                 }
-              }
-            ],
-            "import_method": {
-              "FFMS2": {
-                "cache_path": null,
-                "index": null
-              }
+            }
+        },
+        "sequences": {
+            "benchmarker": {
+                "max_memory": null,
+                "threshold": 5
             },
-            "path": ""
-          }
-        },
-        "method": {
-          "AVSceneChange": {
-            "maximum_length": 240,
-            "method": "Standard",
-            "minimum_length": 24,
-            "save_scores": false
-          }
+            "bitrate_optimizer": {
+                "bitrate_sigma_threshold": 3
+            },
+            "noise_detector": {
+                "denoised_filters": [
+                    {
+                        "Degrain": {
+                            "planes": [0]
+                        }
+                    },
+                    {
+                        "WNNM": {
+                            "sigma": [6]
+                        }
+                    }
+                ],
+                "input": null,
+                "reference_filters": [
+                    {
+                        "WNNM": {
+                            "sigma": [3, 0, 0]
+                        }
+                    }
+                ]
+            },
+            "noise_scaler": {
+                "maximum_scaler": 10,
+                "minimum_scaler": 2,
+                "scale_chroma": false,
+                "threshold": 0.002
+            },
+            "parallel_encoder": {
+                "input": null,
+                "scenes_directory": "",
+                "workers": 2
+            },
+            "quality_check": null,
+            "scene_concatenator": {
+                "method": {
+                    "mkvmerge": {
+                        "chapters": null,
+                        "extra_inputs": [],
+                        "metadata": null,
+                        "tracks": null
+                    }
+                },
+                "output": null,
+                "scenes_directory": ""
+            },
+            "scene_detector": {
+                "input": {
+                    "Video": {
+                        "filters": [
+                            {
+                                "OutputFormat": {
+                                    "height": 540,
+                                    "width": 960
+                                }
+                            }
+                        ],
+                        "import_method": {
+                            "FFMS2": {
+                                "cache_path": null,
+                                "index": null
+                            }
+                        },
+                        "path": ""
+                    }
+                },
+                "method": {
+                    "AVSceneChange": {
+                        "maximum_length": 240,
+                        "method": "Standard",
+                        "minimum_length": 24,
+                        "save_scores": false
+                    }
+                }
+            },
+            "speed_scaler": {
+                "speed_quantizers": [
+                    [5, 12],
+                    [4, 24],
+                    [2, 35],
+                    [0, 50]
+                ]
+            },
+            "target_quality": {
+                "input": null,
+                "interpolators": ["FritschCarlson", "Pchip"],
+                "maximum_probes": 6,
+                "metric": {
+                    "SSIMULACRA2": {
+                        "gpu_id": null,
+                        "resolution": null,
+                        "target_range": [79, 81],
+                        "threads": null
+                    }
+                },
+                "metric_input": null,
+                "probing": {
+                    "encoder_options": {
+                        "preset": {
+                            "Number": {
+                                "delimiter": " ",
+                                "prefix": "--",
+                                "value": 6
+                            }
+                        }
+                    },
+                    "statistic": "Maximum",
+                    "strategy": {
+                        "Subset": {
+                            "length": {
+                                "Frames": 11
+                            },
+                            "position": "Middle"
+                        }
+                    }
+                },
+                "quantizer_range": [8, 50]
+            }
         }
-      },
-      "speed_scaler": {
-        "speed_quantizers": [
-          [
-            5,
-            12
-          ],
-          [
-            4,
-            24
-          ],
-          [
-            2,
-            35
-          ],
-          [
-            0,
-            50
-          ]
-        ]
-      },
-      "target_quality": {
-        "input": null,
-        "interpolators": [
-          "FritschCarlson",
-          "Pchip"
+    },
+    "general": {
+        "ffms2_filters": [
+            {
+                "OutputFormat": {
+                    "bit_depth": 10
+                }
+            }
         ],
-        "maximum_probes": 6,
-        "metric": {
-          "SSIMULACRA2": {
-            "gpu_id": null,
-            "resolution": null,
-            "target_range": [
-              79,
-              81
-            ],
-            "threads": null
-          }
-        },
-        "metric_input": null,
-        "probing": {
-          "encoder_options": {
-            "preset": {
-              "Number": {
-                "delimiter": " ",
-                "prefix": "--",
-                "value": 6
-              }
+        "input_kind": "ffms2",
+        "output_mode": "next_to_input",
+        "vapour_synth_filters": [
+            {
+                "Resize": {
+                    "format": "YUV420P10LE"
+                }
             }
-          },
-          "statistic": "Maximum",
-          "strategy": {
-            "Subset": {
-              "length": {
-                "Frames": 11
-              },
-              "position": "Middle"
-            }
-          }
-        },
-        "quantizer_range": [
-          8,
-          50
         ]
-      }
     }
-  },
-  "general": {
-    "ffms2_filters": [
-      {
-        "OutputFormat": {
-          "bit_depth": 10
-        }
-      }
-    ],
-    "input_kind": "ffms2",
-    "output_mode": "next_to_input",
-    "vapour_synth_filters": [
-      {
-        "Resize": {
-          "format": "YUV420P10LE"
-        }
-      }
-    ]
-  }
 }

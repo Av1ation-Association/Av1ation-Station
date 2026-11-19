@@ -6,10 +6,7 @@ import { FilterList } from "./FilterList";
 
 afterEach(cleanup);
 
-const FILTERS = [
-    { Resize: { width: 1920, height: 1080 } },
-    { OutputFormat: { bit_depth: 10 } },
-];
+const FILTERS = [{ Resize: { width: 1920, height: 1080 } }, { OutputFormat: { bit_depth: 10 } }];
 
 class Transfer {
     #data = new Map<string, string>();

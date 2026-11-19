@@ -96,7 +96,9 @@ export function matchesProduct(name, productName, version, directory) {
                 return false;
             }
             const rest = lower.slice(prefix.length);
-            return rest === "" || rest.startsWith("_") || rest.startsWith(".") || /^-\d/u.test(rest);
+            return (
+                rest === "" || rest.startsWith("_") || rest.startsWith(".") || /^-\d/u.test(rest)
+            );
         },
     );
 }

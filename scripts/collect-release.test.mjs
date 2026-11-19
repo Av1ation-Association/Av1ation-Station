@@ -5,7 +5,12 @@ import { matchesProduct } from "./collect-release.mjs";
 describe("release artifact selection", () => {
     it("separates a stable version from a prerelease that shares its prefix", () => {
         expect(
-            matchesProduct("Av1ation Station_0.1.0_x64_en-US.msi", "Av1ation Station", "0.1.0", false),
+            matchesProduct(
+                "Av1ation Station_0.1.0_x64_en-US.msi",
+                "Av1ation Station",
+                "0.1.0",
+                false,
+            ),
         ).toBe(true);
         expect(
             matchesProduct(
@@ -38,12 +43,7 @@ describe("release artifact selection", () => {
 
     it("accepts package-name slugs and release suffixes", () => {
         expect(
-            matchesProduct(
-                "av1ation-station_0.1.0_amd64.deb",
-                "Av1ation Station",
-                "0.1.0",
-                false,
-            ),
+            matchesProduct("av1ation-station_0.1.0_amd64.deb", "Av1ation Station", "0.1.0", false),
         ).toBe(true);
         expect(
             matchesProduct(
@@ -64,7 +64,9 @@ describe("release artifact selection", () => {
     });
 
     it("keeps macOS app bundles exact", () => {
-        expect(matchesProduct("Av1ation Station.app", "Av1ation Station", "0.1.0", true)).toBe(true);
+        expect(matchesProduct("Av1ation Station.app", "Av1ation Station", "0.1.0", true)).toBe(
+            true,
+        );
         expect(
             matchesProduct("Av1ation Station Helper.app", "Av1ation Station", "0.1.0", true),
         ).toBe(false);

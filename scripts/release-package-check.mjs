@@ -166,9 +166,7 @@ function assertPortableMarker(directory, pattern = /portable\.zip$/iu, label = "
     }
     const listing = run("tar", ["-tf", portable]);
     requireSuccess(listing, `list ${label} ${portable}`);
-    const names = (listing.stdout ?? "")
-        .split(/\r?\n/u)
-        .map((name) => name.replaceAll("\\", "/"));
+    const names = (listing.stdout ?? "").split(/\r?\n/u).map((name) => name.replaceAll("\\", "/"));
     if (!names.some((name) => /(^|\/)portable$/u.test(name))) {
         throw new Error(`${label} ${portable} does not carry the data-root marker`);
     }
@@ -791,11 +789,7 @@ if (platform === null) {
                     throw new Error(`no DMG or app ZIP under ${variantPaths(variant)}`);
                 }
                 if (compressed.app_zip_bytes !== null) {
-                    assertPortableMarker(
-                        variantPaths(variant),
-                        /\.app\.zip$/iu,
-                        "macOS app ZIP",
-                    );
+                    assertPortableMarker(variantPaths(variant), /\.app\.zip$/iu, "macOS app ZIP");
                 }
                 report.variants[variant] = {
                     compressed,
