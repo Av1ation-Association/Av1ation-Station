@@ -20,6 +20,12 @@ export interface LanguageServerChannel {
     onClose: (handler: () => void) => void;
 }
 
+/** One operating-system notification the desktop host may show in the background. */
+export interface DesktopNotification {
+    title: string;
+    body: string;
+}
+
 /** What a host file picker should offer. Extensions omit the leading dot. */
 export interface FilePickerRequest {
     /** Suggested file extensions, without the leading dot. */
@@ -125,6 +131,12 @@ export interface Transport {
      * cannot change the page scale.
      */
     readonly setZoom?: ((factor: number) => Promise<void>) | undefined;
+    /**
+     * Show one desktop notification, `undefined` in a browser that cannot own the OS surface.
+     * The host decides whether its window is in the background and whether permission is
+     * granted; the caller cannot know either state from the shared UI.
+     */
+    readonly notify?: ((notification: DesktopNotification) => Promise<void>) | undefined;
     /**
      * Open the language-server bridge, `undefined` on hosts that cannot own a process. The
      * editor keeps its bundled completion when this is absent or the service refuses.

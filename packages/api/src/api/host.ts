@@ -18,6 +18,7 @@ type HostCapability = Pick<
     | "revealPath"
     | "openPath"
     | "restartApp"
+    | "notify"
 >;
 
 /**
@@ -110,6 +111,16 @@ export function useOpenPath() {
  */
 export function useMediaUrl(path: string): string | null {
     return useCapability("mediaUrl")?.(path) ?? null;
+}
+
+/** Whether this host can stream a preview picture at all. */
+export function useCanPreview(): boolean {
+    return useCapability("mediaUrl") !== null;
+}
+
+/** Whether this host can own an operating-system notification. */
+export function useCanNotify(): boolean {
+    return useCapability("notify") !== null;
 }
 
 /** Open the host's language-server channel, `undefined` where the host cannot own one. */

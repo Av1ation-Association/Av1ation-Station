@@ -22,6 +22,16 @@
       "description": "Whether encoded chunks are deleted after a successful run.",
       "type": "boolean"
     },
+    "desktop_notifications": {
+      "description": "Which run lifecycle events may produce a desktop notification.",
+      "$ref": "#/$defs/NotificationSettings",
+      "default": {
+        "enabled": false,
+        "failed": true,
+        "finished": true,
+        "started": true
+      }
+    },
     "encoder_forks": {
       "description": "Saved encoder forks: a named build of a known encoder, with its own executable and\nparameter descriptors. A fork is an extra catalogue entry; it never replaces the\nprovider another screen chooses.",
       "type": "array",
@@ -35,6 +45,21 @@
       "type": "object",
       "additionalProperties": {
         "$ref": "#/$defs/EncoderParameterOverride"
+      }
+    },
+    "preview_overlay": {
+      "description": "The scene and run facts drawn over the preview.",
+      "$ref": "#/$defs/PreviewOverlaySettings",
+      "default": {
+        "chunk": false,
+        "enabled": false,
+        "encoder": false,
+        "fps_eta": false,
+        "live_stage": true,
+        "noise": true,
+        "progress": true,
+        "quality_check": true,
+        "target_quality": true
       }
     },
     "project_templates": {
@@ -649,6 +674,33 @@
         "value"
       ]
     },
+    "NotificationSettings": {
+      "description": "Which run lifecycle points produce a desktop notification.\n\nThe service never sends operating-system notifications; the desktop host does, and only\nwhile its window is in the background. Keeping the choices beside the other application\nsettings means a LAN browser can explain the disabled controls without inventing its own\npreference document.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether the desktop host may send any run notification.",
+          "type": "boolean",
+          "default": false
+        },
+        "failed": {
+          "description": "A run that stops on an error.",
+          "type": "boolean",
+          "default": true
+        },
+        "finished": {
+          "description": "A run that reaches its normal end.",
+          "type": "boolean",
+          "default": true
+        },
+        "started": {
+          "description": "The first sequence start for a run.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
     "NumberSpec": {
       "description": "Constraints on a number parameter.",
       "type": "object",
@@ -1126,6 +1178,58 @@
         "directory",
         "accept"
       ]
+    },
+    "PreviewOverlaySettings": {
+      "description": "Which scene and run facts the preview draws over the picture.\n\nThe overlay is a viewing preference, not project data: every host shares the same\nsettings document, and a scene's measured values come from the scene table. The\ndefaults are the useful compact set; the diagnostic fields stay opt-in.",
+      "type": "object",
+      "properties": {
+        "chunk": {
+          "description": "The retained chunk's size, when one exists.",
+          "type": "boolean",
+          "default": false
+        },
+        "enabled": {
+          "description": "Whether the overlay is drawn at all.",
+          "type": "boolean",
+          "default": false
+        },
+        "encoder": {
+          "description": "The encoder label resolved for the scene.",
+          "type": "boolean",
+          "default": false
+        },
+        "fps_eta": {
+          "description": "Frames or scenes per second, and the remaining-time estimate.",
+          "type": "boolean",
+          "default": false
+        },
+        "live_stage": {
+          "description": "The active sequence's stage name.",
+          "type": "boolean",
+          "default": true
+        },
+        "noise": {
+          "description": "The scene's measured noise and scale.",
+          "type": "boolean",
+          "default": true
+        },
+        "progress": {
+          "description": "The active sequence's percentage and phase.",
+          "type": "boolean",
+          "default": true
+        },
+        "quality_check": {
+          "description": "The scene's Quality Check score.",
+          "type": "boolean",
+          "default": true
+        },
+        "target_quality": {
+          "description": "The scene's Target Quality quantizer and probe score.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
     },
     "ProjectTemplate": {
       "description": "One named project template.\n\nThe configuration is materialised when the template is saved, so applying it needs no\nengine default at read time and a later engine revision cannot change what a saved\ntemplate means. A project copies both documents and never references the template.",

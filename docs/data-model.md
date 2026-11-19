@@ -135,6 +135,8 @@ pub struct AppSettings {
     pub theme: String,
     pub row_density: String,
     pub reduce_motion: bool,
+    pub preview_overlay: PreviewOverlaySettings, // scene/run facts over the player; default off
+    pub desktop_notifications: NotificationSettings, // start/finish/failure choices; default off
     pub temp_dir: Option<String>,          // default temp root; project may override
     pub scene_model: Option<String>,       // one TransNetV2 ONNX file for the machine
     pub python_interpreter: Option<String>, // null: the service's resolved interpreter (system, then bundled)

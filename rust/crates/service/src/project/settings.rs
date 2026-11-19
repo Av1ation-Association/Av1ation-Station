@@ -11,7 +11,9 @@ use std::{
 
 use av1ation_contracts::encoder::{CustomTool, EncoderFork, EncoderParameterOverride};
 use av1ation_contracts::project::ProjectTemplate;
-use av1ation_contracts::settings::{AppSettings, AppSettingsUpdate, GeneralDefaults};
+use av1ation_contracts::settings::{
+    AppSettings, AppSettingsUpdate, GeneralDefaults, NotificationSettings, PreviewOverlaySettings,
+};
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
@@ -71,6 +73,18 @@ impl SettingsStore {
                 .get("reduce_motion")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            preview_overlay: value
+                .get("preview_overlay")
+                .and_then(|overlay| {
+                    serde_json::from_value::<PreviewOverlaySettings>(overlay.clone()).ok()
+                })
+                .unwrap_or_default(),
+            desktop_notifications: value
+                .get("desktop_notifications")
+                .and_then(|notifications| {
+                    serde_json::from_value::<NotificationSettings>(notifications.clone()).ok()
+                })
+                .unwrap_or_default(),
             // A path that is not absolute would silently resolve against the service's
             // working directory. Ignore such a file rather than put chunks somewhere the
             // user did not choose; the settings route rejects it on the next write.
@@ -530,6 +544,14 @@ impl SettingsStore {
         object.insert("theme".to_owned(), json!(settings.theme));
         object.insert("row_density".to_owned(), json!(settings.row_density));
         object.insert("reduce_motion".to_owned(), json!(settings.reduce_motion));
+        object.insert(
+            "preview_overlay".to_owned(),
+            json!(settings.preview_overlay),
+        );
+        object.insert(
+            "desktop_notifications".to_owned(),
+            json!(settings.desktop_notifications),
+        );
         object.insert("temp_dir".to_owned(), json!(settings.temp_dir));
         object.insert("scene_model".to_owned(), json!(settings.scene_model));
         object.insert(
@@ -594,6 +616,8 @@ fn apply_update(settings: &mut AppSettings, update: &AppSettingsUpdate) {
         theme,
         row_density,
         reduce_motion,
+        preview_overlay,
+        desktop_notifications,
         temp_dir,
         delete_chunks_on_success,
     } = update;
@@ -605,6 +629,12 @@ fn apply_update(settings: &mut AppSettings, update: &AppSettingsUpdate) {
     }
     if let Some(reduce_motion) = reduce_motion.value() {
         settings.reduce_motion = *reduce_motion;
+    }
+    if let Some(preview_overlay) = preview_overlay.value() {
+        settings.preview_overlay = preview_overlay.clone();
+    }
+    if let Some(desktop_notifications) = desktop_notifications.value() {
+        settings.desktop_notifications = desktop_notifications.clone();
     }
     if let Some(temp_dir) = temp_dir.value() {
         settings.temp_dir = temp_dir
@@ -738,7 +768,9 @@ mod tests {
         Choice, ChoiceSpec, ChoiceValueKind, Delimiter, ParameterDescriptor, ParameterKey,
         ParameterKind, ParameterValue, PathSpec, TextFormat, TextSpec, Widget,
     };
-    use av1ation_contracts::settings::{NullablePatch, Patch};
+    use av1ation_contracts::settings::{
+        NotificationSettings, NullablePatch, Patch, PreviewOverlaySettings,
+    };
 
     use super::*;
 
@@ -783,6 +815,7 @@ mod tests {
                 reduce_motion: Patch::present(true),
                 temp_dir: NullablePatch::present("D:/temp".to_owned()),
                 delete_chunks_on_success: Patch::present(true),
+                ..Default::default()
             })
             .await
             .expect("update");
@@ -1072,6 +1105,51 @@ mod tests {
             panic!("the saved contact option is still text")
         };
         assert_eq!(text.format, Some(TextFormat::Email));
+
+        tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn overlay_and_notification_settings_round_trip_with_their_defaults() {
+        let dir = temporary_dir();
+        tokio::fs::create_dir_all(&dir).await.expect("temp dir");
+        let store = SettingsStore::new(&dir);
+
+        let defaults = store.load().await;
+        assert!(!defaults.preview_overlay.enabled);
+        assert!(!defaults.desktop_notifications.enabled);
+        assert!(defaults.preview_overlay.live_stage);
+        assert!(defaults.desktop_notifications.failed);
+
+        let overlay = PreviewOverlaySettings {
+            enabled: true,
+            target_quality: false,
+            quality_check: true,
+            noise: false,
+            chunk: true,
+            encoder: true,
+            live_stage: false,
+            progress: true,
+            fps_eta: true,
+        };
+        let notifications = NotificationSettings {
+            enabled: true,
+            started: false,
+            finished: true,
+            failed: false,
+        };
+        store
+            .update(&AppSettingsUpdate {
+                preview_overlay: Patch::present(overlay.clone()),
+                desktop_notifications: Patch::present(notifications.clone()),
+                ..Default::default()
+            })
+            .await
+            .expect("save overlay and notification settings");
+
+        let loaded = store.load().await;
+        assert_eq!(loaded.preview_overlay, overlay);
+        assert_eq!(loaded.desktop_notifications, notifications);
 
         tokio::fs::remove_dir_all(dir).await.expect("cleanup");
     }

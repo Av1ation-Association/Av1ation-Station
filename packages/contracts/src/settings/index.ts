@@ -6,6 +6,48 @@ import { ProjectTemplateSchema } from "../project";
 import { InputKindSchema, OutputModeSchema } from "../protocol";
 import { VapourSynthImporterSchema } from "../script";
 import { ScriptInputModeSchema } from "../shared";
+/** Generated from `schema/settings/app-settings.json`. */
+export const NotificationSettingsSchema = z
+    .object({
+        enabled: z
+            .boolean()
+            .describe("Whether the desktop host may send any run notification.")
+            .default(false),
+        failed: z.boolean().describe("A run that stops on an error.").default(true),
+        finished: z.boolean().describe("A run that reaches its normal end.").default(true),
+        started: z.boolean().describe("The first sequence start for a run.").default(true),
+    })
+    .strict()
+    .describe(
+        "Which run lifecycle points produce a desktop notification.\n\nThe service never sends operating-system notifications; the desktop host does, and only\nwhile its window is in the background. Keeping the choices beside the other application\nsettings means a LAN browser can explain the disabled controls without inventing its own\npreference document.",
+    );
+export type NotificationSettings = z.infer<typeof NotificationSettingsSchema>;
+
+/** Generated from `schema/settings/app-settings.json`. */
+export const PreviewOverlaySettingsSchema = z
+    .object({
+        chunk: z.boolean().describe("The retained chunk's size, when one exists.").default(false),
+        enabled: z.boolean().describe("Whether the overlay is drawn at all.").default(false),
+        encoder: z.boolean().describe("The encoder label resolved for the scene.").default(false),
+        fps_eta: z
+            .boolean()
+            .describe("Frames or scenes per second, and the remaining-time estimate.")
+            .default(false),
+        live_stage: z.boolean().describe("The active sequence's stage name.").default(true),
+        noise: z.boolean().describe("The scene's measured noise and scale.").default(true),
+        progress: z.boolean().describe("The active sequence's percentage and phase.").default(true),
+        quality_check: z.boolean().describe("The scene's Quality Check score.").default(true),
+        target_quality: z
+            .boolean()
+            .describe("The scene's Target Quality quantizer and probe score.")
+            .default(true),
+    })
+    .strict()
+    .describe(
+        "Which scene and run facts the preview draws over the picture.\n\nThe overlay is a viewing preference, not project data: every host shares the same\nsettings document, and a scene's measured values come from the scene table. The\ndefaults are the useful compact set; the diagnostic fields stay opt-in.",
+    );
+export type PreviewOverlaySettings = z.infer<typeof PreviewOverlaySettingsSchema>;
+
 /** Generated from `schema/settings/effective-config.json`. */
 export const ResolvedValueSchema = z
     .object({
@@ -74,6 +116,55 @@ export const AppSettingsUpdateSchema = z
             .boolean()
             .describe("Whether encoded chunks are deleted after a successful run.")
             .optional(),
+        desktop_notifications: z
+            .object({
+                enabled: z
+                    .boolean()
+                    .describe("Whether the desktop host may send any run notification.")
+                    .default(false),
+                failed: z.boolean().describe("A run that stops on an error.").default(true),
+                finished: z.boolean().describe("A run that reaches its normal end.").default(true),
+                started: z.boolean().describe("The first sequence start for a run.").default(true),
+            })
+            .strict()
+            .describe("Which run lifecycle events may produce a desktop notification.")
+            .optional(),
+        preview_overlay: z
+            .object({
+                chunk: z
+                    .boolean()
+                    .describe("The retained chunk's size, when one exists.")
+                    .default(false),
+                enabled: z
+                    .boolean()
+                    .describe("Whether the overlay is drawn at all.")
+                    .default(false),
+                encoder: z
+                    .boolean()
+                    .describe("The encoder label resolved for the scene.")
+                    .default(false),
+                fps_eta: z
+                    .boolean()
+                    .describe("Frames or scenes per second, and the remaining-time estimate.")
+                    .default(false),
+                live_stage: z.boolean().describe("The active sequence's stage name.").default(true),
+                noise: z.boolean().describe("The scene's measured noise and scale.").default(true),
+                progress: z
+                    .boolean()
+                    .describe("The active sequence's percentage and phase.")
+                    .default(true),
+                quality_check: z
+                    .boolean()
+                    .describe("The scene's Quality Check score.")
+                    .default(true),
+                target_quality: z
+                    .boolean()
+                    .describe("The scene's Target Quality quantizer and probe score.")
+                    .default(true),
+            })
+            .strict()
+            .describe("The scene and run facts drawn over the preview.")
+            .optional(),
         reduce_motion: z
             .boolean()
             .describe("Reduce motion even when the operating system does not ask for it.")
@@ -124,6 +215,9 @@ export const AppSettingsSchema = z
         delete_chunks_on_success: z
             .boolean()
             .describe("Whether encoded chunks are deleted after a successful run."),
+        desktop_notifications: z
+            .lazy(() => NotificationSettingsSchema)
+            .describe("Which run lifecycle events may produce a desktop notification."),
         encoder_forks: z
             .array(z.lazy(() => EncoderForkSchema))
             .describe(
@@ -139,6 +233,9 @@ export const AppSettingsSchema = z
                 "User edits to the engine's built-in descriptors, keyed by encoder id. A fork keeps\nits own parameter map on the fork instead.",
             )
             .optional(),
+        preview_overlay: z
+            .lazy(() => PreviewOverlaySettingsSchema)
+            .describe("The scene and run facts drawn over the preview."),
         project_templates: z
             .array(z.lazy(() => ProjectTemplateSchema))
             .describe(

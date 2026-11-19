@@ -12,6 +12,80 @@ use crate::project::ProjectTemplate;
 use crate::protocol::{InputKind, OutputMode};
 use crate::script::{ScriptInputMode, VapourSynthImporter};
 
+/// Which scene and run facts the preview draws over the picture.
+///
+/// The overlay is a viewing preference, not project data: every host shares the same
+/// settings document, and a scene's measured values come from the scene table. The
+/// defaults are the useful compact set; the diagnostic fields stay opt-in.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct PreviewOverlaySettings {
+    /// Whether the overlay is drawn at all.
+    pub enabled: bool,
+    /// The scene's Target Quality quantizer and probe score.
+    pub target_quality: bool,
+    /// The scene's Quality Check score.
+    pub quality_check: bool,
+    /// The scene's measured noise and scale.
+    pub noise: bool,
+    /// The retained chunk's size, when one exists.
+    pub chunk: bool,
+    /// The encoder label resolved for the scene.
+    pub encoder: bool,
+    /// The active sequence's stage name.
+    pub live_stage: bool,
+    /// The active sequence's percentage and phase.
+    pub progress: bool,
+    /// Frames or scenes per second, and the remaining-time estimate.
+    pub fps_eta: bool,
+}
+
+impl Default for PreviewOverlaySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            target_quality: true,
+            quality_check: true,
+            noise: true,
+            chunk: false,
+            encoder: false,
+            live_stage: true,
+            progress: true,
+            fps_eta: false,
+        }
+    }
+}
+
+/// Which run lifecycle points produce a desktop notification.
+///
+/// The service never sends operating-system notifications; the desktop host does, and only
+/// while its window is in the background. Keeping the choices beside the other application
+/// settings means a LAN browser can explain the disabled controls without inventing its own
+/// preference document.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct NotificationSettings {
+    /// Whether the desktop host may send any run notification.
+    pub enabled: bool,
+    /// The first sequence start for a run.
+    pub started: bool,
+    /// A run that reaches its normal end.
+    pub finished: bool,
+    /// A run that stops on an error.
+    pub failed: bool,
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            started: true,
+            finished: true,
+            failed: true,
+        }
+    }
+}
+
 /// The app settings document shared by the desktop, LAN, and headless hosts.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -23,6 +97,12 @@ pub struct AppSettings {
     /// Reduce motion even when the operating system does not ask for it. `false` follows
     /// the OS preference, which is never overridden.
     pub reduce_motion: bool,
+    /// The scene and run facts drawn over the preview.
+    #[serde(default)]
+    pub preview_overlay: PreviewOverlaySettings,
+    /// Which run lifecycle events may produce a desktop notification.
+    #[serde(default)]
+    pub desktop_notifications: NotificationSettings,
     /// Temporary-directory override; `null` uses the app-data default.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temp_dir: Option<String>,
@@ -74,6 +154,8 @@ impl Default for AppSettings {
             theme: "system".to_owned(),
             row_density: "comfortable".to_owned(),
             reduce_motion: false,
+            preview_overlay: PreviewOverlaySettings::default(),
+            desktop_notifications: NotificationSettings::default(),
             project_templates: Vec::new(),
             default_project_template_id: None,
             temp_dir: None,
@@ -242,6 +324,12 @@ pub struct AppSettingsUpdate {
     /// Reduce motion even when the operating system does not ask for it.
     #[serde(default, skip_serializing_if = "Patch::is_absent")]
     pub reduce_motion: Patch<bool>,
+    /// The scene and run facts drawn over the preview.
+    #[serde(default, skip_serializing_if = "Patch::is_absent")]
+    pub preview_overlay: Patch<PreviewOverlaySettings>,
+    /// Which run lifecycle events may produce a desktop notification.
+    #[serde(default, skip_serializing_if = "Patch::is_absent")]
+    pub desktop_notifications: Patch<NotificationSettings>,
     /// Temporary-directory override; `null` uses the app-data default.
     #[serde(default, skip_serializing_if = "NullablePatch::is_absent")]
     pub temp_dir: NullablePatch<String>,
@@ -392,6 +480,8 @@ mod tests {
             keys,
             [
                 "delete_chunks_on_success",
+                "desktop_notifications",
+                "preview_overlay",
                 "reduce_motion",
                 "row_density",
                 "temp_dir",

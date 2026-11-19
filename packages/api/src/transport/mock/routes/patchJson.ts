@@ -3,6 +3,40 @@ import type { AppSettings } from "@av1ation/contracts";
 import { ApiError } from "../../types";
 import type { MockTransport } from "../../mock";
 
+const OVERLAY_FIELDS = [
+    "enabled",
+    "target_quality",
+    "quality_check",
+    "noise",
+    "chunk",
+    "encoder",
+    "live_stage",
+    "progress",
+    "fps_eta",
+] as const;
+
+const NOTIFICATION_FIELDS = ["enabled", "started", "finished", "failed"] as const;
+
+/** Validate a nested settings object so the mock rejects the same shapes as the service. */
+function booleanSettings<K extends string>(
+    value: unknown,
+    keys: readonly K[],
+    subject: string,
+): Record<K, boolean> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new ApiError(400, null, `${subject} settings must be an object.`);
+    }
+    const values = value as Record<string, unknown>;
+    const parsed = {} as Record<K, boolean>;
+    for (const key of keys) {
+        if (typeof values[key] !== "boolean") {
+            throw new ApiError(400, null, `${subject} field ${key} must be true or false.`);
+        }
+        parsed[key] = values[key];
+    }
+    return parsed;
+}
+
 export async function patchJson<T>(
     state: MockTransport,
     path: string,
@@ -15,6 +49,8 @@ export async function patchJson<T>(
             theme?: unknown;
             row_density?: unknown;
             reduce_motion?: unknown;
+            preview_overlay?: unknown;
+            desktop_notifications?: unknown;
             temp_dir?: unknown;
             delete_chunks_on_success?: unknown;
         };
@@ -43,6 +79,20 @@ export async function patchJson<T>(
                 throw new ApiError(400, null, "Chunk deletion must be true or false.");
             }
             next.delete_chunks_on_success = patch.delete_chunks_on_success;
+        }
+        if (has("preview_overlay")) {
+            next.preview_overlay = booleanSettings(
+                patch.preview_overlay,
+                OVERLAY_FIELDS,
+                "Preview overlay",
+            );
+        }
+        if (has("desktop_notifications")) {
+            next.desktop_notifications = booleanSettings(
+                patch.desktop_notifications,
+                NOTIFICATION_FIELDS,
+                "Notification",
+            );
         }
         if (has("temp_dir")) {
             if (patch.temp_dir === null) {

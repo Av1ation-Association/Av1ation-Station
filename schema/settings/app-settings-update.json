@@ -8,6 +8,85 @@
       "description": "Whether encoded chunks are deleted after a successful run.",
       "type": "boolean"
     },
+    "desktop_notifications": {
+      "description": "Which run lifecycle events may produce a desktop notification.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether the desktop host may send any run notification.",
+          "type": "boolean",
+          "default": false
+        },
+        "failed": {
+          "description": "A run that stops on an error.",
+          "type": "boolean",
+          "default": true
+        },
+        "finished": {
+          "description": "A run that reaches its normal end.",
+          "type": "boolean",
+          "default": true
+        },
+        "started": {
+          "description": "The first sequence start for a run.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "preview_overlay": {
+      "description": "The scene and run facts drawn over the preview.",
+      "type": "object",
+      "properties": {
+        "chunk": {
+          "description": "The retained chunk's size, when one exists.",
+          "type": "boolean",
+          "default": false
+        },
+        "enabled": {
+          "description": "Whether the overlay is drawn at all.",
+          "type": "boolean",
+          "default": false
+        },
+        "encoder": {
+          "description": "The encoder label resolved for the scene.",
+          "type": "boolean",
+          "default": false
+        },
+        "fps_eta": {
+          "description": "Frames or scenes per second, and the remaining-time estimate.",
+          "type": "boolean",
+          "default": false
+        },
+        "live_stage": {
+          "description": "The active sequence's stage name.",
+          "type": "boolean",
+          "default": true
+        },
+        "noise": {
+          "description": "The scene's measured noise and scale.",
+          "type": "boolean",
+          "default": true
+        },
+        "progress": {
+          "description": "The active sequence's percentage and phase.",
+          "type": "boolean",
+          "default": true
+        },
+        "quality_check": {
+          "description": "The scene's Quality Check score.",
+          "type": "boolean",
+          "default": true
+        },
+        "target_quality": {
+          "description": "The scene's Target Quality quantizer and probe score.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
     "reduce_motion": {
       "description": "Reduce motion even when the operating system does not ask for it.",
       "type": "boolean"
