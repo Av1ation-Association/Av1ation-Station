@@ -62,6 +62,8 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | [plan/04-testing.md](plan/04-testing.md) | test pyramid, fixtures and spike procedures |
 | [plan/04-testing-coverage-proposal.md](plan/04-testing-coverage-proposal.md) | Phase 4 coverage inventory, testing-practice audit, and prioritized improvement proposal |
 | [plan/05-ci.md](plan/05-ci.md) | pipeline jobs, caching, branch protection, the release matrix, signing and updates |
+| [plan/06-product-backlog.md](plan/06-product-backlog.md) | post-RC product backlog and the first-stable gate |
+| [plan/07-quality-hardening.md](plan/07-quality-hardening.md) | pre-release quality hardening, generated-artifact gates, and maintainability fixes |
 | [progress.md](progress.md) | the only current delivery-status surface, with every open phase task |
 | [decisions.md](decisions.md) | open post-baseline decisions |
 | [changelog.md](changelog.md) | post-baseline dated implementation history; empty until the first entry |

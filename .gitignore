@@ -92,6 +92,9 @@ rust/.cargo/*
 # ---- Generated contracts (committed, but never hand-edited) ----
 # schema/ and packages/contracts/src/generated/ ARE committed — see docs/contracts.md
 
+# ---- Local review artifacts (HTML audits are for the working copy only) ----
+docs/reviews/*.html
+
 # ---- Local design-audit scratch (service data, screenshots, dumped schema) ----
 .audit-*
 /analytics-*.png
