@@ -110,7 +110,7 @@ pub(super) enum PreviewRequest {
 /// the lossless H.264 decoded stream at the source's own bit depth. Version 6 drops the
 /// audio track: a `SourceBuffer` rejects a segment that indexes a track it does not hold, so
 /// a file from version 5 would only ever fall back to the direct source.
-pub(super) const PREVIEW_CACHE_VERSION: u32 = 1;
+pub(super) const PREVIEW_CACHE_VERSION: u32 = 6;
 
 /// Publishes a build's terminal result even when the engine or FFmpeg driver panics.
 ///
