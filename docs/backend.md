@@ -198,7 +198,9 @@ On Windows, run Cargo from a Developer Command Prompt, or call `vcvars64.bat` fi
 Bash's `/usr/bin/link.exe` shadows the MSVC linker and build scripts fail with a link
 error that names the Visual Studio installer. A local `rustc-wrapper = "kache"` is fine;
 keep it in the gitignored project-local `.cargo/config.toml`, because kache is an optional
-cache and a checkout without it must build with plain rustc. Do not pass
+cache and a checkout without it must build with plain rustc. `KACHE_CACHE_DIR` may point at a
+shared local store, such as `P:/kache-store`, so this checkout and the `andean-condor` checkout
+reuse one cache instead of duplicating it. Do not pass
 `-C link-arg=-fuse-ld=lld` to the MSVC target, where `link.exe` ignores it and emits
 `LNK4044`. Use `-C linker=lld-link` if lld is intended.
 

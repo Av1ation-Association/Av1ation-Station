@@ -83,7 +83,9 @@ test profiles.
 | `npm run toolchain:build -- --target <triple>` | Build one target component by component, reusing each component cache when its recipe, builder and target are unchanged. |
 | `npm run toolchain:stage -- --target <triple>` | Assemble a target tree from existing component caches. |
 | `npm run toolchain:verify` | Fail closed unless the manifest and complete three-target lock are present and internally consistent. |
+| `npm run clean:cache` | Remove rebuildable local caches under `dist/` (E2E service/SPA, dev tools, TypeScript build state); the optional external Kache store is kept. |
 | `npm run clean:outputs` | Remove transient generated output. |
+| `npm run clean:release` | Remove local installer copies, toolchain staging, and release bundle copies; keep release metadata, debug, release dependencies, and validation evidence. |
 | `npm run clean:target` | Clean the Cargo target tree. |
 | `npm run stage:tools` | Stage the release toolchain tree, including the full provider set on every target. |
 

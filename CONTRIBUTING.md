@@ -101,18 +101,22 @@ providers, or copy a release `tools/` tree into it.
 
 ### Optional local build cache
 
-Skip this unless you already use `kache`.
+Skip this unless you already use `kache`; it is optional and a checkout without it builds
+with plain rustc.
 
 - In an untracked `.cargo/config.toml`, set `rustc-wrapper = "kache"`, set
-  `KACHE_LOCAL_ONLY = "1"`, and choose a local cache directory. Keep it machine-local, on
-  the `dist/cargo/` volume, and capped (for example `KACHE_MAX_SIZE = "8GiB"`).
+  `KACHE_LOCAL_ONLY = "1"`, and point `KACHE_CACHE_DIR` at a shared local store outside the
+  repository, such as `P:/kache-store`. Sharing it with another checkout of the engine
+  (`andean-condor`) avoids duplicating cache entries. Cap it (for example
+  `KACHE_MAX_SIZE = "8GiB"`). `npm run clean:cache` never removes this external store.
 - On Windows, run Cargo from a Developer Command Prompt or call `vcvars64.bat`; Git Bash's
   `/usr/bin/link.exe` shadows the MSVC linker. Do not pass `-C link-arg=-fuse-ld=lld` to the
   MSVC target; use `-C linker=lld-link` if lld is intended.
 
 ### Build outputs
 
-Every generated artifact lives under one ignored root, `dist/`:
+Every generated project artifact lives under one ignored root, `dist/`. The optional Kache
+store is a developer cache and may live outside it:
 
 | Path | Contains |
 | --- | --- |
@@ -120,7 +124,7 @@ Every generated artifact lives under one ignored root, `dist/`:
 | `dist/apps/<host>/` | Desktop, LAN web, and website Vite builds |
 | `dist/tools/` | Release-staged toolchain |
 | `dist/dev-tools/` | Persistent cache used by `npm run dev` |
-| `dist/cache/` | Reusable local build caches such as the E2E service binary and SPA build |
+| `dist/cache/` | Reusable local build caches: the E2E service binary and SPA build |
 | `dist/tsbuildinfo/` | TypeScript incremental state |
 | `dist/coverage/web/` | Vitest coverage summary, lcov, and HTML report |
 | `dist/coverage/rust/` | Rust lcov report |
@@ -130,16 +134,19 @@ Every generated artifact lives under one ignored root, `dist/`:
 | `dist/test-data/` | Disposable service data for local review and E2E |
 | `dist/release/` | Local installers and archives |
 
-Cargo uses the committed `rust/.cargo/config.toml`; the root `.cargo/config.toml` stays
-machine-local. Generated Tauri schemas stay under `rust/desktop-shell/gen/` because Tauri
-writes them beside its configuration.
+Cargo uses the committed `rust/.cargo/config.toml`, which pins `target-dir = "../dist/cargo"`;
+`rust/target/` is not used, including for direct Cargo or IDE builds. The root
+`.cargo/config.toml` stays machine-local. The optional Kache store is the one developer cache
+that may live outside `dist/`; point `KACHE_CACHE_DIR` at a shared local store so this checkout
+and the engine checkout reuse it. Generated Tauri schemas stay under `rust/desktop-shell/gen/`
+because Tauri writes them beside its configuration.
 
 ### Build budget
 
 | Concern | Guidance |
 | --- | --- |
 | Debug info | Development and test builds use `debug = "line-tables-only"` and omit dependency debug info. For local-variable debugging, set `CARGO_PROFILE_DEV_DEBUG=2` (and `CARGO_PROFILE_TEST_DEBUG=2`); affected artifacts rebuild. |
-| Resting budget | The retained budget is **15 GB**. `npm run clean:outputs` removes transient output; `npm run clean:target` removes the Rust build tree. The optional kache cache is capped at 8 GiB and is not removed by either command. |
+| Resting budget | The retained budget is **15 GB**. `npm run clean:outputs` removes transient output; `npm run clean:cache` removes rebuildable caches under `dist/`; `npm run clean:release` removes local installer copies, toolchain staging, and release bundle copies while keeping release metadata, validation evidence, the debug target, and release dependencies; `npm run clean:target` removes the Rust build tree. The optional Kache cache is capped at 8 GiB, may be shared externally, and is not removed by these commands. |
 | E2E cache | `npm run test:e2e` reuses the service binary from `dist/cache/service/` and the SPA from `dist/cache/e2e/`; an unchanged checkout restores both after `clean:target`. See [docs/testing.md §3.3](docs/testing.md#33-e2e-smoke-and-fake-engine-journey). |
 
 A cold Rust build can exceed 15 GB while `dist/cargo` and kache coexist; run `clean:target`
