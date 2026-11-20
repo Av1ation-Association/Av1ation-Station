@@ -989,6 +989,84 @@ async fn a_section_reset_leaves_the_other_sections_alone() {
     tokio::fs::remove_dir_all(dir).await.expect("cleanup");
 }
 
+/// The Encoding section displays the Parallel Encoder input, so resetting it must clear that
+/// override. Workers belong to the Parallel Encoder screen and a section reset must not reach
+/// across screens.
+#[tokio::test]
+async fn an_encoding_section_reset_clears_only_the_parallel_encoder_input() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let template_id = saved_template_id(&app).await;
+
+    let document = serde_json::json!({
+        "sequences": {
+            "parallel_encoder": {
+                "input": script_input("clip.set_output()"),
+                "workers": 6,
+                "scenes_directory": "C:/scenes",
+                "max_tries": 5,
+                "validate_frame_count": false
+            }
+        }
+    });
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/settings/templates/{template_id}/defaults"))
+            .header("content-type", "application/json")
+            .body(Body::from(document.to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+
+    let (status, reset) = send(
+        app.clone(),
+        Request::post(format!(
+            "/api/settings/templates/{template_id}/defaults/reset/encoding"
+        ))
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reset}");
+
+    let (status, settings) = send(
+        app.clone(),
+        Request::get("/api/settings").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{settings}");
+    let template = settings["project_templates"]
+        .as_array()
+        .expect("the settings carry the template list")
+        .iter()
+        .find(|template| template["id"].as_str() == Some(template_id.as_str()))
+        .expect("the saved template is listed");
+    let parallel = &template["config"]["sequences"]["parallel_encoder"];
+    assert!(
+        parallel["input"].is_null(),
+        "the Encoding reset clears the input override: {parallel}"
+    );
+    assert_eq!(
+        parallel["workers"], 6,
+        "the workers survive a reset that does not own them: {parallel}"
+    );
+    assert_eq!(
+        parallel["scenes_directory"], "C:/scenes",
+        "the scenes directory belongs to the Parallel Encoder screen: {parallel}"
+    );
+    assert_eq!(
+        parallel["max_tries"], 5,
+        "the retry count belongs to the Parallel Encoder screen: {parallel}"
+    );
+    assert_eq!(
+        parallel["validate_frame_count"], false,
+        "the frame-count check belongs to the Parallel Encoder screen: {parallel}"
+    );
+
+    tokio::fs::remove_dir_all(dir).await.expect("cleanup");
+}
+
 /// Every template route with a JSON body goes through the one unreadable-body envelope, and
 /// every route that names a template reports a missing id instead of creating or editing one.
 #[tokio::test]

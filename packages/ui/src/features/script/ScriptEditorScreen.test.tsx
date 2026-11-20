@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import type { ScriptMaterialised } from "@av1ation/contracts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { toast } from "sonner";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { ROUTE_PROJECT, populatedTransport } from "../../test/route-fixtures";
 import { renderRoute } from "../../test/render";
@@ -18,6 +19,10 @@ vi.mock("monaco-editor", async () => {
 vi.mock("../../shared/monaco-env", () => ({
     MONACO_THEMES: { dark: "av1ation-dark", light: "av1ation-light" },
 }));
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 const MATERIALISED: ScriptMaterialised = {
     filename: "script.vpy",
@@ -78,6 +83,103 @@ it("converts a file input to a stored script, saves it, and discards later edits
         ).toBe(edited),
     );
     expect(within(topBar).queryByText("Unsaved changes")).toBeNull();
+});
+
+it("refuses to save a cleared project script and keeps the draft", async () => {
+    const transport = populatedTransport();
+    transport.general.set(ROUTE_PROJECT.id, {
+        input_kind: "vapour_synth_script",
+        output_mode: "next_to_input",
+        script_mode: "text",
+        script_text: "import vapoursynth as vs\nout.set_output()\n",
+        ffms2_filters: [],
+        vapour_synth_filters: [],
+    });
+    const putJson = vi.spyOn(transport, "putJson");
+    const error = vi.spyOn(toast, "error");
+    const { topBar } = renderRoute(<ScriptEditorScreen />, {
+        route: "/projects/$projectId/config/script",
+        initialEntry: "/projects/demo-project/config/script?section=general",
+        transport,
+        topBar: true,
+    });
+
+    const editor = (await screen.findByLabelText(
+        "Custom VapourSynth script",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: "   " } });
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+    fireEvent.click(within(topBar).getByRole("button", { name: "Save" }));
+
+    // The service refuses an empty custom script, so the draft must not reach it.
+    await waitFor(() => expect(error).toHaveBeenCalledWith("The custom script is empty."));
+    expect(putJson).not.toHaveBeenCalled();
+    expect(within(topBar).getByText("Unsaved changes")).toBeTruthy();
+});
+
+it("keeps a cleared project script empty once the script guide has loaded", async () => {
+    const transport = populatedTransport();
+    transport.general.set(ROUTE_PROJECT.id, {
+        input_kind: "vapour_synth_script",
+        output_mode: "next_to_input",
+        script_mode: "text",
+        script_text: "import vapoursynth as vs\nout.set_output()\n",
+        ffms2_filters: [],
+        vapour_synth_filters: [],
+    });
+    const putJson = vi.spyOn(transport, "putJson");
+    const error = vi.spyOn(toast, "error");
+    const { topBar } = renderRoute(<ScriptEditorScreen />, {
+        route: "/projects/$projectId/config/script",
+        initialEntry: "/projects/demo-project/config/script?section=general",
+        transport,
+        topBar: true,
+    });
+
+    const editor = (await screen.findByLabelText(
+        "Custom VapourSynth script",
+    )) as HTMLTextAreaElement;
+    // The guide supplies the template the editor seeds from: wait for it before clearing,
+    // otherwise the seeding effect has not run and the empty draft is not what is tested.
+    await screen.findByText("cd.video_path");
+    fireEvent.change(editor, { target: { value: "" } });
+    expect(editor.value).toBe("");
+
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+    fireEvent.click(within(topBar).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith("The custom script is empty."));
+    expect(putJson).not.toHaveBeenCalled();
+});
+
+it("reports a rejected project script save and keeps the draft", async () => {
+    const transport = populatedTransport();
+    transport.general.set(ROUTE_PROJECT.id, {
+        input_kind: "vapour_synth_script",
+        output_mode: "next_to_input",
+        script_mode: "text",
+        script_text: "import vapoursynth as vs\nout.set_output()\n",
+        ffms2_filters: [],
+        vapour_synth_filters: [],
+    });
+    vi.spyOn(transport, "putJson").mockRejectedValue(new Error("The service refused the write."));
+    const error = vi.spyOn(toast, "error");
+    const { topBar } = renderRoute(<ScriptEditorScreen />, {
+        route: "/projects/$projectId/config/script",
+        initialEntry: "/projects/demo-project/config/script?section=general",
+        transport,
+        topBar: true,
+    });
+
+    const editor = (await screen.findByLabelText(
+        "Custom VapourSynth script",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: `${editor.value}# changed\n` } });
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+    fireEvent.click(within(topBar).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith("The service refused the write."));
+    expect(within(topBar).getByText("Unsaved changes")).toBeTruthy();
 });
 
 it("converts a non-script sequence override and validates a project script", async () => {

@@ -94,7 +94,10 @@ export function ProjectDefaultsSectionScreen() {
                 await save.mutateAsync(mergeDraft(server, definition, draft));
                 toast.success(`${definition.title} defaults saved`);
                 return true;
-            } catch {
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : "The defaults could not be saved.",
+                );
                 return false;
             }
         },
@@ -116,7 +119,10 @@ export function ProjectDefaultsSectionScreen() {
                 await saveGeneral.mutateAsync(generalDefaultsPayload(draft));
                 toast.success("General defaults saved for new projects");
                 return true;
-            } catch {
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : "The defaults could not be saved.",
+                );
                 return false;
             }
         },
@@ -334,6 +340,7 @@ export function ProjectDefaultsSectionScreen() {
                                     }
                                     toast.success(`${sectionTitle(id)} reset to engine defaults`);
                                 },
+                                onError: (error) => toast.error(error.message),
                             });
                         }}
                     >

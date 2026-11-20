@@ -177,7 +177,10 @@ export function DefaultsScriptScreen() {
                 await save.mutateAsync(setAtPath(document, inputPath, next));
                 toast.success("Default script saved for new projects");
                 return true;
-            } catch {
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : "The script could not be saved.",
+                );
                 return false;
             }
         }
@@ -190,10 +193,16 @@ export function DefaultsScriptScreen() {
                 script_mode: mode,
                 ...(mode === "file" ? { script: path.trim() } : { script_text: text }),
             });
+            const problem = generalDefaultsIncomplete(general);
+            if (problem !== null) {
+                toast.error(problem);
+                return false;
+            }
             await saveGeneral.mutateAsync(general);
             toast.success("Default script saved for new projects");
             return true;
-        } catch {
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "The script could not be saved.");
             return false;
         }
     };

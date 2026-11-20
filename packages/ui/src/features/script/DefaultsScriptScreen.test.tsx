@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { toast } from "sonner";
+import { afterEach, expect, it, vi } from "vitest";
 
 import type { AppSettings, GeneralDefaults } from "@av1ation/contracts";
 
@@ -19,6 +20,10 @@ vi.mock("monaco-editor", async () => {
 vi.mock("../../shared/monaco-env", () => ({
     MONACO_THEMES: { dark: "av1ation-dark", light: "av1ation-light" },
 }));
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 const SCRIPT_TEXT = "import vapoursynth as vs\nout = vs.core.std.BlankClip()\nout.set_output()\n";
 
@@ -71,6 +76,56 @@ it("edits and saves the template's stored script", async () => {
         const settings = transport.routes.get("/api/settings") as AppSettings;
         expect(settings.project_templates[0]?.general.script_text).toContain("# changed");
     });
+});
+
+it("refuses to save a cleared default script and keeps the draft", async () => {
+    const transport = transportWithGeneral(templateGeneral({}));
+    const putJson = vi.spyOn(transport, "putJson");
+    const error = vi.spyOn(toast, "error");
+    const { topBar } = renderRoute(<DefaultsScriptScreen />, {
+        route: "/settings/templates/$templateId/script",
+        initialEntry: "/settings/templates/default/script?section=general",
+        transport,
+        topBar: true,
+    });
+
+    const editor = (await screen.findByLabelText(
+        "Custom VapourSynth script",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: "" } });
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+    fireEvent.click(within(topBar).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith("The custom script is empty."));
+    expect(putJson).not.toHaveBeenCalled();
+    expect(within(topBar).getByText("Unsaved changes")).toBeTruthy();
+});
+
+it("keeps a cleared default script empty once the script guide has loaded", async () => {
+    const transport = transportWithGeneral(templateGeneral({}));
+    const putJson = vi.spyOn(transport, "putJson");
+    const error = vi.spyOn(toast, "error");
+    const { topBar } = renderRoute(<DefaultsScriptScreen />, {
+        route: "/settings/templates/$templateId/script",
+        initialEntry: "/settings/templates/default/script?section=general",
+        transport,
+        topBar: true,
+    });
+
+    const editor = (await screen.findByLabelText(
+        "Custom VapourSynth script",
+    )) as HTMLTextAreaElement;
+    // The guide supplies the template the editor seeds from: wait for it before clearing,
+    // otherwise the seeding effect has not run and the empty draft is not what is tested.
+    await screen.findByText("cd.video_path");
+    fireEvent.change(editor, { target: { value: "" } });
+    expect(editor.value).toBe("");
+
+    if (topBar === null) throw new Error("the screen must mount its draft actions");
+    fireEvent.click(within(topBar).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith("The custom script is empty."));
+    expect(putJson).not.toHaveBeenCalled();
 });
 
 it("converts a template file script to stored text", async () => {

@@ -22,22 +22,31 @@ import { documentFromValues, getIn } from "../../shared/schema/config-schema";
 import { inputFromValue, inputKindOf, inputValueOf } from "../../shared/model/input-model";
 import { sectionLabel } from "../../shared/model/project-sections";
 
-/** Write one nested input document into a sparse override map without touching siblings. */
-function setAtPath(
-    value: unknown,
+/**
+ * Write one input into the sparse override map without touching sibling fields.
+ *
+ * The route addresses overrides by dotted leaf path, never by a nested tree. When the
+ * section already owns a whole-document override, the input is written inside it: the
+ * resolver reads that document before any leaf beneath it.
+ */
+function setOverride(
+    fields: Record<string, unknown>,
     path: string[],
     next: Record<string, unknown>,
 ): Record<string, unknown> {
-    const [head, ...rest] = path;
-    if (head === undefined) {
-        return next;
+    const leaf = path[path.length - 1];
+    if (leaf === undefined) {
+        return fields;
     }
-    const source =
-        typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-    return {
-        ...source,
-        [head]: rest.length === 0 ? next : setAtPath(source[head], rest, next),
-    };
+    const sectionKey = path.slice(0, -1).join(".");
+    const section = fields[sectionKey];
+    if (typeof section === "object" && section !== null && !Array.isArray(section)) {
+        return {
+            ...fields,
+            [sectionKey]: { ...(section as Record<string, unknown>), [leaf]: next },
+        };
+    }
+    return { ...fields, [path.join(".")]: next };
 }
 
 /**
@@ -176,6 +185,16 @@ export function VideoScriptEditorScreen() {
         if (!ready || saveGeneral.isPending || saveOverrides.isPending) {
             return false;
         }
+        // The document a run reads must name a script; the editor on the General page
+        // refuses the same empty draft before it reaches this page.
+        if (mode === "file" && path.trim() === "") {
+            toast.error("Choose a .vpy file, or switch to a custom script.");
+            return false;
+        }
+        if (mode === "text" && text.trim() === "") {
+            toast.error("The custom script is empty.");
+            return false;
+        }
         const nextValue = {
             ...scriptInput,
             scriptMode: mode,
@@ -187,7 +206,7 @@ export function VideoScriptEditorScreen() {
                 return false;
             }
             try {
-                const fields = setAtPath(
+                const fields = setOverride(
                     overrides.data.fields,
                     inputPath,
                     inputFromValue(nextValue, currentInput),
@@ -195,7 +214,10 @@ export function VideoScriptEditorScreen() {
                 await saveOverrides.mutateAsync({ fields });
                 toast.success("VapourSynth script saved");
                 return true;
-            } catch {
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : "The script could not be saved.",
+                );
                 return false;
             }
         }
@@ -210,7 +232,8 @@ export function VideoScriptEditorScreen() {
             });
             toast.success("VapourSynth script saved");
             return true;
-        } catch {
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "The script could not be saved.");
             return false;
         }
     };
@@ -290,7 +313,7 @@ export function VideoScriptEditorScreen() {
         );
         try {
             await saveOverrides.mutateAsync({
-                fields: setAtPath(overrides.data.fields, inputPath, next),
+                fields: setOverride(overrides.data.fields, inputPath, next),
             });
             setMode("text");
             setPath("");

@@ -255,9 +255,12 @@ export function generalDefaultsIncomplete(value: GeneralDefaults): string | null
         if (mode === "file" && (value.script ?? "").trim() === "") {
             return "Choose a .vpy file, or switch to a custom script.";
         }
-        // An empty stored script is a warning, not a reason to refuse the save: the text is
-        // entered on the script page, and reaching that page requires saving the kind first.
-        // The input editor still shows "The custom script is empty." until it is written.
+        // The service refuses an empty stored script, so this draft cannot be saved. The
+        // input editor and the script page seed the generated template when text is chosen;
+        // this only catches a script the user deliberately cleared.
+        if (mode === "text" && (value.script_text ?? "").trim() === "") {
+            return "The custom script is empty.";
+        }
     }
     return null;
 }

@@ -1033,6 +1033,57 @@ async fn video_overrides_resolve_with_provenance_and_can_be_reset() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// The script editor writes one sparse leaf; a nested `sequences` object is rejected as
+/// an unknown section, so the editor must send the dotted path.
+#[tokio::test]
+async fn a_video_script_override_is_accepted_and_stored_as_one_leaf() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Script override").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let script = serde_json::json!({
+        "VapourSynthScript": {
+            "source": { "Text": "out = clip\nout.set_output()\n" },
+            "filters": [],
+            "variables": {},
+            "index": 0,
+            "stream_concurrently": true
+        }
+    });
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "fields": { "sequences.parallel_encoder.input": script } })
+                    .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(
+        saved["values"]["sequences.parallel_encoder.input"]["source"],
+        "overridden"
+    );
+
+    let (status, raw) = send(
+        app,
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{raw}");
+    assert_eq!(
+        raw["fields"]["sequences.parallel_encoder.input"], script,
+        "the script document round-trips at the dotted leaf"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 #[tokio::test]
 async fn a_video_general_document_round_trips_and_rejects_a_relative_output() {
     let dir = project_dir();

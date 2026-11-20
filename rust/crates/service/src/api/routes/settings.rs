@@ -429,6 +429,22 @@ pub(super) async fn reset_template_defaults_section(
                 Some("The template was not changed.".to_owned()),
             );
         };
+        if section == "encoding"
+            && let Some(parallel) = sequences
+                .get_mut("parallel_encoder")
+                .and_then(Value::as_object_mut)
+        {
+            // The Encoding section displays only the Parallel Encoder input. Its workers,
+            // scenes directory, and retry settings belong to the Parallel Encoder screen, so
+            // resetting this section clears the input leaf and leaves the rest alone.
+            parallel.insert(
+                "input".to_owned(),
+                engine
+                    .pointer("/sequences/parallel_encoder/input")
+                    .cloned()
+                    .unwrap_or(Value::Null),
+            );
+        }
         for key in keys {
             if let Some(value) = engine.pointer(&format!("/sequences/{key}")) {
                 sequences.insert((*key).to_owned(), value.clone());

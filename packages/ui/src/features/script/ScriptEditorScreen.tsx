@@ -185,7 +185,10 @@ export function ScriptEditorScreen() {
                 await saveConfig.mutateAsync(setAtPath(document, inputPath, next));
                 toast.success("VapourSynth script saved");
                 return true;
-            } catch {
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : "The script could not be saved.",
+                );
                 return false;
             }
         }
@@ -198,10 +201,16 @@ export function ScriptEditorScreen() {
                 script_mode: mode,
                 ...(mode === "file" ? { script: path.trim() } : { script_text: text }),
             });
+            const problem = generalDefaultsIncomplete(general);
+            if (problem !== null) {
+                toast.error(problem);
+                return false;
+            }
             await update.mutateAsync(general);
             toast.success("VapourSynth script saved");
             return true;
-        } catch {
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "The script could not be saved.");
             return false;
         }
     };
