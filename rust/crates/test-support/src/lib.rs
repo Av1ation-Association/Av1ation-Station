@@ -99,7 +99,39 @@ impl Clip {
             "-i".to_owned(),
             format!("testsrc=size={width}x{height}:rate={fps}:duration={seconds}"),
         ];
-        let codec = vec!["-c:v".to_owned(), "ffv1".to_owned()];
+        let codec = vec![
+            "-c:v".to_owned(),
+            "ffv1".to_owned(),
+            "-pix_fmt".to_owned(),
+            "yuv420p".to_owned(),
+        ];
+        Self::render(directory, width, height, fps * seconds, fps, input, codec)
+    }
+
+    /// The same pattern at 10-bit, losslessly encoded.
+    ///
+    /// The engine's native input converts every source to 10-bit. A native 10-bit fixture
+    /// makes that conversion a no-op, so a preview test compares encoder samples instead of
+    /// comparing two different depths of the same picture.
+    pub fn testsrc_ten_bit(
+        directory: &Path,
+        width: u32,
+        height: u32,
+        fps: u32,
+        seconds: u32,
+    ) -> Self {
+        let input = vec![
+            "-f".to_owned(),
+            "lavfi".to_owned(),
+            "-i".to_owned(),
+            format!("testsrc=size={width}x{height}:rate={fps}:duration={seconds}"),
+        ];
+        let codec = vec![
+            "-c:v".to_owned(),
+            "ffv1".to_owned(),
+            "-pix_fmt".to_owned(),
+            "yuv420p10le".to_owned(),
+        ];
         Self::render(directory, width, height, fps * seconds, fps, input, codec)
     }
 
@@ -129,6 +161,8 @@ impl Clip {
             "2".to_owned(),
             "-g".to_owned(),
             gop.to_string(),
+            "-pix_fmt".to_owned(),
+            "yuv420p".to_owned(),
         ];
         Self::render(directory, width, height, fps * seconds, fps, input, codec)
     }
@@ -166,7 +200,12 @@ impl Clip {
             "{streams}concat=n={}:v=1:a=0,format=yuv420p",
             colours.len()
         ));
-        let codec = vec!["-c:v".to_owned(), "ffv1".to_owned()];
+        let codec = vec![
+            "-c:v".to_owned(),
+            "ffv1".to_owned(),
+            "-pix_fmt".to_owned(),
+            "yuv420p".to_owned(),
+        ];
         let frames = fps * seconds * u32::try_from(colours.len()).expect("a short colour list");
         Self::render(directory, width, height, frames, fps, input, codec)
     }
@@ -187,7 +226,6 @@ impl Clip {
             .args(["-hide_banner", "-loglevel", "error", "-y"])
             .args(&input)
             .args(&codec)
-            .args(["-pix_fmt", "yuv420p"])
             .arg(&path)
             .output()
             .unwrap_or_else(|error| panic!("could not run ffmpeg: {error}"));

@@ -2,8 +2,13 @@
 
 The scene editor and live preview: the highest-risk, highest-value part of the
 application. This document specifies the design and the experiments that gated it. The
-Scenes tab, the three sources, and the media route are implemented. Preview uses the
-stateless cache lifecycle in §3.2; there is no preview-session resource.
+Scenes tab, the three sources, and the media route are implemented. Preview has no
+per-player HTTP session: each window is a stateless cache entry (§3.2). The service does
+keep one opened decode graph per source identity behind that cache, so consecutive windows
+reuse a decoder; it is dropped after 45 seconds without a window. A native `Video` source
+may open a second graph while the first is busy; every other input keeps one. Scene builds
+reuse one idle graph the same way and open a transient one while it is writing, so only the
+first scene of a review pays for the script and its graph.
 
 ## Contents
 
@@ -64,7 +69,7 @@ Up to three sources are available for a scene; exactly one is attached to the si
 | UI label | Stream ID | Content | When it is offered | Purpose |
 | --- | --- | --- | --- | --- |
 | `Original` | `original` | the queued source file, served as it is | the video has a source path | the unfiltered source |
-| `Decoded` | `decoded` | decoded frames of the Parallel Encoder input, coded as visually lossless H.264 MP4 | the Parallel Encoder input resolves; it falls back to General | what the encoder actually received, without a visible generation loss |
+| `Decoded` | `decoded` | decoded frames of the Parallel Encoder input, coded as lossless H.264 MP4 at the input's resolution and depth | the Parallel Encoder input resolves; it falls back to General | exactly what the encoder received, down to the sample |
 | `Encoded` | `encode` | one detected scene's chunk, produced by the run's exact encoder | a scene contains the playhead | what the encoder will produce for that scene |
 
 The Decoded source is the default **input source** for the Encoded source because the
@@ -76,22 +81,63 @@ input inherits the General input, Decoded and Original show the same frames only
 input has no filters; the control stays because it still states which input the encode
 actually used.
 
-All three sources are delivered as **fragmented MP4**. `Decoded` prefers H.264 at CRF 16
-(`veryfast`, or `h264_nvenc` constant QP 18), which is visually lossless at the sizes the
-player shows: the last bit of a sample can differ, the picture does not. The release
-FFmpeg is built without libx264, so the sibling `x264` executable encodes the same H.264
-when libx264 is absent; if neither is available, FFmpeg's `libvpx-vp9` or the bundled
-`vpxenc` writes VP9 instead. The VP9 and standalone-x264 paths are 8-bit builds, so a
-10-bit source is downsampled only on those fallbacks; the libx264 path preserves its depth.
-A sample-exact proxy is not usable here. x264's lossless mode requires the High 4:4:4 profile, which costs
-about 36 MB/s for 1080p; Chromium caps a `SourceBuffer` at roughly 150 MB, so a six-second
-window filled the quota before the player had shown its first frame and the whole source
-failed. The CRF keeps a window at a few megabytes, which is also what makes a backwards
-seek a buffer lookup instead of a re-decode. The input's bit depth is preserved; an 8-bit
-source stays 8-bit and a 10-bit source stays 10-bit. It is produced as a bounded window from
-the playhead (`frames=W`) rather than the whole video, and the player prefetches the next
-window so playback crosses a boundary without waiting. Its one-second GOPs let the element
-start on the first fragment.
+All three sources are delivered as **fragmented MP4**. `Decoded` is H.264 with `-qp 0`
+(`ultrafast`), at the Parallel Encoder input's resolution and bit depth. x264 signals
+lossless with the High 4:4:4 Predictive profile even when the coded planes stay 4:2:0;
+Chromium plays that profile both as a direct source and through MediaSource. The release
+FFmpeg is built without libx264, so the sibling `x264` executable encodes the window when
+libx264 is absent; it is passed `--output-depth` so a 10-bit input stays 10-bit. VP9 is a
+fallback only for 8-bit inputs: a 10-bit input with no x264 is refused rather than silently
+quantised to 8-bit. The old CRF 16 proxy was smaller, but it was not a reference: its
+quantization is visible on gradients and edges at 400% zoom. A lossless window's size follows the source's
+grain and detail rather than a fixed bitrate: on the two 1080p 10-bit test projects,
+six-second windows measured **73.5-117.3 MiB** and two-second windows measured
+**25.3-31.8 MiB** and built in **1.2-1.4 s** each. Opening the decode graph used to happen
+per window: the build materialised the input, imported the script module, and constructed an
+FFMS2 or VapourSynth graph before it encoded a frame. The service now keeps one opened
+graph per source identity on a dedicated thread and writes consecutive windows through it;
+a native `Video` source may open a second while the first is busy, so an append and a warm
+do not queue behind each other, while every other input stays at one. The frame range
+belongs to the cache key, not to the graph's identity. A window build therefore pays for
+the lossless encode and mux, not for decoder construction.
+
+The lead is not a fixed number. Chromium retains roughly 150 MB in one `SourceBuffer`, so
+the player spends a 140 MiB budget at the source's measured lossless rate: a two-second
+1080p 10-bit window yields about six seconds of appended lead, and a cheaper source yields
+more from the same bytes. The paused fill is capped at **six seconds**, even when a coarser
+rate estimate would plan more: the next window has to fit beside the fill, and a grainy
+source can otherwise reach 8–10 s and leave the append that starts playback no room at all.
+The cap is `PAUSED_MSE_MAX_SECONDS` in `preview-buffer-plan.ts`. The cache runway beyond the append horizon is sized from the
+measured build time, so a slower machine prebuilds more windows instead of outrunning a
+constant. Those warm builds are not attached to the timeline: the append that later reaches
+one reads the finished cache file, so the seam is a local read rather than an encode. A warm
+starts once the last appended window's request is already in flight, not after that window
+has downloaded, so a builder overlaps the client's append instead of idling through it.
+Warms run **only while paused**: playing, the script input's single decode graph belongs to
+the appends, and a warm would make the next window queue behind it instead of landing ahead
+of the playhead. Paused, the player fills up to the six-second cap and warms up to 1.5 GiB
+of cache runway (at most sixty windows), so a source whose build is slower than realtime
+keeps building while the user reads the frame and has cached windows to resume into.
+Starting playback aborts a paused warm, and the next append reads whichever cache file
+finished or queues its build. Reaching the browser's memory cap is not an error: the read
+parks until playback or a seek frees a window behind the playhead, then writes the same
+fragment without dropping it. A picture that runs dry releases the stream's
+read throttle too, so the rest of a window already on the wire is never left unread behind
+a stalled element. The offset for each window is written only once the `SourceBuffer` has
+finished parsing the previous append; a quota retry can otherwise race the parser and throw
+`InvalidStateError`. The paused fill does not wait for `timeupdate`, which a paused element
+never sends. The lead is a prefetch target,
+not a playback gate. Decoded clears its loading stage as soon as the requested frame is on
+screen, and it never pauses for buffer: when the decoder is slower than realtime, the
+element presents each appended frame as it lands and waits between arrivals, with the sound
+paused by the same wait. Encoded still holds until its scene chunk has a lead, because a
+chunk ends at a cut instead of continuing the same stream. MediaSource receives each proxy in 4 MiB
+batches rather than one append per 64 KB read: an append is a full `updateend` round trip,
+and one per read spent seconds on a single 30 MB window. The element retains one second
+behind the playhead, plus another half-second before a trim so it cannot cut the GOP that
+is playing, so a short backward step is a buffer read; a seek further back opens
+the window containing that frame from cache. Its one-second GOPs let the element start on
+the first fragment.
 
 The browser's own `<video>` element plays, seeks, and buffers all three with zero
 JavaScript decoding. This is the decision that makes LAN and website preview possible at
@@ -123,28 +169,43 @@ surfaces ask the same lookup for the same indexed file. The frame route remains 
 explicit request; the player uses it for a paused scrub still, and the rail and timeline
 never take that path.
 
-The proxy encode is CPU-bound at 1080p, but it stays ahead of playback: x264 at `veryfast`
-encodes an 8-bit 1080p 23.976 source at about 47 fps, against the 24 fps the player needs.
-Hardware H.264 encoding is not assumed: NVENC works for 8-bit on a capable machine but not
-for 10-bit, so the software path is the one that works for every source. The alternative
-that removes the encoder is raw YUV over HTTP with a canvas/WebCodecs renderer, at roughly
-142 MB/s for 10-bit 1080p; that is a local-connection path, not a LAN default, and it gives
-up the element's own buffering and seeking.
+The proxy encode is CPU-bound at 1080p. Lossless `ultrafast` uses the least CPU x264
+offers for a sample-exact picture: the preset trades compression for speed, so the window
+is larger than `veryfast` would produce, not lower quality. NVENC is not used: H.264 NVENC
+cannot encode losslessly, and the Decoded source is never allowed to trade the picture for
+speed. The alternative that removes the encoder is raw YUV over HTTP with a
+canvas/WebCodecs renderer, at roughly 142 MB/s for 10-bit 1080p; that is a local-connection
+path, not a LAN default, and it gives up the element's own buffering and seeking.
 
 ### 3.2 Cache lifecycle
 
-There is no preview-session resource. `GET …/videos/:vid/media` prepares exactly the
-source and range the element asked for, and FFmpeg writes the result under
-`<app-data>/cache/preview`. The cache key is the input document, the encoder document
-when applicable, the frame range, the scene table's fingerprint, and the source's size and
-modification time.
+There is no per-player preview-session resource. `GET …/videos/:vid/media` prepares exactly
+the source and range the element asked for, and FFmpeg writes the result under
+`<app-data>/cache/preview`. The one piece of server state in the path is the opened decode
+graph: it is keyed by the source identity (never the frame range) and expires after 45
+seconds without a window, so a second player shares it but a replaced source does not
+outlive the review. The cache key is the engine's proxy recipe, the input document,
+the encoder document when applicable, the frame range, the scene table's fingerprint, and
+the source's size and modification time. The recipe names the codec, lossless mode, preset,
+GOP, bit-depth rule, and mux flags, so changing the pipeline changes the key without a
+separate hand-maintained version.
 
 - Original is served directly from the source file; it is never prepared or cached.
-- Decoded is prepared as a bounded window from the playhead. A second request for the same
-  key follows the running build instead of starting a duplicate decode.
+- Decoded is prepared as a bounded window from the playhead. The decode graph is opened
+  once per source identity and reused for every window, so only the range is part of the
+  per-file key. A native `Video` source may open a second graph while the first is busy;
+  every other input stays on one, because evaluating it again allocates a second copy of
+  everything it builds. A second request for the same key follows the running build instead
+  of starting a duplicate decode.
 - Encoded resolves the scene containing the playhead and runs that scene's encoder. The
   key includes the scene and the input choice (`decoded` or `original`), so changing the
-  encoder invalidates the Encoded cache without touching Decoded.
+  encoder invalidates the Encoded cache without touching Decoded. The decode graph behind
+  the build is keyed by the input and the scene table, never by the encoder: every scene's
+  document can differ while they all read the same graph. One idle graph is kept per source
+  identity and dropped after 45 seconds without a scene. A build that finds it busy opens a
+  transient graph and drops it when the scene ends, so a warm and the chunk the playhead is
+  waiting for still overlap. An encoder that refuses its input leaves the graph open; only a
+  frame the graph could not produce closes it.
 - Every scene row carries `encoder_fingerprint`, a hash of the encoder document that scene
   actually encodes with (its own, or the video's resolved encoder), and the player puts it
   in the Encoded source URL. A saved settings change is therefore a different URL: the
@@ -403,16 +464,20 @@ own `moov`; a codec the browser decodes but will not put in a `SourceBuffer` fal
 direct source, where seeking is the old, slower path. `Original` is always a direct source.
 
 **Cache.** The player prepares one proxy per requested range under
-`<app-data>/cache/preview`, keyed by the input document, the encoder document, the frame
-range, and the source file's size and modification time. `Decoded` writes fragmented MP4
-in **windows** rather than from the playhead to the end: each window is six seconds of
-source snapped to a fixed frame grid, so the same playhead always names the same cache key
-and a seek backwards is a cache hit. The window after the one playing is built while the
-current one plays, which is what makes crossing a window boundary continuous; the prefetch
-follows the direction the user is travelling and is cancelled when the source changes. A
-window is video only: the player takes sound from the source's own element, because a
-`SourceBuffer` cannot hold a track its index does not declare. While the user is paused, a
-lossless PNG follows the playhead so a scrub does not wait for a stream. `Encoded` resolves the scene containing the playhead, reproduces its
+`<app-data>/cache/preview`, keyed by the engine's proxy recipe, the input document, the
+encoder document, the frame range, and the source file's size and modification time.
+`Decoded` writes fragmented MP4 in **windows** rather than from the playhead to the end:
+each window is two seconds of source snapped to a fixed frame grid, so the same playhead
+always names the same cache key and a seek backwards is a cache hit. The decode graph,
+however, is opened once per source identity and kept on its own thread; consecutive windows
+reuse it and only pay for the lossless encode and mux. Only a native `Video` source may
+open a second graph while the first is busy; every other input keeps one. The appended lead
+and the depth of the prebuilt runway come from the measured lossless rate and build time,
+bounded by the `SourceBuffer` budget, rather than from fixed counts; the prefetch follows
+the direction the user is travelling and is cancelled when the source changes. A window is
+video only: the player takes sound from the source's own element, because a `SourceBuffer`
+cannot hold a track its index does not declare. While the user is paused, a lossless PNG
+follows the playhead so a scrub does not wait for a stream. `Encoded` resolves the scene containing the playhead, reproduces its
 whole chunk from the scene's first frame with the exact encoder executable and parameter
 list, and pipes the encoder's elementary stream to FFmpeg with `-c:v copy` into fragmented
 MP4. The elementary stream never touches disk. Fragments end at a keyframe and, because a
@@ -444,7 +509,13 @@ idle process priority: below normal still took a share of every core and showed 
 dropped and frozen frames, where idle leaves the decoder that is presenting the picture in
 control and gives the encoder only the cycles nobody else wants. When the last
 viewer leaves, the build is stopped and its partial file removed; a later request starts
-that scene again. An encoder that refuses the
+that scene again. Consecutive scenes reuse one opened input graph. On the 261-scene 1080p
+project, opening it was **1.75 s of a 19.1 s warm build** — 9%, with the encoder taking the
+other 17.3 s — and every later scene reads the same graph. The same scene then measured
+**19.8 s with a fresh graph and 18.1 s reusing one**. A scene that arrives while that
+graph is writing opens a transient one and drops it afterwards, so the warm and the chunk
+the playhead is waiting for still overlap. An encoder refusal leaves the graph in place,
+because the decoder is healthy; only a frame the graph could not produce closes it. An encoder that refuses the
 frames (a 10-bit-only executable given an 8-bit script) is detected from stderr while the
 scene is being fed. The body opens only after the first fragment, not on the muxer's own
 header: FFmpeg writes `ftyp` and an empty `moov` before the encoder has produced a frame,
@@ -514,16 +585,12 @@ GPU supports it). No preview frame is ever produced by an FFmpeg approximation o
 software decoder.
 
 **Encode.** The only encode this app performs for preview is the H.264 proxy, at x264
-`veryfast -crf 16` or `h264_nvenc -preset p3 -tune hq -rc constqp -qp 18`. Both target
-quality rather than bitrate, so a still frame and a cut cost what they look like. Which one
-runs is measured, not assumed, because their order depends on the machine and on what else
-is running: the first proxy of a session encodes a few frames of the source's own size with
-each option and keeps the GPU path only when it wins by ten percent. The result is kept per
-FFmpeg build and picture size. A failure — no GPU, an old driver, a refused profile — leaves
-x264. A build without libx264 uses the bundled x264 executable; a toolchain without either
-H.264 encoder falls back to VP9 through `vpxenc` or FFmpeg's `libvpx-vp9`. NVENC H.264 has
-no 10-bit profile, so a 10-bit input never calibrates and stays on the libx264 software
-path; the standalone x264 and VP9 fallbacks downsample a 10-bit source to 8-bit.
+`ultrafast -qp 0`. `-qp 0` is sample-exact; `-crf 16` was not. `ultrafast` keeps CPU use
+down by compressing less, which is the right trade for a reference window. NVENC is not
+offered because H.264 NVENC cannot encode losslessly. A build without libx264 uses the
+bundled x264 executable and passes the input's depth as `--output-depth`; a 10-bit input
+with no H.264 encoder is refused rather than falling back to an 8-bit VP9 stream. The VP9
+path remains for 8-bit inputs through `vpxenc` or FFmpeg's `libvpx-vp9`.
 
 **Grain and colour are part of that parameter list.** The Parallel Encoder writes a
 photon-noise table per scene into its scratch directory and appends the encoder's grain
@@ -669,9 +736,11 @@ One `<video>` element, one transport, and a source control in the transport bar.
   is paused with the picture and put back in step on the next frame shown. When a proxy is
   being built slower than it plays, the player holds the last presented frame and resumes
   once three quarters of a second is appended, rather than running dry and stuttering a few
-  frames at every arriving fragment. If the decoder itself cannot hold the source rate, the
-  rate governor lowers playback speed — picture and sound together — before the element is
-  asked to skip, and the transport states the reduced rate.
+  frames at every arriving fragment. Playback always runs at the source rate. A rate
+  governor used to lower picture and sound to 0.5× whenever the compositor dropped a few
+  frames; that turned a brief drop into sustained slow motion, so it was removed. The
+  presented-frame clock still reports only frames that reached the screen, but it no
+  longer changes speed.
 - One indicator covers the active source, labelled with its cause: decoder prepare on a
   decode, encoder throughput on a long encoded seek. The two have different expected waits
   and never share an unlabelled spinner.

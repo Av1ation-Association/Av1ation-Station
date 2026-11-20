@@ -30,7 +30,7 @@ use tokio::{net::TcpListener, sync::watch, task::JoinHandle};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing_subscriber::prelude::*;
 
-pub use media::stream::PreviewWriter;
+pub use media::stream::{DecodedWindowWriter, EncodedSceneWriter, PreviewWriter};
 pub use state::AppState;
 
 /// Give the process a hidden console for every console-subsystem child it starts.

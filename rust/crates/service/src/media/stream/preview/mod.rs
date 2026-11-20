@@ -1,8 +1,84 @@
 use super::*;
 use crate::project::videos::VideoStore;
-use av1ation_engine::media::preview::PreviewContext;
+use av1ation_engine::media::preview::{DecodeContext, PreviewContext, SceneOutput};
 use serde_json::Value;
 use std::{path::Path, sync::atomic::AtomicBool};
+
+/// An opened decode graph that can write consecutive preview windows.
+///
+/// The trait keeps the service's window scheduler independent of the engine's concrete
+/// session, so a route test can inject prepared bytes without opening a decoder or loading
+/// VapourSynth. The graph is created and used on one thread; it is deliberately not required
+/// to be `Send`, because the engine's internal decoder types are not.
+pub trait DecodedWindowWriter {
+    /// Write `[start, end)` to `output` through the graph this writer already opened.
+    fn write_window(
+        &mut self,
+        ffmpeg: &str,
+        output: &Path,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String>;
+}
+
+impl DecodedWindowWriter for av1ation_engine::media::preview::DecodedSession {
+    fn write_window(
+        &mut self,
+        ffmpeg: &str,
+        output: &Path,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        av1ation_engine::media::preview::DecodedSession::write_window(
+            self, ffmpeg, output, start, end, cancel,
+        )
+    }
+}
+
+/// An opened decode graph that can encode consecutive scenes through it.
+///
+/// A scene build reads the same input the previous scene read, so the graph is reused the
+/// same way a Decoded window reuses one. The trait keeps the service's scene scheduler
+/// independent of the engine's session, so a route test can supply prepared bytes without
+/// opening a decoder.
+pub trait EncodedSceneWriter {
+    /// Encode `[start, end)` with `encoder`, writing through `target`.
+    fn write_scene(
+        &mut self,
+        encoder: &Value,
+        target: &SceneOutput<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String>;
+
+    /// Whether the graph can serve another scene after the last write.
+    ///
+    /// An encoder that refused its input leaves the decoder untouched; a frame the graph
+    /// could not produce does not, and the pool opens a new graph instead of reusing it.
+    fn is_usable(&self) -> bool;
+}
+
+impl EncodedSceneWriter for av1ation_engine::media::preview::EncodedSession {
+    fn write_scene(
+        &mut self,
+        encoder: &Value,
+        target: &SceneOutput<'_>,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        av1ation_engine::media::preview::EncodedSession::write_scene(
+            self, encoder, target, start, end, cancel,
+        )
+    }
+
+    fn is_usable(&self) -> bool {
+        av1ation_engine::media::preview::EncodedSession::is_usable(self)
+    }
+}
 
 /// The engine work a preview build performs, behind one seam.
 ///
@@ -12,15 +88,23 @@ use std::{path::Path, sync::atomic::AtomicBool};
 /// headers. The methods are synchronous because the caller already runs them on a blocking
 /// worker.
 pub trait PreviewWriter: Send + Sync {
-    /// Encode the requested decoded window.
-    fn write_decoded(
+    /// Open the input's decode graph once, so consecutive windows reuse it.
+    fn open_decoded(
         &self,
         input: &Value,
         context: &PreviewContext<'_>,
-        start: usize,
-        end: usize,
-        cancel: &AtomicBool,
-    ) -> Result<(), String>;
+    ) -> Result<Box<dyn DecodedWindowWriter>, String>;
+
+    /// Open the input's decode graph once, so consecutive scenes reuse it.
+    ///
+    /// The service holds this graph only while it is idle: a build that finds it in use
+    /// opens a transient graph through [`Self::write_encoded`] instead, so a warm scene and
+    /// the scene the user is waiting for still overlap.
+    fn open_encoded(
+        &self,
+        input: &Value,
+        context: &DecodeContext<'_>,
+    ) -> Result<Box<dyn EncodedSceneWriter>, String>;
 
     /// Encode one scene from its first frame with the run's encoder.
     fn write_encoded(
@@ -49,15 +133,30 @@ pub trait PreviewWriter: Send + Sync {
 pub(crate) struct EnginePreviewWriter;
 
 impl PreviewWriter for EnginePreviewWriter {
-    fn write_decoded(
+    fn open_decoded(
         &self,
         input: &Value,
         context: &PreviewContext<'_>,
-        start: usize,
-        end: usize,
-        cancel: &AtomicBool,
-    ) -> Result<(), String> {
-        av1ation_engine::media::preview::write_decoded_window(input, context, start, end, cancel)
+    ) -> Result<Box<dyn DecodedWindowWriter>, String> {
+        let decode = av1ation_engine::media::preview::DecodeContext {
+            video_path: context.video_path,
+            temp_dir: context.temp_dir,
+            condor: context.condor,
+            sequence_config: context.sequence_config,
+        };
+        Ok(Box::new(
+            av1ation_engine::media::preview::DecodedSession::open(input, &decode)?,
+        ))
+    }
+
+    fn open_encoded(
+        &self,
+        input: &Value,
+        context: &DecodeContext<'_>,
+    ) -> Result<Box<dyn EncodedSceneWriter>, String> {
+        Ok(Box::new(
+            av1ation_engine::media::preview::EncodedSession::open(input, context)?,
+        ))
     }
 
     fn write_encoded(
@@ -103,14 +202,6 @@ pub(super) enum PreviewRequest {
         frame: usize,
     },
 }
-
-/// Bumped when the proxy pipeline changes in a way that invalidates older cache files.
-/// Version 1 was the whole-video FFmpeg proxy; version 2 was the windowed decode and the
-/// encoder's own scene stream; version 3 was the continuous decoded stream; version 5 was
-/// the lossless H.264 decoded stream at the source's own bit depth. Version 6 drops the
-/// audio track: a `SourceBuffer` rejects a segment that indexes a track it does not hold, so
-/// a file from version 5 would only ever fall back to the direct source.
-pub(super) const PREVIEW_CACHE_VERSION: u32 = 6;
 
 /// Publishes a build's terminal result even when the engine or FFmpeg driver panics.
 ///
@@ -410,5 +501,10 @@ pub(super) fn preview_input(
         .or_else(|| Some(record.input.clone()).filter(|input| !input.is_null()))
 }
 
+mod decoder;
 mod proxy;
+mod scene;
+
+pub(crate) use decoder::{DECODER_IDLE_TIMEOUT, DecoderInput, PreviewDecoders, WindowRequest};
 pub(crate) use proxy::*;
+pub(crate) use scene::{PreviewSceneDecoders, SceneBuild};

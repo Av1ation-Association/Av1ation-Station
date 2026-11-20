@@ -1,9 +1,9 @@
 //! HTTP tests for the `video` route family.
 
 use crate::common::*;
-use av1ation_engine::media::preview::PreviewContext;
-use av1ation_service::PreviewWriter;
-use std::sync::atomic::Ordering;
+use av1ation_engine::media::preview::{DecodeContext, PreviewContext, SceneOutput};
+use av1ation_service::{DecodedWindowWriter, EncodedSceneWriter, PreviewWriter};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[tokio::test]
 async fn deleting_chunks_is_idempotent_and_leaves_the_video() {
@@ -99,6 +99,7 @@ struct PreparedPreviewWriter {
     bytes: Vec<u8>,
     bin: PathBuf,
     release: Arc<AtomicBool>,
+    opens: Arc<AtomicUsize>,
 }
 
 impl PreparedPreviewWriter {
@@ -126,16 +127,104 @@ impl PreparedPreviewWriter {
     }
 }
 
-impl PreviewWriter for PreparedPreviewWriter {
-    fn write_decoded(
-        &self,
-        _input: &Value,
-        context: &PreviewContext<'_>,
+/// The graph the route opens once for a Decoded preview. It writes the prepared bytes and
+/// applies the same release gate as the encoded path, so the route's streaming behaviour is
+/// exercised without a decoder.
+struct PreparedWindow {
+    bytes: Vec<u8>,
+    bin: PathBuf,
+    release: Arc<AtomicBool>,
+}
+
+impl DecodedWindowWriter for PreparedWindow {
+    fn write_window(
+        &mut self,
+        ffmpeg: &str,
+        output: &Path,
         _start: usize,
         _end: usize,
         _cancel: &AtomicBool,
     ) -> Result<(), String> {
-        self.copy(context)
+        assert_eq!(
+            Path::new(ffmpeg),
+            tool_file(&self.bin, "ffmpeg"),
+            "the service must resolve the bundled FFmpeg, not PATH"
+        );
+        std::fs::write(output, &self.bytes).map_err(|error| error.to_string())?;
+        while !self.release.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        Ok(())
+    }
+}
+
+/// The graph the route keeps for Encoded previews. It reuses the injected bytes and the same
+/// release gate, so scene reuse is exercised without an encoder.
+struct PreparedScene {
+    bytes: Vec<u8>,
+    bin: PathBuf,
+    release: Arc<AtomicBool>,
+}
+
+impl EncodedSceneWriter for PreparedScene {
+    fn write_scene(
+        &mut self,
+        _encoder: &Value,
+        target: &SceneOutput<'_>,
+        _start: usize,
+        _end: usize,
+        _cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        assert_eq!(
+            Path::new(target.ffmpeg),
+            tool_file(&self.bin, "ffmpeg"),
+            "the service must resolve the bundled FFmpeg, not PATH"
+        );
+        assert!(tool_file(&self.bin, "x264").is_file());
+        assert!(tool_file(&self.bin, "vpxenc").is_file());
+        std::fs::write(target.output, &self.bytes).map_err(|error| error.to_string())?;
+        while !self.release.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        Ok(())
+    }
+
+    fn is_usable(&self) -> bool {
+        true
+    }
+}
+
+impl PreviewWriter for PreparedPreviewWriter {
+    fn open_decoded(
+        &self,
+        _input: &Value,
+        context: &PreviewContext<'_>,
+    ) -> Result<Box<dyn DecodedWindowWriter>, String> {
+        assert!(
+            Path::new(context.ffmpeg).is_absolute(),
+            "{}",
+            context.ffmpeg
+        );
+        assert!(tool_file(&self.bin, "x264").is_file());
+        assert!(tool_file(&self.bin, "vpxenc").is_file());
+        self.opens.fetch_add(1, Ordering::SeqCst);
+        Ok(Box::new(PreparedWindow {
+            bytes: self.bytes.clone(),
+            bin: self.bin.clone(),
+            release: Arc::clone(&self.release),
+        }))
+    }
+
+    fn open_encoded(
+        &self,
+        _input: &Value,
+        _context: &DecodeContext<'_>,
+    ) -> Result<Box<dyn EncodedSceneWriter>, String> {
+        Ok(Box::new(PreparedScene {
+            bytes: self.bytes.clone(),
+            bin: self.bin.clone(),
+            release: Arc::clone(&self.release),
+        }))
     }
 
     fn write_encoded(
@@ -188,6 +277,7 @@ async fn the_media_route_serves_prepared_decoded_and_encoded_proxies() {
     });
     let expected = prepared_fragmented_mp4();
     let release = Arc::new(AtomicBool::new(false));
+    let opens = Arc::new(AtomicUsize::new(0));
     let app = router(
         AppState::with_runner_probes_and_data_dir(None, Arc::new(FakeRunner), probes, dir.clone())
             .with_tools_dir(Some(tools))
@@ -195,6 +285,7 @@ async fn the_media_route_serves_prepared_decoded_and_encoded_proxies() {
                 bytes: expected.clone(),
                 bin,
                 release: Arc::clone(&release),
+                opens: Arc::clone(&opens),
             })),
     );
     let project = create_project(app.clone(), "Prepared previews").await;
@@ -218,6 +309,26 @@ async fn the_media_route_serves_prepared_decoded_and_encoded_proxies() {
     assert!(has_mp4_box(&body, b"ftyp"));
     assert!(has_mp4_box(&body, b"moof"));
     assert_eq!(body, expected, "the route must return the prepared bytes");
+
+    // A second window is a different cache entry but the same source: it must reuse the
+    // open graph. A per-window open at this seam was the cost that stalled every cut.
+    let response = app
+        .clone()
+        .oneshot(
+            Request::get(format!("{url}?source=decoded&frame=48&frames=48"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("router response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = read_gated_body(response.into_body(), &release).await;
+    assert_eq!(body, expected);
+    assert_eq!(
+        opens.load(Ordering::SeqCst),
+        1,
+        "consecutive windows must share one decoder"
+    );
 
     // Encoded resolves the scene and its encoder before the prepared writer runs.
     let document = dir

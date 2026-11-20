@@ -338,6 +338,7 @@ export function ScenePlayer({
                                 // still being built. Stop the sound with the picture and let
                                 // the prefetch start now that the buffer has actually run dry.
                                 setStarved(true);
+                                prefetchNextWindow();
                                 audioHeld.current = false;
                                 audioRef.current?.pause();
                             }}
@@ -595,7 +596,7 @@ export function ScenePlayer({
                         />
                         {source === "encode"
                             ? "Building the next scene's chunk"
-                            : "Buffering the next window"}
+                            : "Waiting for the next window's frames"}
                     </div>
                 ) : null}
                 {skipped !== null && !failed ? (

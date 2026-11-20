@@ -355,9 +355,11 @@ mod preview;
 pub(crate) use audio::ffmpeg;
 use audio::*;
 pub(crate) use concat::{get_video_concat_inventory, get_video_concat_source_info};
-pub use preview::PreviewWriter;
 use preview::*;
-pub(crate) use preview::{EnginePreviewWriter, PreviewBuilds};
+pub use preview::{DecodedWindowWriter, EncodedSceneWriter, PreviewWriter};
+pub(crate) use preview::{
+    EnginePreviewWriter, PreviewBuilds, PreviewDecoders, PreviewSceneDecoders,
+};
 /// Resolve the file a `source` name addresses, with the errors both media routes share.
 pub(crate) async fn source_path(
     state: &AppState,

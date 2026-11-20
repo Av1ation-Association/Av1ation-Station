@@ -5,7 +5,8 @@
 //! answers what the player asked for:
 //!
 //! - `Decoded` is a window of the frames the Parallel Encoder receives, starting at the
-//!   frame the playhead points at, muxed with the source's audio from that point.
+//!   frame the playhead points at. It is video only; the player takes sound from the
+//!   source's own element because a `SourceBuffer` rejects an undeclared track.
 //! - `Encoded` is one scene's chunk, produced from the scene's first frame by the exact
 //!   encoder executable and parameters the Parallel Encoder would use. The encoder writes
 //!   its elementary stream to stdout, which is copied into fragmented MP4 without a second
@@ -66,7 +67,8 @@ pub const CANCELLED: &str = "The preview was stopped because no viewer is watchi
 /// filled on the first append, and the whole Decoded source failed with a quota error.
 /// Bumping a hand-written version was forgotten exactly once; a recipe string beside the
 /// arguments that produce the file cannot be.
-pub const PROXY_RECIPE: &str = "decoded=H264(crf16,veryfast,g25,nvenc-cq18|standalone-x264)|VP9(lossless,realtime)|chunk=copy;frag=500ms";
+pub const PROXY_RECIPE: &str =
+    "decoded=H264(qp0,ultrafast,g25,native-depth)|VP9(lossless,g25,8bit)|chunk=copy;frag=500ms";
 
 pub struct PreviewContext<'a> {
     /// The source file this video was queued with.
@@ -101,8 +103,8 @@ mod decoded;
 mod encoded;
 mod remux;
 
-pub use decoded::{write_decoded_proxy, write_decoded_window, write_frame_png};
-pub use encoded::{write_encoded_proxy, write_scene_encoded_proxy};
+pub use decoded::{DecodeContext, DecodedSession, write_decoded_proxy, write_frame_png};
+pub use encoded::{EncodedSession, SceneOutput, write_encoded_proxy, write_scene_encoded_proxy};
 pub use remux::remux_chunk_proxy;
 fn open_input(
     input: &Value,
@@ -412,27 +414,15 @@ fn ffmpeg_command(ffmpeg: &str) -> Command {
     command
 }
 
-/// Which H.264 encoder writes the decoded proxy.
-///
-/// Both encode at the same visual quality; the choice is throughput, never the picture. What
-/// they do not share is speed: neither is faster everywhere, so the choice is measured on the
-/// machine and picture size at hand.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProxyH264 {
-    /// The GPU's fixed-function H.264 encoder.
-    Nvenc,
-    /// x264, the fallback for 10-bit and for machines without a usable GPU encoder.
-    X264,
-}
-
 /// The browser-playable encoder used for a decoded window.
 ///
-/// H.264 stays first: it is the fastest visual-lossless proxy on machines with a usable
-/// encoder. The bundled FFmpeg is built without libx264, so a sibling `x264` executable is
-/// preferred over giving up; VP9 is the fallback when neither H.264 path is installed.
+/// H.264 is first because it is the codec that can be lossless here and still play in
+/// Chromium at the input's depth. The bundled FFmpeg is built without libx264, so a
+/// sibling `x264` executable comes next; VP9 is the 8-bit fallback when neither H.264 path
+/// is installed. NVENC has no lossless H.264 profile, so it is not a candidate at all.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum DecodedEncoder {
-    FfmpegH264(ProxyH264),
+    FfmpegH264,
     StandaloneX264(PathBuf),
     StandaloneVpx(PathBuf),
     FfmpegVp9,
@@ -441,39 +431,6 @@ enum DecodedEncoder {
 /// The bit depth a Y4M header carries, read from the opened clip.
 fn bit_depth_of(info: &andean_condor::core::input::clip_info::ClipInfo) -> usize {
     info.format_info.as_bit_depth().unwrap_or(8)
-}
-
-/// Calibration results, one per FFmpeg build and picture size, so a session pays for the
-/// measurement once instead of before every scene.
-fn encoder_choices() -> &'static Mutex<HashMap<String, ProxyH264>> {
-    static CHOICES: OnceLock<Mutex<HashMap<String, ProxyH264>>> = OnceLock::new();
-    CHOICES.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-/// The encoder to use for a source of this depth and size.
-///
-/// A static preference would be wrong on half the machines: with four cores saturated by a
-/// Parallel Encoder run, NVENC was about 2.8x faster at 2160p, while on the same idle machine
-/// x264 was more than twice as fast, because every frame has to cross to the GPU. So the
-/// choice is measured: a handful of frames of the source's own size are encoded with each
-/// option, and the GPU path is taken only if it wins by a margin. Anything that fails — no
-/// GPU, an old driver, a refused profile — leaves x264, which always works. NVENC H.264 has
-/// no 10-bit profile, so a 10-bit input never calibrates at all.
-fn proxy_encoder(ffmpeg: &str, bit_depth: usize, resolution: (u32, u32)) -> ProxyH264 {
-    if bit_depth > 8 {
-        return ProxyH264::X264;
-    }
-    let key = format!("{ffmpeg}|{}x{}", resolution.0, resolution.1);
-    let mut choices = match encoder_choices().lock() {
-        Ok(choices) => choices,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    if let Some(choice) = choices.get(&key) {
-        return *choice;
-    }
-    let choice = calibrate_proxy(ffmpeg, resolution);
-    choices.insert(key, choice);
-    choice
 }
 
 /// Whether this FFmpeg build can encode with `encoder`.
@@ -526,144 +483,62 @@ fn standalone_vpx(ffmpeg: &str) -> Option<PathBuf> {
     candidate.is_file().then_some(candidate)
 }
 
-fn decoded_encoder(
-    ffmpeg: &str,
-    bit_depth: usize,
-    resolution: (u32, u32),
-) -> Result<DecodedEncoder, String> {
+fn decoded_encoder(ffmpeg: &str, bit_depth: usize) -> Result<DecodedEncoder, String> {
+    let has_libx264 = ffmpeg_has_encoder(ffmpeg, "libx264");
+    let has_libvpx = bit_depth <= 8 && ffmpeg_has_encoder(ffmpeg, "libvpx-vp9");
+    let x264 = standalone_x264(ffmpeg);
+    let vpx = standalone_vpx(ffmpeg);
     tracing::debug!(
         target: "av1ation_engine::preview",
         ffmpeg,
-        x264 = ?standalone_x264(ffmpeg),
-        vpx = ?standalone_vpx(ffmpeg),
-        libx264 = ffmpeg_has_encoder(ffmpeg, "libx264"),
-        libvpx = ffmpeg_has_encoder(ffmpeg, "libvpx-vp9"),
+        x264 = ?x264,
+        vpx = ?vpx,
+        has_libx264,
+        has_libvpx,
         "selecting a decoded preview encoder"
     );
-    if ffmpeg_has_encoder(ffmpeg, "libx264") {
-        return Ok(DecodedEncoder::FfmpegH264(proxy_encoder(
-            ffmpeg, bit_depth, resolution,
-        )));
+    if has_libx264 {
+        return Ok(DecodedEncoder::FfmpegH264);
     }
-    if let Some(x264) = standalone_x264(ffmpeg) {
+    if let Some(x264) = x264 {
         return Ok(DecodedEncoder::StandaloneX264(x264));
     }
-    if let Some(vpx) = standalone_vpx(ffmpeg) {
+    if bit_depth > 8 {
+        return Err("The lossless 10-bit preview needs FFmpeg libx264 or the bundled x264. VP9 fallbacks are 8-bit and would quantise the input's depth.".to_owned());
+    }
+    if let Some(vpx) = vpx {
         return Ok(DecodedEncoder::StandaloneVpx(vpx));
     }
-    if ffmpeg_has_encoder(ffmpeg, "libvpx-vp9") {
+    if has_libvpx {
         return Ok(DecodedEncoder::FfmpegVp9);
     }
     Err("The preview needs an H.264 encoder (FFmpeg libx264 or x264) or a VP9 encoder (vpxenc or FFmpeg libvpx-vp9); install one in Settings, or use the bundled toolchain.".to_owned())
 }
 
-/// Time both encoders on the same synthetic frames and keep the faster one.
+/// Lossless H.264 in fragmented MP4.
 ///
-/// A ten percent margin keeps timer noise from flipping the choice between two sizes that are
-/// effectively tied. A size of a few frames makes this cost less than the first second of the
-/// proxy it configures, and `testsrc2` is not read from disk, so the number measures the
-/// encoder rather than the source.
-fn calibrate_proxy(ffmpeg: &str, resolution: (u32, u32)) -> ProxyH264 {
-    let frames = if resolution.1 > 1440 { 3 } else { 6 };
-    let Some(software) = encode_seconds(ffmpeg, resolution, frames, ProxyH264::X264) else {
-        return ProxyH264::X264;
-    };
-    let hardware = encode_seconds(ffmpeg, resolution, frames, ProxyH264::Nvenc);
-    if hardware.is_some_and(|hardware| hardware * 10 < software * 9) {
-        ProxyH264::Nvenc
-    } else {
-        ProxyH264::X264
-    }
-}
-
-/// How long one encoder takes on `frames` synthetic frames of this size, or `None` if it
-/// cannot encode them at all.
-fn encode_seconds(
-    ffmpeg: &str,
-    resolution: (u32, u32),
-    frames: usize,
-    encoder: ProxyH264,
-) -> Option<std::time::Duration> {
-    let mut command = Command::new(ffmpeg);
-    hide_console(&mut command);
+/// The Decoded source is the reference the Encoded source is judged against, including at
+/// 400% zoom, so every sample must survive the proxy. `-qp 0` makes x264 code the input
+/// planes exactly; `-crf 16` did not, and the difference is visible on gradients and around
+/// edges when magnified.
+///
+/// No `-pix_fmt` is set, so an 8-bit input stays 8-bit and a 10-bit input stays 10-bit.
+/// x264 signals lossless with the High 4:4:4 Predictive profile even when the planes remain
+/// 4:2:0; Chromium accepts that profile both as a direct source and in MediaSource, which
+/// the player already uses.
+///
+/// `ultrafast` spends the least CPU a lossless encode can: the preset trades compression
+/// for speed, not picture. One-second GOPs bound the wait for the first fragment and for a
+/// seek. A lossless window is larger than the old CRF proxy, so the source's grain and
+/// detail, not a fixed bitrate, decide the cache size.
+fn add_h264_video(command: &mut Command) {
     command
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostdin",
-            "-f",
-            "lavfi",
-            "-i",
-        ])
-        .arg(format!(
-            "testsrc2=s={}x{}:r=24:d={}",
-            resolution.0, resolution.1, frames
-        ))
-        .args(["-frames:v"])
-        .arg(frames.to_string())
-        .args(["-pix_fmt", "yuv420p"]);
-    add_proxy_video(&mut command, encoder);
-    command
-        .args(["-an", "-f", "null", "-"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    let started = std::time::Instant::now();
-    let status = command.status().ok()?;
-    status.success().then(|| started.elapsed())
-}
-
-/// NVENC settings that match the software encoder's quality.
-///
-/// Constant QP, like x264's CRF, is quality-targeted instead of bitrate-targeted: the proxy
-/// exists to be looked at, not to be a fixed size. A rate cap would spend bits on a still
-/// frame and starve a cut.
-fn nvenc_proxy_args() -> [&'static str; 10] {
-    [
-        "-c:v",
-        "h264_nvenc",
-        "-preset",
-        "p3",
-        "-tune",
-        "hq",
-        "-rc",
-        "constqp",
-        "-qp",
-        "18",
-    ]
-}
-
-/// Visually lossless H.264 in fragmented MP4.
-///
-/// The browser cannot render raw YUV: a `<video>` element accepts a container and a codec,
-/// not planar frames. Sending the decoded planes directly would cost about 71 MB/s at
-/// 1080p 8-bit and 142 MB/s at 10-bit and would replace the native seek buffer with a custom
-/// renderer. H.264 at CRF 16 is a different picture in the last bit and the same picture to
-/// the eye, at a bitrate the player can hold.
-///
-/// A sample-exact proxy is not an option here: x264's lossless mode requires the High 4:4:4
-/// profile, which on a 1080p source is about 36 MB/s. Chromium caps a `SourceBuffer` at
-/// roughly 150 MB, so a six-second window (four seconds of data) filled it while the player
-/// was still waiting for the first frame, and the whole Decoded source failed with a quota
-/// error. The CRF keeps a window at a few megabytes, which is what makes a window seekable
-/// and a second window appendable. No `-pix_fmt` is set, so an 8-bit input stays 8-bit and a
-/// 10-bit input stays 10-bit.
-///
-/// `veryfast` is the throughput floor: 1080p runs about 47 fps, enough to stay ahead of 24
-/// fps playback, where `medium` at the same CRF runs 21 fps and underruns. One-second GOPs
-/// bound the wait for the first fragment and for a seek.
-fn add_proxy_video(command: &mut Command, encoder: ProxyH264) {
-    match encoder {
-        ProxyH264::Nvenc => command.args(nvenc_proxy_args()),
-        ProxyH264::X264 => command
-            .arg("-c:v")
-            .arg("libx264")
-            .arg("-preset")
-            .arg("veryfast")
-            .arg("-crf")
-            .arg("16"),
-    };
+        .arg("-c:v")
+        .arg("libx264")
+        .arg("-preset")
+        .arg("ultrafast")
+        .arg("-qp")
+        .arg("0");
     command
         .arg("-g")
         .arg("25")
@@ -673,11 +548,12 @@ fn add_proxy_video(command: &mut Command, encoder: ProxyH264) {
         .arg("mp4");
 }
 
-/// VP9 is the fallback when the installed FFmpeg has neither H.264 encoder.
+/// VP9 is the 8-bit fallback when neither H.264 path exists.
 ///
 /// The player already parses `vp09` from the sample entry, and Chromium accepts VP9 in
 /// fragmented MP4, so this keeps the route's container and cache extension unchanged.
 /// Lossless mode preserves the preview's purpose: judging the source, not the proxy.
+/// A 10-bit input never reaches this function; the selector refuses to quantise it.
 fn add_vp9_video(command: &mut Command) {
     command
         .arg("-c:v")
@@ -736,7 +612,7 @@ fn finish_ffmpeg(child: std::process::Child, label: &str) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::{
-        DecodedEncoder, add_proxy_video, add_vp9_video, decoded_encoder, encoder_diagnostic,
+        DecodedEncoder, add_h264_video, add_vp9_video, decoded_encoder, encoder_diagnostic,
         encoder_error_line, feed_stderr, prepare_encoder, raw_path,
     };
     use std::path::{Path, PathBuf};
@@ -904,9 +780,9 @@ Svt[info]: -------------------------------------------\n";
         assert_eq!(raw, Path::new("C:/cache/decoded.raw.264"));
     }
 
-    fn arguments(encoder: super::ProxyH264) -> Vec<String> {
+    fn arguments() -> Vec<String> {
         let mut command = Command::new("ffmpeg");
-        add_proxy_video(&mut command, encoder);
+        add_h264_video(&mut command);
         command
             .get_args()
             .map(|argument| argument.to_string_lossy().into_owned())
@@ -923,52 +799,29 @@ Svt[info]: -------------------------------------------\n";
     }
 
     #[test]
-    fn the_decoded_proxy_is_quality_targeted_and_keeps_the_source_depth() {
-        for encoder in [super::ProxyH264::X264, super::ProxyH264::Nvenc] {
-            let arguments = arguments(encoder);
-            assert!(
-                !arguments.windows(2).any(|pair| pair == ["-qp", "0"]),
-                "{encoder:?} must not write a sample-exact proxy: four seconds of 1080p
-                 would fill the player's SourceBuffer quota: {arguments:?}"
-            );
-            let quality = arguments
+    fn the_decoded_proxy_is_sample_exact_and_keeps_the_source_depth() {
+        let arguments = arguments();
+        assert!(
+            arguments.windows(2).any(|pair| pair == ["-qp", "0"]),
+            "the Decoded reference must be lossless: {arguments:?}"
+        );
+        assert!(
+            arguments
                 .windows(2)
-                .find(|pair| pair[0] == "-crf" || pair[0] == "-qp")
-                .map(|pair| pair[1].clone());
-            assert!(
-                quality.is_some(),
-                "{encoder:?} must set a quality target: {arguments:?}"
-            );
-            assert!(
-                !arguments.iter().any(|argument| argument == "-pix_fmt"),
-                "a pixel format would quantise the source's bit depth: {arguments:?}"
-            );
-            assert!(
-                arguments.windows(2).any(|pair| pair == ["-f", "mp4"]),
-                "the proxy streams in fragmented MP4: {arguments:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_ten_bit_source_stays_on_the_software_encoder() {
-        // NVENC H.264 has no 10-bit profile, and a calibration is neither needed nor wanted.
-        assert_eq!(
-            super::proxy_encoder("ffmpeg", 10, (1920, 1080)),
-            super::ProxyH264::X264
+                .any(|pair| pair == ["-preset", "ultrafast"]),
+            "a lossless encode should spend the least CPU: {arguments:?}"
         );
-        assert_eq!(
-            super::proxy_encoder("ffmpeg", 12, (3840, 2160)),
-            super::ProxyH264::X264
+        assert!(
+            !arguments.windows(2).any(|pair| pair == ["-crf", "16"]),
+            "a CRF proxy is a different picture and cannot be the reference: {arguments:?}"
         );
-    }
-
-    #[test]
-    fn an_unusable_ffmpeg_falls_back_to_the_software_encoder() {
-        // Calibration cannot measure anything here, so it must not take the GPU path.
-        assert_eq!(
-            super::proxy_encoder("av1ation-no-such-ffmpeg", 8, (640, 360)),
-            super::ProxyH264::X264
+        assert!(
+            !arguments.iter().any(|argument| argument == "-pix_fmt"),
+            "a pixel format would quantise the source's bit depth: {arguments:?}"
+        );
+        assert!(
+            arguments.windows(2).any(|pair| pair == ["-f", "mp4"]),
+            "the proxy streams in fragmented MP4: {arguments:?}"
         );
     }
 
@@ -1000,7 +853,7 @@ Svt[info]: -------------------------------------------\n";
         let x264 = dir.join(if cfg!(windows) { "x264.exe" } else { "x264" });
         std::fs::write(&ffmpeg, b"not an executable").expect("a placeholder ffmpeg");
         std::fs::write(&x264, b"not an executable").expect("a placeholder x264");
-        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8)
             .expect("a bundled x264 is selected");
         assert_eq!(encoder, DecodedEncoder::StandaloneX264(x264));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1017,9 +870,26 @@ Svt[info]: -------------------------------------------\n";
         });
         std::fs::write(&ffmpeg, b"not an executable").expect("a placeholder ffmpeg");
         std::fs::write(&vpx, b"not an executable").expect("a placeholder vpxenc");
-        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8)
             .expect("a bundled vpxenc is selected");
         assert_eq!(encoder, DecodedEncoder::StandaloneVpx(vpx));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_ten_bit_source_refuses_an_eight_bit_vp9_fallback() {
+        let dir = scratch("vpx-depth-refusal");
+        let ffmpeg = dir.join("ffmpeg.exe");
+        let vpx = dir.join(if cfg!(windows) {
+            "vpxenc.exe"
+        } else {
+            "vpxenc"
+        });
+        std::fs::write(&ffmpeg, b"not an executable").expect("a placeholder ffmpeg");
+        std::fs::write(&vpx, b"not an executable").expect("a placeholder vpxenc");
+        let error = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 10)
+            .expect_err("a 10-bit source must not fall back to an 8-bit VP9 proxy");
+        assert!(error.contains("10-bit"), "{error}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1027,12 +897,17 @@ Svt[info]: -------------------------------------------\n";
     fn the_bundled_toolchain_finds_its_x264() {
         // This is the release layout: ffmpeg and x264 are siblings under tools/bin. The
         // test skips a source checkout without staged tools rather than requiring them.
-        let ffmpeg = Path::new("dist/tools/bin/ffmpeg.exe");
-        let x264 = Path::new("dist/tools/bin/x264.exe");
+        let tools = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../dist/tools/bin");
+        let ffmpeg = tools.join(if cfg!(windows) {
+            "ffmpeg.exe"
+        } else {
+            "ffmpeg"
+        });
+        let x264 = tools.join(if cfg!(windows) { "x264.exe" } else { "x264" });
         if !ffmpeg.is_file() || !x264.is_file() {
             return;
         }
-        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8, (640, 360))
+        let encoder = decoded_encoder(ffmpeg.to_str().expect("utf-8"), 8)
             .expect("the bundled x264 is selected");
         assert!(
             matches!(encoder, DecodedEncoder::StandaloneX264(_)),

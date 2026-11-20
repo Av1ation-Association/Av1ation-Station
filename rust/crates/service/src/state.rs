@@ -17,7 +17,10 @@ use crate::{
     api::lan::LanController,
     capability::preflight::PreflightCache,
     media::{
-        stream::{EnginePreviewWriter, PreviewBuilds, PreviewWriter},
+        stream::{
+            EnginePreviewWriter, PreviewBuilds, PreviewDecoders, PreviewSceneDecoders,
+            PreviewWriter,
+        },
         thumbnails::ThumbnailBuilds,
     },
     platform::disk::DiskProbe,
@@ -50,6 +53,12 @@ pub struct AppState {
     /// Proxy builds that are still writing. Shared so two viewers of one source follow one
     /// decode and one encode instead of racing duplicates into the cache.
     preview_builds: PreviewBuilds,
+    /// Decode graphs that are open for a Decoded preview. A graph is opened once and reused
+    /// across windows, so a seam does not pay for script evaluation and decoder construction.
+    preview_decoders: PreviewDecoders,
+    /// Decode graphs that are open for Encoded scene builds. One graph serves every scene of
+    /// a source while it is idle; a build that finds it busy opens its own transient graph.
+    preview_scene_decoders: PreviewSceneDecoders,
     /// The engine work behind a proxy build. Production uses the real writer; route tests
     /// inject a prepared response so they never decode, encode, or load VapourSynth.
     preview_writer: Arc<dyn PreviewWriter>,
@@ -186,6 +195,8 @@ impl AppState {
             data_dir,
             tools_dir: None,
             preview_builds: PreviewBuilds::default(),
+            preview_decoders: PreviewDecoders::default(),
+            preview_scene_decoders: PreviewSceneDecoders::default(),
             preview_writer: Arc::new(EnginePreviewWriter),
             thumbnails: ThumbnailBuilds::default(),
             plugin_lookup: None,
@@ -291,6 +302,18 @@ impl AppState {
     /// The in-flight preview builds, so a request can follow one instead of duplicating it.
     pub(crate) fn preview_builds(&self) -> &PreviewBuilds {
         &self.preview_builds
+    }
+
+    /// The open decode graphs, so consecutive windows share one instead of reopening the
+    /// source at every seam.
+    pub(crate) fn preview_decoders(&self) -> &PreviewDecoders {
+        &self.preview_decoders
+    }
+
+    /// The decode graphs kept for Encoded scene builds, so consecutive scenes reuse one
+    /// instead of rebuilding the script and its graph per scene.
+    pub(crate) fn preview_scene_decoders(&self) -> &PreviewSceneDecoders {
+        &self.preview_scene_decoders
     }
 
     /// Replace the engine work behind preview builds. This is a test seam, not a setting.

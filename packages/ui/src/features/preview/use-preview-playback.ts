@@ -9,13 +9,12 @@ import {
 } from "react";
 
 import {
-    decodedSourceBufferedThroughEnd,
     finishPlaybackInterval,
     playPicture,
     sourceIsExhausted as checkSourceExhausted,
 } from "./playback-interval";
 import { PlaybackRecorder } from "./playback-metrics";
-import { RateGovernor } from "./playback-rate";
+import { RETAIN_BEHIND_SECONDS, type PreviewBufferPlan } from "./preview-buffer-plan";
 import type { PreviewSource } from "./preview-player";
 import { nextCoveredFrameIn, playbackView, sceneStepFrame } from "./preview-playback-view";
 import type { SeekQueue } from "./preview-seek";
@@ -52,6 +51,8 @@ type PreviewPlaybackOptions = {
     seekQueue: RefObject<SeekQueue | null>;
     streamRef: RefObject<PreviewStream | null>;
     videoRef: RefObject<HTMLVideoElement | null>;
+    /** The live buffer policy, read by the MediaSource session's appetite and trim. */
+    plan: RefObject<PreviewBufferPlan>;
     audioRef: RefObject<HTMLAudioElement | null>;
     audioHeld: RefObject<boolean>;
     syncAudio: (element: HTMLVideoElement) => void;
@@ -99,6 +100,7 @@ export function usePreviewPlayback({
     seekQueue,
     streamRef,
     videoRef,
+    plan,
     audioRef,
     audioHeld,
     syncAudio,
@@ -175,8 +177,6 @@ export function usePreviewPlayback({
     const reportedAt = useRef(0);
     /** Wall time of the last presented frame: the only proof the picture is moving. */
     const presentedAt = useRef(0);
-    /** Chrome's cumulative drop counter, compared per frame to catch a skip as it happens. */
-    const droppedSeen = useRef(0);
     /** Smoothness and latency for the interval now playing; replaced on every source and pause. */
     const recorder = useRef<PlaybackRecorder | null>(null);
     /** Chrome's counters are cumulative per element, so each interval reports its own delta. */
@@ -195,6 +195,11 @@ export function usePreviewPlayback({
      * element that reported it, and a resume only applies to that same URL.
      */
     const readyUrl = useRef<string | null>(null);
+    /**
+     * The requested frame is on screen. Decoded deliberately clears the stage here, with
+     * whatever lead exists: this is an editor, so frames are shown as they land rather than
+     * waiting for a buffer. Encoded also waits for its chunk separately before it can play.
+     */
     const markReady = () => {
         readyUrl.current = url;
         setReady(true);
@@ -210,8 +215,6 @@ export function usePreviewPlayback({
     const [failure, setFailure] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    /** Keeps playback frame-exact by trading speed for skipped frames. */
-    const governor = useRef<RateGovernor | null>(null);
 
     /** Start the picture, and treat only a real failure as one. */
     const startPicture = (element: HTMLVideoElement) => {
@@ -242,7 +245,6 @@ export function usePreviewPlayback({
         setHeld(false);
         presentedAt.current = 0;
         reportedAt.current = 0;
-        droppedSeen.current = 0;
         pendingTarget.current = null;
         reportedFrame.current = null;
         recorder.current = new PlaybackRecorder(source);
@@ -269,27 +271,47 @@ export function usePreviewPlayback({
                 element.load();
             };
         }
-        const stream = new PreviewStream(element, {
-            // The stage clears only when the requested frame is on screen. A window that
-            // opens at its own first frame is not the frame the user asked for, and
-            // clearing the overlay there started playback a whole window early.
-            onBuffered: reportBuffer,
-            onError: (message) => {
-                console.warn("[preview]", message);
-                setFailure(message);
-                setFailed(true);
+        const stream = new PreviewStream(
+            element,
+            {
+                // The stage clears only when the requested frame is on screen. A window that
+                // opens at its own first frame is not the frame the user asked for, and
+                // clearing the overlay there started playback a whole window early.
+                onBuffered: reportBuffer,
+                onError: (message) => {
+                    console.warn("[preview]", message);
+                    setFailure(message);
+                    setFailed(true);
+                },
             },
-        });
+            {
+                // Decoded's lead is what its measured bitrate can hold; Encoded keeps the
+                // appetite that lets one scene chunk load before its cut.
+                maxAheadSeconds: () => (source === "decoded" ? plan.current.pausedLeadSeconds : 5),
+                retainBehindSeconds: () => (source === "decoded" ? RETAIN_BEHIND_SECONDS : 2),
+            },
+        );
         streamRef.current = stream;
         stream.open(url);
         return () => {
             streamRef.current = null;
             stream.close();
         };
-    }, [url, source, resetBuffer, reportBuffer, streamRef, videoRef]);
+    }, [
+        url,
+        source,
+        resetBuffer,
+        reportBuffer,
+        streamRef,
+        videoRef,
+        plan,
+        frameRate,
+        windowFrames,
+    ]);
 
-    // A new element carries no rate of its own, and the governor's history belongs to the
-    // stream that produced it.
+    // A new element carries no rate of its own. The picture always runs at its own speed:
+    // slowing it to present every frame made playback run at half speed whenever the host
+    // compositor dropped a few frames, which is worse than the drops themselves.
     useEffect(() => {
         if (videoRef.current !== null) {
             videoRef.current.playbackRate = 1;
@@ -297,8 +319,6 @@ export function usePreviewPlayback({
         if (audioRef.current !== null) {
             audioRef.current.playbackRate = 1;
         }
-        governor.current =
-            frameRate !== null && frameRate > 0 ? new RateGovernor(1 / frameRate) : null;
         setPlaybackRate(1);
     }, [url, frameRate, audioRef, videoRef, setPlaybackRate]);
 
@@ -472,22 +492,6 @@ export function usePreviewPlayback({
         return true;
     }, [source, chunkScene, sceneStarts, sceneEnds, noteSkipped, setOpenScene, coverage, onSeek]);
 
-    /** Put a new rate on the picture and the separate sound together, without a glitch. */
-    const applyRate = useCallback(
-        (rate: number) => {
-            const element = videoRef.current;
-            if (element === null || Math.abs(element.playbackRate - rate) < 0.001) {
-                return;
-            }
-            element.playbackRate = rate;
-            if (audioRef.current !== null) {
-                audioRef.current.playbackRate = rate;
-            }
-            setPlaybackRate(rate);
-        },
-        [audioRef, setPlaybackRate, videoRef],
-    );
-
     // A presented frame is the only proof that playback is actually smooth, and it is the
     // only honest source for the playhead: `timeupdate` fires four times a second whether or
     // not the compositor showed the frames in between. Reading the frame's own `mediaTime`
@@ -527,19 +531,6 @@ export function usePreviewPlayback({
                     }
                 }
             }
-            const drops = element.getVideoPlaybackQuality?.().droppedVideoFrames ?? 0;
-            if (drops > droppedSeen.current) {
-                droppedSeen.current = drops;
-                const rate = governor.current?.skip(now) ?? null;
-                if (rate !== null) {
-                    applyRate(rate);
-                }
-            } else {
-                const rate = governor.current?.frame(metadata.mediaTime, now) ?? null;
-                if (rate !== null) {
-                    applyRate(rate);
-                }
-            }
             handle = element.requestVideoFrameCallback(onFrame);
         };
         handle = element.requestVideoFrameCallback(onFrame);
@@ -557,18 +548,8 @@ export function usePreviewPlayback({
         askForFrame,
         videoRef,
         audioHeld,
-        applyRate,
         frameAtElementTime,
     ]);
-
-    /**
-     * Whether the decoded session has buffered through the end of the video.
-     */
-    const sourceIsBufferedThroughEnd = useCallback(
-        (element: HTMLVideoElement): boolean =>
-            decodedSourceBufferedThroughEnd(element, frameRate, streamStart, totalFrames),
-        [frameRate, streamStart, totalFrames],
-    );
 
     /**
      * Whether the session holds the last picture its source can give.
@@ -644,10 +625,11 @@ export function usePreviewPlayback({
     const releasePictureRef = useRef(releasePicture);
     releasePictureRef.current = releasePicture;
 
-    // The lead guard. A decoder that falls behind does not always fire `waiting`, and an
-    // element that runs dry shows a sliver of each arriving fragment instead of waiting for
-    // a usable lead — the few-frame loop, with the sound still running. Holding the picture
-    // at the end of its buffer is the one way to stop that without dropping a frame.
+    // The backward guard and the Encoded hold. Decoded never holds: when its decoder is
+    // slower than realtime the element presents each appended frame as it lands, and the
+    // audio pause below keeps the sound from running through the gaps. Encoded still holds
+    // until its scene chunk has a lead, because a chunk ends at a cut rather than continuing
+    // the same stream.
     useEffect(() => {
         if (!playing && !held) {
             return;
@@ -694,12 +676,11 @@ export function usePreviewPlayback({
             if (element.ended) {
                 return;
             }
-            if (playing && source !== "original" && leadAhead(element) < 0.12) {
+            if (playing && source === "encode" && leadAhead(element) < 0.12) {
                 const to = coverage.current.to ?? chunkScene;
                 const through = to === null ? undefined : (sceneEnds[to] ?? sceneStarts[to + 1]);
                 const nextStart = to === null ? undefined : sceneStarts[to + 1];
                 if (
-                    source === "encode" &&
                     through !== undefined &&
                     frameAtElementTime(element.currentTime) >= through - 1
                 ) {
@@ -710,9 +691,6 @@ export function usePreviewPlayback({
                         advanceScene();
                         return;
                     }
-                }
-                if (source === "decoded" && sourceIsBufferedThroughEnd(element)) {
-                    return;
                 }
                 holdPictureRef.current();
             }
@@ -733,7 +711,6 @@ export function usePreviewPlayback({
         totalFrames,
         advanceScene,
         frameAtElementTime,
-        sourceIsBufferedThroughEnd,
         sourceIsExhausted,
         endPicture,
         coverage,
@@ -741,7 +718,6 @@ export function usePreviewPlayback({
         videoRef,
         audioRef,
         audioHeld,
-        applyRate,
         holdPictureRef,
         releasePictureRef,
     ]);

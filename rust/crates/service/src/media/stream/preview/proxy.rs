@@ -8,9 +8,9 @@ use tokio_stream::wrappers::ReceiverStream;
 ///
 /// `Decoded` renders only the window the playhead asked for. `Encoded` renders only the
 /// scene the frame belongs to, from that scene's first frame, with the scene's own encoder
-/// document. The cache is keyed by the source file's size and modification time plus the
-/// resolved encoder and frame range, so re-pointing a video at a different file cannot
-/// reuse a stale picture.
+/// document. The cache is keyed by the engine's proxy recipe, the source file's size and
+/// modification time, the resolved encoder, and the frame range, so re-pointing a video at
+/// a different file or changing the proxy pipeline cannot reuse a stale picture.
 ///
 /// The build is returned, not awaited: the caller streams the fragmented or live file
 /// while it is still being written.
@@ -187,30 +187,42 @@ pub(crate) async fn preview_proxy(
         .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|time| time.as_secs())
         .unwrap_or_default();
-    let mut fingerprint = format!(
-        "v{}:{}:{}:{}:{}:{start}:{end}:{}",
-        PREVIEW_CACHE_VERSION,
+    // The engine's recipe is the cache format's version: it names every input that changes
+    // the produced picture, so a second hand-bumped number cannot drift from the args.
+    // The source identity, deliberately without the frame range: every window of one input
+    // opens the same decode graph, and the session pool keys on exactly this. Appending the
+    // range here would give every window its own session and rebuild the graph at every
+    // seam, which is the cost the session exists to remove.
+    let mut identity = format!(
+        "{}:{}:{}:{}",
         av1ation_engine::media::preview::PROXY_RECIPE,
         project_id,
         video_id,
-        label,
         source_metadata.len()
     );
-    fingerprint.push_str(&format!(":{stamp}"));
-    fingerprint.push_str(&serde_json::to_string(&input).unwrap_or_default());
+    identity.push_str(&format!(":{stamp}"));
+    identity.push_str(&serde_json::to_string(&input).unwrap_or_default());
+    // The decode graph is chosen by the input and the scene table, never by the encoder.
+    // Every scene of one video carries its own encoder document — Target Quality and Speed
+    // Scaling change its quantizer — but all of them read the same input, so keying the
+    // graph on the encoder would open one per scene. This prefix is the identity the
+    // Encoded sessions key on; the cache identity appends the encoder to it below.
+    let mut decode_identity = identity.clone();
     if let Some(encoder) = &encoder {
-        fingerprint.push_str(&serde_json::to_string(encoder).unwrap_or_default());
+        identity.push_str(&serde_json::to_string(encoder).unwrap_or_default());
     }
     // Both derived sources decode through the script, whose output can depend on each
     // scene's `sequence_data` and the user's pairs. The table is part of the picture's
     // identity, so a change must not be answered from a window built under the old one.
-    fingerprint.push_str(&format!(
+    let scene_table = format!(
         ":scenes:{}",
         crate::project::derive::scene_fingerprint(
             record.condor.as_ref(),
             &record.custom_scene_data
         )
-    ));
+    );
+    identity.push_str(&scene_table);
+    decode_identity.push_str(&scene_table);
     if let Some(chunk) = &retained
         && let Ok(metadata) = tokio::fs::metadata(chunk).await
     {
@@ -220,12 +232,16 @@ pub(crate) async fn preview_proxy(
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|time| time.as_secs())
             .unwrap_or_default();
-        fingerprint.push_str(&format!(
+        identity.push_str(&format!(
             ":chunk:{}:{}:{modified}",
             chunk.display(),
             metadata.len()
         ));
     }
+    let session_digest = crate::platform::hash::fnv1a(identity.as_bytes());
+    let decode_digest = crate::platform::hash::fnv1a(decode_identity.as_bytes());
+    // One cache file is one range, so the cache key adds it to the same identity.
+    let fingerprint = format!("{identity}:{label}:{start}:{end}");
     let digest = crate::platform::hash::fnv1a(fingerprint.as_bytes());
     let directory = data_dir.join("cache").join("preview");
     if let Err(error) = tokio::fs::create_dir_all(&directory).await {
@@ -370,6 +386,22 @@ pub(crate) async fn preview_proxy(
     let part = build.part().to_path_buf();
     let cancel = Arc::clone(build.cancel());
     let writer = state.preview_writer();
+    // A Decoded window is written through the one decode graph this preview's cache identity
+    // owns. The graph is opened on the session's own thread, so consecutive windows do not
+    // rebuild a script or an FFMS2/VapourSynth graph at every seam. An Encoded build reuses
+    // the idle graph for the same input and writes its own scene's encoder through it; when
+    // that graph is busy it opens a transient one, so a warm and the append still overlap.
+    let decoders = state.preview_decoders().clone();
+    let session_key = format!("decoded:{video_id}:{session_digest:016x}");
+    let scene_decoders = state.preview_scene_decoders().clone();
+    let scene_key = format!("encoded:{video_id}:{decode_digest:016x}");
+    let decoded_input = matches!(request, PreviewRequest::Decoded { .. }).then(|| DecoderInput {
+        input: input.clone(),
+        video_path: video_path.clone(),
+        temp_dir: temp_dir.clone(),
+        condor: condor.clone(),
+        sequence_config: sequence_config.clone(),
+    });
     let ffmpeg = executable.clone();
     let input_for_task = input.clone();
     let encoder_for_task = encoder.clone();
@@ -406,14 +438,37 @@ pub(crate) async fn preview_proxy(
             output: &part_for_task,
         };
         let result = match request {
-            PreviewRequest::Decoded { .. } => {
-                writer.write_decoded(&input_for_task, &context, start, end, &cancel)
-            }
+            PreviewRequest::Decoded { .. } => match decoded_input {
+                Some(input) => decoders.write_window(
+                    &session_key,
+                    Arc::clone(&writer),
+                    input,
+                    WindowRequest {
+                        ffmpeg: ffmpeg.clone(),
+                        output: part_for_task.clone(),
+                        start,
+                        end,
+                        cancel: Arc::clone(&cancel),
+                    },
+                ),
+                None => Err("This preview has no decoded input.".to_owned()),
+            },
             PreviewRequest::Encoded { .. } => {
                 let encoder = encoder_for_task
                     .as_ref()
                     .unwrap_or(&serde_json::Value::Null);
-                writer.write_encoded(&input_for_task, encoder, &context, start, end, &cancel)
+                scene_decoders.write_scene(
+                    &scene_key,
+                    Arc::clone(&writer),
+                    SceneBuild {
+                        input: &input_for_task,
+                        encoder,
+                        context: &context,
+                        start,
+                        end,
+                        cancel: &cancel,
+                    },
+                )
             }
         };
         let bytes = std::fs::metadata(&part_for_task)
@@ -467,9 +522,9 @@ pub(crate) async fn preview_proxy(
 
 /// How much preview cache the service keeps before deleting the oldest finished files.
 ///
-/// About ten fifteen-second windows of 1080p 10-bit lossless, or dozens of scene chunks.
-/// Lossless video costs roughly 13 MB per second of source, so an unbounded directory grows
-/// by gigabytes during one review.
+/// About sixty of the two-second 1080p 10-bit lossless windows measured at 25-32 MiB each,
+/// or dozens of scene chunks. Lossless video costs 13-16 MB per second of source on these
+/// projects, so an unbounded directory grows by gigabytes during one review.
 pub(crate) const PREVIEW_CACHE_BUDGET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 /// Delete the oldest finished previews until the directory is back under its budget.

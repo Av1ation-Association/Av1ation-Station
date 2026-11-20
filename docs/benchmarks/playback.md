@@ -18,9 +18,9 @@ summary. It writes `docs/benchmarks/playback.json`; these notes are the human co
 and deletes the project when it ends (`--keep` leaves it in place). The source is rendered
 once into the OS temp directory, only if it is missing: 90 s of 1080p 24 fps 10-bit H.264
 from three FFmpeg test patterns — `gradients`, `mandelbrot`, and `life` (Conway's game of
-life) — each 30 s, with a silent AAC track. Ten-bit because that is what the app is for: it
-decides the lossless proxy's H.264 profile and rules out NVENC, so an 8-bit fixture would
-benchmark a path nobody encodes.
+life) — each 30 s, with a silent AAC track. Ten-bit because that is what the app is for:
+the lossless proxy has to preserve the fixture's depth, so an 8-bit fixture would not
+exercise the path every project uses.
 
 A headless release service is the honest host, because a debug build runs the same decode
 and lossless encode at about half speed (21–27 fps against 46–50 fps). Point the script at
@@ -75,7 +75,7 @@ Baseline with the page open and nothing playing: 766 MiB app, 763 MiB browser.
 Frames, drops, stalls and memory come from a ten-second steady run (`--no-seek --no-drag`).
 `Ready`, `First frame`, `Seek` and `Drag` come from an eight-second gesture run, because a
 freeze counted inside a steady interval only dilutes the frame rate. A Decoded transport
-moves between six-second windows instead of seeking in place, so it has no drag number.
+moves between decoded windows instead of seeking in place, so it has no drag number.
 
 - **Every source presents the source rate with no dropped frames and no stalls.** The
   playhead and the sound follow presented frames, so the number is what reached the screen
@@ -89,8 +89,9 @@ moves between six-second windows instead of seeking in place, so it has no drag 
   scene plays.
 - **Decoded seeks in 39 ms**, against 7.5 s of frozen picture while the same proxy grew
   under `<video src>`. The proxy is appended through MediaSource, so the bytes already
-  received are addressable. The next window is requested as soon as playback is inside the
-  current one, so its append lands well before the seam.
+  received are addressable. The next window's build starts with the opening one, and three
+  further windows are prebuilt as cache files, so the append that reaches one before the
+  seam is normally a local read.
 - **Original seeks in 27 ms** and needs no proxy at all; it is the control.
 - **Encoded seeks in 662 ms, and that is the bitstream, not the transport** (§ the walk
   below). One backwards seek used to be written to the element more than once — the
@@ -138,9 +139,24 @@ of the video. That design wrote a **1.5 GB** partial file per view, took **155 s
 Encoded could start, and left several such builds running at once; Encoded then looked
 "stalled with no encoder process" because the machine had no CPU left to spawn it.
 
-- One Decoded window is now **6 s of source**, aligned to a fixed frame grid, with the next
-  one built while the current one plays. Alignment is what makes a seek cheap: the window
-  containing the target has usually been built already.
+- One Decoded window is now **2 s of source**, aligned to a fixed frame grid. A six-second
+  window measured 73.5-117.3 MiB, close to Chromium's roughly 150 MB `SourceBuffer` cap
+  once more than one is retained; two seconds makes the unit small enough to append several
+  and still trim behind the playhead. The next window's build starts with the opening one,
+  and the player prebuilds the cache runway its measured build time calls for (three windows
+  initially on this machine) as cache files. A warm starts while the last appended window is
+  still downloading, so a builder overlaps the client's append instead of idling until it
+  finishes. A native `Video` source keeps up to two decode graphs: the second opens only
+  while the first is busy, so an append does not wait for a warm. Every other input keeps
+  one, because evaluating it twice allocates a second copy of whatever it builds. Warms run
+  only while paused: playing, a warm would make the next append queue behind the single
+  decode graph. Paused, the client fills at most six seconds of `SourceBuffer` lead and
+  warms up to 1.5 GiB of cache runway (at most sixty windows), so a build slower than
+  realtime keeps working and the resume reads cached windows. Starting playback aborts a
+  paused warm, and the append that starts reading ahead takes the graph. Each window reuses an open graph for its source identity; only the lossless
+  encode and mux are per window.
+  Alignment is what makes a seek cheap: the window containing the target has usually been
+  built already.
 - `Decoded` and `Encoded` are attached through **MediaSource**. The page fetches the
   growing proxy and appends it, so a seek inside received bytes is a buffer lookup; the next
   window or scene chunk is appended at its own offset instead of remounting the element.
@@ -157,12 +173,12 @@ Encoded could start, and left several such builds running at once; Encoded then 
   sound from the wrong place.
 - **The wait says what it is.** An Encoded seek shows a labelled notice
   (`data-preview-seeking`) instead of a picture that looks frozen for no reason.
-- **The presented frame is the clock, and a dry buffer holds instead of stuttering.** The
-  playhead and the timeline advance only on frames `requestVideoFrameCallback` reports; the
-  sound is paused with the picture and put back in step on the next shown frame. A source
-  that runs dry is paused and resumed at three quarters of a second of lead, so it no longer
-  uncovers one fragment at a time. Before this, the element played into a growing buffer:
-  a few-frame loop with the audio still running.
+- **The presented frame is the clock, and buffer policy follows the source.** The playhead
+  and the timeline advance only on frames `requestVideoFrameCallback` reports; the sound is
+  paused with the picture and put back in step on the next shown frame. Decoded, the editor
+  reference, never holds for buffer: it presents each appended frame as it lands so a
+  slower-than-realtime decode stays viewable. Encoded holds and resumes at three quarters of
+  a second of lead, so a scene chunk is not uncovered one fragment at a time.
 - **A chunk build cannot take the decoder's cores.** The preview encoder runs at idle process
   priority (Windows `IDLE_PRIORITY_CLASS`). Below normal still took a share of every core:
   with a build in flight, Encoded fell to 11.3 fps with a 5.4 s freeze. At idle the same
@@ -187,8 +203,8 @@ Encoded could start, and left several such builds running at once; Encoded then 
   built once the current one finishes, so a scene that takes longer to encode than to play
   will reach its end before the next chunk is ready. Longer scenes — where a cut is not
   immediately followed by another — are covered.
-- **MSE trims 20 s behind the playhead.** A seek further back than that is outside the
-  buffer and re-opens the window, which is a build unless the cache has it.
+- **The player trims 1 s behind the playhead, plus a 0.5 s GOP guard.** A seek further back than that is outside
+  the buffer and re-opens a window from cache, which is a build on a cold cache.
 - **Chrome under-reports decoded frames on a chunked stream.** `totalVideoFrames` read 23
   while rVFC presented 243 in an earlier run, so the drop percentage is a lower bound. The
   frame-gap numbers are the reliable ones.

@@ -71,7 +71,9 @@ rust/crates/service/src/
 │   │   ├── concat.rs              concat source metadata
 │   │   └── preview/
 │   │       ├── mod.rs             preview build registry
-│   │       └── proxy.rs           proxy build and live streaming
+│   │       ├── decoder.rs         decode graphs shared by Decoded windows
+│   │       ├── proxy.rs           proxy build and live streaming
+│   │       └── scene.rs           idle decode graphs reused by Encoded scenes
 │   └── thumbnails.rs              shared keyframe grid
 ├── script/
 │   ├── mod.rs

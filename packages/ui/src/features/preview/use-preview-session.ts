@@ -4,6 +4,12 @@ import { useMediaUrl } from "@av1ation/api";
 
 import { isModalOpen, matchesShortcut } from "../../shared/shortcuts";
 import { playerKeyDown } from "./player-keyboard";
+import {
+    initialPreviewPlan,
+    observePreviewWindow,
+    type PreviewBufferPlan,
+    type WindowObservation,
+} from "./preview-buffer-plan";
 import { DECODED_WINDOW_SECONDS, type PreviewSource } from "./preview-player";
 import { PreviewStream } from "./preview-stream";
 import { usePreviewAudio } from "./use-preview-audio";
@@ -61,7 +67,7 @@ export function usePreviewSession({
 }: PreviewSessionProps) {
     const [muted, setMuted] = useState(false);
     const [volume, setVolume] = useState(1);
-    /** Slower than 1 only while the decoder cannot keep the source rate (see RateGovernor). */
+    /** The picture always runs at its own rate; kept for the transport's rate display. */
     const [playbackRate, setPlaybackRate] = useState(1);
     const [encodeFrom, setEncodeFrom] = useState<"decoded" | "original">("decoded");
     const mediaPath = `/api/projects/${encodeURIComponent(projectId)}/videos/${encodeURIComponent(videoId)}/media`;
@@ -102,7 +108,22 @@ export function usePreviewSession({
     // picture was ready, and enough contention to starve every other preview. A window
     // keeps that bounded, and the next one is built while this one plays.
     const windowFrames =
-        frameRate !== null && frameRate > 0 ? Math.round(frameRate * DECODED_WINDOW_SECONDS) : 240;
+        frameRate !== null && frameRate > 0 ? Math.round(frameRate * DECODED_WINDOW_SECONDS) : 48;
+    const windowSeconds =
+        frameRate !== null && frameRate > 0 ? windowFrames / frameRate : DECODED_WINDOW_SECONDS;
+    // The buffer policy is measured per video, not guessed globally: a lossless 720p window
+    // is a fraction of a 1080p 10-bit one, so the same byte budget becomes a longer lead.
+    // A different video or frame rate starts from the measured defaults again.
+    const plan = useRef<PreviewBufferPlan>(initialPreviewPlan(windowSeconds));
+    useEffect(() => {
+        plan.current = initialPreviewPlan(windowSeconds);
+    }, [windowSeconds, projectId, videoId]);
+    const noteWindow = useCallback(
+        (observation: WindowObservation) => {
+            plan.current = observePreviewWindow(plan.current, observation, windowSeconds);
+        },
+        [windowSeconds],
+    );
     const mediaUrl = useMediaUrl(
         source === "original"
             ? `${mediaPath}?source=original`
@@ -226,6 +247,7 @@ export function usePreviewSession({
         seekQueue,
         streamRef,
         videoRef,
+        plan,
         audioRef,
         audioHeld,
         syncAudio,
@@ -275,6 +297,8 @@ export function usePreviewSession({
         coverage,
         videoRef,
         streamRef,
+        plan,
+        noteWindow,
     });
     const transport = usePreviewTransport({
         source,

@@ -354,13 +354,13 @@ describe("ScenePlayer", () => {
         fireEvent.play(document.querySelector("video")!);
         expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
 
-        // Another six-second window starts at a frame grid boundary, so this seek changes
+        // Another two-second window starts at a frame grid boundary, so this seek changes
         // the URL and mounts a new element instead of seeking the old one.
         view.rerenderWithApi(<ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />);
 
         // The new element has not started yet, so the transport must not claim Pause.
         expect(screen.getByRole("button", { name: "Play" })).toBeDefined();
-        expect(document.querySelector("video")?.getAttribute("src")).toContain("frame=144");
+        expect(document.querySelector("video")?.getAttribute("src")).toContain("frame=192");
         // The transport shows the frame that was asked for, not the window's first frame.
         const bar = () =>
             screen.getByRole("slider", { name: "Seek the preview" }) as HTMLInputElement;
@@ -377,7 +377,7 @@ describe("ScenePlayer", () => {
         // click. The mock does not dispatch the browser's `play` event, so the label is
         // checked after the event that element would emit.
         Object.defineProperty(next, "readyState", { value: 2, configurable: true });
-        next.currentTime = (200 - 144) / 24;
+        next.currentTime = (200 - 192) / 24;
         fireEvent.canPlay(next);
         expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
         fireEvent.play(next);
@@ -408,13 +408,13 @@ describe("ScenePlayer", () => {
         expect(video.getAttribute("src")).not.toContain("epoch=1");
 
         // The session has appended later windows and dropped everything before 17 s. A
-        // seek to frame 200 is 2.3 s into the window, and those bytes are gone: the same
+        // seek to frame 180 is 1.5 s into the window, and those bytes are gone: the same
         // URL cannot answer it, so the element has to be rebuilt from the cached window.
         Object.defineProperty(video, "buffered", {
             configurable: true,
             value: { length: 1, start: () => 17, end: () => 25 },
         });
-        view.rerenderWithApi(<ScenePlayer {...props} playhead={200} onSeek={vi.fn()} />);
+        view.rerenderWithApi(<ScenePlayer {...props} playhead={180} onSeek={vi.fn()} />);
 
         expect(document.querySelector("video")?.getAttribute("src")).toContain("frame=144");
         expect(document.querySelector("video")?.getAttribute("src")).toContain("epoch=1");

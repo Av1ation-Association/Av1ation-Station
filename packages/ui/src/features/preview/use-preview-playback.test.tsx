@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { initialPreviewPlan } from "./preview-buffer-plan";
 import type { SeekQueue } from "./preview-seek";
 import type { PreviewStream } from "./preview-stream";
 import { usePreviewPlayback } from "./use-preview-playback";
@@ -24,6 +25,7 @@ function useHarness(overrides: Partial<Options> = {}) {
     });
     const seekQueue = useRef<SeekQueue | null>(null);
     const streamRef = useRef<PreviewStream | null>(null);
+    const plan = useRef(initialPreviewPlan(2));
     const videoRef = useRef<HTMLVideoElement | null>(document.createElement("video"));
     const audioRef = useRef<HTMLAudioElement | null>(document.createElement("audio"));
     const audioHeld = useRef(false);
@@ -48,7 +50,7 @@ function useHarness(overrides: Partial<Options> = {}) {
         setStreamEpoch,
         setOpenScene,
         coverage,
-        windowFrames: 144,
+        windowFrames: 48,
         bufferedEnd: 0,
         bufferRange: { start: 0, end: 0 },
         throughput: null,
@@ -58,6 +60,7 @@ function useHarness(overrides: Partial<Options> = {}) {
         seekQueue,
         streamRef,
         videoRef,
+        plan,
         audioRef,
         audioHeld,
         syncAudio: noop,
@@ -156,6 +159,75 @@ describe("usePreviewPlayback", () => {
         expect(result.current.playback.encodedChunkEnd).toBe(5);
         expect(result.current.playback.chunkReady).toBe(false);
         expect(result.current.playback.canPlay).toBe(false);
+    });
+
+    it("clears a decoded stage without waiting for a buffer lead", () => {
+        const { result } = renderHook(() =>
+            useHarness({
+                source: "decoded",
+                playhead: 0,
+                totalFrames: 240,
+                frameRate: 24,
+            }),
+        );
+
+        expect(result.current.playback.ready).toBe(false);
+        act(() => result.current.playback.markReady());
+        expect(result.current.playback.ready).toBe(true);
+    });
+
+    it("presents decoded frames instead of holding when the buffer runs dry", () => {
+        vi.useFakeTimers();
+        try {
+            const { result } = renderHook(() =>
+                useHarness({
+                    source: "decoded",
+                    playhead: 0,
+                    totalFrames: 240,
+                    frameRate: 24,
+                    leadAhead: () => 0.05,
+                }),
+            );
+            const element = result.current.videoRef.current;
+            Object.defineProperty(element, "paused", { configurable: true, value: false });
+
+            act(() => result.current.playback.setPlaying(true));
+            act(() => vi.advanceTimersByTime(200));
+
+            expect(result.current.playback.held).toBe(false);
+            expect(element?.pause).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("holds an encoded chunk until its lead is refilled", () => {
+        vi.useFakeTimers();
+        try {
+            let lead = 0.05;
+            const { result } = renderHook(() =>
+                useHarness({
+                    source: "encode",
+                    playhead: 0,
+                    totalFrames: 240,
+                    frameRate: 24,
+                    leadAhead: () => lead,
+                }),
+            );
+            const element = result.current.videoRef.current;
+            Object.defineProperty(element, "paused", { configurable: true, value: false });
+
+            act(() => result.current.playback.setPlaying(true));
+            act(() => vi.advanceTimersByTime(200));
+            expect(result.current.playback.held).toBe(true);
+
+            lead = 1;
+            act(() => vi.advanceTimersByTime(200));
+            expect(result.current.playback.held).toBe(false);
+            expect(element?.play).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("becomes ready again only for the URL that reported it", () => {

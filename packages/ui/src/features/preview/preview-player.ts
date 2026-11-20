@@ -14,11 +14,17 @@ export type PreviewSource = "original" | "decoded" | "encode";
 /**
  * The length of one Decoded stream, in seconds of source video.
  *
- * Long enough that a window boundary is rare during review, short enough that the encode
- * finishes in seconds and the cache file stays small: 15 s of 10-bit 1080p is about 50 MB
- * on disk, where an open-ended stream of the same source reached 1.5 GB in four minutes.
+ * The lossless proxy is large: on the two 1080p 10-bit test projects a six-second window
+ * measured 73.5-117.3 MiB, which is too close to Chromium's roughly 150 MB `SourceBuffer`
+ * cap once more than one is retained. A two-second window measured 25.3-31.8 MiB. The
+ * player's buffer plan spends a fixed byte budget at the measured lossless rate, so the
+ * lead grows on a cheaper source and shrinks on a dearer one, and it sizes the prebuilt
+ * runway from the measured build time. The service opens the decode graph once per source
+ * and reuses it across windows; a window costs a lossless encode and a mux (about
+ * 1.2-1.4 s on the measured projects). Those warm builds overlap the picture, and the
+ * append that reaches one reads the finished file instead of waiting at the seam.
  */
-export const DECODED_WINDOW_SECONDS = 6;
+export const DECODED_WINDOW_SECONDS = 2;
 
 export const SOURCES: Record<PreviewSource, { label: string; detail: string; icon: typeof Film }> =
     {
@@ -29,7 +35,7 @@ export const SOURCES: Record<PreviewSource, { label: string; detail: string; ico
         },
         decoded: {
             label: "Decoded",
-            detail: "The Parallel Encoder's frames, visually lossless on demand",
+            detail: "The Parallel Encoder's frames, losslessly at the source resolution",
             icon: Layers,
         },
         encode: {

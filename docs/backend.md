@@ -664,18 +664,31 @@ containment when the caller does not already know its index. `encode_from=origin
 the General input instead of the Parallel Encoder input. Both proxies are video only: a
 browser appends them to a `SourceBuffer`, which rejects a segment whose index names a track
 it does not hold, so the player takes sound from the source's own element. Both are cached
-under `<app-data>/cache/preview`, keyed by the input, the encoder, the frame range, and the
-source's size and modification time, and both are `.mp4`.
+under `<app-data>/cache/preview`, keyed by the engine's proxy recipe, the input, the
+encoder, the frame range, and the source's size and modification time, and both are
+`.mp4`. The recipe names the codec, lossless mode, preset, GOP, bit-depth rule, and mux
+flags, so a pipeline change invalidates the cache without a separate version number.
 `GET …/frame?source=decoded&frame=N` renders one lossless PNG (16-bit for a 10-bit input)
 for the scrubber; it is never cached.
 
 Lossless H.264 is entropy coding, not a quality setting: a decoded frame is bit-identical to
-the Y4M frame the encoder received. The software path encodes a 10-bit 1080p 23.976 source
-at about 45 fps and an 8-bit one at about 58 fps, both ahead of the 24 fps the player needs.
-NVENC lossless H.264 reaches about 125 fps for 8-bit on a capable machine but has no
-10-bit path here, so hardware acceleration is an optional speed-up, not the correctness
-path. The raw alternative moves about 142 MB/s at 1080p 10-bit and is a local-connection
-path rather than a LAN default.
+the Y4M frame the encoder received. The software path encodes the two-second 10-bit 1080p
+23.976 window at about 35 fps, ahead of the 24 fps the player needs. The service opens the
+input's decode graph once per source identity on a dedicated thread and writes consecutive
+windows through it; only the lossless encode and mux remain per window. A native `Video`
+source may open a second graph while the first is busy, so an append does not wait for a
+warm; every other input keeps one, because evaluating it twice allocates a second copy of
+whatever it builds. The appended lead and the cache runway are sized from the measured bitrate and build time
+against the `SourceBuffer` budget. Paused, the player fills at most six seconds of that lead
+and warms up to 1.5 GiB of cache, so a build's mux overlaps the picture instead of landing
+at a seam. Playing, it starts no warms: the script input's one decode graph belongs to the
+append ahead of the playhead, and a warm would queue that append behind a build. Starting
+playback aborts a paused warm; the next append reads a finished cache file or queues its
+build.
+NVENC is not used:
+H.264 NVENC has no lossless profile, so it cannot produce the Decoded reference. The raw
+alternative moves about 142 MB/s at 1080p 10-bit and is a local-connection path rather than
+a LAN default.
 
 The encoded path does not write an elementary stream to disk. The scene's encoder document
 comes from the checkpoint, the engine builds its final-pass argument list, and the single
@@ -684,7 +697,13 @@ copies it into fragmented MP4 (`-c:v copy`), so the picture is the encoder's own
 rather than a second-generation encode. Frames are fed from the scene's first frame because
 rate control and keyframe placement depend on them; the player waits until the requested
 frame is seekable before leaving its loading stage. The finished concatenated file is not a
-substitute for a scene chunk.
+substitute for a scene chunk. Consecutive scenes reuse one opened input: the engine keeps a
+session per source identity and encodes each scene through it while it is idle, so only the
+first scene of a review pays for script materialisation and graph construction (measured at
+1.75 s of a 19.1 s warm build on a 261-scene 1080p project). A scene that arrives while that
+graph is writing opens a transient one, so a warm and the playhead's own chunk still
+overlap. An encoder refusal leaves the graph open; a frame the graph could not produce ends
+the session.
 
 The container is the one parameter the preview may pin. An SVT-AV1 build that exposes
 `--webm` may default to Matroska even though a run reads IVF chunks back; the scene preview

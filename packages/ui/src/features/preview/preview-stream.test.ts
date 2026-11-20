@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { RETAIN_BEHIND_SECONDS } from "./preview-buffer-plan";
 import { PreviewStream, previewCodec, previewRefusal } from "./preview-stream";
 
 afterEach(() => {
@@ -143,13 +144,26 @@ function fakeVideo() {
 /** A MediaSource/SourceBuffer pair that finishes an append on the next microtask. */
 function installMediaSource() {
     class Buffer extends EventTarget {
-        timestampOffset = 0;
-        appended: Uint8Array[] = [];
-        appendBuffer = vi.fn((bytes: Uint8Array) => {
+        offset = 0;
+        updating = false;
+        /** Offset writes and appends in the order the stream issued them. */
+        operations: string[] = [];
+        get timestampOffset() {
+            return this.offset;
+        }
+        set timestampOffset(value: number) {
+            this.offset = value;
+            this.operations.push(`offset:${String(value)}`);
+        }
+        appended: Bytes[] = [];
+        appendBuffer = vi.fn((bytes: Bytes) => {
+            this.operations.push("append");
             this.appended.push(bytes);
             queueMicrotask(() => this.dispatchEvent(new Event("updateend")));
         });
-        remove = vi.fn((_start: number, _end: number) => undefined);
+        remove = vi.fn((_start: number, _end: number) => {
+            queueMicrotask(() => this.dispatchEvent(new Event("updateend")));
+        });
     }
     const buffer = new Buffer();
     class Media extends EventTarget {
@@ -174,7 +188,7 @@ function installMediaSource() {
 }
 
 describe("PreviewStream", () => {
-    it("opens a MediaSource, appends the init segment, and reports it playable", async () => {
+    it("opens a MediaSource and appends the init segment", async () => {
         const { buffer } = installMediaSource();
         const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
         vi.stubGlobal(
@@ -182,18 +196,17 @@ describe("PreviewStream", () => {
             vi.fn(async () => new Response(bytes, { headers: { "content-type": "video/mp4" } })),
         );
         const element = fakeVideo();
-        const onPlayable = vi.fn();
         const onError = vi.fn();
-        const stream = new PreviewStream(element, { onPlayable, onError });
+        const stream = new PreviewStream(element, { onError });
 
         stream.open("http://service/api/media/1");
-        await vi.waitFor(() => expect(onPlayable).toHaveBeenCalledOnce());
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
 
         expect(onError).not.toHaveBeenCalled();
         expect(stream.started).toBe(true);
-        expect(stream.idle).toBe(true);
         expect(stream.supportsAppend).toBe(true);
         expect(buffer.appended.some((chunk) => chunk.length > 0)).toBe(true);
+        expect(buffer.operations).toEqual(["offset:0", "append"]);
         expect(element.src).toBe("blob:preview");
     });
 
@@ -217,6 +230,245 @@ describe("PreviewStream", () => {
         expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview");
         expect(element.removeAttribute).toHaveBeenCalledWith("src");
         expect(stream.started).toBe(false);
+    });
+
+    it("resolves an append once its request has been issued", async () => {
+        installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        const fetchMock = vi.fn(async () => new Response(bytes));
+        vi.stubGlobal("fetch", fetchMock);
+        const stream = new PreviewStream(fakeVideo());
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.started).toBe(true));
+
+        let release!: (value: Response) => void;
+        fetchMock.mockImplementationOnce(
+            () =>
+                new Promise<Response>((resolve) => {
+                    release = resolve;
+                }),
+        );
+        const appended = stream.append("http://service/api/media/2", 2);
+        await appended;
+        expect(stream.loadingUrl).toBe("http://service/api/media/2");
+
+        release(new Response(bytes));
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+    });
+
+    it("retains the plan's GOP-safe margin behind the playhead", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        vi.spyOn(performance, "now").mockReturnValue(1000);
+        const element = fakeVideo();
+        element.currentTime = 10;
+        const stream = new PreviewStream(
+            element,
+            {},
+            {
+                retainBehindSeconds: () => RETAIN_BEHIND_SECONDS,
+            },
+        );
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.started).toBe(true));
+        element.dispatchEvent(new Event("timeupdate"));
+
+        await vi.waitFor(() => expect(buffer.remove).toHaveBeenCalledWith(0, 8.5));
+    });
+
+    it("releases a read throttled ahead of the playhead when the element stalls", async () => {
+        installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        const element = fakeVideo();
+        element.paused = false;
+        const preview = new PreviewStream(element, {}, { maxAheadSeconds: () => 4 });
+
+        preview.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(preview.started).toBe(true));
+        // The element reports 20 s retained, so the next read is throttled. A picture that
+        // has run dry must release it; otherwise the rest of the window never arrives.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        element.dispatchEvent(new Event("waiting"));
+
+        await vi.waitFor(() => expect(preview.idle).toBe(true));
+    });
+
+    it("coalesces a streamed proxy into a few appends", async () => {
+        const { buffer } = installMediaSource();
+        const initBytes = init(
+            sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))),
+        );
+        const media = new Uint8Array(64 * 1024 * 12);
+        for (let at = 0; at < media.length; at += 1) {
+            media[at] = at & 0xff;
+        }
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(initBytes);
+                for (let at = 0; at < media.length; at += 64 * 1024) {
+                    controller.enqueue(media.subarray(at, at + 64 * 1024));
+                }
+                controller.close();
+            },
+        });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(stream)),
+        );
+        const preview = new PreviewStream(fakeVideo());
+
+        preview.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(preview.idle).toBe(true));
+
+        // Thirteen 64 KB reads must not become thirteen full `updateend` round trips.
+        expect(buffer.appended.length).toBeLessThanOrEqual(4);
+        const written = concat(buffer.appended);
+        expect(written.length).toBe(initBytes.length + media.length);
+        expect(written.subarray(initBytes.length)).toEqual(media);
+    });
+
+    it("keeps bytes the session is told not to retain behind", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        vi.spyOn(performance, "now").mockReturnValue(1000);
+        const element = fakeVideo();
+        element.currentTime = 10;
+        const preview = new PreviewStream(element, {}, { retainBehindSeconds: () => 3 });
+
+        preview.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(preview.started).toBe(true));
+        element.dispatchEvent(new Event("timeupdate"));
+
+        await vi.waitFor(() => expect(buffer.remove).toHaveBeenCalledWith(0, 6.5));
+    });
+
+    /**
+     * Open a stream whose next proxy the buffer refuses twice with nothing behind the
+     * playhead to trim, leaving the read parked on a quota it cannot free by itself.
+     */
+    async function parkOnQuota() {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        const fetchMock = vi.fn(async () => new Response(bytes));
+        vi.stubGlobal("fetch", fetchMock);
+        const element = fakeVideo();
+        const onError = vi.fn();
+        const quota = new DOMException("full", "QuotaExceededError");
+        const append = buffer.appendBuffer;
+        let calls = 0;
+        let full = 2;
+        buffer.appendBuffer = vi.fn((chunk: Bytes) => {
+            calls += 1;
+            // The init segment lands; the media body then hits a SourceBuffer that is
+            // full with nothing behind the playhead to discard.
+            if (calls >= 2 && full > 0) {
+                full -= 1;
+                throw quota;
+            }
+            append(chunk);
+        });
+        const stream = new PreviewStream(element, { onError });
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+
+        fetchMock.mockResolvedValueOnce(new Response(new Uint8Array(1024)));
+        void stream.append("http://service/api/media/2", 2);
+        await vi.waitFor(() => expect(buffer.appendBuffer).toHaveBeenCalledTimes(3));
+        expect(stream.idle).toBe(false);
+
+        return { buffer, element, onError, stream };
+    }
+
+    it("waits for playback instead of failing when a paused buffer is full", async () => {
+        const { buffer, element, onError, stream } = await parkOnQuota();
+
+        // The playhead moves far enough to free history without cutting the playing GOP.
+        element.currentTime = 5;
+        element.dispatchEvent(new Event("timeupdate"));
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(buffer.remove).toHaveBeenCalledWith(0, 2.5);
+        expect(buffer.appendBuffer).toHaveBeenCalledTimes(4);
+    });
+
+    it("releases a quota-parked read on a paused seek, without a timeupdate", async () => {
+        const { buffer, element, onError, stream } = await parkOnQuota();
+
+        // The element is paused, so no `timeupdate` will arrive; a paused seek is the only
+        // thing that moves the playhead and frees history. The read must stay parked until
+        // then: a timer-based fallback would pass this test without releasing on `seeking`.
+        expect(element.paused).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(stream.idle).toBe(false);
+
+        element.currentTime = 5;
+        element.dispatchEvent(new Event("seeking"));
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(buffer.remove).toHaveBeenCalledWith(0, 2.5);
+        expect(buffer.appendBuffer).toHaveBeenCalledTimes(4);
+    });
+
+    it("waits for parsing to end before setting the next window's offset", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        const fetchMock = vi.fn(async () => new Response(bytes));
+        vi.stubGlobal("fetch", fetchMock);
+        const onError = vi.fn();
+        const stream = new PreviewStream(fakeVideo(), { onError });
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+
+        fetchMock.mockResolvedValueOnce(new Response(new Uint8Array(1024)));
+        let parsing = false;
+        let fail = true;
+        let offset = 0;
+        Object.defineProperty(buffer, "updating", {
+            configurable: true,
+            get: () => parsing,
+        });
+        Object.defineProperty(buffer, "timestampOffset", {
+            configurable: true,
+            get: () => offset,
+            set: (value: number) => {
+                if (fail) {
+                    fail = false;
+                    parsing = true;
+                    // Chrome finishes parsing on a later task, after the rejected write has
+                    // been observed; a microtask would fire before the wait is installed.
+                    setTimeout(() => {
+                        parsing = false;
+                        buffer.dispatchEvent(new Event("updateend"));
+                    }, 0);
+                    throw new DOMException("parsing", "InvalidStateError");
+                }
+                offset = value;
+            },
+        });
+
+        void stream.append("http://service/api/media/2", 2);
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(offset).toBe(2);
     });
 
     it("falls back to the element source when MediaSource rejects the codec", async () => {

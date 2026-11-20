@@ -17,9 +17,9 @@
  * own encoder output.
  */
 
+import { TRIM_GUARD_SECONDS } from "./preview-buffer-plan";
+
 export type PreviewStreamEvents = {
-    /** The first segment's init data is accepted; the element can now show frames. */
-    onPlayable?: () => void;
     /** How much of the element's timeline is retained, in seconds. */
     /** The element's retained range, in its own timeline: what a seek can answer now. */
     onBuffered?: (range: { start: number; end: number }) => void;
@@ -31,20 +31,45 @@ export type PreviewStreamEvents = {
 type Segment = {
     url: string;
     offset: number;
+    /** Resolves once this segment's request has been issued, so a warm can queue behind it. */
+    requested?: () => void;
 };
 
-/** Seconds of media to keep buffered ahead of the playhead before pausing the read. */
-const MAX_AHEAD_SECONDS = 5;
+/** How the session should spend its memory; the sources read it as it changes. */
+export type PreviewStreamOptions = {
+    /** The current appetite cap, in seconds. */
+    maxAheadSeconds?: () => number;
+    /** Seconds of played media to keep behind the playhead. */
+    retainBehindSeconds?: () => number;
+};
 
 /**
- * Seconds of played media to keep behind the playhead so a backward seek is still a hit.
+ * Seconds of media to keep buffered ahead before pausing a read, when the caller has no
+ * plan of its own.
  *
- * Chromium caps one `SourceBuffer` at roughly 150 MB. The proxy is a few megabits a second,
- * but a long retention window plus several prefetched windows could still reach that cap on
- * a large source, and the append that hits it fails the whole preview. Thirteen seconds of
- * buffer is three reachable seeks back and one window ahead.
+ * The Decoded source supplies a lead derived from its measured bitrate and the
+ * `SourceBuffer` budget; Encoded keeps this value, which is enough for one scene's chunk to
+ * load before its cut. It is a hard appetite valve, not the buffer policy.
  */
-const RETAIN_BEHIND_SECONDS = 8;
+const DEFAULT_MAX_AHEAD_SECONDS = 5;
+
+/** Seconds of played media to keep behind the playhead, when the caller has no plan. */
+const DEFAULT_RETAIN_BEHIND_SECONDS = 2;
+
+/** Chrome's memory-pressure refusal when a `SourceBuffer` has no room left. */
+function quotaExceeded(error: unknown): boolean {
+    return error instanceof DOMException && error.name === "QuotaExceededError";
+}
+
+/**
+ * Bytes accumulated before one `appendBuffer` call.
+ *
+ * A response arrives in 64 KB reads. Appending each read separately spends a full
+ * `updateend` round trip on bytes the media stack could parse as one segment: a measured
+ * two-second window is about 30 MB, or nearly five hundred appends. Coalescing keeps the
+ * append count in the single digits without changing a byte of the stream.
+ */
+const APPEND_BATCH_BYTES = 4 * 1024 * 1024;
 
 /** A byte view backed by a plain ArrayBuffer, which is what the media APIs accept. */
 type Bytes = Uint8Array<ArrayBuffer>;
@@ -92,6 +117,17 @@ function concat(left: Bytes, right: Bytes): Bytes {
     const joined = new Uint8Array(left.length + right.length);
     joined.set(left, 0);
     joined.set(right, left.length);
+    return joined;
+}
+
+/** Join a batch of reads in one allocation. */
+function join(parts: Bytes[], length: number): Bytes {
+    const joined = new Uint8Array(length);
+    let at = 0;
+    for (const part of parts) {
+        joined.set(part, at);
+        at += part.length;
+    }
     return joined;
 }
 
@@ -333,19 +369,33 @@ export class PreviewStream {
     /** The buffer operation in flight; appends and trims never overlap. */
     #operation: Promise<void> = Promise.resolve();
     #lastTrim = 0;
+    /** The segment whose request is open, so a prefetch can see that its append is in flight. */
+    #loading: string | null = null;
     /** The session handed the URL to the element because MediaSource refused its codec. */
     #direct = false;
+    /** The buffer plan's appetite and retention, read at update time. */
+    readonly #maxAheadSeconds: () => number;
+    readonly #retainBehindSeconds: () => number;
 
-    constructor(element: HTMLVideoElement, events: PreviewStreamEvents = {}) {
+    constructor(
+        element: HTMLVideoElement,
+        events: PreviewStreamEvents = {},
+        options: PreviewStreamOptions = {},
+    ) {
         this.#element = element;
         this.#events = events;
+        this.#maxAheadSeconds = options.maxAheadSeconds ?? (() => DEFAULT_MAX_AHEAD_SECONDS);
+        this.#retainBehindSeconds =
+            options.retainBehindSeconds ?? (() => DEFAULT_RETAIN_BEHIND_SECONDS);
         element.addEventListener("timeupdate", this.#onTimeUpdate);
         // A read that was throttled because the buffer was ahead is waiting for the
-        // playhead to move. A pause or a seek stops the playhead instead, so it has to
-        // release that wait too: otherwise a hold for a starved picture deadlocked the
-        // very append that would have fed it.
+        // playhead to move. A pause, a seek, or a starved element stops the playhead
+        // instead, so each has to release that wait too: otherwise a hold for a starved
+        // picture deadlocked the very append that would have fed it.
         element.addEventListener("pause", this.#onDemand);
         element.addEventListener("seeking", this.#onDemand);
+        element.addEventListener("waiting", this.#onDemand);
+        element.addEventListener("stalled", this.#onDemand);
     }
 
     /** True when this browser can host a MediaSource session at all. */
@@ -379,6 +429,18 @@ export class PreviewStream {
         return !this.#direct;
     }
 
+    /**
+     * The URL whose request is open, or null while the session is between segments.
+     *
+     * The prefetcher uses this to tell a queued append from one the service has already
+     * been asked for. A warm may only queue behind the latter; otherwise the serialized
+     * builder could start a window beyond it and leave the seam waiting for a build that
+     * was only warming the cache.
+     */
+    get loadingUrl(): string | null {
+        return this.#loading;
+    }
+
     /** Start the session on `url`, whose first frame is the element's time zero. */
     open(url: string): void {
         if (!PreviewStream.available() || this.#closed) {
@@ -409,12 +471,17 @@ export class PreviewStream {
      * starts its own clock at zero, so the second window is shifted to where the first one
      * ended instead of overwriting it.
      */
-    append(url: string, offset: number): void {
+    append(url: string, offset: number): Promise<void> {
         if (this.#closed || this.#direct) {
-            return;
+            return Promise.resolve();
         }
-        this.#segments.push({ url, offset });
+        let requested!: () => void;
+        const started = new Promise<void>((resolve) => {
+            requested = resolve;
+        });
+        this.#segments.push({ url, offset, requested });
         void this.#pump();
+        return started;
     }
 
     close(): void {
@@ -426,6 +493,9 @@ export class PreviewStream {
         this.#element.removeEventListener("timeupdate", this.#onTimeUpdate);
         this.#element.removeEventListener("pause", this.#onDemand);
         this.#element.removeEventListener("seeking", this.#onDemand);
+        this.#element.removeEventListener("waiting", this.#onDemand);
+        this.#element.removeEventListener("stalled", this.#onDemand);
+        this.#loading = null;
         if (this.#objectUrl !== null) {
             URL.revokeObjectURL(this.#objectUrl);
             this.#objectUrl = null;
@@ -468,17 +538,29 @@ export class PreviewStream {
         });
     }
 
+    /**
+     * The furthest point a trim may discard to without cutting the playing GOP.
+     *
+     * A removal that reaches into the group the playhead is in makes Chromium roll back to
+     * a keyframe that was just removed, leaving the playhead outside the buffer. Discarding
+     * only the retained history keeps the current group intact; a quota retry must use the
+     * same boundary as the periodic trim.
+     */
+    #safeDiscardEnd(): number {
+        return this.#element.currentTime - this.#retainBehindSeconds() - TRIM_GUARD_SECONDS;
+    }
+
     /** Drop what is far enough behind the playhead that a seek there is unlikely. */
     #trim(): void {
-        const time = this.#element.currentTime;
         const ranges = this.#element.buffered;
         if (ranges.length === 0) {
             return;
         }
-        if (time - ranges.start(0) <= RETAIN_BEHIND_SECONDS) {
+        const end = this.#safeDiscardEnd();
+        if (end - ranges.start(0) < 0.05) {
             return;
         }
-        void this.#discardTo(time - RETAIN_BEHIND_SECONDS);
+        void this.#discardTo(end);
     }
 
     /**
@@ -519,9 +601,39 @@ export class PreviewStream {
         if (buffer === null) {
             return;
         }
-        await this.#run(() => {
-            buffer.timestampOffset = offset;
-        }, false);
+        for (let attempt = 0; ; attempt += 1) {
+            // A quota retry can settle its operation before Chrome has finished parsing the
+            // previous append, and writing the offset during that state throws. Wait for the
+            // buffer to be idle before every attempt, then once more if it was parsing.
+            if (buffer.updating) {
+                await this.#waitForUpdate(buffer);
+            }
+            try {
+                await this.#run(() => {
+                    buffer.timestampOffset = offset;
+                }, false);
+                return;
+            } catch (error) {
+                const parsing = error instanceof DOMException && error.name === "InvalidStateError";
+                if (!parsing || attempt >= 2 || !buffer.updating) {
+                    throw error;
+                }
+                await this.#waitForUpdate(buffer);
+            }
+        }
+    }
+
+    /** Resolve after the buffer's current append or remove has finished parsing. */
+    #waitForUpdate(buffer: SourceBuffer): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const done = () => {
+                buffer.removeEventListener("updateend", done);
+                buffer.removeEventListener("error", done);
+                resolve();
+            };
+            buffer.addEventListener("updateend", done);
+            buffer.addEventListener("error", done);
+        });
     }
 
     /**
@@ -574,19 +686,64 @@ export class PreviewStream {
     }
 
     async #append(bytes: Bytes): Promise<void> {
+        const write = () => this.#run(() => this.#buffer?.appendBuffer(bytes));
         try {
-            await this.#run(() => this.#buffer?.appendBuffer(bytes));
+            await write();
         } catch (error) {
             // Chrome refuses a fragment when its buffer is over quota. Give it room and try
-            // once more rather than reporting a preview failure for a memory-pressure blip.
-            if (error instanceof DOMException && error.name === "QuotaExceededError") {
-                await this.#discardTo(this.#element.currentTime);
-                await this.#run(() => this.#buffer?.appendBuffer(bytes));
-                return;
+            // again rather than reporting a preview failure for a memory-pressure blip.
+            if (!quotaExceeded(error)) {
+                throw error;
             }
-            throw error;
+            await this.#recoverQuota(write);
         }
         this.#reportBuffered();
+    }
+
+    /**
+     * Make room for a fragment the buffer refused, parking the read at the live edge.
+     *
+     * A paused fill has nothing behind the playhead to discard, so retrying immediately
+     * fails again and used to surface as a preview error even though the buffered picture
+     * was playable. Park the read until playback or a seek moves the playhead; the next
+     * discard then frees a window and the same fragment is written without dropping any.
+     */
+    async #recoverQuota(write: () => Promise<void>): Promise<void> {
+        for (;;) {
+            const end = this.#safeDiscardEnd();
+            const ranges = this.#element.buffered;
+            const canFree = ranges.length > 0 && end - ranges.start(0) >= 0.05;
+            if (canFree) {
+                await this.#discardTo(end);
+            }
+            try {
+                await write();
+                return;
+            } catch (error) {
+                if (!quotaExceeded(error)) {
+                    throw error;
+                }
+            }
+            if (this.#closed) {
+                return;
+            }
+            // A paused fill can have nothing safe to discard yet; wait for playback or a
+            // seek to move the playhead. Failing here turned a transient memory cap into a
+            // preview error, so the read stays parked until the buffer has room.
+            if (!canFree) {
+                await this.#parkUntilDemand();
+            }
+            if (this.#closed) {
+                return;
+            }
+        }
+    }
+
+    /** Resolve on the next `timeupdate`, pause, seek, or stall that moves the playhead. */
+    #parkUntilDemand(): Promise<void> {
+        return new Promise<void>((resolve) => {
+            this.#demand = resolve;
+        });
     }
 
     /** Wait while the buffer is ahead of the playhead, so a chunk cannot fill memory. */
@@ -603,7 +760,7 @@ export class PreviewStream {
             return;
         }
         const end = ranges.end(ranges.length - 1);
-        if (end - this.#element.currentTime <= MAX_AHEAD_SECONDS) {
+        if (end - this.#element.currentTime <= this.#maxAheadSeconds()) {
             return;
         }
         await new Promise<void>((resolve) => {
@@ -650,85 +807,112 @@ export class PreviewStream {
         if (this.#buffer !== null) {
             await this.#setOffset(segment.offset);
         }
-        const response = await fetch(segment.url, { signal: controller.signal });
-        if (!response.ok) {
-            throw new Error(await previewRefusal(response));
-        }
-        if (response.body === null) {
-            throw new Error(
-                `The preview stream opened without a body (${String(response.status)}).`,
-            );
-        }
-        const reader = response.body.getReader();
-        let pending = EMPTY;
-        let ready = this.#buffer !== null;
-        let announced = false;
-        for (;;) {
-            let read: Awaited<ReturnType<typeof reader.read>>;
-            try {
-                read = await reader.read();
-            } catch (error) {
-                if (
-                    this.#closed ||
-                    (error instanceof DOMException && error.name === "AbortError")
-                ) {
-                    throw error;
-                }
-                // The service breaks the body when a build fails, so a rejected read is how
-                // a stopped encoder is told apart from a scene that simply ended. The reason
-                // itself is in the service log; naming the stage is what the player can say.
+        const pending = fetch(segment.url, { signal: controller.signal });
+        // Record the request only after it exists: a prefetch may warm behind a segment
+        // whose fetch has been issued, never behind one that is still waiting in the queue.
+        this.#loading = segment.url;
+        segment.requested?.();
+        try {
+            const response = await pending;
+            if (!response.ok) {
+                throw new Error(await previewRefusal(response));
+            }
+            if (response.body === null) {
                 throw new Error(
-                    this.#buffer === null
-                        ? "The preview stopped before it produced a picture. The service log has the reason."
-                        : "The preview stopped before this scene finished. The service log has the reason.",
+                    `The preview stream opened without a body (${String(response.status)}).`,
                 );
             }
-            const { done, value } = read;
-            if (done) {
-                break;
-            }
-            if (value !== undefined) {
-                pending = concat(pending, value);
-            }
-            if (!ready) {
-                const codec = previewCodec(pending);
-                if (codec === null) {
-                    continue;
-                }
-                try {
-                    await this.#openBuffer(codec);
-                } catch (error) {
-                    if (error instanceof UnsupportedCodec) {
-                        this.#fallback(segment.url);
-                        return;
-                    }
-                    throw error;
-                }
-                ready = true;
-                const buffer = this.#buffer;
-                if (buffer === null) {
+            const reader = response.body.getReader();
+            // The init prefix stays contiguous until `moov` is complete. After that, reads are
+            // accumulated and handed to the media stack in large batches: a `SourceBuffer`
+            // append is a full round trip, and one per 64 KB was the stall at every seam.
+            let init = EMPTY;
+            let batch: Bytes[] = [];
+            let batchBytes = 0;
+            const flush = async () => {
+                if (batchBytes === 0) {
                     return;
                 }
-                // Set the offset before the first media fragment of this segment.
-                await this.#setOffset(segment.offset);
-                this.#reportBuffered();
-            }
-            if (pending.length > 0) {
-                const bytes = pending;
-                pending = EMPTY;
+                const [only] = batch;
+                const bytes =
+                    batch.length === 1 && only !== undefined ? only : join(batch, batchBytes);
+                batch = [];
+                batchBytes = 0;
                 await this.#append(bytes);
+            };
+            let ready = this.#buffer !== null;
+            for (;;) {
+                let read: Awaited<ReturnType<typeof reader.read>>;
+                try {
+                    read = await reader.read();
+                } catch (error) {
+                    if (
+                        this.#closed ||
+                        (error instanceof DOMException && error.name === "AbortError")
+                    ) {
+                        throw error;
+                    }
+                    // The service breaks the body when a build fails, so a rejected read is
+                    // how a stopped encoder is told apart from a scene that simply ended.
+                    // The reason itself is in the service log; naming the stage is what the
+                    // player can say.
+                    throw new Error(
+                        this.#buffer === null
+                            ? "The preview stopped before it produced a picture. The service log has the reason."
+                            : "The preview stopped before this scene finished. The service log has the reason.",
+                    );
+                }
+                const { done, value } = read;
+                if (done) {
+                    break;
+                }
+                if (!ready) {
+                    init = concat(init, value ?? EMPTY);
+                    const codec = previewCodec(init);
+                    if (codec === null) {
+                        continue;
+                    }
+                    try {
+                        await this.#openBuffer(codec);
+                    } catch (error) {
+                        if (error instanceof UnsupportedCodec) {
+                            this.#fallback(segment.url);
+                            return;
+                        }
+                        throw error;
+                    }
+                    ready = true;
+                    // The offset must be set while the new SourceBuffer is still empty.
+                    // Chromium keeps the append state at PARSING_MEDIA_SEGMENT after an
+                    // append that ends mid-segment, and the setter throws in that state even
+                    // though `updating` is false; appending the init bytes first is what made
+                    // opening a stream fail.
+                    await this.#setOffset(segment.offset);
+                    if (init.length > 0) {
+                        const bytes = init;
+                        init = EMPTY;
+                        await this.#append(bytes);
+                    }
+                    this.#reportBuffered();
+                } else if (value !== undefined) {
+                    batch.push(value);
+                    batchBytes += value.length;
+                }
+                if (batchBytes >= APPEND_BATCH_BYTES) {
+                    await flush();
+                }
+                await this.#appetite();
             }
-            if (!announced && this.#buffer !== null) {
-                announced = true;
-                this.#events.onPlayable?.();
+            if (ready) {
+                await flush();
             }
-            await this.#appetite();
-        }
-        if (pending.length > 0 && this.#buffer !== null) {
-            await this.#append(pending);
-        }
-        if (!ready) {
-            throw new Error("The preview stream ended before its index was readable.");
+            if (!ready) {
+                throw new Error("The preview stream ended before its index was readable.");
+            }
+        } finally {
+            if (this.#loading === segment.url) {
+                this.#loading = null;
+            }
         }
     }
 

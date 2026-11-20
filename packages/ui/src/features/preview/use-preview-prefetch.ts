@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 
-import { drainPreview } from "./preview-fetch";
 import { mayPrepareScene } from "./preview-buffer";
-import type { PreviewStream } from "./preview-stream";
+import {
+    PAUSED_MSE_MAX_SECONDS,
+    type PreviewBufferPlan,
+    type WindowObservation,
+} from "./preview-buffer-plan";
+import { drainPreview } from "./preview-fetch";
+import { previewRefusal, type PreviewStream } from "./preview-stream";
 
 type Coverage = { from: number | null; to: number | null };
 
@@ -29,6 +34,10 @@ type PreviewPrefetchOptions = {
     coverage: RefObject<Coverage>;
     videoRef: RefObject<HTMLVideoElement | null>;
     streamRef: RefObject<PreviewStream | null>;
+    /** The live buffer policy: how much lead to keep and how deep to build ahead. */
+    plan: RefObject<PreviewBufferPlan>;
+    /** Fold one completed window's build time and size into the policy. */
+    noteWindow: (observation: WindowObservation) => void;
 };
 
 /**
@@ -62,13 +71,17 @@ export function usePreviewPrefetch({
     coverage,
     videoRef,
     streamRef,
+    plan,
+    noteWindow,
 }: PreviewPrefetchOptions) {
-    /** The frame start of the window already being built ahead of playback. */
-    const prefetchedWindow = useRef<number | null>(null);
+    /** The frame start of the last window handed to the element's stream. */
+    const appendedThrough = useRef<number | null>(null);
+    /** Every window start whose build this element has requested. */
+    const requestedWindows = useRef<Set<number>>(new Set());
+    /** Builds ahead of the append horizon, aborted when the element is replaced. */
+    const windowWarms = useRef<Map<number, AbortController>>(new Map());
     /** The next encoded scene whose build is being warmed ahead of the cut. */
     const warmedScene = useRef<number | null>(null);
-    /** Cancels a decoded prefetch when the source or the window changes. */
-    const prefetchAbort = useRef<AbortController | null>(null);
     /** Cancels an encoded warm-up when the player unmounts. */
     const warmAbort = useRef<AbortController | null>(null);
 
@@ -85,60 +98,191 @@ export function usePreviewPrefetch({
         warmedScene.current = null;
     }, [url, chunkScene, coverage]);
 
-    // A prefetch belongs to the window that requested it. The next element starts clean.
+    // A prefetch belongs to the element that requested it. A new element starts clean and
+    // an in-flight build that nobody will append must not keep an encoder busy.
     useEffect(() => {
-        prefetchedWindow.current = null;
-    }, [url]);
+        appendedThrough.current = streamStart;
+        requestedWindows.current.clear();
+        const warms = windowWarms.current;
+        for (const controller of warms.values()) {
+            controller.abort();
+        }
+        warms.clear();
+        return () => {
+            for (const controller of warms.values()) {
+                controller.abort();
+            }
+            warms.clear();
+        };
+    }, [url, streamStart]);
 
     /**
-     * Build the next window while this one is still playing.
+     * Keep the next pictures building ahead of the playhead.
      *
-     * The request is kept open on purpose: the service stops a build when its last viewer
-     * leaves, so this viewer is what turns the window boundary into a seek inside cached
-     * bytes instead of a wait for a new encode.
+     * The plan supplies two numbers from the session's own measurements: how many seconds
+     * of lead the `SourceBuffer` can afford at this source's lossless rate, and how many
+     * windows beyond the append horizon are worth building on disk. Windows are appended
+     * until the planned lead is reached, and the warm requests are kept open on purpose:
+     * the service stops a build when its last viewer leaves, so draining one is what makes
+     * the later append a cache read. A warm also reports its wall time and byte count,
+     * which is how a slower machine deepens the runway instead of outrunning a constant.
      */
     const prefetchNextWindow = () => {
         if (source !== "decoded" || frameRate === null || frameRate <= 0 || url === null) {
             return;
         }
         const element = videoRef.current;
-        if (element === null || windowFrames <= 0) {
+        const stream = streamRef.current;
+        if (element === null || stream === null || windowFrames <= 0) {
             return;
         }
-        // The boundary is derived from the playhead, not from the element's duration: a
-        // MediaSource session has none, and after a second window is appended the element's
-        // clock runs past the window that is still being asked for. Half a window of lead
-        // time is enough for the next one to be ready before playback reaches it.
-        const position = streamStart + element.currentTime * frameRate;
-        const next = (Math.floor(position / windowFrames) + 1) * windowFrames;
-        if (next >= totalFrames || prefetchedWindow.current === next) {
+        // A direct fallback plays one URL at a time and has no timeline to append to; a
+        // warm would build windows that nothing can consume.
+        if (!stream.supportsAppend) {
             return;
         }
-        // Ask for the next window as soon as playback is inside this one. Its build is
-        // shorter than the window it replaces, so the append lands well before the seam
-        // instead of arriving just as the picture runs out.
-        if (next - position > windowFrames) {
-            return;
-        }
-        prefetchedWindow.current = next;
         const base = url.split("?")[0];
         if (base === undefined) {
             return;
         }
-        const target = `${base}?source=decoded&frame=${String(next)}&frames=${String(windowFrames)}${scenesQuery}`;
-        // In a MediaSource session the next window is appended to the timeline that is
-        // already playing, so reaching its first frame is a buffer read, not a new file.
-        const stream = streamRef.current;
-        if (stream !== null && stream.supportsAppend && frameRate > 0) {
-            stream.append(target, (next - streamStart) / frameRate);
+        const windowSeconds = windowFrames / frameRate;
+        const target = (start: number) =>
+            `${base}?source=decoded&frame=${String(start)}&frames=${String(windowFrames)}${scenesQuery}`;
+        const ranges = element.buffered;
+        const bufferedEnd = ranges.length === 0 ? 0 : ranges.end(ranges.length - 1);
+        const reached = appendedThrough.current ?? streamStart;
+        const next = reached + windowFrames;
+        // The end of the last appended window on the element's clock, so a burst of updates
+        // before its bytes arrive cannot queue window after window against the same lead.
+        const appendedEnd = (reached + windowFrames - streamStart) / frameRate;
+        const queued = appendedEnd - bufferedEnd;
+        const current = plan.current;
+        // A paused element never consumes its lead, so waiting for the playhead to release
+        // an append would leave the pipeline at one window. Paused means fill the plan now:
+        // the picture starts already buffered, and a pause for inspection does not starve
+        // the resume. In motion, only one window may sit beyond the buffer at a time.
+        const paused = element.paused;
+        // Playback owns the decoder. A script source keeps one graph, so a warm that is
+        // still building when the next append arrives makes the playhead wait for it; the
+        // paused runway is the cache to consume instead. Abort every parked warm (and any
+        // build behind it) the moment the element starts moving.
+        if (!paused && windowWarms.current.size > 0) {
+            for (const controller of windowWarms.current.values()) {
+                controller.abort();
+            }
+            windowWarms.current.clear();
+            requestedWindows.current.clear();
+        }
+        const filling = paused || element.readyState < 3;
+        // Leave one window of the paused budget unused: it is the headroom the next append
+        // needs. Filling to the absolute budget makes that append hit the SourceBuffer quota
+        // and parks it until playback has freed a window, which is exactly the seam wait.
+        const pausedFill = Math.min(
+            PAUSED_MSE_MAX_SECONDS,
+            Math.max(windowSeconds, current.pausedLeadSeconds - windowSeconds),
+        );
+        const appendHorizon = Math.max(current.leadSeconds, pausedFill);
+        // Paused, the appended horizon is the only clock. In motion, the buffered lead is
+        // the clock and at most one window may wait beyond it, so the next request is
+        // already in the stream before the playhead reaches the previous buffer's end.
+        const withinLead = filling
+            ? appendedEnd - element.currentTime < (paused ? pausedFill : appendHorizon)
+            : bufferedEnd - element.currentTime < appendHorizon;
+        const queueAllowed = filling || queued < windowSeconds;
+        const appended = next < totalFrames && withinLead && queueAllowed;
+        if (appended) {
+            appendedThrough.current = next;
+            // The append only becomes visible to `loadingUrl` after its SourceBuffer offset is
+            // written. Run the prefetch again as soon as the request exists: that is the first
+            // moment a warm can queue behind it, and waiting for a later buffer event would
+            // leave the second decode graph idle through the append's whole build.
+            void Promise.resolve(
+                stream.append(target(next), (next - streamStart) / frameRate),
+            ).then(() => prefetchRef.current());
+        }
+        // A warm must never reach the service before a window the element is waiting for.
+        // `appendedThrough` records queued windows, not fetched ones: the stream loads them
+        // one at a time, so a warm for a later window can arrive while the append the
+        // element needs is still waiting behind the current download. It is safe once the
+        // stream is loading the last appended window: its request already exists, so the
+        // warm only queues behind it (and the service orders a burst by start anyway).
+        // Waiting for the whole horizon to land, as this used to, left the serialized
+        // builder idle for the length of every download. It is also safe when the horizon
+        // itself is already in the buffer, even between segments.
+        const horizon = appended ? appendedEnd + windowSeconds : appendedEnd;
+        const loading = stream.loadingUrl ?? null;
+        const loadingFrame =
+            loading === null ? null : Number(new URL(loading).searchParams.get("frame"));
+        const lastAppendInFlight =
+            loadingFrame !== null && Number.isFinite(loadingFrame) && loadingFrame >= reached;
+        if (!lastAppendInFlight && horizon - bufferedEnd > 0.25) {
             return;
         }
-        const controller = new AbortController();
-        prefetchAbort.current = controller;
-        void fetch(target, { signal: controller.signal })
-            .then(drainPreview)
-            .catch(() => undefined);
+        // Build beyond the append horizon. These requests are deliberately not attached to
+        // the timeline: the service writes and caches each file, and the append that reaches
+        // one later reads it instead of waiting for a new encode. Only a paused element
+        // warms: playback must leave the single decode graph free for the next append, and
+        // the deep paused runway is what it consumes. Scanning the whole runway is what lets
+        // a completed warm find the next unrequested window instead of stopping on the one
+        // it just finished.
+        const streamed = appendedThrough.current ?? streamStart;
+        const runway = paused ? current.pausedPrebuildWindows : 0;
+        for (let index = 1; index <= runway; index += 1) {
+            const start = streamed + index * windowFrames;
+            if (start >= totalFrames || requestedWindows.current.has(start)) {
+                continue;
+            }
+            requestedWindows.current.add(start);
+            const controller = new AbortController();
+            windowWarms.current.set(start, controller);
+            const startedAt = performance.now();
+            void fetch(target(start), { signal: controller.signal })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        throw new Error(await previewRefusal(response));
+                    }
+                    const bytes = await drainPreview(response);
+                    noteWindow({
+                        buildSeconds: (performance.now() - startedAt) / 1000,
+                        bytes,
+                        windowSeconds,
+                    });
+                })
+                .catch(() => {
+                    // A build that failed is retried by a later call; a warm that was
+                    // aborted because its element closed belongs to the old session.
+                    if (windowWarms.current.get(start) === controller) {
+                        requestedWindows.current.delete(start);
+                    }
+                })
+                .finally(() => {
+                    if (windowWarms.current.get(start) === controller) {
+                        windowWarms.current.delete(start);
+                    }
+                    // A finished paused warm starts the next one so the deep runway fills
+                    // without a buffer event. An aborted warm belongs to playback now and
+                    // must not issue a successor into the append's way.
+                    if (!controller.signal.aborted) {
+                        prefetchRef.current();
+                    }
+                });
+        }
     };
+
+    const prefetchRef = useRef(prefetchNextWindow);
+    prefetchRef.current = prefetchNextWindow;
+
+    // Start the pipeline with the window that is opening, not with the first `timeupdate`.
+    // The opener's build can consume the whole two seconds it plays, and waiting for the
+    // playhead to move leaves its neighbour no time to arrive before the seam. It also
+    // runs whenever the retained range grows: that is what fills the planned lead while
+    // paused, where no `timeupdate` will ask for the next window.
+    useEffect(() => {
+        if (source !== "decoded" || url === null) {
+            return;
+        }
+        prefetchRef.current();
+    }, [source, url, bufferedEnd, ready, currentTime]);
 
     /**
      * Start building the chunk after the one this element holds, so the cut is a buffer
@@ -327,16 +471,6 @@ export function usePreviewPrefetch({
             warmAbort.current = null;
         };
     }, []);
-
-    // A decoded prefetch belongs to its window. Cancelling one when the element simply
-    // advances to the window it was preparing would stop that build and start it again when
-    // the element asks for it.
-    useEffect(() => {
-        return () => {
-            prefetchAbort.current?.abort();
-            prefetchAbort.current = null;
-        };
-    }, [source]);
 
     return { prefetchNextWindow, resetWarm };
 }

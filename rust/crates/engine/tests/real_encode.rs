@@ -5,6 +5,7 @@
 //! generates its own input through `av1ation-test-support`.
 
 use std::{
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -71,8 +72,14 @@ fn default_config(
 
 /// Decode every video frame of a proxy, so a stream that merely exists but carries no
 /// sequence header cannot pass as a playable preview.
-fn assert_decodable(path: &std::path::Path) {
-    let output = std::process::Command::new(ffmpeg())
+fn assert_decodable(path: &Path) {
+    assert_decodable_with(Path::new(ffmpeg()), path);
+}
+
+/// The same check with an explicit decoder, so a test of the bundled toolchain does not
+/// accidentally prove that only the system FFmpeg can read the result.
+fn assert_decodable_with(ffmpeg: &Path, path: &Path) {
+    let output = std::process::Command::new(ffmpeg)
         .args(["-hide_banner", "-loglevel", "error", "-i"])
         .arg(path)
         .args(["-map", "0:v:0", "-f", "null", "-"])
@@ -80,54 +87,111 @@ fn assert_decodable(path: &std::path::Path) {
         .expect("ffmpeg runs");
     assert!(
         output.status.success(),
-        "{} could not be decoded: {}",
+        "{} could not be decoded by {}: {}",
         path.display(),
+        ffmpeg.display(),
         String::from_utf8_lossy(&output.stderr)
     );
 }
 
-/// A preview proxy must be visually lossless against the source, not sample-exact: the
-/// player's SourceBuffer cannot hold a bit-exact H.264 window. SSIM above 0.99 is the
-/// assertion for "a different last bit, the same picture".
-fn assert_visually_lossless(proxy: &std::path::Path, source: &std::path::Path) {
+/// A tool from the release bundle beside the workspace, or `None` in a source checkout
+/// that has not staged the toolchain.
+fn bundled_tool(name: &str) -> Option<PathBuf> {
+    let name = if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    };
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../dist/tools/bin")
+        .join(name);
+    path.is_file().then_some(path)
+}
+
+/// An MP4 is playable only if its stream can be decoded and its fragments are present.
+fn assert_ten_bit_h264(path: &Path) {
     let output = std::process::Command::new(ffmpeg())
         .args(["-hide_banner", "-i"])
-        .arg(proxy)
-        .arg("-i")
-        .arg(source)
-        .args(["-lavfi", "[0:v][1:v]ssim", "-f", "null", "-"])
+        .arg(path)
         .output()
         .expect("ffmpeg runs");
+    // `ffmpeg -i` prints the stream and exits non-zero when no output was requested.
+    let detail = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "{} could not be compared: {}",
-        proxy.display(),
-        String::from_utf8_lossy(&output.stderr)
+        detail.contains("Video: h264") && detail.contains("yuv420p10le"),
+        "{} is not 10-bit H.264: {detail}",
+        path.display()
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let score = stderr
-        .split("All:")
-        .nth(1)
-        .and_then(|rest| rest.split_whitespace().next())
-        .and_then(|value| value.parse::<f64>().ok())
-        .unwrap_or_else(|| panic!("ssim did not report a score: {stderr}"));
+    let bytes = std::fs::read(path).expect("the preview is readable");
     assert!(
-        score >= 0.99,
-        "{} scores {score} against {}",
+        bytes.windows(4).any(|window| window == b"moof"),
+        "{} is not fragmented MP4",
+        path.display()
+    );
+}
+
+/// The Decoded source is the comparison reference, so its frames must be sample-exact.
+/// Hashing the decoded video frames catches a quantizer that merely looks close, which is
+/// exactly what CRF 16 was.
+fn assert_lossless(proxy: &std::path::Path, source: &std::path::Path) {
+    let hashes = |path: &std::path::Path| {
+        let output = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-loglevel", "error", "-i"])
+            .arg(path)
+            .args(["-map", "0:v:0", "-an", "-f", "framemd5", "-"])
+            .output()
+            .expect("ffmpeg runs");
+        assert!(
+            output.status.success(),
+            "{} could not be hashed: {}",
+            path.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| !line.starts_with('#') && line.split(',').next() == Some("0"))
+            .map(|line| {
+                line.rsplit(',')
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_owned()
+            })
+            .collect::<Vec<_>>()
+    };
+    let proxy_hashes = hashes(proxy);
+    let source_hashes = hashes(source);
+    assert_eq!(
+        proxy_hashes.len(),
+        source_hashes.len(),
+        "{} and {} decoded a different number of frames",
         proxy.display(),
         source.display()
     );
+    if let Some((index, (proxy_hash, source_hash))) = proxy_hashes
+        .iter()
+        .zip(&source_hashes)
+        .enumerate()
+        .find(|(_, (proxy_hash, source_hash))| proxy_hash != source_hash)
+    {
+        panic!(
+            "{} is not sample-exact against {}: frame {index} hashed {proxy_hash}, source hashed {source_hash}",
+            proxy.display(),
+            source.display()
+        );
+    }
 }
 
 /// Both preview sources must leave a real, decodable stream behind. The Decoded stream is
-/// visually lossless H.264 in fragmented MP4; the Encoded stream is the run's own bitstream
-/// in fragmented MP4. The test is ignored with the real encodes because it needs FFmpeg and
-/// an encoder, and it generates the same tiny clip every other case uses.
+/// sample-exact H.264 in fragmented MP4; the Encoded stream is the run's own bitstream in
+/// fragmented MP4. The test is ignored with the real encodes because it needs FFmpeg and an
+/// encoder. Its fixture is 10-bit because that is the depth the engine's native input
+/// produces, so the sample comparison tests the encoder rather than a depth conversion.
 #[test]
 #[ignore = "needs FFmpeg and an AV1 encoder; run with --ignored"]
 fn both_preview_sources_write_a_playable_stream() {
     let scratch = Scratch::new("av1ation-real-preview");
-    let source = Clip::testsrc(scratch.path(), 320, 240, 24, 2);
+    let source = Clip::testsrc_ten_bit(scratch.path(), 320, 240, 24, 2);
     let source_path = source.path().to_str().expect("fixture path");
     let input = native_input(source_path);
     let temp = scratch.join("temp");
@@ -149,7 +213,7 @@ fn both_preview_sources_write_a_playable_stream() {
         "the decoded preview is not empty"
     );
     assert_decodable(&decoded);
-    assert_visually_lossless(&decoded, source.path());
+    assert_lossless(&decoded, source.path());
 
     let encoder = serde_json::to_value(Encoder::default_from_base(&EncoderBase::SVTAV1, false))
         .expect("encoder json");
@@ -178,6 +242,62 @@ fn both_preview_sources_write_a_playable_stream() {
         "the encoded preview is not empty"
     );
     assert_decodable(&encoded);
+}
+
+/// The release toolchain has no libx264, so the Decoded source must survive standalone
+/// x264's elementary-stream path and FFmpeg's copy mux. Inspect the bundled FFmpeg's
+/// encoder list first, so a system build with libx264 cannot make this test pass without
+/// exercising the standalone path.
+#[test]
+#[ignore = "needs the bundled FFmpeg and x264 toolchain; run with --ignored"]
+fn the_bundled_x264_decoded_preview_is_sample_exact_and_plays() {
+    let Some(ffmpeg) = bundled_tool("ffmpeg") else {
+        println!("skipped: the bundled FFmpeg is not staged");
+        return;
+    };
+    let Some(x264) = bundled_tool("x264") else {
+        println!("skipped: the bundled x264 is not staged");
+        return;
+    };
+    let encoders = std::process::Command::new(&ffmpeg)
+        .args(["-hide_banner", "-encoders"])
+        .output()
+        .expect("the bundled FFmpeg runs");
+    assert!(
+        !String::from_utf8_lossy(&encoders.stdout).contains("libx264"),
+        "the bundled FFmpeg unexpectedly has libx264; this would not exercise standalone x264"
+    );
+    assert!(
+        x264.is_file(),
+        "the bundled x264 is missing at {}",
+        x264.display()
+    );
+
+    let scratch = Scratch::new("av1ation-real-bundled-x264");
+    let source = Clip::testsrc_ten_bit(scratch.path(), 320, 240, 24, 2);
+    let source_path = source.path().to_str().expect("fixture path");
+    let input = native_input(source_path);
+    let temp = scratch.join("temp");
+    std::fs::create_dir_all(&temp).expect("preview temp");
+    let decoded = scratch.join("decoded-bundled-x264.mp4");
+    let context = preview::PreviewContext {
+        video_path: source_path,
+        temp_dir: temp.to_str().expect("temp path"),
+        condor: None,
+        sequence_config: &serde_json::Value::Null,
+        ffmpeg: ffmpeg.to_str().expect("utf-8 ffmpeg path"),
+        output: &decoded,
+    };
+    preview::write_decoded_proxy(&input, &context, &AtomicBool::new(false))
+        .expect("the bundled x264 decoded preview is muxed");
+
+    assert!(
+        std::fs::metadata(&decoded).is_ok_and(|metadata| metadata.len() > 0),
+        "the decoded preview is empty"
+    );
+    assert_decodable_with(&ffmpeg, &decoded);
+    assert_ten_bit_h264(&decoded);
+    assert_lossless(&decoded, source.path());
 }
 
 /// The engine ships each encoder's mandatory flags (`--demuxer=y4m` for x264, for

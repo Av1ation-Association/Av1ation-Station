@@ -3,16 +3,20 @@
  *
  * A prefetch that hangs up after the first chunk would let the service stop the build when
  * its last viewer leaves, which defeats the point of preparing the next window or scene.
+ * The byte count is what lets the player learn the source's lossless rate from a response
+ * that has no `Content-Length`; callers that only need the side effect ignore it.
  */
-export async function drainPreview(response: Response): Promise<void> {
+export async function drainPreview(response: Response): Promise<number> {
     if (!response.ok || response.body === null) {
-        return;
+        return 0;
     }
     const reader = response.body.getReader();
+    let bytes = 0;
     for (;;) {
-        const { done } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) {
-            return;
+            return bytes;
         }
+        bytes += value?.length ?? 0;
     }
 }

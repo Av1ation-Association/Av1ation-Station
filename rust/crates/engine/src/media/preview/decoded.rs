@@ -2,6 +2,95 @@
 
 use super::*;
 
+/// An opened decode graph, kept for the windows one preview plays.
+///
+/// Opening the Parallel Encoder's input is the expensive part of a preview: it materialises
+/// a script, imports the generated module, and builds an FFMS2 or VapourSynth graph. A
+/// window used to pay that cost again at every two-second seam, which put graph construction
+/// on the playback path. A session opens once and writes each requested range through the
+/// same graph, so consecutive windows share the decoder the player is already watching.
+pub struct DecodedSession {
+    opened: CoreInput,
+    total_frames: usize,
+}
+
+/// The input-side values a [`DecodedSession`] needs; each window supplies its own output.
+pub struct DecodeContext<'a> {
+    /// The source file this video was queued with.
+    pub video_path: &'a str,
+    /// The video's scratch directory, where the generated script module is written.
+    pub temp_dir: &'a str,
+    /// The persisted engine checkpoint, for script scene data.
+    pub condor: Option<&'a Value>,
+    /// The video's effective sequence document, for `condor_sequence_config`.
+    pub sequence_config: &'a Value,
+}
+
+impl DecodedSession {
+    /// Open the input once for a player that will ask for several windows.
+    pub fn open(input: &Value, context: &DecodeContext<'_>) -> Result<Self, String> {
+        let mut opened = open_input(
+            input,
+            context.video_path,
+            context.temp_dir,
+            context.condor,
+            context.sequence_config,
+            "Preview",
+        )?;
+        let total_frames = opened
+            .clip_info()
+            .map_err(|error| error.to_string())?
+            .num_frames;
+        Ok(Self {
+            opened,
+            total_frames,
+        })
+    }
+
+    /// The input's own frame count, as the opened graph reports it.
+    pub fn total_frames(&self) -> usize {
+        self.total_frames
+    }
+
+    /// Write `[start, end)` through this session's graph.
+    ///
+    /// `end` is clamped to the graph's frame count, which also makes `usize::MAX` mean the
+    /// rest of the video. The decoded stream is H.264 in fragmented MP4, so the element can
+    /// start on the first fragment instead of waiting for the whole window.
+    pub fn write_window(
+        &mut self,
+        ffmpeg: &str,
+        output: &Path,
+        start: usize,
+        end: usize,
+        cancel: &AtomicBool,
+    ) -> Result<(), String> {
+        let end = end.min(self.total_frames);
+        if start >= end {
+            return Err(
+                "The requested preview window starts past the end of the video.".to_owned(),
+            );
+        }
+        write_decoded_frames(
+            &mut self.opened,
+            DecodedOutput { ffmpeg, output },
+            start,
+            end,
+            cancel,
+        )
+    }
+}
+
+/// The encoder executable and output path one window is written through.
+///
+/// Every frame loop inside a window writes to the same pair, and grouping them keeps each
+/// writer's arguments about the frames rather than about two constant paths.
+#[derive(Clone, Copy)]
+struct DecodedOutput<'a> {
+    ffmpeg: &'a str,
+    output: &'a Path,
+}
+
 /// Write a decoded proxy: the input's frames in a browser codec.
 ///
 /// The proxy carries no audio. A browser attaches it through MediaSource, which refuses a
@@ -13,52 +102,15 @@ pub fn write_decoded_proxy(
     context: &PreviewContext<'_>,
     cancel: &AtomicBool,
 ) -> Result<(), String> {
-    let mut opened = open_input(
-        input,
-        context.video_path,
-        context.temp_dir,
-        context.condor,
-        context.sequence_config,
-        "Preview",
-    )?;
-    let frames = opened
-        .clip_info()
-        .map_err(|error| error.to_string())?
-        .num_frames;
-    write_decoded_frames(&mut opened, context, 0, frames, cancel)
-}
-
-/// Write only `[start, end)` of the decoded input.
-///
-/// The player normally asks for the rest of the video, so one graph is opened once and the
-/// stream never has a boundary to stop at. `end` is clamped to the input's own frame count,
-/// which also lets a caller request a bounded window (`end == usize::MAX` is "to the end").
-/// The decoded stream is H.264 in fragmented MP4, so the element can start on the first
-/// fragment instead of waiting for the whole file.
-pub fn write_decoded_window(
-    input: &Value,
-    context: &PreviewContext<'_>,
-    start: usize,
-    end: usize,
-    cancel: &AtomicBool,
-) -> Result<(), String> {
-    let mut opened = open_input(
-        input,
-        context.video_path,
-        context.temp_dir,
-        context.condor,
-        context.sequence_config,
-        "Preview",
-    )?;
-    let total = opened
-        .clip_info()
-        .map_err(|error| error.to_string())?
-        .num_frames;
-    let end = end.min(total);
-    if start >= end {
-        return Err("The requested preview window starts past the end of the video.".to_owned());
-    }
-    write_decoded_frames(&mut opened, context, start, end, cancel)
+    let decode = DecodeContext {
+        video_path: context.video_path,
+        temp_dir: context.temp_dir,
+        condor: context.condor,
+        sequence_config: context.sequence_config,
+    };
+    let mut session = DecodedSession::open(input, &decode)?;
+    let frames = session.total_frames();
+    session.write_window(context.ffmpeg, context.output, 0, frames, cancel)
 }
 
 /// The one PNG a scrub shows; it costs a frame decode, not a video encode.
@@ -161,7 +213,7 @@ pub fn write_frame_png(
 /// The frame loop shared by the whole-video and window decoders.
 fn write_decoded_frames(
     opened: &mut CoreInput,
-    context: &PreviewContext<'_>,
+    target: DecodedOutput<'_>,
     start: usize,
     end: usize,
     cancel: &AtomicBool,
@@ -174,40 +226,38 @@ fn write_decoded_frames(
     let header = opened
         .y4m_header(Some(count))
         .map_err(|error| error.to_string())?;
-    let encoder = decoded_encoder(context.ffmpeg, bit_depth_of(&info), info.resolution)?;
+    let bit_depth = bit_depth_of(&info);
+    let encoder = decoded_encoder(target.ffmpeg, bit_depth)?;
     match encoder {
-        DecodedEncoder::FfmpegH264(encoder) => {
-            write_decoded_ffmpeg(opened, context, header, start, end, cancel, Some(encoder))
+        DecodedEncoder::FfmpegH264 => {
+            write_decoded_ffmpeg(opened, target, header, start, end, cancel, add_h264_video)
         }
         DecodedEncoder::FfmpegVp9 => {
-            write_decoded_ffmpeg(opened, context, header, start, end, cancel, None)
+            write_decoded_ffmpeg(opened, target, header, start, end, cancel, add_vp9_video)
         }
         DecodedEncoder::StandaloneX264(x264) => {
-            write_decoded_x264(opened, context, header, start, end, cancel, &x264)
+            write_decoded_x264(opened, target, header, start..end, cancel, &x264, bit_depth)
         }
         DecodedEncoder::StandaloneVpx(vpx) => {
-            write_decoded_vpx(opened, context, header, start, end, cancel, &vpx)
+            write_decoded_vpx(opened, target, header, start, end, cancel, &vpx)
         }
     }
 }
 
 fn write_decoded_ffmpeg(
     opened: &mut CoreInput,
-    context: &PreviewContext<'_>,
+    target: DecodedOutput<'_>,
     header: String,
     start: usize,
     end: usize,
     cancel: &AtomicBool,
-    encoder: Option<ProxyH264>,
+    add_video: fn(&mut Command),
 ) -> Result<(), String> {
-    let mut command = ffmpeg_command(context.ffmpeg);
+    let mut command = ffmpeg_command(target.ffmpeg);
     command.arg("-f").arg("yuv4mpegpipe").arg("-i").arg("-");
     command.arg("-map").arg("0:v:0");
-    match encoder {
-        Some(encoder) => add_proxy_video(&mut command, encoder),
-        None => add_vp9_video(&mut command),
-    }
-    command.arg(context.output);
+    add_video(&mut command);
+    command.arg(target.output);
 
     let mut child = command
         .stdin(Stdio::piped())
@@ -256,19 +306,21 @@ fn write_decoded_ffmpeg(
 /// bundled toolchain, and H.264 remains the most widely accepted preview codec.
 fn write_decoded_x264(
     opened: &mut CoreInput,
-    context: &PreviewContext<'_>,
+    target: DecodedOutput<'_>,
     header: String,
-    start: usize,
-    end: usize,
+    range: std::ops::Range<usize>,
     cancel: &AtomicBool,
     x264: &Path,
+    bit_depth: usize,
 ) -> Result<(), String> {
-    let raw = raw_path(context.output, "264");
+    let raw = raw_path(target.output, "264");
     let _ = fs::remove_file(&raw);
     let mut command = Command::new(x264);
     hide_console(&mut command);
     command
-        .args(["--demuxer", "y4m", "--preset", "veryfast", "--crf", "16"])
+        .args(["--demuxer", "y4m", "--preset", "ultrafast", "--qp", "0"])
+        .arg("--output-depth")
+        .arg(bit_depth.to_string())
         .arg("--output")
         .arg(&raw)
         .arg("-")
@@ -290,7 +342,7 @@ fn write_decoded_x264(
             ffmpeg_error(child)
         ));
     }
-    for index in start..end {
+    for index in range {
         if cancel.load(Ordering::Relaxed) {
             drop(stdin);
             let _ = child.kill();
@@ -311,11 +363,11 @@ fn write_decoded_x264(
         }
     }
     drop(stdin);
-    let output = child
+    let finished = child
         .wait_with_output()
         .map_err(|error| format!("The decoded preview task failed: {error}"))?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr);
+    if !finished.status.success() {
+        let detail = String::from_utf8_lossy(&finished.stderr);
         let detail = detail
             .lines()
             .find(|line| !line.trim().is_empty())
@@ -326,19 +378,20 @@ fn write_decoded_x264(
         ));
     }
 
-    let result = mux_elementary(context, &raw, "x264");
+    let result = mux_elementary(target, &raw, "x264");
     let _ = fs::remove_file(&raw);
     result
 }
 
 /// Encode with the bundled standalone vpxenc when neither H.264 path exists.
 ///
+/// The bundled vpxenc is an 8-bit build, so this path is selected only for an 8-bit input.
 /// vpxenc writes IVF, which FFmpeg copies into the same fragmented MP4 without another
 /// encode. The player names the track `vp09`, so this remains a MediaSource append rather
 /// than a direct `<video>` fallback.
 fn write_decoded_vpx(
     opened: &mut CoreInput,
-    context: &PreviewContext<'_>,
+    target: DecodedOutput<'_>,
     header: String,
     start: usize,
     end: usize,
@@ -347,8 +400,10 @@ fn write_decoded_vpx(
 ) -> Result<(), String> {
     let count = end - start;
     let info = opened.clip_info().map_err(|error| error.to_string())?;
-    let bit_depth = bit_depth_of(&info);
-    let raw = raw_path(context.output, "ivf");
+    if bit_depth_of(&info) > 8 {
+        return Err("The VP9 preview fallback is 8-bit only.".to_owned());
+    }
+    let raw = raw_path(target.output, "ivf");
     let _ = fs::remove_file(&raw);
     let mut command = Command::new(vpx);
     hide_console(&mut command);
@@ -375,49 +430,10 @@ fn write_decoded_vpx(
     let mut child = command
         .spawn()
         .map_err(|error| format!("vpxenc could not start for the decoded preview: {error}"))?;
-    let vpx_stdin = child
+    let mut stdin = child
         .stdin
         .take()
         .ok_or_else(|| "vpxenc did not open a stdin for the decoded preview.".to_owned())?;
-    // The bundled vpxenc is an 8-bit build. A 10-bit source is converted through FFmpeg's
-    // Y4M pipe before VP9 sees it, so the fallback remains available instead of failing with
-    // the encoder's "input bit depth" error.
-    let (mut stdin, converter, copy) = if bit_depth > 8 {
-        let mut command = ffmpeg_command(context.ffmpeg);
-        command
-            .args([
-                "-f",
-                "yuv4mpegpipe",
-                "-i",
-                "-",
-                "-pix_fmt",
-                "yuv420p",
-                "-f",
-                "yuv4mpegpipe",
-                "-",
-            ])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null());
-        let mut converter = command
-            .spawn()
-            .map_err(|error| format!("FFmpeg could not convert the VP9 preview input: {error}"))?;
-        let stdin = converter
-            .stdin
-            .take()
-            .ok_or_else(|| "FFmpeg did not open a stdin for the VP9 input.".to_owned())?;
-        let mut stdout = converter
-            .stdout
-            .take()
-            .ok_or_else(|| "FFmpeg did not open a stdout for the VP9 input.".to_owned())?;
-        let mut vpx_stdin = vpx_stdin;
-        let copy = std::thread::spawn(move || {
-            let _ = std::io::copy(&mut stdout, &mut vpx_stdin);
-        });
-        (stdin, Some(converter), Some(copy))
-    } else {
-        (vpx_stdin, None, None)
-    };
     if let Err(error) = stdin.write_all(header.as_bytes()) {
         drop(stdin);
         let _ = fs::remove_file(&raw);
@@ -447,17 +463,11 @@ fn write_decoded_vpx(
         }
     }
     drop(stdin);
-    if let Some(converter) = converter {
-        let _ = converter.wait_with_output();
-    }
-    if let Some(copy) = copy {
-        let _ = copy.join();
-    }
-    let output = child
+    let finished = child
         .wait_with_output()
         .map_err(|error| format!("The decoded preview task failed: {error}"))?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr);
+    if !finished.status.success() {
+        let detail = String::from_utf8_lossy(&finished.stderr);
         let detail = detail
             .lines()
             .find(|line| !line.trim().is_empty())
@@ -467,13 +477,13 @@ fn write_decoded_vpx(
             "The decoded preview could not be encoded: {detail}"
         ));
     }
-    let result = mux_elementary(context, &raw, "vpxenc");
+    let result = mux_elementary(target, &raw, "vpxenc");
     let _ = fs::remove_file(&raw);
     result
 }
 
-fn mux_elementary(context: &PreviewContext<'_>, raw: &Path, producer: &str) -> Result<(), String> {
-    let mut mux = ffmpeg_command(context.ffmpeg);
+fn mux_elementary(target: DecodedOutput<'_>, raw: &Path, producer: &str) -> Result<(), String> {
+    let mut mux = ffmpeg_command(target.ffmpeg);
     mux.arg("-i")
         .arg(raw)
         .arg("-map")
@@ -484,7 +494,7 @@ fn mux_elementary(context: &PreviewContext<'_>, raw: &Path, producer: &str) -> R
         .arg("+frag_keyframe+empty_moov+default_base_moof")
         .arg("-f")
         .arg("mp4")
-        .arg(context.output)
+        .arg(target.output)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
