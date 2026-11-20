@@ -10,6 +10,7 @@ import {
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
 
+import { pinchRange } from "./chart-pinch";
 import {
     passColorToken,
     type AnalyticsChartData,
@@ -327,8 +328,9 @@ function optionFor(data: AnalyticsChartData, theme: "dark" | "light"): echarts.E
         },
         // Zooming is always in, not only for a long series: a chart with one crowded
         // cluster needs it more than a long one. The wheel zooms around the pointer;
-        // a trackpad pinch arrives as a wheel and takes the same path. A drag pans, and
-        // the slider is added when the axis has enough slots to make it legible.
+        // a trackpad pinch arrives as a wheel and takes the same path. A touch pinch is
+        // tracked on the host because WebView2 delivers its points separately. A drag pans,
+        // and the slider is added when the axis has enough slots to make it legible.
         dataZoom: [
             {
                 type: "inside",
@@ -400,8 +402,127 @@ export function AnalyticsChart({
             event.preventDefault();
         };
         host.addEventListener("wheel", onWheel, { passive: false });
+
+        // ECharts' inside zoom recognizes a pinch from a touch history in which both points
+        // arrive together. WebView2 delivers them as separate per-point events, so that
+        // recognizer never sees a pair and the chart cannot zoom. Track the points here and
+        // drive the same dataZoom action; the capture-phase listeners keep the built-in
+        // recognizer from consuming the gesture a second time.
+        const points = new Map<number, { x: number; y: number }>();
+        let gesture: { distance: number; center: number; range: [number, number] } | null = null;
+
+        const readRange = (): [number, number] => {
+            const dataZoom = chart.getOption().dataZoom;
+            const zoom = Array.isArray(dataZoom) ? dataZoom[0] : dataZoom;
+            const start = typeof zoom?.start === "number" ? zoom.start : 0;
+            const end = typeof zoom?.end === "number" ? zoom.end : 100;
+            if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+                return [start, end];
+            }
+            return [0, 100];
+        };
+        const percentAt = (clientX: number): number => {
+            const hostRect = host.getBoundingClientRect();
+            const local = clientX - hostRect.left;
+            const percent = hostRect.width > 0 ? (local / hostRect.width) * 100 : 50;
+            return Math.min(100, Math.max(0, percent));
+        };
+        const track = (event: TouchEvent) => {
+            for (const touch of Array.from(event.touches)) {
+                points.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+            }
+            for (const touch of Array.from(event.changedTouches)) {
+                points.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+            }
+        };
+        const pair = () => {
+            const values = Array.from(points.values());
+            const first = values[0];
+            const second = values[1];
+            return values.length === 2 && first !== undefined && second !== undefined
+                ? ([first, second] as const)
+                : null;
+        };
+        const begin = () => {
+            if (gesture !== null) {
+                return;
+            }
+            const current = pair();
+            if (current === null) {
+                return;
+            }
+            const [first, second] = current;
+            const distance = Math.hypot(first.x - second.x, first.y - second.y);
+            if (distance <= 0) {
+                return;
+            }
+            gesture = {
+                distance,
+                center: percentAt((first.x + second.x) / 2),
+                range: readRange(),
+            };
+        };
+        const onTouchStart = (event: TouchEvent) => {
+            track(event);
+            if (points.size !== 2) {
+                gesture = null;
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            begin();
+        };
+        const onTouchMove = (event: TouchEvent) => {
+            track(event);
+            if (points.size !== 2) {
+                gesture = null;
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            begin();
+            const current = pair();
+            const active = gesture;
+            if (active === null || current === null) {
+                return;
+            }
+            const [first, second] = current;
+            const distance = Math.hypot(first.x - second.x, first.y - second.y);
+            if (distance <= 0) {
+                return;
+            }
+            const [start, end] = pinchRange(
+                active.range,
+                active.center,
+                distance / active.distance,
+            );
+            chart.dispatchAction({ type: "dataZoom", dataZoomIndex: 0, start, end });
+        };
+        const onTouchEnd = (event: TouchEvent) => {
+            for (const touch of Array.from(event.changedTouches)) {
+                points.delete(touch.identifier);
+            }
+            if (event.touches.length === 0) {
+                points.clear();
+            }
+            if (points.size < 2) {
+                gesture = null;
+            }
+        };
+        const onTouchCancel = () => {
+            points.clear();
+            gesture = null;
+        };
+        host.addEventListener("touchstart", onTouchStart, { capture: true, passive: false });
+        host.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+        host.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+        host.addEventListener("touchcancel", onTouchCancel, { capture: true, passive: true });
         return () => {
             host.removeEventListener("wheel", onWheel);
+            host.removeEventListener("touchstart", onTouchStart, { capture: true });
+            host.removeEventListener("touchmove", onTouchMove, { capture: true });
+            host.removeEventListener("touchend", onTouchEnd, { capture: true });
+            host.removeEventListener("touchcancel", onTouchCancel, { capture: true });
             observer.disconnect();
             chart.dispose();
             instance.current = null;
@@ -412,8 +533,8 @@ export function AnalyticsChart({
         instance.current?.setOption(option, { notMerge: true });
     }, [option]);
 
-    // `pan-y` keeps the page scrolling under a touch drag while denying the browser its own
-    // pinch zoom, so a two-finger pinch reaches the chart's zoom controller.
+    // `pan-y` keeps the page scrolling under a single-finger touch drag while denying the
+    // browser its own pinch zoom; the host's touch tracker drives the chart's dataZoom.
     return (
         <div
             ref={element}
