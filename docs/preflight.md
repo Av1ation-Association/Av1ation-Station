@@ -149,9 +149,11 @@ build. Selecting a fork in a project writes its `executable` and starting `optio
 that project's engine `Encoder` document; the project keeps those values and never
 references the catalogue. A pathless fork writes `executable: null` and a disabled `Bool`
 marker: the marker keeps the selection identifiable across a reload and is never emitted
-by the engine because its value is false. A run with a null executable falls back to the
-base encoder's provider, so the Encoding section warns and links to Settings → Encoders
-until the fork is located.
+by the engine because its value is false. Run preparation reads that marker and uses the
+saved fork's current path when the build has been located since the project selected it; a
+deleted build or a path that no longer exists falls back to the base encoder's provider.
+The Encoding section warns, and links to Settings → Encoders, when the selected build is
+pathless, missing, or no longer saved.
 
 A built-in's descriptor edits are an `EncoderParameterOverride` under
 `AppSettings.encoder_overrides`, keyed by encoder id. It stores the complete descriptor map

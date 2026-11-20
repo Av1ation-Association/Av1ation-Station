@@ -1486,3 +1486,35 @@ async fn a_project_encoder_save_keeps_chunks_when_asked_and_leaves_an_overriding
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
+
+#[tokio::test]
+async fn the_chunk_impact_preview_rejects_an_invalid_document_and_an_unknown_project() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Impact preview").await;
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/config/impact"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"encoder": 4}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "INVALID_CONFIG");
+
+    let missing = uuid::Uuid::new_v4();
+    let (status, body) = send(
+        app,
+        Request::post(format!("/api/projects/{missing}/config/impact"))
+            .header("content-type", "application/json")
+            .body(Body::from("{}"))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    assert_eq!(body["code"], "NOT_FOUND");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}

@@ -2,6 +2,7 @@
 import { useState } from "react";
 
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { MockTransport } from "@av1ation/api";
@@ -103,6 +104,38 @@ function bodyOf(call: unknown): Record<string, unknown> {
     return encoder.X265 ?? encoder.SVTAV1 ?? {};
 }
 
+/** A saved x265 build with no executable yet, as a pathless selection writes it. */
+function pathlessFork(forkId: string, label: string) {
+    const descriptor: EncoderDescriptor = {
+        id: forkId,
+        base: "x265",
+        label,
+        default: { X265: { ...X265_VALUE.X265, options: {} } },
+        parameters: {},
+        source: "Known",
+        executable: null,
+        version: null,
+        available: true,
+        fork: true,
+        warning: null,
+        overridden: false,
+    };
+    return {
+        record: {
+            id: forkId,
+            label,
+            base: "x265",
+            executable: "",
+            version: null,
+            profile: null,
+            warning: null,
+            parameters: {},
+            parameters_edited: false,
+        },
+        descriptor,
+    };
+}
+
 it("switches encoder and seeds the new encoder's required fields", async () => {
     const onChange = mount();
     await screen.findByRole("heading", { name: "Parameters" });
@@ -130,43 +163,8 @@ it("switches encoder and seeds the new encoder's required fields", async () => {
 
 it("offers a pathless fork, warns, and keeps it selected without counting its marker", async () => {
     const forkId = "fork:pathless-x265";
-    const descriptor: EncoderDescriptor = {
-        id: forkId,
-        base: "x265",
-        label: "Pathless x265",
-        default: {
-            X265: {
-                executable: null,
-                options: {},
-                pass: { All: 1 },
-                append_color_data: true,
-                ffmpeg_filter: null,
-            },
-        },
-        parameters: {},
-        source: "Known",
-        executable: null,
-        version: null,
-        available: true,
-        fork: true,
-        warning: null,
-        overridden: false,
-    };
     const transport = new MockTransport();
-    transport.forks.push({
-        record: {
-            id: forkId,
-            label: "Pathless x265",
-            base: "x265",
-            executable: "",
-            version: null,
-            profile: null,
-            warning: null,
-            parameters: {},
-            parameters_edited: false,
-        },
-        descriptor,
-    });
+    transport.forks.push(pathlessFork(forkId, "Pathless x265"));
     const onChange = vi.fn();
     renderRoute(<Harness onChange={onChange} />, {
         transport,
@@ -198,6 +196,294 @@ it("offers a pathless fork, warns, and keeps it selected without counting its ma
     expect(next.X265.options[forkOptionName(forkId)]).toEqual({
         Bool: { prefix: "--", value: false },
     });
+});
+
+it("warns when the selected build is no longer saved", async () => {
+    const marker = forkOptionName("fork:removed-x265");
+    mount({
+        initial: {
+            X265: {
+                ...X265_VALUE.X265,
+                options: { [marker]: { Bool: { prefix: "--", value: false } } },
+            },
+        },
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    const warning = await screen.findByRole("alert");
+    expect(within(warning).getByText(/no longer saved/u)).toBeTruthy();
+    expect(within(warning).getByRole("link", { name: "Manage encoders" })).toBeTruthy();
+});
+
+it("does not call a selected build deleted before the catalogue answers", async () => {
+    const marker = forkOptionName("fork:removed-x265");
+    const queryClient = new QueryClient({
+        defaultOptions: { queries: { enabled: false, retry: false } },
+    });
+    renderRoute(
+        <Harness
+            initial={{
+                X265: {
+                    ...X265_VALUE.X265,
+                    options: { [marker]: { Bool: { prefix: "--", value: false } } },
+                },
+            }}
+            onChange={vi.fn()}
+        />,
+        {
+            transport: new MockTransport(),
+            queryClient,
+            route: "/settings",
+            initialEntry: "/settings",
+        },
+    );
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    // A pending catalogue has no evidence that the saved row was deleted.
+    expect(screen.queryByText(/no longer saved/u)).toBeNull();
+});
+
+it("keeps an ordinary option that shares the marker prefix", async () => {
+    const forkId = "fork:pathless-x265";
+    const transport = new MockTransport();
+    transport.forks.push(pathlessFork(forkId, "Pathless x265"));
+    renderRoute(
+        <Harness
+            initial={{
+                X265: {
+                    ...X265_VALUE.X265,
+                    options: {
+                        // An enabled flag with the reserved prefix is an ordinary option,
+                        // not a selection, and must not mask the real marker after it.
+                        __av1ation_fork_ordinary: { Bool: { prefix: "--", value: true } },
+                        [forkOptionName(forkId)]: { Bool: { prefix: "--", value: false } },
+                    },
+                },
+            }}
+            onChange={vi.fn()}
+        />,
+        {
+            transport,
+            route: "/settings",
+            initialEntry: "/settings",
+        },
+    );
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    await within(select).findByRole("option", { name: /Pathless x265/u });
+    expect(select.value).toBe(`fork:${forkId}`);
+    expect(screen.queryByText(/no longer saved/u)).toBeNull();
+    // The ordinary option stays in the parameter list and remains editable.
+    expect(screen.getByRole("button", { name: /Reset --__av1ation_fork_ordinary/u })).toBeTruthy();
+});
+
+it("clears a deleted build's marker when its base encoder is chosen again", async () => {
+    const marker = forkOptionName("fork:removed-x265");
+    const onChange = mount({
+        initial: {
+            X265: {
+                ...X265_VALUE.X265,
+                options: { [marker]: { Bool: { prefix: "--", value: false } } },
+            },
+        },
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    // The stale selection is its own option, so choosing the base encoder is a real
+    // change rather than the value the select already shows.
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    await within(select).findByRole("option", { name: /no longer saved/u });
+    expect(select.value.startsWith("stale:")).toBe(true);
+    expect(select.value).not.toBe("base:X265");
+    expect(await screen.findByRole("alert")).toBeTruthy();
+
+    fireEvent.change(select, { target: { value: "base:X265" } });
+
+    await waitFor(() => expect(select.value).toBe("base:X265"));
+    expect(bodyOf(onChange.mock.lastCall?.[0]).options).toEqual({});
+    expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("warns when a selected build's saved path is missing", async () => {
+    const forkId = "fork:moved-x265";
+    const path = "C:/gone/x265.exe";
+    const descriptor: EncoderDescriptor = {
+        id: forkId,
+        base: "x265",
+        label: "Moved x265",
+        default: { X265: { ...X265_VALUE.X265, executable: path } },
+        parameters: {},
+        source: "Known",
+        executable: path,
+        version: null,
+        available: false,
+        fork: true,
+        warning: null,
+        overridden: false,
+    };
+    const transport = new MockTransport();
+    transport.forks.push({
+        record: {
+            id: forkId,
+            label: "Moved x265",
+            base: "x265",
+            executable: path,
+            version: null,
+            profile: null,
+            warning: null,
+            parameters: {},
+            parameters_edited: false,
+        },
+        descriptor,
+    });
+    renderRoute(
+        <Harness initial={{ X265: { ...X265_VALUE.X265, executable: path } }} onChange={vi.fn()} />,
+        {
+            transport,
+            route: "/settings",
+            initialEntry: "/settings",
+        },
+    );
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    const warning = await screen.findByRole("alert");
+    expect(within(warning).getByText(/is not at its saved path/u)).toBeTruthy();
+});
+
+it("warns when a selected build's saved path has moved", async () => {
+    const forkId = "fork:relocated-x265";
+    const path = "C:/old/x265.exe";
+    const descriptor: EncoderDescriptor = {
+        id: forkId,
+        base: "x265",
+        label: "Relocated x265",
+        default: { X265: { ...X265_VALUE.X265, executable: path } },
+        parameters: {},
+        source: "Known",
+        executable: path,
+        version: null,
+        available: false,
+        fork: true,
+        warning: null,
+        overridden: false,
+    };
+    const transport = new MockTransport();
+    transport.forks.push({
+        record: {
+            id: forkId,
+            label: "Relocated x265",
+            base: "x265",
+            executable: path,
+            version: null,
+            warning: null,
+            parameters: {},
+            parameters_edited: false,
+        },
+        descriptor,
+    });
+    renderRoute(
+        <Harness
+            initial={{
+                X265: {
+                    ...X265_VALUE.X265,
+                    options: {
+                        [forkOptionName(forkId)]: { Bool: { prefix: "--", value: false } },
+                    },
+                },
+            }}
+            onChange={vi.fn()}
+        />,
+        {
+            transport,
+            route: "/settings",
+            initialEntry: "/settings",
+        },
+    );
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    // The project selected the build while it was pathless. The record now names a path the
+    // build has since left, so the marker keeps it selected and the warning names the path.
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    await within(select).findByRole("option", { name: /Relocated x265/u });
+    expect(select.value).toBe(`fork:${forkId}`);
+    const warning = await screen.findByRole("alert");
+    expect(within(warning).getByText(/is not at its saved path/u)).toBeTruthy();
+    expect(within(warning).getByRole("link", { name: "Manage encoders" })).toBeTruthy();
+});
+
+it("warns when a reset shipped build is still selected", async () => {
+    const forkId = "fork:svt-av1-essential";
+    const descriptor: EncoderDescriptor = {
+        id: forkId,
+        base: "svt-av1",
+        label: "SVT-AV1-Essential",
+        default: {
+            SVTAV1: {
+                executable: null,
+                options: {},
+                pass: { All: 1 },
+                append_color_data: true,
+                ffmpeg_filter: null,
+                photon_noise: null,
+            },
+        },
+        parameters: {},
+        source: "Known",
+        executable: null,
+        version: null,
+        available: true,
+        fork: true,
+        warning: null,
+        overridden: false,
+    };
+    const transport = new MockTransport();
+    transport.forks.push({
+        record: {
+            id: forkId,
+            label: "SVT-AV1-Essential",
+            base: "svt-av1",
+            executable: "",
+            version: null,
+            warning: null,
+            parameters: {},
+            parameters_edited: false,
+        },
+        descriptor,
+    });
+    renderRoute(
+        <Harness
+            initial={{
+                SVTAV1: {
+                    executable: null,
+                    options: {
+                        [forkOptionName(forkId)]: { Bool: { prefix: "--", value: false } },
+                    },
+                    pass: { All: 1 },
+                    append_color_data: true,
+                    ffmpeg_filter: null,
+                    photon_noise: null,
+                },
+            }}
+            onChange={vi.fn()}
+        />,
+        {
+            transport,
+            route: "/settings",
+            initialEntry: "/settings",
+        },
+    );
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    // A reset row resolves on PATH, so the catalogue reports the base provider's
+    // availability. The warning must still say the build itself is not located.
+    const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Encoder" });
+    await within(select).findByRole("option", { name: /SVT-AV1-Essential/u });
+    expect(select.value).toBe(`fork:${forkId}`);
+    expect(screen.getByText("Available")).toBeTruthy();
+    const warning = await screen.findByRole("alert");
+    expect(within(warning).getByText(/SVT-AV1-Essential has no executable yet/u)).toBeTruthy();
+    expect(within(warning).getByRole("link", { name: "Manage encoders" })).toBeTruthy();
 });
 
 it("writes passes as All(n) and toggles colour and filter fields", async () => {

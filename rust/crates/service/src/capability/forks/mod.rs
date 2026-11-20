@@ -37,6 +37,42 @@ use serde_json::Value;
 const HELP_TIMEOUT: Duration = Duration::from_secs(8);
 const HELP_LIMIT: usize = 20_000;
 
+/// The option key prefix a project encoder document uses to remember a build selection.
+///
+/// The engine document has no field for a fork, so the selection is a disabled `Bool`
+/// option: it survives a reload, identifies the saved record, and never reaches argv. This
+/// is the one codec for that marker on the service side; run preparation must not spell it
+/// independently.
+const MARKER_PREFIX: &str = "__av1ation_fork_";
+
+/// The saved fork id a project encoder document selects, if it carries the marker.
+///
+/// The editor names the catalogue row (`fork:<id>`), while settings key the record by
+/// `<id>`, so the catalogue prefix is removed here. A marker whose value is not a disabled
+/// `Bool` is an ordinary option, not a selection; the first option with the marker's shape
+/// wins, so an unrelated option that shares the prefix cannot mask it.
+pub(crate) fn document_fork(document: &Value) -> Option<String> {
+    let body = document.as_object()?.values().next()?.as_object()?;
+    let options = body.get("options")?.as_object()?;
+    let (name, _) = options.iter().find(|(name, parameter)| {
+        name.starts_with(MARKER_PREFIX) && is_disabled_marker(parameter)
+    })?;
+    let id = name.strip_prefix(MARKER_PREFIX)?;
+    Some(id.strip_prefix("fork:").unwrap_or(id).to_owned())
+}
+
+/// Whether one option is the disabled `Bool` a build selection is stored as.
+///
+/// The value is false, so the engine never emits it. An ordinary option that happens to
+/// share the prefix fails this shape and is not a selection.
+fn is_disabled_marker(parameter: &Value) -> bool {
+    parameter
+        .get("Bool")
+        .and_then(|boolean| boolean.get("value"))
+        .and_then(Value::as_bool)
+        == Some(false)
+}
+
 /// Probe one executable as a build of `base`. The family stamp check is the same one the
 /// Dependencies screen uses, so a path that is not this encoder is rejected before a fork is
 /// saved.
@@ -735,6 +771,63 @@ mod tests {
     fn a_slug_is_stable_and_never_empty() {
         assert_eq!(slug("SVT-AV1 (my fork)"), "svt-av1-my-fork");
         assert_eq!(slug("***"), "encoder-fork");
+    }
+
+    #[test]
+    fn a_disabled_marker_names_the_saved_fork() {
+        let document = serde_json::json!({
+            "SVTAV1": {
+                "executable": null,
+                "options": {
+                    "--crf": { "Number": { "prefix": "--", "delimiter": " ", "value": 25.0 } },
+                    "__av1ation_fork_fork:svt-av1-essential": {
+                        "Bool": { "prefix": "--", "value": false }
+                    }
+                }
+            }
+        });
+        assert_eq!(
+            document_fork(&document).as_deref(),
+            Some("svt-av1-essential")
+        );
+    }
+
+    #[test]
+    fn only_a_disabled_marker_names_a_selection() {
+        let enabled = serde_json::json!({
+            "SVTAV1": {
+                "options": {
+                    "__av1ation_fork_fork:svt-av1-essential": {
+                        "Bool": { "prefix": "--", "value": true }
+                    }
+                }
+            }
+        });
+        assert_eq!(document_fork(&enabled), None);
+
+        let malformed = serde_json::json!({
+            "SVTAV1": { "options": { "__av1ation_fork_fork:svt-av1-essential": "off" } }
+        });
+        assert_eq!(document_fork(&malformed), None);
+
+        let ordinary = serde_json::json!({ "SVTAV1": { "options": { "--crf": {} } } });
+        assert_eq!(document_fork(&ordinary), None);
+
+        // An ordinary option with the prefix is skipped rather than masking the marker
+        // that follows it.
+        let masked = serde_json::json!({
+            "SVTAV1": {
+                "options": {
+                    "__av1ation_fork_ordinary": {
+                        "Bool": { "prefix": "--", "value": true }
+                    },
+                    "__av1ation_fork_fork:svt-av1-essential": {
+                        "Bool": { "prefix": "--", "value": false }
+                    }
+                }
+            }
+        });
+        assert_eq!(document_fork(&masked).as_deref(), Some("svt-av1-essential"));
     }
 
     #[test]

@@ -167,6 +167,333 @@ async fn a_pathless_fork_with_a_marker_resolves_the_base_provider_before_a_run()
     cleanup_after_writers(&dir);
 }
 
+/// A build located after the project selected it is the build the run uses, even though the
+/// saved document still carries `executable: null` and the marker that kept it selected.
+#[tokio::test]
+async fn a_located_fork_supplies_the_executable_for_a_pathless_document() {
+    let dir = project_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .expect("data directory");
+    let executable = dir.join("SvtAv1EncApp-essential.exe");
+    tokio::fs::write(&executable, b"fixture")
+        .await
+        .expect("fake build");
+    tokio::fs::write(
+        dir.join("config.json"),
+        serde_json::json!({
+            "custom_tools": [{
+                "kind": "svt-av1",
+                "path": "C:/tools/SvtAv1EncApp.exe"
+            }],
+            "encoder_forks": [{
+                "id": "svt-av1-essential",
+                "label": "SVT-AV1-Essential",
+                "base": "svt-av1",
+                "executable": executable.display().to_string()
+            }]
+        })
+        .to_string(),
+    )
+    .await
+    .expect("settings document");
+
+    let recorded = Arc::new(Mutex::new(None));
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(EncoderRecordingRunner {
+            encoder: Arc::clone(&recorded),
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Located fork").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, encoders) = send(
+        app.clone(),
+        Request::get("/api/encoders").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let fork = encoders
+        .as_array()
+        .expect("encoder catalogue")
+        .iter()
+        .find(|encoder| encoder["id"] == "fork:svt-av1-essential")
+        .expect("the shipped fork is offered");
+    let mut encoder = fork["default"].clone();
+    encoder["SVTAV1"]["executable"] = Value::Null;
+    encoder["SVTAV1"]["options"]["__av1ation_fork_fork:svt-av1-essential"] =
+        serde_json::json!({"Bool": {"prefix": "--", "value": false}});
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/config"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "encoder": encoder }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let encoder = recorded
+        .lock()
+        .expect("the encoder record")
+        .clone()
+        .expect("preparation handed the runner an encoder");
+    assert_eq!(
+        encoder["SVTAV1"]["executable"],
+        executable.display().to_string(),
+        "preparation must use the located build, not the base provider"
+    );
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_writers(&dir);
+}
+
+/// A build that was located when the project selected it, then moved on disk, must not be
+/// run from the path the project remembers. Preparation resolves the saved record's current
+/// path, and falls back to the base provider once that path no longer exists.
+#[tokio::test]
+async fn a_fork_path_that_moves_falls_back_to_the_base_provider() {
+    let dir = project_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .expect("data directory");
+    let executable = dir.join("SvtAv1EncApp-essential.exe");
+    tokio::fs::write(&executable, b"fixture")
+        .await
+        .expect("fake build");
+    tokio::fs::write(
+        dir.join("config.json"),
+        serde_json::json!({
+            "custom_tools": [{
+                "kind": "svt-av1",
+                "path": "C:/tools/SvtAv1EncApp.exe"
+            }],
+            "encoder_forks": [{
+                "id": "svt-av1-essential",
+                "label": "SVT-AV1-Essential",
+                "base": "svt-av1",
+                "executable": executable.display().to_string()
+            }]
+        })
+        .to_string(),
+    )
+    .await
+    .expect("settings document");
+
+    let recorded = Arc::new(Mutex::new(None));
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(EncoderRecordingRunner {
+            encoder: Arc::clone(&recorded),
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Moved fork").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, encoders) = send(
+        app.clone(),
+        Request::get("/api/encoders").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let fork = encoders
+        .as_array()
+        .expect("encoder catalogue")
+        .iter()
+        .find(|encoder| encoder["id"] == "fork:svt-av1-essential")
+        .expect("the shipped fork is offered");
+    // The project selected the build while it was pathless, so its document carries the
+    // marker rather than the path.
+    let mut encoder = fork["default"].clone();
+    encoder["SVTAV1"]["executable"] = Value::Null;
+    encoder["SVTAV1"]["options"]["__av1ation_fork_fork:svt-av1-essential"] =
+        serde_json::json!({"Bool": {"prefix": "--", "value": false}});
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/config"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "encoder": encoder }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // While the saved path exists, the project runs that build even though its document is
+    // pathless.
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+    let encoder = recorded
+        .lock()
+        .expect("the encoder record")
+        .clone()
+        .expect("preparation handed the runner an encoder");
+    assert_eq!(
+        encoder["SVTAV1"]["executable"],
+        executable.display().to_string()
+    );
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app.clone(), cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &project_id).await;
+
+    // The build is moved without re-locating it in Settings: the record's path is now stale,
+    // so preparation must use the base provider rather than hand the engine a dead path.
+    std::fs::rename(&executable, dir.join("SvtAv1EncApp-essential-moved.exe"))
+        .expect("move the build");
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+    let encoder = recorded
+        .lock()
+        .expect("the encoder record")
+        .clone()
+        .expect("preparation handed the runner an encoder");
+    assert_eq!(
+        encoder["SVTAV1"]["executable"], "C:/tools/SvtAv1EncApp.exe",
+        "a saved path that no longer exists must fall back to the base provider"
+    );
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_writers(&dir);
+}
+
+/// Resetting a shipped fork forgets its saved path. A project that selected the build while
+/// it was pathless keeps the marker, so preparation must resolve the base provider again
+/// instead of failing on the cleared row.
+#[tokio::test]
+async fn a_reset_shipped_fork_falls_back_to_the_base_provider() {
+    let dir = project_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .expect("data directory");
+    let executable = dir.join("SvtAv1EncApp-essential.exe");
+    tokio::fs::write(&executable, b"fixture")
+        .await
+        .expect("fake build");
+    tokio::fs::write(
+        dir.join("config.json"),
+        serde_json::json!({
+            "custom_tools": [{
+                "kind": "svt-av1",
+                "path": "C:/tools/SvtAv1EncApp.exe"
+            }],
+            "encoder_forks": [{
+                "id": "svt-av1-essential",
+                "label": "SVT-AV1-Essential",
+                "base": "svt-av1",
+                "executable": executable.display().to_string()
+            }]
+        })
+        .to_string(),
+    )
+    .await
+    .expect("settings document");
+
+    let recorded = Arc::new(Mutex::new(None));
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(EncoderRecordingRunner {
+            encoder: Arc::clone(&recorded),
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let project_id = create_project(app.clone(), "Reset fork").await;
+    let video_id = add_video(app.clone(), &project_id, &dir).await;
+
+    let (status, encoders) = send(
+        app.clone(),
+        Request::get("/api/encoders").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let fork = encoders
+        .as_array()
+        .expect("encoder catalogue")
+        .iter()
+        .find(|encoder| encoder["id"] == "fork:svt-av1-essential")
+        .expect("the shipped fork is offered");
+    let mut encoder = fork["default"].clone();
+    encoder["SVTAV1"]["executable"] = Value::Null;
+    encoder["SVTAV1"]["options"]["__av1ation_fork_fork:svt-av1-essential"] =
+        serde_json::json!({"Bool": {"prefix": "--", "value": false}});
+    let (status, body) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{project_id}/config"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "encoder": encoder }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // The Settings screen resets a shipped row with this route; it forgets the path and
+    // leaves the shipped table in place.
+    let (status, body) = send(
+        app.clone(),
+        Request::put("/api/encoders/forks/svt-av1-essential")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"clear_executable":true}"#))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["executable"], "",
+        "a reset forgets the saved executable"
+    );
+
+    let (status, body) = send(app.clone(), start_request(&project_id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+
+    let encoder = recorded
+        .lock()
+        .expect("the encoder record")
+        .clone()
+        .expect("preparation handed the runner an encoder");
+    assert_eq!(
+        encoder["SVTAV1"]["executable"], "C:/tools/SvtAv1EncApp.exe",
+        "a reset build resolves on PATH, so preparation must use the base provider"
+    );
+
+    let cancel = Request::delete(format!("/api/runs/{run_id}"))
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(app, cancel).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    cleanup_after_writers(&dir);
+}
+
 #[tokio::test]
 async fn a_queue_batch_without_a_video_is_unprocessable() {
     let dir = project_dir();

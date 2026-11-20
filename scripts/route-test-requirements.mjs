@@ -47,6 +47,7 @@ export const ROUTE_TEST_REQUIREMENTS = {
     "DELETE /api/projects/{project_id}": ["success", "not-found", "locked"],
     "GET /api/projects/{project_id}/config": ["success", "not-found"],
     "PUT /api/projects/{project_id}/config": ["success", "validation", "not-found", "locked"],
+    "POST /api/projects/{project_id}/config/impact": ["success", "validation", "not-found"],
     "PUT /api/projects/{project_id}/general": ["success", "validation", "not-found", "locked"],
     "POST /api/projects/{project_id}/template": ["success", "validation", "not-found", "locked"],
     "PUT /api/projects/{project_id}/defaults": ["success", "validation", "not-found", "locked"],

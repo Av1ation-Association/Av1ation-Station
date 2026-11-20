@@ -16,10 +16,11 @@ import {
     ENCODER_CHOICES,
     buildDocument,
     commandPreview,
+    forkMarker,
     forkVariant,
     hasField,
     hasForkMarker,
-    isForkOption,
+    isForkMarker,
     nullableNumber,
     passCount,
     record,
@@ -130,13 +131,20 @@ export function EncoderEditor({
     );
     const bodyExecutable = typeof body.executable === "string" ? body.executable : null;
     const options = record(body.options);
-    const visibleOptions = Object.entries(options).filter(([name]) => !isForkOption(name));
+    const visibleOptions = Object.entries(options).filter(
+        ([name, parameter]) => !isForkMarker(name, parameter),
+    );
     const selectedFork =
         forks.find((entry) => forkVariant(entry) === variant && hasForkMarker(options, entry.id)) ??
         forks.find(
             (entry) =>
                 forkVariant(entry) === variant && sameBuildPath(entry.executable, bodyExecutable),
         );
+    // A marker can outlive the saved row it names. The document still selects a build, so
+    // the screen has to say that the build is gone rather than silently showing its base.
+    // That claim needs a loaded catalogue: absent data is not evidence of a deletion.
+    const marker = forkMarker(options);
+    const missingFork = marker !== null && encoders.isSuccess && selectedFork === undefined;
     const base = selectedFork?.base ?? choice?.base;
     const schema = variantSchema(root, node, variant);
     const builtIn = useMemo(
@@ -160,6 +168,22 @@ export function EncoderEditor({
         return merged;
     }, [builtIn, selectedFork]);
     const buildLabel = selectedFork?.label ?? choice?.label ?? base ?? "this encoder";
+    const forkWarning = missingFork
+        ? {
+              title: "The build this project selected is no longer saved.",
+              body: "Runs fall back to the base encoder's provider on PATH. Choose an encoder to clear the old selection.",
+          }
+        : selectedFork !== undefined && !selectedFork.executable
+          ? {
+                title: `${selectedFork.label} has no executable yet.`,
+                body: "Runs fall back to the base encoder's provider on PATH, so this build's flags may not apply.",
+            }
+          : selectedFork !== undefined && !selectedFork.available
+            ? {
+                  title: `${selectedFork.label} is not at its saved path.`,
+                  body: "Runs fall back to the base encoder's provider on PATH until the build is located again.",
+              }
+            : null;
     const [addOpen, setAddOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [parameterSearch, setParameterSearch] = useState("");
@@ -198,8 +222,13 @@ export function EncoderEditor({
     const chooseEncoder = (entry: (typeof ENCODER_CHOICES)[number]) => {
         // A saved build shares the variant with its base, so the variant alone cannot say
         // the built-in is already in use: choosing it from one of its builds resets the
-        // executable back to PATH.
-        if (locked || (entry.variant === variant && selectedFork === undefined)) {
+        // executable back to PATH. A marker naming a deleted build is the exception: the
+        // document still selects a build, so choosing the base has to replace it and drop
+        // the marker, which is what the warning tells the user to do.
+        if (
+            locked ||
+            (entry.variant === variant && selectedFork === undefined && marker === null)
+        ) {
             return;
         }
         const descriptor = (encoders.data ?? []).find(
@@ -377,9 +406,11 @@ export function EncoderEditor({
                                 <select
                                     aria-label="Encoder"
                                     value={
-                                        selectedFork === undefined
-                                            ? `base:${variant ?? ""}`
-                                            : `fork:${selectedFork.id}`
+                                        missingFork
+                                            ? `stale:${marker}`
+                                            : selectedFork === undefined
+                                              ? `base:${variant ?? ""}`
+                                              : `fork:${selectedFork.id}`
                                     }
                                     disabled={locked}
                                     onChange={(event) => {
@@ -404,6 +435,15 @@ export function EncoderEditor({
                                     <option value="base:" disabled>
                                         Choose an encoder
                                     </option>
+                                    {/* The marker names a build that is gone, so the
+                                        document is not on its base encoder even though it
+                                        shares the variant. Giving it its own option keeps
+                                        the base selection a real change. */}
+                                    {missingFork ? (
+                                        <option value={`stale:${marker}`} disabled>
+                                            The selected build — no longer saved
+                                        </option>
+                                    ) : null}
                                     {[...new Set(ENCODER_CHOICES.map((entry) => entry.group))].map(
                                         (group) => (
                                             <optgroup key={group} label={group}>
@@ -489,7 +529,7 @@ export function EncoderEditor({
                         )}
                     </div>
 
-                    {selectedFork !== undefined && !selectedFork.executable ? (
+                    {forkWarning === null ? null : (
                         <div
                             role="alert"
                             className="mt-3 flex flex-wrap items-start gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2"
@@ -499,11 +539,8 @@ export function EncoderEditor({
                                 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning"
                             />
                             <p className="m-0 min-w-0 flex-1 text-[10.5px] leading-relaxed text-ink-secondary">
-                                <span className="font-medium text-ink">
-                                    {selectedFork.label} has no executable yet.
-                                </span>{" "}
-                                Runs fall back to the base encoder&apos;s provider on PATH, so this
-                                build&apos;s flags may not apply.
+                                <span className="font-medium text-ink">{forkWarning.title}</span>{" "}
+                                {forkWarning.body}
                             </p>
                             <Link
                                 to="/settings"
@@ -513,7 +550,7 @@ export function EncoderEditor({
                                 Manage encoders
                             </Link>
                         </div>
-                    ) : null}
+                    )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px]">
                         <span className="font-mono text-[10px] text-ink-muted">

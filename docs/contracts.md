@@ -608,9 +608,11 @@ in [preflight.md](preflight.md#custom-encoder-definitions).
 Selecting a fork writes its executable and starting options into the project's engine
 encoder document, so the project never references the catalogue. A located fork's
 executable makes the run use that binary. A pathless fork writes null and a disabled marker
-option, so the run resolves the base encoder's provider instead; the marker is a false
-`Bool`, which the engine omits from argv. The settings screen owns the probe, save, edit,
-reset, clear, and delete flow; see
+option; run preparation reads the marker, so locating the build later changes what the
+next run executes without rewriting saved projects. A deleted build, or a saved path that
+no longer exists, falls back to the base encoder's provider. The marker is a false `Bool`,
+which the engine omits from argv. The settings screen owns the probe, save, edit, reset,
+clear, and delete flow; see
 [preflight.md](preflight.md#custom-encoder-definitions) and
 [screens/settings.md](screens/settings.md#encoders).
 

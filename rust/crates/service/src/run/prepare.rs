@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use av1ation_contracts::run::SequenceRunStatus;
@@ -82,10 +83,13 @@ pub(crate) async fn prepare(
 
     let defaults = default_config();
     let mut document = config::materialise(&defaults, &project_document, &record.overrides);
+    // One snapshot serves the scene model and the selected build. A second load would read
+    // the fork parameter tables again for the same run.
+    let settings = state.settings().await;
     // The model is one file for the machine, so it is applied to the run's document rather
     // than copied into every project. The engine still owns its own fallback search.
-    if let Some(model) = state.settings().await.scene_model {
-        config::pin_scene_model(&mut document, &model);
+    if let Some(model) = settings.scene_model.as_deref() {
+        config::pin_scene_model(&mut document, model);
     }
     // A sequence input states how to decode, not which file: the video owns the file. Filling
     // it here keeps a project-level detection or encoder input working per video.
@@ -174,20 +178,40 @@ pub(crate) async fn prepare(
         });
     };
 
-    // An encoder provider resolves to an absolute executable; the engine's document owns
-    // that path. A custom executable already in the document (a fork) is left alone, and the
-    // system choice leaves the field empty so the engine resolves the program on PATH.
-    if let Some(name) = encoder
+    // A project that selected a build before it was located still carries `executable:
+    // null` plus the disabled marker. Resolve that build now, so locating it later takes
+    // effect without rewriting every project that selected it. A deleted build, or one
+    // whose saved path no longer exists, falls back to the base provider.
+    let selected_fork = crate::capability::forks::document_fork(&encoder);
+    let variant = encoder
         .as_object()
         .and_then(|object| object.keys().next())
-        .cloned()
-        && let Some(executable) = state.encoder_executable(&name).await
+        .cloned();
+    // An encoder provider resolves to an absolute executable; the engine's document owns
+    // that path. A custom executable already in the document (a located fork) is left alone,
+    // and the system choice leaves the field empty so the engine resolves it on PATH.
+    if let Some(variant) = variant
         && let Some(config) = encoder
             .as_object_mut()
             .and_then(|object| object.values_mut().next())
         && config.get("executable").is_none_or(Value::is_null)
     {
-        config["executable"] = Value::String(executable.to_string_lossy().into_owned());
+        let fork_executable = match selected_fork.as_deref() {
+            Some(id) => settings
+                .encoder_forks
+                .iter()
+                .find(|fork| fork.id == id)
+                .map(|fork| fork.executable.trim())
+                .filter(|path| !path.is_empty())
+                .map(PathBuf::from)
+                .filter(|path| path.is_file()),
+            None => None,
+        };
+        if let Some(executable) = fork_executable {
+            config["executable"] = Value::String(executable.to_string_lossy().into_owned());
+        } else if let Some(executable) = state.encoder_executable(&variant).await {
+            config["executable"] = Value::String(executable.to_string_lossy().into_owned());
+        }
     }
 
     // Read the scripts this run will actually open before reserving the singleton. A missing

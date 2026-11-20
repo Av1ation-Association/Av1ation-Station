@@ -161,6 +161,14 @@ resolves the base provider.
 window, keep the marker behind a single legacy codec and add the transition test anyway. Do
 not spread marker checks into more components.
 
+**Landed:** 7.8 and 7.10 are implemented with the marker as the one codec. Run preparation
+resolves the saved fork's current path for a pathless document and falls back to the base
+provider when the build is deleted or its path is missing; the Encoding section warns for
+pathless, missing, and deleted selections. 7.9's pathless → located, moved, deleted, and
+reset transitions have Rust and UI tests. 7.6/7.7 are deferred to the stable window: the engine encoder
+document has no app-owned field, and a contract change would touch every saved project
+during the rc window. The migration rule above permits the single legacy codec.
+
 ---
 
 ## 7. Workstream C — Catalogue and editor structure

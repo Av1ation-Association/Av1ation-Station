@@ -28,6 +28,8 @@ export function record(value: unknown): Record<string, unknown> {
         : {};
 }
 
+const FORK_MARKER_PREFIX = "__av1ation_fork_";
+
 /**
  * The hidden option that records which build a project selected.
  *
@@ -36,16 +38,48 @@ export function record(value: unknown): Record<string, unknown> {
  * engine's own off state, so this marker never reaches argv.
  */
 export function forkOptionName(forkId: string): string {
-    return `__av1ation_fork_${forkId}`;
+    return `${FORK_MARKER_PREFIX}${forkId}`;
 }
 
-export function isForkOption(name: string): boolean {
-    return name.startsWith("__av1ation_fork_");
+function isForkOption(name: string): boolean {
+    return name.startsWith(FORK_MARKER_PREFIX);
+}
+
+/**
+ * Whether one option is the disabled `Bool` a build selection is stored as.
+ *
+ * The value is false, so the engine never emits it. An ordinary option that happens to
+ * share the prefix fails this shape and is edited like any other option.
+ */
+export function isForkMarker(name: string, parameter: unknown): boolean {
+    if (!isForkOption(name)) {
+        return false;
+    }
+    const option = readOption(parameter);
+    return option?.kind === "Bool" && option.value === false;
 }
 
 export function hasForkMarker(options: Record<string, unknown>, forkId: string): boolean {
-    const option = readOption(options[forkOptionName(forkId)]);
-    return option?.kind === "Bool" && option.value === false;
+    const marker = forkMarker(options);
+    return marker !== null && marker === forkId.replace(/^fork:/u, "");
+}
+
+/**
+ * The saved fork id a disabled marker names, if the document carries one.
+ *
+ * The marker is an ordinary option whose name is the fork id and whose value is a false
+ * `Bool`, so it survives a reload and never reaches argv. Requiring that shape keeps an
+ * unrelated user option with the same prefix from reading as a build selection, and the
+ * first option with the shape wins rather than the first option with the prefix.
+ */
+export function forkMarker(options: Record<string, unknown>): string | null {
+    const entry = Object.entries(options).find(([name, parameter]) =>
+        isForkMarker(name, parameter),
+    );
+    if (entry === undefined) {
+        return null;
+    }
+    return entry[0].slice(FORK_MARKER_PREFIX.length).replace(/^fork:/u, "");
 }
 
 /** The body of the encoder variant this document selects. */
