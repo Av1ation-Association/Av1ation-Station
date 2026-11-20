@@ -87,7 +87,7 @@ rust/crates/service/src/
 │   ├── descriptors/
 │   │   ├── mod.rs                 encoder parameter vocabulary
 │   │   └── catalogue/
-│   │       ├── mod.rs             encoder-to-catalogue lookup
+│   │       ├── mod.rs             encoder-to-catalogue lookup and fork composition
 │   │       ├── aom.rs             AOM options
 │   │       ├── avm.rs             AVM options
 │   │       ├── ffmpeg.rs          FFmpeg options

@@ -952,4 +952,72 @@ exit 2
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn a_probe_defers_to_the_fork_table_where_the_fork_differs() {
+        let known = find_known("svt-av1-essential").expect("the Essential fork is known");
+        let curated = known.table();
+        let alt_cdef = ParameterKey("--enable-alt-cdef".to_owned());
+        let preset = ParameterKey("--preset".to_owned());
+        let added = ParameterKey("--new-flag".to_owned());
+
+        let parsed = |kind: ParameterKind, default: Option<ParameterValue>| ParameterDescriptor {
+            delimiter: None,
+            label: "Parsed".to_owned(),
+            description: Some("Parsed help".to_owned()),
+            doc_link: None,
+            kind,
+            default,
+            widget: Widget::Auto,
+            advanced: true,
+            group: None,
+            relations: Vec::new(),
+        };
+        let mut help = BTreeMap::new();
+        help.insert(alt_cdef.clone(), parsed(ParameterKind::Flag, None));
+        help.insert(
+            preset.clone(),
+            parsed(
+                ParameterKind::Number(NumberSpec {
+                    integer: true,
+                    min: Some(0.0),
+                    max: Some(13.0),
+                    step: Some(1.0),
+                    unit: None,
+                }),
+                Some(ParameterValue::Number(8.0)),
+            ),
+        );
+        help.insert(added.clone(), parsed(ParameterKind::Flag, None));
+
+        let merged = merge_parameters(Some(&curated), &help, None);
+
+        // The build lists the fork-only flag, but its generic parse does not replace the
+        // fork's own kind and group.
+        let alt = &merged[&alt_cdef];
+        assert_eq!(alt.kind, curated[&alt_cdef].kind);
+        assert_eq!(alt.group.as_deref(), Some("Filtering"));
+        assert_eq!(alt.default, curated[&alt_cdef].default);
+
+        // A narrower range in the help does not replace the fork's range, while the help's
+        // stated default is authoritative.
+        let preset_row = &merged[&preset];
+        assert_eq!(preset_row.kind, curated[&preset].kind);
+        assert_eq!(preset_row.default, Some(ParameterValue::Number(8.0)));
+
+        // A flag only the build lists is still offered, as an ungrouped advanced row.
+        assert_eq!(merged[&added].group.as_deref(), Some("Additional"));
+        assert!(merged[&added].advanced);
+
+        // When the build does not list the fork-only flag, the probe removes it instead of
+        // guessing that the fork still accepts it.
+        let mut silent = BTreeMap::new();
+        silent.insert(preset.clone(), parsed(ParameterKind::Flag, None));
+        let merged = merge_parameters(Some(&curated), &silent, None);
+        assert!(!merged.contains_key(&alt_cdef));
+        assert_eq!(
+            merged[&preset].default, curated[&preset].default,
+            "a help line without a default leaves the fork's default in place"
+        );
+    }
 }

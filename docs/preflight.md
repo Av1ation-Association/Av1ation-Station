@@ -119,16 +119,23 @@ Saving a fork is separate from the Settings → Dependencies provider probe in [
 executables](#custom-executables): a fork is additive and is selected per project, while a
 provider probe replaces the built-in row's executable.
 
-Two SVT-AV1 forks ship as **known rows** with a complete catalogue table but no executable:
+Two SVT-AV1 forks ship as **known rows** with a catalogue table composed from the base table plus explicit differences but no executable:
 `svt-av1-essential` and `svt-av1-5fish`. A known row exists even when the user has not chosen
 a path, so it is always available in Settings → Encoders. Detection reads the full help and
 looks for the profile's signature flags; a build that shows both signatures is labelled
 5Fish. A known row's table is the shipped table merged with the executable's help: the help
 decides which flags exist and what their defaults are, the table supplies labels,
 descriptions, and ranges, an unknown help flag becomes an advanced generic row, and a flag
-the help no longer lists disappears. The table is version-agnostic. When the executable does
+the help no longer lists disappears. A fork-only row keeps the table's kind and range even
+when the help parses the flag differently; only a default the help states replaces the
+table's default. The table is version-agnostic. When the executable does
 not show the expected signature, the row keeps the table and reports a warning rather than
 rejecting the build.
+
+The fork files hold only additions, overrides, and removals over `svt_av1.rs`; a row shared
+with the base is inherited, so a base correction reaches both forks unless the fork names it.
+A drift test names every intentional divergence and fails when an inherited row changes by
+accident.
 
 A user fork's map is the probe result, so it is re-probed when the service starts; without
 that, a description the parser has since learned to type would stay wrong on disk forever.

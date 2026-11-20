@@ -2,10 +2,15 @@
 
 > **Planning record.** Current delivery status lives in [progress.md](../progress.md).
 
-**Status:** proposed. The encoder commit `5a97680` closed the service-map and route-matrix
-reconciliation (7.2 and 7.3). The Prettier baseline and the P1 hardening work remain. This
-phase follows Phase 6 and precedes the first stable tag. It is a hardening phase, not a
-feature phase.
+**Status:** in progress. The baseline is green: `5a97680` reconciled the service map and
+route matrix, `de3d3c0` formatted the remaining files, and 7.4/7.5 record the aggregate
+checks and the generated-artifact checklist. The baseline run also moved the chunk guard to
+`shared/`, so projects and videos no longer import scenes, and added the project config
+impact route to the reviewed matrix. The fork-selection marker is now read at run
+preparation, so a build located after a project selected it runs its own binary; the
+explicit `fork_id` field (7.6/7.7) is deferred to the stable window under the migration
+rule below. The encoder-editor split remains. This phase follows
+Phase 6 and precedes the first stable tag. It is a hardening phase, not a feature phase.
 
 **Goal:** make the repository’s quality claims true again, remove the maintainability
 regressions introduced by the encoder-fork work, and leave the stable release with a green
@@ -178,15 +183,23 @@ editor testable by responsibility.
 
 ### 7.11 Compose fork catalogues from the base
 
-`svt_av1.rs` has 113 keys. `essential.rs` has 116 keys, 102 shared with the base.
-`five_fish.rs` has 152 keys, 88 shared. `fork_parameters` currently reads only the fork table,
-so the copies have independent ownership.
+`svt_av1.rs` has 113 keys. `essential.rs` has 116 keys: 14 additions, 59 overrides, 43
+inherited, and 11 removals. `five_fish.rs` has 151 keys: 63 additions, 54 overrides, 34
+inherited, and 25 removals. The shared rows were copies with independent ownership.
 
 | ID | Task | Acceptance | Verification | Depends |
 | --- | --- | --- | --- | --- |
 | 7.11 | Represent a fork as base entries plus explicit additions, overrides, and removals. | A base-table correction reaches both forks unless the fork explicitly overrides or removes the row. | Catalogue table test: no unintended duplicate key; explicit divergence list | 7.4 |
 | 7.12 | Add a drift test for the three tables. | The test names every intentional divergence and fails on an accidental copy change. | Rust service test | 7.11 |
 | 7.13 | Preserve probe/help authority where a fork genuinely differs. | A fork-only flag or changed range still comes from the fork’s own evidence, not a guessed union. | Catalogue fixtures for Essential and 5Fish | 7.11 |
+
+**Landed:** `essential.rs` and `five_fish.rs` hold `ADDITIONS`, `OVERRIDES`, and `REMOVALS`
+over `svt_av1.rs`; `fork_catalogue` composes base − removals + overrides + additions. The
+drift test `the_fork_tables_state_every_difference_from_the_base` names every divergence and
+rejects a declared override that matches the base or an addition the base already has. The
+probe test `a_probe_defers_to_the_fork_table_where_the_fork_differs` keeps the fork's kind and
+range, drops a fork-only flag the help no longer lists, and takes only a stated default from
+the help. The website fork snapshot matches, so the rewrite is behavior-preserving.
 
 ### 7.14 Split `EncoderEditor`
 

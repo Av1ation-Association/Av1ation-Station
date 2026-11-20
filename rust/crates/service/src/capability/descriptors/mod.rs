@@ -22,6 +22,7 @@ use av1ation_contracts::encoder::{
 use serde_json::Value;
 
 /// How a catalogue entry describes one parameter, whether the engine seeds it or not.
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum CatalogueKind {
     Flag,
     Integer {
@@ -53,7 +54,7 @@ enum CatalogueKind {
 ///
 /// It lives on the row so a table entry is self-contained; there is no second keyed table
 /// to keep in step with the entry list.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum CatalogueDefault {
     None,
     Number(f64),
@@ -71,6 +72,7 @@ impl CatalogueDefault {
 }
 
 /// One parameter this build knows by its canonical CLI spelling.
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct CatalogueEntry {
     /// The full CLI spelling, so a single-dash flag such as `-D` stays correct.
     key: &'static str,
@@ -215,7 +217,7 @@ pub(crate) fn fork_parameters(
     };
     let delimiter = Delimiter::Space;
     let mut descriptors = BTreeMap::new();
-    for entry in entries {
+    for entry in &entries {
         descriptors.insert(
             ParameterKey(entry.key.to_owned()),
             catalogue_descriptor(entry, &delimiter, Some(doc_link)),
