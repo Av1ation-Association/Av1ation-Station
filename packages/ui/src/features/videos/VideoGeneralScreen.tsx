@@ -11,12 +11,14 @@ import {
     useSaveVideoGeneral,
     useSaveVideoStorage,
     useVideo,
+    useVideoConfig,
     useVideoGeneral,
+    useVideoScenes,
     useVideoState,
     useVideoStorage,
     useVideoValidation,
 } from "@av1ation/api";
-import type { VideoGeneral } from "@av1ation/contracts";
+import type { VideoGeneral, VideoGeneralRequest } from "@av1ation/contracts";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { FolderOpen, RotateCcw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +30,10 @@ import { InputEditor } from "../configuration/InputEditor";
 import { SequenceFailureRail } from "../configuration/SequenceFailureRail";
 import { inputFromValue, inputValueOf, type InputValue } from "../../shared/model/input-model";
 import { ScriptPluginNotice } from "../../shared/ScriptPluginNotice";
+import { documentFromValues, getIn } from "../../shared/schema/config-schema";
+import { sameValue } from "../../shared/structural-equality";
+import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../scenes/useChunkGuard";
 import { DeleteRetainedDialog } from "./DeleteRetainedDialog";
 import { VideoRunActions } from "./VideoRunActions";
 import { VideoTabs } from "./VideoTabs";
@@ -42,6 +48,34 @@ import {
 
 const FIELD =
     "h-8 w-full min-w-0 rounded-md border border-line-strong bg-app px-2.5 font-mono text-[11px] text-ink placeholder:text-ink-muted focus:border-brand focus:outline-none disabled:opacity-50";
+
+/**
+ * What the Parallel Encoder reads from this video's General document.
+ *
+ * A null sequence input is inherited whole by the engine; a pathless input is filled from the
+ * video's source, and a script is told to open it through `video_path`. Only the source path
+ * changes either of the latter, and an explicit path reads nothing from General.
+ */
+function generalRead(input: unknown): "document" | "source" | "explicit" {
+    if (input === null || input === undefined) {
+        return "document";
+    }
+    const value = input as Record<string, unknown>;
+    if (value.VapourSynthScript !== undefined) {
+        return "source";
+    }
+    for (const tag of ["Video", "VapourSynth"]) {
+        const body = value[tag];
+        if (typeof body !== "object" || body === null) {
+            continue;
+        }
+        const path = (body as Record<string, unknown>).path;
+        if (typeof path !== "string" || path.trim() === "") {
+            return "source";
+        }
+    }
+    return "explicit";
+}
 
 interface GeneralDraft {
     input: InputValue;
@@ -103,6 +137,8 @@ export function VideoGeneralScreen() {
     const project = useProject(projectId);
     const video = useVideo(projectId, videoId);
     const general = useVideoGeneral(projectId, videoId);
+    const config = useVideoConfig(projectId, videoId);
+    const scenes = useVideoScenes(projectId, videoId);
     const storage = useVideoStorage(projectId, videoId);
     const state = useVideoState(projectId, videoId);
     const save = useSaveVideoGeneral(projectId, videoId);
@@ -122,6 +158,7 @@ export function VideoGeneralScreen() {
     const [outputError, setOutputError] = useState<string | null>(null);
     const [clipOpen, setClipOpen] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const chunkGuard = useChunkGuard();
 
     const locked = state.data?.active === true;
 
@@ -149,6 +186,20 @@ export function VideoGeneralScreen() {
         return null;
     };
 
+    const writeGeneral = async (
+        request: VideoGeneralRequest,
+        clearChunks: boolean,
+    ): Promise<boolean> => {
+        try {
+            await save.mutateAsync({ ...request, clear_chunks: clearChunks });
+            setOutputError(null);
+            toast.success("Video General saved");
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     const session = useDraftSession<GeneralDraft, VideoGeneral>({
         identity: `${projectId}/${videoId}/general`,
         label: "Video General",
@@ -161,25 +212,67 @@ export function VideoGeneralScreen() {
                 toast.error(problem);
                 return false;
             }
-            try {
-                await save.mutateAsync({
-                    input: inputFromValue(draft.input, server.input),
-                    output: {
-                        ...(typeof server.output === "object" && server.output !== null
-                            ? (server.output as Record<string, unknown>)
-                            : {}),
-                        path: draft.outputPath.trim(),
-                    },
-                    ...(draft.input.kind === "vapour_synth_script" && draft.sourcePath.trim() !== ""
-                        ? { source_path: draft.sourcePath.trim() }
-                        : {}),
-                });
-                setOutputError(null);
-                toast.success("Video General saved");
-                return true;
-            } catch {
+            if (config.data === undefined || scenes.data === undefined) {
+                toast.error("Wait for this video's configuration and scenes to load.");
                 return false;
             }
+            const input = inputFromValue(draft.input, server.input);
+            const sourcePath =
+                draft.input.kind === "vapour_synth_script" && draft.sourcePath.trim() !== ""
+                    ? draft.sourcePath.trim()
+                    : undefined;
+            const request: VideoGeneralRequest = {
+                input,
+                output: {
+                    ...(typeof server.output === "object" && server.output !== null
+                        ? (server.output as Record<string, unknown>)
+                        : {}),
+                    path: draft.outputPath.trim(),
+                },
+                ...(sourcePath === undefined ? {} : { source_path: sourcePath }),
+            };
+            // Compare both sides through the editor's own writer, so a field it does not
+            // expose cannot read as a source change.
+            const currentInput = inputValueOf(server.input);
+            const currentSource =
+                server.source_path.trim() !== ""
+                    ? server.source_path
+                    : currentInput.kind === "vapour_synth_script"
+                      ? ""
+                      : currentInput.path.trim();
+            const nextSource =
+                sourcePath ??
+                (draft.input.kind === "vapour_synth_script"
+                    ? currentSource
+                    : draft.input.path.trim());
+            const inputChanged = !sameValue(input, inputFromValue(currentInput, server.input));
+            const read = generalRead(
+                getIn(documentFromValues(config.data.values), [
+                    "sequences",
+                    "parallel_encoder",
+                    "input",
+                ]),
+            );
+            const invalidates =
+                read === "document"
+                    ? inputChanged || nextSource !== currentSource
+                    : read === "source"
+                      ? nextSource !== currentSource
+                      : false;
+            const encoded = scenes.data.scenes.filter((scene) => scene.encoded);
+            if (invalidates && encoded.length > 0) {
+                // The save stays pending until the guard answers, so the top-bar Save, the
+                // navigation guard, and a pre-run save all wait for the same decision.
+                const keep = await chunkGuard.ask(encoded, {
+                    eyebrow: "General",
+                    reason: "input",
+                });
+                if (keep === null) {
+                    return false;
+                }
+                return writeGeneral(request, !keep);
+            }
+            return writeGeneral(request, invalidates);
         },
         pending: save.isPending,
     });
@@ -220,7 +313,11 @@ export function VideoGeneralScreen() {
     if (
         !video.isError &&
         !general.isError &&
-        (video.isPending || general.isPending || draft === null)
+        (video.isPending ||
+            general.isPending ||
+            config.isPending ||
+            scenes.isPending ||
+            draft === null)
     ) {
         return (
             <main id="main" aria-busy="true" className="flex min-h-[60vh] flex-col">
@@ -698,6 +795,8 @@ export function VideoGeneralScreen() {
                         })
                     }
                 />
+
+                <SceneEncoderChunkGuard {...chunkGuard.props} />
             </div>
 
             <DraftActions

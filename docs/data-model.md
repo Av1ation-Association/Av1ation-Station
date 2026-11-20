@@ -491,7 +491,8 @@ label and that flag only; a scene's full document is fetched on demand by
 `GET …/scenes/:index/encoder`, because embedding thousands of option maps would make the
 table its own memory problem. Writing an encoder to a selection goes through
 `PUT …/scenes/encoder`: the video-level alternative is the existing `encoder` override, and
-the two resources are deliberately not one route.
+the two resources are deliberately not one route. The write touches only the selected scenes
+whose document differs, so a scene that already carries it keeps its retained chunk.
 
 The rail's read model is a projection, not a second copy of the scene document: ranges,
 the final pass, and the retained chunk are all the rail and timeline render.The scene editor's encoder sheet and per-scene sequence completion are part of this view,

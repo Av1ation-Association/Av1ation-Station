@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoOverridesUpdate",
+  "description": "Replace a video's sparse overrides, optionally deleting the chunks the change invalidates.\n\nThe body is the map `GET …/overrides` returns plus one write-time choice: a video-level\nencoder change makes every inheriting scene's retained chunk stale, and the encoder sheet\nasks whether to delete those chunks in the same request.",
+  "type": "object",
+  "properties": {
+    "clear_chunks": {
+      "description": "Delete the retained chunks of the scenes this write re-encodes.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "fields": {
+      "description": "A missing path means \"inherit from the project\".",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "fields"
+  ]
+}

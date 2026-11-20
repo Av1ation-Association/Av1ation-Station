@@ -54,6 +54,13 @@ chrome.
    and its scratch directory. The input is the shared `InputEditor` in its concrete mode, so
    it names the source path and its FFMS2 index; a `VapourSynthScript` input names no file, so
    a separate **Source file** row supplies the path its injected `video_path` receives.
+   Saving a changed source is intercepted when the encoder reads General — its input is null
+   or names no path, or it is a script whose `video_path` is the source — and an encoded
+   scene has a retained chunk: the dialog counts every encoded scene, and Save sends the
+   documents and `clear_chunks` in one request. A pathless or script input takes only the
+   source path from General, so an index-only change keeps its chunks. A video whose encoder
+   input states its own path keeps its chunks, and so does an output or scratch-directory
+   change.
 6. **Read the clip strip.** The strip lives inside the Input card because it describes that
    decode graph. **All details** opens a sheet with bit depth, colour primaries, transfer,
    matrix, range, chroma location, both paths, and retained bytes. An unsignalled field says
@@ -403,13 +410,24 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
    blocks keep a strong boundary rule and centre their index with a length in both seconds and
    frames.
 7. **Edit the encoder.** The scene encoder sheet is the same encoder-parameter editor
-   Configuration uses — same catalogue, descriptors, widgets, and constraints — scoped to the
-   selection. The parameter info popover prints the CLI separator as a glyph and name (`␠ Space`,
+   Configuration uses — same catalogue, descriptors, widgets, and constraints. It opens with
+   the current encoder and an **Apply to** choice: **This video** replaces the encoder every
+   inheriting scene uses, while the selection option writes one scene encoder for each chosen
+   scene. The parameter info popover prints the CLI separator as a glyph and name (`␠ Space`,
    `⇥ Tab`, `⏎ Return`, or `=` for a joined delimiter), so a joined flag is not mistaken for two
-   arguments. It opens on the scene's current scope: **Inherited** shows the video encoder's
-   resolved values read-only, **Custom for scene** makes them editable, and **Apply to scene**
-   writes the override. **Reset to inherited** deletes it. It is not a second encoding
-   configuration.
+   arguments. It is not a second encoding configuration.
+   - **The chunk guard.** Save is intercepted when the write would change an affected scene's
+     encoder and that scene already has a retained chunk, because Parallel Encoder skips a
+     scene that has one. A scene-scope save counts only the selected scenes whose own document
+     differs from the draft: a scene that already carries it keeps its chunk, while a custom
+     scene whose document differs is counted even when the draft matches the video encoder.
+     The dialog totals those scenes (or names the single scene), shows their bytes, and offers
+     an unchecked **Keep the N existing chunks** checkbox whose tooltip carries the
+     recommendation. Cancel returns to the sheet; Save sends the encoder write and
+     `clear_chunks` in one request, so the checkpoint and the retained files cannot disagree
+     about what the scene is. A video-scope save also rewrites every inheriting scene's
+     complete encoder document in that checkpoint — the scene document is what the encoder
+     runs — so keeping the chunks keeps their bytes, not the old encoder.
 8. **Separate engine data from custom data.**
    - **Engine data** is read-only. It lists quantizer, score, retained bytes, and chunk count;
      a field whose sequence has not run shows `—` and a reason such as `Quality check has not
@@ -469,13 +487,15 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
     every scene. The control reads the same scene row and live store as the details panel and
     the run chip, so it cannot show a second measurement.
 20. **Merge.** Select two or more adjacent scenes and choose **Merge selected scenes**. The
-    selection becomes one scene from its first start to its last end. Every later index moves,
-    so retained chunks and probe scratch for the affected table are deleted. The selection is
+    selection becomes one scene from its first start to its last end. The merged scenes' chunks
+    are deleted, and every later chunk moves down with its row instead of being encoded again.
+    Probe scratch is deleted whole because its files are named by index. The selection is
     cleared and one undo step is available. A non-adjacent selection is refused.
 21. **Delete.** Delete is enabled for exactly one selected scene. The confirmation states that
-    the scene leaves the table, its frames become uncovered, its retained chunk and later
-    scenes' scratch are deleted, and one undo step is available. The chunks themselves are not
-    restored by that undo; encoding writes them again.
+    the scene leaves the table, its frames become uncovered, its retained chunk is deleted, and
+    one undo step is available. The row that takes the uncovered frames loses its chunk too,
+    because its range changes; later chunks move down with their rows. Deleted chunks are not
+    restored by undo; encoding writes them again.
 22. **Reset chunks.** **Reset chunks** deletes retained chunks for every selected scene after
     confirmation. Scene ranges, custom sequence data, and the finished output stay. There is no
     undo; run Encoding to write the chunks again.
@@ -502,8 +522,10 @@ drawn at a time; the tabs are the configuration, not a second copy of the data.
 - **Structural edits.** `POST …/scenes/add`, `POST …/scenes/split`, `POST …/scenes/merge`,
   `POST …/scenes/undo`; `PATCH` or `DELETE …/scenes/{index}` changes one scene's range or
   removes it.
-- **Chunks.** `POST …/scenes/reset` deletes only the selected scenes' retained chunks. Retained
-  chunks supply the rail and timeline markers; there is no stored scene count.
+- **Chunks.** `POST …/scenes/reset` deletes only the selected scenes' retained chunks. A
+  structural edit deletes only the chunks whose scene range changed and renames the later ones
+  with their rows, so a split or merge does not throw away the rest of the video's encoding.
+  Retained chunks supply the rail and timeline markers; there is no stored scene count.
 - **Sequence data.** `PUT …/scenes/{index}/sequence-data` replaces one scene's custom map. The
   pairs live beside the checkpoint, not in it, because the engine drops an unknown
   sequence-data field when it loads the document; the runner merges them into the table it

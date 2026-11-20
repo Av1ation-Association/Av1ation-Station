@@ -628,6 +628,23 @@ export type VideoFailure = z.infer<typeof VideoFailureSchema>;
 /** Generated from `schema/video/video-general-request.json`. */
 export const VideoGeneralRequestSchema = z
     .object({
+        clear_chunks: z
+            .union([
+                z
+                    .boolean()
+                    .describe(
+                        "Delete the retained chunks a changed source invalidates.\n\nThe encoder input inherits this document when `sequences.parallel_encoder.input` is\nnull, so replacing the source makes every chunk stale.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "Delete the retained chunks a changed source invalidates.\n\nThe encoder input inherits this document when `sequences.parallel_encoder.input` is\nnull, so replacing the source makes every chunk stale.",
+                    ),
+            ])
+            .describe(
+                "Delete the retained chunks a changed source invalidates.\n\nThe encoder input inherits this document when `sequences.parallel_encoder.input` is\nnull, so replacing the source makes every chunk stale.",
+            )
+            .optional(),
         input: z
             .any()
             .describe("Engine `Input` JSON; its path must be absolute when it states one."),

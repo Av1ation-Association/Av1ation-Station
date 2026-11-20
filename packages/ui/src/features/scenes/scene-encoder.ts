@@ -1,29 +1,30 @@
-import type { ConfigOverrides, SceneEncoderRequest, SceneView } from "@av1ation/contracts";
+import type { SceneEncoderRequest, SceneView, VideoOverridesUpdate } from "@av1ation/contracts";
 
 /** The two resources an encoder change can address. */
 export type SceneEncoderScope = "video" | "scenes";
 
 export type SceneEncoderWrite =
-    { kind: "video"; body: ConfigOverrides } | { kind: "scenes"; body: SceneEncoderRequest };
+    { kind: "video"; body: VideoOverridesUpdate } | { kind: "scenes"; body: SceneEncoderRequest };
 
 /**
  * Turn the chosen scope into the request that will be sent.
  *
- * The video scope is a whole `encoder` section replacement inside the existing overrides,
- * so unrelated fields survive. The scene scope writes only the selected scene indices; it
- * never writes the video's overrides as a side effect of one slider. Keeping this mapping
- * pure makes the difference between the two resources testable without a sheet.
+ * A scene write sends indices rather than the documents themselves, so the server can reject
+ * a selection that no longer matches the checkpoint instead of overwriting a newer one.
+ * `clearChunks` travels in the same request as the encoder: deleting the chunks in a second
+ * call would leave a window where a scene claims an encoder its chunk contradicts.
  */
 export function encoderWrite(
     scope: SceneEncoderScope,
     scenes: readonly SceneView[],
     encoder: unknown,
     existingFields: Readonly<Record<string, unknown>>,
+    clearChunks: boolean,
 ): SceneEncoderWrite {
     if (scope === "video") {
         return {
             kind: "video",
-            body: { fields: { ...existingFields, encoder } },
+            body: { fields: { ...existingFields, encoder }, clear_chunks: clearChunks },
         };
     }
     return {
@@ -31,6 +32,7 @@ export function encoderWrite(
         body: {
             scenes: scenes.map((scene) => scene.index),
             encoder,
+            clear_chunks: clearChunks,
         },
     };
 }

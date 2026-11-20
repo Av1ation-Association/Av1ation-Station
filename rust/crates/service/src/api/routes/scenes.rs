@@ -1,10 +1,11 @@
 //! Structural scene edits: add, split, merge, delete, range changes, undo, and reset.
 //!
 //! The engine owns what a valid scene table looks like; the service owns the run lock and
-//! the files that become stale. An insertion or deletion shifts every later scene index, so
-//! their chunks and probe directories are removed rather than left to be read under a
-//! different scene. A range change invalidates that scene's measurements, and undo restores
-//! the table but not chunks that were already removed.
+//! the files that become stale. A chunk is named after its scene's index, so an insertion or
+//! deletion deletes the chunks whose range changed and renames every later chunk with its
+//! row. The probe directory is removed whole because its files are named the same way. A
+//! range change invalidates that scene's measurements, and undo restores the table but not
+//! files that were already removed.
 
 use std::collections::BTreeMap;
 
@@ -173,8 +174,8 @@ pub(crate) async fn split_scene(
             Some("Run Scene detection first.".to_owned()),
         );
     };
-    let next = match reset::split_scene(condor, body.frame) {
-        Ok(next) => next,
+    let edit = match reset::split_scene(condor, body.frame) {
+        Ok(edit) => edit,
         Err(message) => {
             return error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -184,18 +185,13 @@ pub(crate) async fn split_scene(
             );
         }
     };
-    // Every later scene index moved, so no retained chunk or probe can be trusted.
+    let reset::SceneEdit {
+        condor: next,
+        chunks,
+    } = edit;
     let temp = record.temp_directory.as_deref();
-    if let Err(error) = videos.remove_scene_chunk_files(&video_id, temp, None).await {
+    if let Err(error) = invalidate_chunks(videos, &video_id, temp, &chunks).await {
         return project_error(error);
-    }
-    for directory in ["Parallel Encoder", "Target Quality"] {
-        if let Err(error) = videos
-            .remove_scratch_directory(&video_id, temp, directory)
-            .await
-        {
-            return project_error(error);
-        }
     }
     match videos
         .replace_condor_renumbering_scenes(&project_id, &video_id, &next)
@@ -203,7 +199,7 @@ pub(crate) async fn split_scene(
     {
         Ok(Some(_)) => StatusCode::NO_CONTENT.into_response(),
         Ok(None) => video_not_found(&video_id),
-        Err(error) => project_error(error),
+        Err(error) => abandon_scene_edit(videos, &video_id, temp, error).await,
     }
 }
 
@@ -259,8 +255,8 @@ pub(crate) async fn add_scene(
             &seeded
         }
     };
-    let next = match reset::add_scene(condor, body.start_frame, body.end_frame) {
-        Ok(next) => next,
+    let edit = match reset::add_scene(condor, body.start_frame, body.end_frame) {
+        Ok(edit) => edit,
         Err(message) => {
             return error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -270,19 +266,13 @@ pub(crate) async fn add_scene(
             );
         }
     };
-    // The insertion moved every later scene index, so retained chunks and probe directories
-    // no longer describe the row they are named after.
+    let reset::SceneEdit {
+        condor: next,
+        chunks,
+    } = edit;
     let temp = record.temp_directory.as_deref();
-    if let Err(error) = videos.remove_scene_chunk_files(&video_id, temp, None).await {
+    if let Err(error) = invalidate_chunks(videos, &video_id, temp, &chunks).await {
         return project_error(error);
-    }
-    for directory in ["Parallel Encoder", "Target Quality"] {
-        if let Err(error) = videos
-            .remove_scratch_directory(&video_id, temp, directory)
-            .await
-        {
-            return project_error(error);
-        }
     }
     match videos
         .replace_condor_renumbering_scenes(&project_id, &video_id, &next)
@@ -290,7 +280,7 @@ pub(crate) async fn add_scene(
     {
         Ok(Some(_)) => StatusCode::NO_CONTENT.into_response(),
         Ok(None) => video_not_found(&video_id),
-        Err(error) => project_error(error),
+        Err(error) => abandon_scene_edit(videos, &video_id, temp, error).await,
     }
 }
 
@@ -373,8 +363,8 @@ pub(crate) async fn delete_scene(
     let Some(condor) = record.condor.as_ref() else {
         return no_scene_table();
     };
-    let next = match reset::delete_scene(condor, index) {
-        Ok(next) => next,
+    let edit = match reset::delete_scene(condor, index) {
+        Ok(edit) => edit,
         Err(message) => {
             return error_response(
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -384,18 +374,13 @@ pub(crate) async fn delete_scene(
             );
         }
     };
-    // Every later scene index moved with the deletion.
+    let reset::SceneEdit {
+        condor: next,
+        chunks,
+    } = edit;
     let temp = record.temp_directory.as_deref();
-    if let Err(error) = videos.remove_scene_chunk_files(&video_id, temp, None).await {
+    if let Err(error) = invalidate_chunks(videos, &video_id, temp, &chunks).await {
         return project_error(error);
-    }
-    for directory in ["Parallel Encoder", "Target Quality"] {
-        if let Err(error) = videos
-            .remove_scratch_directory(&video_id, temp, directory)
-            .await
-        {
-            return project_error(error);
-        }
     }
     match videos
         .replace_condor_renumbering_scenes(&project_id, &video_id, &next)
@@ -403,7 +388,7 @@ pub(crate) async fn delete_scene(
     {
         Ok(Some(_)) => StatusCode::NO_CONTENT.into_response(),
         Ok(None) => video_not_found(&video_id),
-        Err(error) => project_error(error),
+        Err(error) => abandon_scene_edit(videos, &video_id, temp, error).await,
     }
 }
 
@@ -431,6 +416,56 @@ pub(crate) async fn undo_scene_edit(
         ),
         Err(error) => project_error(error),
     }
+}
+
+/// Fail a structural edit whose table could not be written.
+///
+/// The chunk files were already deleted and renamed for the new table, so the old table now
+/// names another row's chunk. Deleting every chunk makes that mismatch loud — the next run
+/// encodes the scenes again — instead of muxing the wrong pictures into the output.
+async fn abandon_scene_edit(
+    videos: &crate::project::videos::VideoStore,
+    video_id: &str,
+    temp_directory: Option<&str>,
+    error: crate::project::projects::StoreError,
+) -> Response {
+    let _ = videos
+        .remove_scene_chunk_files(video_id, temp_directory, None)
+        .await;
+    project_error(error)
+}
+
+/// Delete the chunks a structural edit invalidated and move the survivors with their rows.
+///
+/// A chunk is named after its scene's index, so an insertion or deletion moves every later
+/// chunk even though its footage did not change. The Target Quality directory is deleted
+/// whole because its probe files are named the same way; the Parallel Encoder directory
+/// holds per-scene logs and generated grain tables, which the next run writes again.
+async fn invalidate_chunks(
+    videos: &crate::project::videos::VideoStore,
+    video_id: &str,
+    temp_directory: Option<&str>,
+    chunks: &reset::ChunkEdit,
+) -> Result<(), crate::project::projects::StoreError> {
+    if !chunks.remove.is_empty() {
+        videos
+            .remove_scene_chunk_files(video_id, temp_directory, Some(&chunks.remove))
+            .await?;
+    }
+    videos
+        .renumber_scene_chunks(
+            video_id,
+            temp_directory,
+            chunks.renumber_from,
+            chunks.renumber_by,
+        )
+        .await?;
+    for directory in ["Parallel Encoder", "Target Quality"] {
+        videos
+            .remove_scratch_directory(video_id, temp_directory, directory)
+            .await?;
+    }
+    Ok(())
 }
 
 /// The one refusal every scene edit shares when a video has no checkpoint yet.
@@ -503,10 +538,14 @@ async fn edit_selection(
         );
     }
     let next = match edit {
-        SelectionEdit::Merge => reset::merge_scenes(condor, &body.scenes),
-        SelectionEdit::Reset => reset::reset_scene_outputs(condor, &body.scenes),
+        SelectionEdit::Merge => {
+            reset::merge_scenes(condor, &body.scenes).map(|edit| (edit.condor, Some(edit.chunks)))
+        }
+        SelectionEdit::Reset => {
+            reset::reset_scene_outputs(condor, &body.scenes).map(|next| (next, None))
+        }
     };
-    let next = match next {
+    let (next, chunks) = match next {
         Ok(next) => next,
         Err(message) => {
             return error_response(
@@ -518,22 +557,10 @@ async fn edit_selection(
         }
     };
     let temp = record.temp_directory.as_deref();
-    let files = match edit {
-        SelectionEdit::Merge => {
-            if let Err(error) = videos.remove_scene_chunk_files(&video_id, temp, None).await {
-                return project_error(error);
-            }
-            for directory in ["Parallel Encoder", "Target Quality"] {
-                if let Err(error) = videos
-                    .remove_scratch_directory(&video_id, temp, directory)
-                    .await
-                {
-                    return project_error(error);
-                }
-            }
-            Ok(())
-        }
-        SelectionEdit::Reset => videos
+    let renumbered = chunks.is_some();
+    let files = match chunks {
+        Some(chunks) => invalidate_chunks(videos, &video_id, temp, &chunks).await,
+        None => videos
             .remove_scene_chunk_files(&video_id, temp, Some(&body.scenes))
             .await
             .map(|_| ()),
@@ -553,6 +580,7 @@ async fn edit_selection(
     match written {
         Ok(Some(_)) => StatusCode::NO_CONTENT.into_response(),
         Ok(None) => video_not_found(&video_id),
+        Err(error) if renumbered => abandon_scene_edit(videos, &video_id, temp, error).await,
         Err(error) => project_error(error),
     }
 }

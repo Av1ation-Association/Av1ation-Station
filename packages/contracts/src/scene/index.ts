@@ -29,11 +29,28 @@ export type SceneEncoderDetail = z.infer<typeof SceneEncoderDetailSchema>;
 /** Generated from `schema/scene/scene-encoder-request.json`. */
 export const SceneEncoderRequestSchema = z
     .object({
+        clear_chunks: z
+            .union([
+                z
+                    .boolean()
+                    .describe(
+                        "Delete the retained chunks this write invalidates.\n\nA chunk was encoded with the document its scene carried before this write, so the\nsheet asks whether to delete it. Only a scene whose encoder actually changes is\ninvalidated; a selected scene that already carries the document keeps its chunk.\nKeeping the choice in the same request is what stops the encoder and the chunks on\ndisk from disagreeing about what the scene is.",
+                    ),
+                z
+                    .null()
+                    .describe(
+                        "Delete the retained chunks this write invalidates.\n\nA chunk was encoded with the document its scene carried before this write, so the\nsheet asks whether to delete it. Only a scene whose encoder actually changes is\ninvalidated; a selected scene that already carries the document keeps its chunk.\nKeeping the choice in the same request is what stops the encoder and the chunks on\ndisk from disagreeing about what the scene is.",
+                    ),
+            ])
+            .describe(
+                "Delete the retained chunks this write invalidates.\n\nA chunk was encoded with the document its scene carried before this write, so the\nsheet asks whether to delete it. Only a scene whose encoder actually changes is\ninvalidated; a selected scene that already carries the document keeps its chunk.\nKeeping the choice in the same request is what stops the encoder and the chunks on\ndisk from disagreeing about what the scene is.",
+            )
+            .optional(),
         encoder: z.any().describe("The complete engine `Encoder` document to write."),
         scenes: z
             .array(z.number().int().gte(0))
             .describe(
-                "Scene indices in engine order. Duplicates are harmless; the empty list is rejected.",
+                "Scene indices in engine order.\n\nA scene that already carries `encoder` is left untouched, so it keeps its retained\nchunk. Duplicates are harmless; the empty list is rejected.",
             ),
     })
     .strict()

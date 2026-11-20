@@ -1,6 +1,7 @@
 use super::*;
 use crate::api::json::ApiJson;
 use crate::project::{config, derive::output_is_written};
+use av1ation_engine::run::reset;
 
 /// The derived pipeline state. Nothing is persisted: the answer is recomputed from the
 /// engine's own data, the files on disk, and the live run.
@@ -258,11 +259,47 @@ pub(crate) async fn put_scene_encoders(
     let Some(videos) = state.videos() else {
         return no_storage();
     };
+    let record = match videos.record(&project_id, &video_id).await {
+        Ok(Some(record)) => record,
+        Ok(None) => return video_not_found(&video_id),
+        Err(error) => return project_error(error),
+    };
+    let Some(condor) = record.condor.as_ref() else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidConfig,
+            "This video has no detected scenes to update.".to_owned(),
+            Some("Run Scene detection first.".to_owned()),
+        );
+    };
     let mut scenes = body.scenes.clone();
     scenes.sort_unstable();
     scenes.dedup();
+    let clear_chunks = body.clear_chunks.unwrap_or(false);
+    let write = match reset::set_scene_encoders(condor, &scenes, &body.encoder, clear_chunks) {
+        Ok(write) => write,
+        Err(message) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                ErrorCode::InvalidConfig,
+                message,
+                Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+            );
+        }
+    };
+    let temp = record.temp_directory.as_deref();
+    // Only the scenes whose document changed are invalidated; a selected scene that already
+    // carries the requested encoder keeps the chunk it was encoded with.
+    if clear_chunks
+        && !write.changed.is_empty()
+        && let Err(error) = videos
+            .remove_scene_chunk_files(&video_id, temp, Some(&write.changed))
+            .await
+    {
+        return project_error(error);
+    }
     let record = match videos
-        .set_scene_encoders(&project_id, &video_id, &scenes, body.encoder)
+        .replace_condor_with_undo(&project_id, &video_id, &write.condor)
         .await
     {
         Ok(Some(record)) => record,

@@ -1,6 +1,8 @@
 use super::*;
 use crate::api::json::ApiJson;
 use crate::project::config;
+use av1ation_contracts::settings::VideoOverridesUpdate;
+use av1ation_engine::run::reset;
 
 pub(crate) async fn get_video(
     State(state): State<AppState>,
@@ -58,9 +60,17 @@ pub(crate) async fn put_video_general(
     let Some(videos) = state.videos() else {
         return no_storage();
     };
+    let Some(projects) = state.projects() else {
+        return project_not_found(&project_id);
+    };
     let record = match videos.record(&project_id, &video_id).await {
         Ok(Some(record)) => record,
         Ok(None) => return video_not_found(&video_id),
+        Err(error) => return project_error(error),
+    };
+    let project_document = match projects.document(&project_id).await {
+        Ok(Some(document)) => document,
+        Ok(None) => return project_not_found(&project_id),
         Err(error) => return project_error(error),
     };
     if let Err(message) = av1ation_engine::media::video::parse_input(&body.input) {
@@ -128,6 +138,54 @@ pub(crate) async fn put_video_general(
             }
         }
     }
+    let encoder_input =
+        config::materialise(&default_config(), &project_document, &record.overrides)
+            .pointer("/sequences/parallel_encoder/input")
+            .cloned();
+    let input_changed = record.input != body.input;
+    let source_path_changed = record.input_path() != source_path;
+    let invalidated = if body.clear_chunks.unwrap_or(false) {
+        match general_read(encoder_input.as_ref()) {
+            GeneralRead::Document if input_changed || source_path_changed => {
+                scene_indices(record.condor.as_ref())
+            }
+            GeneralRead::Source if source_path_changed => scene_indices(record.condor.as_ref()),
+            _ => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    };
+    let next = if invalidated.is_empty() {
+        None
+    } else {
+        match record
+            .condor
+            .as_ref()
+            .map(|condor| reset::reset_scene_outputs(condor, &invalidated))
+        {
+            Some(Ok(cleared)) => Some(cleared),
+            Some(Err(message)) => {
+                return error_response(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    ErrorCode::InvalidConfig,
+                    message,
+                    Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+                );
+            }
+            None => None,
+        }
+    };
+    if !invalidated.is_empty()
+        && let Err(error) = videos
+            .remove_scene_chunk_files(
+                &video_id,
+                record.temp_directory.as_deref(),
+                Some(&invalidated),
+            )
+            .await
+    {
+        return project_error(error);
+    }
     let input = body.input;
     let output = body.output;
     match videos
@@ -137,6 +195,7 @@ pub(crate) async fn put_video_general(
             input.clone(),
             output.clone(),
             Some(source_path),
+            next.as_ref(),
         )
         .await
     {
@@ -520,7 +579,7 @@ pub(crate) async fn get_video_config(
 pub(crate) async fn put_video_overrides(
     State(state): State<AppState>,
     AxumPath((project_id, video_id)): AxumPath<(String, String)>,
-    ApiJson(body): ApiJson<ConfigOverrides>,
+    ApiJson(body): ApiJson<VideoOverridesUpdate>,
 ) -> Response {
     if state
         .runs()
@@ -565,10 +624,102 @@ pub(crate) async fn put_video_overrides(
         );
     }
 
-    match videos
-        .replace_overrides(&project_id, &video_id, body.fields.clone())
-        .await
+    let record = match videos.record(&project_id, &video_id).await {
+        Ok(Some(record)) => record,
+        Ok(None) => return video_not_found(&video_id),
+        Err(error) => return project_error(error),
+    };
+    // A scene encodes with its own complete encoder document, so changing only the video's
+    // overrides would leave every existing scene on the old document. Rewrite the scenes
+    // that still inherit it in the same checkpoint as the overrides; `clear_chunks` decides
+    // whether their now-stale chunks survive, not whether the encoder changes.
+    let clear_chunks = body.clear_chunks.unwrap_or(false);
+    let previous = config::materialise(&defaults, &project_document, &record.overrides);
+    let previous_encoder = previous.get("encoder").cloned();
+    let inherited = candidate.get("encoder").cloned();
+    let encoder_changed = inherited.is_some() && inherited != previous_encoder;
+    let affected = if encoder_changed {
+        inheriting_scenes(record.condor.as_ref(), previous_encoder.as_ref())
+    } else {
+        Vec::new()
+    };
+    // The encoder reads `sequences.parallel_encoder.input`, so changing it invalidates every
+    // chunk: a scene carrying its own encoder still encodes the new frames.
+    let input_changed = previous.pointer("/sequences/parallel_encoder/input")
+        != candidate.pointer("/sequences/parallel_encoder/input");
+    let invalidated = if input_changed {
+        scene_indices(record.condor.as_ref())
+    } else {
+        affected.clone()
+    };
+    let next = match (
+        affected.is_empty(),
+        inherited.as_ref(),
+        record.condor.as_ref(),
+    ) {
+        (false, Some(encoder), Some(condor)) => {
+            match reset::set_scene_encoders(condor, &affected, encoder, clear_chunks) {
+                Ok(write) => Some(write.condor),
+                Err(message) => {
+                    return error_response(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        ErrorCode::InvalidConfig,
+                        message,
+                        Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+                    );
+                }
+            }
+        }
+        _ => None,
+    };
+    // A changed input has no encoder write to carry the cleared records, so the reset is
+    // applied on its own. It is still one checkpoint with the overrides: the next run cannot
+    // read the new input beside a chunk that was encoded from the old one.
+    let next = if clear_chunks && input_changed && !invalidated.is_empty() {
+        match next
+            .as_ref()
+            .or(record.condor.as_ref())
+            .map(|condor| reset::reset_scene_outputs(condor, &invalidated))
+        {
+            Some(Ok(cleared)) => Some(cleared),
+            Some(Err(message)) => {
+                return error_response(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    ErrorCode::InvalidConfig,
+                    message,
+                    Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+                );
+            }
+            None => next,
+        }
+    } else {
+        next
+    };
+    if clear_chunks
+        && !invalidated.is_empty()
+        && let Err(error) = videos
+            .remove_scene_chunk_files(
+                &video_id,
+                record.temp_directory.as_deref(),
+                Some(&invalidated),
+            )
+            .await
     {
+        return project_error(error);
+    }
+    let written = match next.as_ref() {
+        Some(condor) => {
+            videos
+                .replace_overrides_with_condor(&project_id, &video_id, body.fields.clone(), condor)
+                .await
+        }
+        None => {
+            videos
+                .replace_overrides(&project_id, &video_id, body.fields.clone())
+                .await
+        }
+    };
+    match written {
         Ok(Some(_)) => match projects.config(&project_id, &body.fields).await {
             Ok(Some(config)) => Json(config).into_response(),
             Ok(None) => project_not_found(&project_id),
@@ -577,6 +728,71 @@ pub(crate) async fn put_video_overrides(
         Ok(None) => video_not_found(&video_id),
         Err(error) => project_error(error),
     }
+}
+
+/// The scenes a video-level encoder write changes: every row that still inherits it.
+///
+/// A scene carrying its own encoder keeps it, which is the comparison the scene table's
+/// `encoder_custom` flag already reports.
+fn inheriting_scenes(condor: Option<&Value>, inherited: Option<&Value>) -> Vec<u32> {
+    let (Some(condor), Some(inherited)) = (condor, inherited) else {
+        return Vec::new();
+    };
+    condor
+        .get("scenes")
+        .and_then(Value::as_array)
+        .map(|scenes| {
+            scenes
+                .iter()
+                .enumerate()
+                .filter(|(_, scene)| scene.get("encoder") == Some(inherited))
+                .filter_map(|(index, _)| u32::try_from(index).ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// What a sequence's `input` reads from the video's General document.
+enum GeneralRead {
+    /// The engine inherits the whole General input when the sequence names none.
+    Document,
+    /// The runner fills the source path into a pathless input, or injects it as `video_path`.
+    Source,
+    /// The sequence states its own path; the General document is not read.
+    Explicit,
+}
+
+/// Classify the effective `sequences.parallel_encoder.input` the way the runner reads it.
+fn general_read(input: Option<&Value>) -> GeneralRead {
+    let Some(input) = input.filter(|input| !input.is_null()) else {
+        return GeneralRead::Document;
+    };
+    if input.get("VapourSynthScript").is_some() {
+        return GeneralRead::Source;
+    }
+    for tag in ["Video", "VapourSynth"] {
+        let Some(body) = input.get(tag) else {
+            continue;
+        };
+        let path = body.get("path").and_then(Value::as_str);
+        if path.is_none_or(|path| path.trim().is_empty()) {
+            return GeneralRead::Source;
+        }
+    }
+    GeneralRead::Explicit
+}
+
+/// Every scene index in the checkpoint, for a write that invalidates the whole table.
+fn scene_indices(condor: Option<&Value>) -> Vec<u32> {
+    condor
+        .and_then(|condor| condor.get("scenes"))
+        .and_then(Value::as_array)
+        .map(|scenes| {
+            (0..scenes.len())
+                .filter_map(|index| u32::try_from(index).ok())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Drop every override, so each leaf inherits the project value again.

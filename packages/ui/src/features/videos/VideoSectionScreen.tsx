@@ -60,6 +60,9 @@ import {
 import { videoTimeline, type TimelineStep } from "../../shared/model/video-timeline";
 import { VideoProbeContext } from "../../shared/video/video-probe";
 import { resetDataCopy } from "../../shared/reset-copy";
+import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../scenes/useChunkGuard";
+import { NO_INVALIDATION, encodingInvalidation } from "./encoding-invalidation";
 
 /**
  * One sequence's configuration for one video.
@@ -110,6 +113,7 @@ export function VideoSectionScreen() {
     const resetDialog = useRef<HTMLDialogElement>(null);
     const navigate = useNavigate();
     const allowNavigation = useAllowNavigation();
+    const chunkGuard = useChunkGuard();
 
     // A sequence override starts from the same file General decodes, but a script names no
     // file of its own and the field should stay empty there.
@@ -156,6 +160,19 @@ export function VideoSectionScreen() {
     const fields = overrides.data?.fields ?? {};
     const count = definition === null ? 0 : sectionOverrideCount(fields, definition);
 
+    const writeOverrides = async (
+        fields: Record<string, unknown>,
+        clearChunks: boolean,
+    ): Promise<boolean> => {
+        try {
+            await save.mutateAsync({ fields, clear_chunks: clearChunks });
+            toast.success(`${definition?.title ?? "Video"} overrides saved`);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     const session = useDraftSession<Record<string, unknown>, Record<string, unknown>>({
         identity: `${projectId}/${videoId}/${section}`,
         label: definition?.title ?? "Video overrides",
@@ -165,20 +182,32 @@ export function VideoSectionScreen() {
             if (definition === null || baseDocument === null || overrides.data === undefined) {
                 return false;
             }
-            try {
-                const next = mergeDraft(server, definition, draft);
-                const merged = mergeSectionOverrides(
-                    overrides.data.fields,
-                    definition,
-                    baseDocument,
-                    next,
-                );
-                await save.mutateAsync({ fields: merged });
-                toast.success(`${definition.title} overrides saved`);
-                return true;
-            } catch {
-                return false;
+            const next = mergeDraft(server, definition, draft);
+            const merged = mergeSectionOverrides(
+                overrides.data.fields,
+                definition,
+                baseDocument,
+                next,
+            );
+            const invalidation =
+                definition.id === "encoding"
+                    ? encodingInvalidation(server, next, scenes)
+                    : NO_INVALIDATION;
+            const encoded = invalidation.scenes.filter((scene) => scene.encoded);
+            if (encoded.length > 0) {
+                // The save stays pending until the guard answers, so every caller — the
+                // Save button, a run's pre-save, and the navigation guard — waits for the
+                // same decision instead of writing a second request around it.
+                const keep = await chunkGuard.ask(encoded, {
+                    eyebrow: "Encoding",
+                    reason: invalidation.reason ?? "encoder",
+                });
+                if (keep === null) {
+                    return false;
+                }
+                return writeOverrides(merged, !keep);
             }
+            return writeOverrides(merged, invalidation.reason !== null);
         },
         pending: save.isPending,
         active: definition !== null,
@@ -603,6 +632,8 @@ export function VideoSectionScreen() {
                         </Button>
                     </div>
                 </dialog>
+
+                <SceneEncoderChunkGuard {...chunkGuard.props} />
             </VideoProbeContext.Provider>
         </main>
     );

@@ -811,6 +811,7 @@ export function ScenesScreen() {
                         projectId={projectId}
                         videoId={videoId}
                         scenes={chosen}
+                        allScenes={scenes}
                         locked={locked}
                     />
                 </div>

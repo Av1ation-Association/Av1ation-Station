@@ -208,6 +208,7 @@ impl VideoStore {
         input: Value,
         output: Value,
         source_path: Option<String>,
+        condor: Option<&Value>,
     ) -> Result<Option<VideoDetail>, StoreError> {
         let Some(mut record) = self.record(project_id, video_id).await? else {
             return Ok(None);
@@ -226,6 +227,9 @@ impl VideoStore {
         }
         record.input = input;
         record.output = output;
+        if let Some(condor) = condor {
+            record.condor = Some(condor.clone());
+        }
         write_document(&self.document(project_id, video_id), &record).await?;
         let output_exists = output_exists(&record.output_path());
         let retained = self
@@ -408,53 +412,23 @@ impl VideoStore {
         Ok(Some(record))
     }
 
-    /// Write one encoder document into the selected engine scenes.
+    /// Replace one video's sparse overrides and the checkpoint they invalidate, in one write.
     ///
-    /// A scene's encoder is required by the engine, not an `Option`: replacing it is the
-    /// only way to reset a scene to the video's encoder. All indices are checked before the
-    /// first scene is changed, so a stale selection rejects the whole request instead of
-    /// applying a prefix of it.
-    pub(crate) async fn set_scene_encoders(
+    /// A video-level encoder change makes the retained chunks of every inheriting scene
+    /// stale. Writing the new overrides and the cleared table together means no reader sees
+    /// one without the other.
+    pub(crate) async fn replace_overrides_with_condor(
         &self,
         project_id: &str,
         video_id: &str,
-        scenes: &[u32],
-        encoder: Value,
+        overrides: BTreeMap<String, Value>,
+        condor: &Value,
     ) -> Result<Option<VideoRecord>, StoreError> {
         let Some(mut record) = self.record(project_id, video_id).await? else {
             return Ok(None);
         };
-        let previous = previous_scenes(record.condor.as_ref());
-        let Some(list) = record
-            .condor
-            .as_mut()
-            .and_then(|condor| condor.get_mut("scenes"))
-            .and_then(Value::as_array_mut)
-        else {
-            return Err(StoreError::Invalid(
-                "This video has no detected scenes to update.".to_owned(),
-            ));
-        };
-        for index in scenes {
-            let position = *index as usize;
-            if position >= list.len() {
-                return Err(StoreError::Invalid(format!(
-                    "Scene {} does not exist in this video's {} scenes.",
-                    index + 1,
-                    list.len()
-                )));
-            }
-        }
-        for index in scenes {
-            let position = *index as usize;
-            if let Some(scene) = list.get_mut(position).and_then(Value::as_object_mut) {
-                scene.insert("encoder".to_owned(), encoder.clone());
-            }
-        }
-        // Writing one encoder to a whole selection is one user action. Keep the table from
-        // before that action, exactly as a structural edit does, so one Undo restores every
-        // scene it touched instead of leaving the selection half reverted.
-        record.scene_undo = Some(previous);
+        record.overrides = overrides;
+        record.condor = Some(condor.clone());
         write_document(&self.document(project_id, video_id), &record).await?;
         Ok(Some(record))
     }
@@ -532,6 +506,74 @@ impl VideoStore {
             }
         }
         Ok(removed)
+    }
+
+    /// Move every retained chunk at or after `from` by `by` scene indices.
+    ///
+    /// A structural edit renumbers the rows after it, and a chunk is named after its row.
+    /// Those chunks still describe the same footage, so they move with their row instead of
+    /// being encoded again. Files move from the far end towards the edit when indices grow
+    /// and from the edit towards the end when they shrink, so a destination has always been
+    /// vacated; a file this call is not moving is refused rather than overwritten.
+    pub(crate) async fn renumber_scene_chunks(
+        &self,
+        video_id: &str,
+        temp_directory: Option<&str>,
+        from: u32,
+        by: i64,
+    ) -> Result<usize, StoreError> {
+        if by == 0 {
+            return Ok(0);
+        }
+        valid_segment(video_id, "video")?;
+        let directory = self.chunk_directory(video_id, temp_directory);
+        let mut entries = match tokio::fs::read_dir(&directory).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(error) => return Err(io_error("read the chunk directory", &directory, error)),
+        };
+        let mut moves = Vec::new();
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let Ok(file_type) = entry.file_type().await else {
+                continue;
+            };
+            if !file_type.is_file() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(index) = scene_index(&name)
+                && index >= from
+            {
+                moves.push((index, name));
+            }
+        }
+        moves.sort_by_key(|(index, _)| *index);
+        if by > 0 {
+            moves.reverse();
+        }
+        let mut moved = 0;
+        for (index, name) in moves {
+            let target_index = i64::from(index) + by;
+            let Ok(target_index) = u32::try_from(target_index) else {
+                return Err(StoreError::Invalid(format!(
+                    "Scene {index} cannot move to index {target_index}."
+                )));
+            };
+            let target = format!("{target_index:05}{}", name.get(5..).unwrap_or_default());
+            let destination = directory.join(&target);
+            if tokio::fs::try_exists(&destination).await.unwrap_or(false) {
+                return Err(StoreError::Invalid(format!(
+                    "The chunk {target} already names scene {target_index}, so the edit cannot keep both."
+                )));
+            }
+            let path = directory.join(&name);
+            match tokio::fs::rename(&path, &destination).await {
+                Ok(()) => moved += 1,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(io_error("move a scene chunk", &path, error)),
+            }
+        }
+        Ok(moved)
     }
 
     /// Delete one directory under the video's scratch root, if it exists.
@@ -690,14 +732,12 @@ impl VideoStore {
         Ok(Some(record))
     }
 
-    /// Replace the checkpoint after a structural scene edit and remember what it replaced.
+    /// Replace the checkpoint after a range edit and remember what it replaced.
     ///
-    /// The snapshot is the scene matrix, not the whole blob: a split, merge, delete, range
-    /// edit, or bulk scene-encoder assignment leaves the input, output and top-level encoder
-    /// documents untouched. One step is
-    /// kept; a second structural edit overwrites the entry, so undo always means "the table
-    /// as it was before this action" rather than a rewind that can contradict the chunks on
-    /// disk.
+    /// The snapshot is the scene matrix, not the whole blob: a range edit leaves the input,
+    /// output and top-level encoder documents untouched. One step is kept; a second range
+    /// edit overwrites the entry, so undo always means "the table as it was before this
+    /// action" rather than a rewind that can contradict the chunks on disk.
     pub(crate) async fn replace_condor_with_undo(
         &self,
         project_id: &str,
@@ -713,12 +753,15 @@ impl VideoStore {
         Ok(Some(record))
     }
 
-    /// Put back the scene table the last structural edit replaced.
+    /// Put back the scene table the last undoable edit replaced.
     ///
-    /// `None` means this video has no edit to undo. The restored table is validated through
+    /// `None` means this video has no edit to undo. A range edit and a bulk scene-encoder
+    /// assignment both record one. The restored table is validated through
     /// `restore_scene_table`, so a snapshot written by an older engine cannot be installed
-    /// blindly. Retained chunks are not restored: a structural edit removed what no longer
-    /// matched a scene, and the next encode writes them again.
+    /// blindly. Retained chunks are not restored: a range edit removed the edited scene's
+    /// chunk and the whole Target Quality directory, and `restore_scene_table` clears those
+    /// results. A bulk encoder assignment removes no files, so its old chunk and probe
+    /// results stay.
     pub(crate) async fn undo_scene_edit(
         &self,
         project_id: &str,

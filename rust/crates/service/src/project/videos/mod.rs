@@ -237,6 +237,19 @@ fn chunk_is_scene(name: &str, scene: usize) -> bool {
     name.starts_with(&format!("{:>05}.", scene)) && !name.contains(".temp.")
 }
 
+/// The scene index a chunk file name starts with, when it names one.
+///
+/// A structural edit renames these files, so the reader that moves them needs the index
+/// back out of the name. A `.temp.` file moves with its scene because it belongs to the
+/// same row, even though it is not a finished chunk.
+fn scene_index(name: &str) -> Option<u32> {
+    let prefix = name.get(..5)?;
+    if name.as_bytes().get(5) != Some(&b'.') {
+        return None;
+    }
+    prefix.parse().ok()
+}
+
 async fn directory_size(directory: &Path) -> u64 {
     let mut total = 0;
     let mut stack = vec![directory.to_path_buf()];
@@ -494,6 +507,54 @@ mod tests {
             "the temp file does not supply a size for scene one"
         );
         assert_eq!(VideoStore::chunk_bytes(&sizes, 2), Some(1));
+
+        let _ = tokio::fs::remove_dir_all(dir).await;
+    }
+
+    #[tokio::test]
+    async fn renumbering_moves_chunks_with_their_rows() {
+        let dir = temporary_dir();
+        let store = VideoStore::new(&dir);
+        let project = project_with_videos(&store, &dir).await;
+        let id = store.list(&project).await.expect("list")[0].id.clone();
+        let chunks = store.chunk_directory(&id, None);
+        tokio::fs::create_dir_all(&chunks)
+            .await
+            .expect("scenes dir");
+        for name in ["00000.ivf", "00001.ivf", "00001.temp.264", "00002.ivf"] {
+            tokio::fs::write(chunks.join(name), b"x")
+                .await
+                .expect("chunk");
+        }
+
+        assert_eq!(
+            store
+                .renumber_scene_chunks(&id, None, 1, 1)
+                .await
+                .expect("move up"),
+            3
+        );
+        for name in ["00000.ivf", "00002.ivf", "00002.temp.264", "00003.ivf"] {
+            assert!(chunks.join(name).exists(), "{name} exists after the move");
+        }
+        assert!(!chunks.join("00001.ivf").exists());
+
+        assert_eq!(
+            store
+                .renumber_scene_chunks(&id, None, 2, -1)
+                .await
+                .expect("move down"),
+            3
+        );
+        for name in ["00000.ivf", "00001.ivf", "00001.temp.264", "00002.ivf"] {
+            assert!(chunks.join(name).exists(), "{name} exists after the move");
+        }
+        assert!(!chunks.join("00003.ivf").exists());
+
+        assert!(
+            store.renumber_scene_chunks(&id, None, 2, -2).await.is_err(),
+            "a target another scene still owns is refused, not overwritten"
+        );
 
         let _ = tokio::fs::remove_dir_all(dir).await;
     }

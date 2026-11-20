@@ -342,7 +342,7 @@ routes! {
         path: "/api/projects/{project_id}/videos/{video_id}/general",
         methods: {
             get => (video::get_video_general, "api::routes::video::document", "the video's engine `Input` and `Output` documents and its queued source"),
-            put => (video::put_video_general, "api::routes::video::document", "replace both documents after validating paths and engine shapes"),
+            put => (video::put_video_general, "api::routes::video::document", "replace both documents after validating paths and engine shapes; a changed source can delete the retained chunks it invalidates"),
         },
     },
     "video.storage" => {
@@ -410,7 +410,7 @@ routes! {
         path: "/api/projects/{project_id}/videos/{video_id}/overrides",
         methods: {
             get => (video::get_video_overrides, "api::routes::video::document", "the raw sparse override map"),
-            put => (video::put_video_overrides, "api::routes::video::document", "replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section"),
+            put => (video::put_video_overrides, "api::routes::video::document", "replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section; a changed encoder rewrites every inheriting scene's encoder, and a changed encoder or `sequences.parallel_encoder.input` can delete the chunks it invalidates"),
             delete => (video::delete_video_overrides, "api::routes::video::document", "reset to inherited"),
         },
     },
@@ -429,25 +429,25 @@ routes! {
     "video.scenes.encoders" => {
         path: "/api/projects/{project_id}/videos/{video_id}/scenes/encoder",
         methods: {
-            put => (video::put_scene_encoders, "api::routes::video::state", "write one encoder document to named scenes; rejects the whole request if any index is stale or a run holds the lock"),
+            put => (video::put_scene_encoders, "api::routes::video::state", "write one encoder document to the named scenes that do not already carry it; optionally deletes only those scenes' retained chunks; rejects the whole request if any index is stale or a run holds the lock"),
         },
     },
     "video.scenes.add" => {
         path: "/api/projects/{project_id}/videos/{video_id}/scenes/add",
         methods: {
-            post => (scenes::add_scene, "api::routes::scenes", "insert a scene in an uncovered `start_frame`–`end_frame` range; clears chunks because later indices move"),
+            post => (scenes::add_scene, "api::routes::scenes", "insert a scene in an uncovered `start_frame`–`end_frame` range; moves every later chunk up one index"),
         },
     },
     "video.scenes.split" => {
         path: "/api/projects/{project_id}/videos/{video_id}/scenes/split",
         methods: {
-            post => (scenes::split_scene, "api::routes::scenes", "split the scene containing `frame`; clears chunks because later indices move"),
+            post => (scenes::split_scene, "api::routes::scenes", "split the scene containing `frame`; deletes its chunk and moves every later chunk up one index"),
         },
     },
     "video.scenes.merge" => {
         path: "/api/projects/{project_id}/videos/{video_id}/scenes/merge",
         methods: {
-            post => (scenes::merge_scenes, "api::routes::scenes", "merge an adjacent scene selection; clears chunks"),
+            post => (scenes::merge_scenes, "api::routes::scenes", "merge an adjacent scene selection; deletes the merged chunks and moves every later chunk down"),
         },
     },
     "video.scenes.reset" => {
@@ -466,7 +466,7 @@ routes! {
         path: "/api/projects/{project_id}/videos/{video_id}/scenes/{index}",
         methods: {
             patch => (scenes::set_scene_range, "api::routes::scenes", "change one scene's boundaries"),
-            delete => (scenes::delete_scene, "api::routes::scenes", "delete one scene"),
+            delete => (scenes::delete_scene, "api::routes::scenes", "delete one scene; deletes its chunk and moves every later chunk down"),
         },
     },
     "video.scene.encoder" => {

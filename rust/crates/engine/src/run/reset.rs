@@ -36,6 +36,28 @@ pub struct ResetPlan {
     pub files: ResetFiles,
 }
 
+/// The retained chunks a structural edit invalidates, and where the survivors move.
+///
+/// A chunk is named after its row's index, so an insertion or deletion renames every later
+/// chunk even though its footage did not change. `remove` names the chunks whose scene range
+/// changed; the rest are moved by `renumber_by` from `renumber_from` on.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChunkEdit {
+    /// Chunk indices, in the current numbering, whose files no longer describe their scene.
+    pub remove: Vec<u32>,
+    /// The first current index whose chunk moves.
+    pub renumber_from: u32,
+    /// How far each renumbered chunk moves; zero when nothing after the edit moves.
+    pub renumber_by: i64,
+}
+
+/// A structural edit's new table and the chunk files it changes.
+#[derive(Debug, Clone)]
+pub struct SceneEdit {
+    pub condor: Value,
+    pub chunks: ChunkEdit,
+}
+
 /// Clear one sequence's result.
 ///
 /// `BitrateOptimizer` and `Benchmarker` are refused: neither stores its own data (the
@@ -100,7 +122,7 @@ pub fn reset_sequence(condor: &Value, sequence: &str) -> Result<ResetPlan, Strin
         }
         "ParallelEncoder" => {
             for scene in &mut scenes {
-                scene.sequence_data.parallel_encoder = Default::default();
+                clear_chunk_results(scene);
             }
             ResetFiles {
                 scene_chunks: true,
@@ -137,8 +159,9 @@ pub fn reset_sequence(condor: &Value, sequence: &str) -> Result<ResetPlan, Strin
 
 /// Delete one scene's retained output, so the next encoder run re-encodes it.
 ///
-/// This keeps the scene's encoder and range. Only the result fields the Parallel Encoder
-/// wrote are cleared; target-quality probes remain valid for the same range.
+/// This keeps the scene's encoder and range. Only the chunk-derived results (Parallel
+/// Encoder and Quality Check) are cleared; target-quality probes remain valid for the same
+/// range.
 pub fn reset_scene_outputs(condor: &Value, scenes: &[u32]) -> Result<Value, String> {
     let mut next = condor.clone();
     let mut table = read_scenes(&next)?;
@@ -154,19 +177,133 @@ pub fn reset_scene_outputs(condor: &Value, scenes: &[u32]) -> Result<Value, Stri
                 table.len()
             ));
         };
-        scene.sequence_data.parallel_encoder = Default::default();
+        clear_chunk_results(scene);
     }
     write_scenes(&mut next, &table)?;
     Ok(next)
+}
+
+/// A scene encoder write's new checkpoint and the scenes it changed.
+///
+/// A selection can name scenes that already carry the requested document. They are left
+/// untouched, so their retained chunks stay valid.
+#[derive(Debug, Clone)]
+pub struct SceneEncoderWrite {
+    pub condor: Value,
+    /// The selected scenes whose stored encoder differed from the requested document.
+    pub changed: Vec<u32>,
+}
+
+/// Write one complete encoder document into the named scenes.
+///
+/// A scene's encoder is required by the engine, not an `Option`, so replacing it is the only
+/// way to reset a scene to the video's encoder. `clear_chunks` also clears the results derived
+/// from those scenes' retained chunks: a chunk encoded with the previous document is not what
+/// the new one describes. A scene that already carries the document is not rewritten and its
+/// results are kept, because nothing about it is invalidated. Every index is checked before
+/// any scene changes, so a stale selection rejects the whole request instead of applying a
+/// prefix of it.
+pub fn set_scene_encoders(
+    condor: &Value,
+    scenes: &[u32],
+    encoder: &Value,
+    clear_chunks: bool,
+) -> Result<SceneEncoderWrite, String> {
+    let mut selected = scenes.to_vec();
+    selected.sort_unstable();
+    selected.dedup();
+    let count = condor
+        .get("scenes")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    for index in &selected {
+        if usize::try_from(*index).map_or(true, |index| index >= count) {
+            return Err(format!(
+                "Scene {} does not exist in this video's {} scenes.",
+                index + 1,
+                count
+            ));
+        }
+    }
+    let encoder = canonical_encoder(encoder)?;
+    let changed: Vec<u32> = selected
+        .into_iter()
+        .filter(|index| {
+            let stored = condor
+                .get("scenes")
+                .and_then(Value::as_array)
+                .and_then(|list| list.get(*index as usize))
+                .and_then(|scene| scene.get("encoder"));
+            stored
+                .and_then(|stored| canonical_encoder(stored).ok())
+                .as_ref()
+                != Some(&encoder)
+        })
+        .collect();
+    let mut next = condor.clone();
+    if clear_chunks {
+        next = reset_scene_outputs(&next, &changed)?;
+    }
+    let list = next
+        .get_mut("scenes")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| "This video has no detected scenes to update.".to_owned())?;
+    for index in &changed {
+        let Ok(position) = usize::try_from(*index) else {
+            continue;
+        };
+        if let Some(scene) = list.get_mut(position).and_then(Value::as_object_mut) {
+            scene.insert("encoder".to_owned(), encoder.clone());
+        }
+    }
+    Ok(SceneEncoderWrite {
+        condor: next,
+        changed,
+    })
+}
+
+/// The engine's own spelling of an encoder document.
+///
+/// An editor sends JSON where an integral float is written `30`, while a checkpoint holds the
+/// engine's `30.0`. Comparing the typed documents is the test the runner makes when it loads
+/// one, and writing the typed form keeps the scene table's provenance comparison (equality
+/// with the video's encoder) honest.
+fn canonical_encoder(encoder: &Value) -> Result<Value, String> {
+    let typed = serde_json::from_value::<Encoder>(encoder.clone())
+        .map_err(|error| format!("The encoder is not a valid engine document: {error}"))?;
+    serde_json::to_value(typed)
+        .map_err(|error| format!("The encoder could not be serialised: {error}"))
+}
+
+/// Clear the results derived from a scene's retained chunk.
+///
+/// Quality Check reads the chunk, so deleting it invalidates both results; a target-quality
+/// probe measures the source range and is not affected.
+fn clear_chunk_results(scene: &mut Scene<DefaultSequenceData>) {
+    scene.sequence_data.parallel_encoder = Default::default();
+    scene.sequence_data.quality_check = Default::default();
+}
+
+/// Clear the result derived from a scene's target-quality probe.
+fn clear_probe_results(scene: &mut Scene<DefaultSequenceData>) {
+    scene.sequence_data.target_quality = Default::default();
+}
+
+/// Clear every scene's probe result, because a structural edit deletes the whole Target
+/// Quality directory: its probe files are named after the row they were measured for.
+fn clear_all_probes(table: &mut [Scene<DefaultSequenceData>]) {
+    for scene in table {
+        clear_probe_results(scene);
+    }
 }
 
 /// Split the scene containing `frame` into two scenes.
 ///
 /// The split inherits the source scene's encoder, while both halves lose sequence data:
 /// every per-scene result was measured over the old range and would be read as if it
-/// described the new one. The caller deletes retained chunks because every later scene
-/// index moved.
-pub fn split_scene(condor: &Value, frame: u64) -> Result<Value, String> {
+/// described the new one. Later rows keep their ranges and their chunks, which move up one
+/// index with the row; only the split scene's own chunk is stale.
+pub fn split_scene(condor: &Value, frame: u64) -> Result<SceneEdit, String> {
     let mut next = condor.clone();
     let mut table = read_scenes(&next)?;
     if table.is_empty() {
@@ -198,8 +335,16 @@ pub fn split_scene(condor: &Value, frame: u64) -> Result<Value, String> {
         sequence_data: DefaultSequenceData::default(),
     };
     table.splice(position..=position, [left, right]);
+    clear_all_probes(&mut table);
     write_scenes(&mut next, &table)?;
-    Ok(next)
+    Ok(SceneEdit {
+        condor: next,
+        chunks: ChunkEdit {
+            remove: vec![position_index(position)?],
+            renumber_from: position_index(position + 1)?,
+            renumber_by: 1,
+        },
+    })
 }
 
 /// Add one scene inside a gap the current table does not cover.
@@ -207,8 +352,10 @@ pub fn split_scene(condor: &Value, frame: u64) -> Result<Value, String> {
 /// The new scene takes the video's main encoder, not a neighbour's: a manual range has no
 /// history, so inheriting an edited scene encoder would silently attribute another scene's
 /// choices to it. An overlapping range is refused rather than trimmed; the UI computes the
-/// gap from the same boundaries, and a silent trim would hide a stale table.
-pub fn add_scene(condor: &Value, start_frame: u64, end_frame: u64) -> Result<Value, String> {
+/// gap from the same boundaries, and a silent trim would hide a stale table. The inserted
+/// row moves every later chunk up one index, but no retained chunk describes the new range,
+/// so nothing is deleted.
+pub fn add_scene(condor: &Value, start_frame: u64, end_frame: u64) -> Result<SceneEdit, String> {
     if end_frame <= start_frame {
         return Err("A scene must end after it starts.".to_owned());
     }
@@ -240,8 +387,16 @@ pub fn add_scene(condor: &Value, start_frame: u64, end_frame: u64) -> Result<Val
         .position(|existing| existing.start_frame > start)
         .unwrap_or(table.len());
     table.insert(position, scene);
+    clear_all_probes(&mut table);
     write_scenes(&mut next, &table)?;
-    Ok(next)
+    Ok(SceneEdit {
+        condor: next,
+        chunks: ChunkEdit {
+            remove: Vec::new(),
+            renumber_from: position_index(position)?,
+            renumber_by: 1,
+        },
+    })
 }
 
 /// Change one scene's boundaries without moving its neighbours.
@@ -251,6 +406,8 @@ pub fn add_scene(condor: &Value, start_frame: u64, end_frame: u64) -> Result<Val
 /// the table disagree with what the user typed, and a gap is a legitimate way to re-add a
 /// range deliberately. The scene keeps its encoder because the choice is still about this
 /// footage, but its sequence data is cleared: every value was measured over the old span.
+/// The caller deletes the whole Target Quality directory, so every scene's target-quality
+/// result is cleared as well; the other scenes keep their chunks and chunk-derived results.
 pub fn set_scene_range(
     condor: &Value,
     scene: u32,
@@ -275,6 +432,9 @@ pub fn set_scene_range(
     row.start_frame = start;
     row.end_frame = end;
     row.sequence_data = DefaultSequenceData::default();
+    for scene in &mut table {
+        clear_probe_results(scene);
+    }
     write_scenes(&mut next, &table)?;
     Ok(next)
 }
@@ -285,8 +445,10 @@ pub fn set_scene_range(
 /// [`add_scene`]. Every reader that builds a pipeline or a projection closes the hole into the
 /// scene before it with [`close_scene_gaps`], because the engine encodes each scene as a range
 /// of one clip: an uncovered range in the middle would shift every later scene instead of
-/// removing it. Only a delete at the end trims footage.
-pub fn delete_scene(condor: &Value, scene: u32) -> Result<Value, String> {
+/// removing it. Only a delete at the end trims footage. The row that absorbs the hole has a
+/// stale chunk, so its chunk results are cleared with the removed scene's; the chunks after
+/// them still describe their footage and move down one index with the row.
+pub fn delete_scene(condor: &Value, scene: u32) -> Result<SceneEdit, String> {
     let mut next = condor.clone();
     let mut table = read_scenes(&next)?;
     let position = usize::try_from(scene).map_err(|_| "Scene index is too large.")?;
@@ -297,19 +459,60 @@ pub fn delete_scene(condor: &Value, scene: u32) -> Result<Value, String> {
             table.len()
         ));
     }
+    let count = table.len();
     table.remove(position);
+    let mut remove = vec![scene];
+    // A hole before the next row is given to the row before it when the next run builds its
+    // clip, so that row no longer describes the range it will encode. A delete at the end
+    // trims footage and changes nobody's range.
+    if position > 0 && position + 1 < count {
+        remove.push(position_index(position - 1)?);
+        clear_chunk_results(&mut table[position - 1]);
+    } else if position == 0 && count > 1 {
+        remove.push(1);
+        clear_chunk_results(&mut table[0]);
+    }
+    remove.sort_unstable();
+    clear_all_probes(&mut table);
     write_scenes(&mut next, &table)?;
-    Ok(next)
+    Ok(SceneEdit {
+        condor: next,
+        chunks: ChunkEdit {
+            remove,
+            renumber_from: position_index(position + 1)?,
+            renumber_by: -1,
+        },
+    })
 }
 
 /// Put a saved scene table back, validating it through the engine's own types first.
 ///
-/// This is the undo path. The snapshot comes from this engine's own checkpoint, so it is
-/// parsed again before writing: a corrupt or stale snapshot is refused instead of being
-/// installed as a table the next run cannot decode.
+/// This is the undo path for a range edit or a bulk scene-encoder assignment. The snapshot
+/// comes from this engine's own checkpoint, so it is parsed again before writing: a corrupt
+/// or stale snapshot is refused instead of being installed as a table the next run cannot
+/// decode. A range edit deleted the edited scene's chunk and the whole Target Quality
+/// directory, so the restored table clears the edited scene's chunk results and, because the
+/// edit left no probe results behind, every scene's probe result. A bulk encoder assignment
+/// removed no files, so it keeps the old chunk and probe results. Other scenes keep their
+/// chunk results.
 pub fn restore_scene_table(condor: &Value, scenes: &Value) -> Result<Value, String> {
-    let table: Vec<Scene<DefaultSequenceData>> = serde_json::from_value(scenes.clone())
+    let mut table: Vec<Scene<DefaultSequenceData>> = serde_json::from_value(scenes.clone())
         .map_err(|error| format!("The saved scene table is not readable: {error}"))?;
+    let current = read_scenes(condor)?;
+    let probes_deleted = current
+        .iter()
+        .all(|scene| scene.sequence_data.target_quality.passes.is_empty());
+    for (index, scene) in table.iter_mut().enumerate() {
+        if probes_deleted {
+            clear_probe_results(scene);
+        }
+        let range_changed = current.get(index).is_none_or(|now| {
+            now.start_frame != scene.start_frame || now.end_frame != scene.end_frame
+        });
+        if range_changed {
+            clear_chunk_results(scene);
+        }
+    }
     let mut next = condor.clone();
     write_scenes(&mut next, &table)?;
     Ok(next)
@@ -318,9 +521,11 @@ pub fn restore_scene_table(condor: &Value, scenes: &Value) -> Result<Value, Stri
 /// Merge a contiguous selection of scenes into one.
 ///
 /// The merged scene keeps the first scene's encoder and takes the outer range. It loses
-/// sequence data for the same reason a split does. Non-contiguous selections are refused:
-/// merging across an unselected scene would silently swallow it.
-pub fn merge_scenes(condor: &Value, scenes: &[u32]) -> Result<Value, String> {
+/// sequence data for the same reason a split does, and the caller deletes the chunks of the
+/// scenes it replaces; later chunks keep their footage and move down with their rows.
+/// Non-contiguous selections are refused: merging across an unselected scene would silently
+/// swallow it.
+pub fn merge_scenes(condor: &Value, scenes: &[u32]) -> Result<SceneEdit, String> {
     let mut selected = scenes.to_vec();
     selected.sort_unstable();
     selected.dedup();
@@ -353,9 +558,21 @@ pub fn merge_scenes(condor: &Value, scenes: &[u32]) -> Result<Value, String> {
         encoder: table[first].encoder.clone(),
         sequence_data: DefaultSequenceData::default(),
     };
+    let replaced = last - first;
     table.splice(first..=last, [merged]);
+    clear_all_probes(&mut table);
     write_scenes(&mut next, &table)?;
-    Ok(next)
+    Ok(SceneEdit {
+        condor: next,
+        chunks: ChunkEdit {
+            remove: (first..=last)
+                .map(position_index)
+                .collect::<Result<Vec<_>, _>>()?,
+            renumber_from: position_index(last + 1)?,
+            renumber_by: -i64::try_from(replaced)
+                .map_err(|_| "The scene table is too large to edit.".to_owned())?,
+        },
+    })
 }
 
 /// Give every frame before the last scene to a scene.
@@ -420,6 +637,11 @@ fn clear_grain_tables(encoder: &mut Encoder) {
     for key in crate::GRAIN_OPTION_KEYS {
         encoder.parameters_mut().remove(key);
     }
+}
+
+/// One scene's index in the contract's numbering, from its position in the table.
+fn position_index(position: usize) -> Result<u32, String> {
+    u32::try_from(position).map_err(|_| "The scene table is too large to edit.".to_owned())
 }
 
 fn read_scenes(condor: &Value) -> Result<Vec<Scene<DefaultSequenceData>>, String> {
@@ -495,6 +717,50 @@ mod tests {
             "encoder": Encoder::default_from_base(&EncoderBase::SVTAV1, false),
             "scenes": scenes,
             "sequence_config": {},
+        })
+    }
+
+    /// Rewrite every integral number as an integer, the way an editor's JSON spells it.
+    fn respell_integers(value: &mut Value) {
+        match value {
+            Value::Number(number) => {
+                if let Some(float) = number.as_f64()
+                    && float.fract() == 0.0
+                {
+                    *value = json!(float as i64);
+                }
+            }
+            Value::Array(items) => items.iter_mut().for_each(respell_integers),
+            Value::Object(map) => map.values_mut().for_each(respell_integers),
+            _ => {}
+        }
+    }
+
+    fn quality_check(score: f64) -> Value {
+        json!({
+            "quality": {
+                "quantizer": 30.0,
+                "scores": [score],
+                "bitrate": 1.0,
+                "started_on": 0,
+                "completed_on": 0
+            }
+        })
+    }
+
+    fn target_quality(score: f64) -> Value {
+        json!({
+            "passes": [{
+                "quantizer": 30.0,
+                "scores": [score],
+                "bitrate": 1.0,
+                "started_on": 0,
+                "completed_on": 0,
+                "backend": null,
+                "provenance": null
+            }],
+            "selection": null,
+            "speed_transition": null
         })
     }
 
@@ -577,9 +843,19 @@ mod tests {
         let mut value = condor(vec![scene(0, 24, 30.0)]);
         value["scenes"][0]["sequence_data"]["parallel_encoder"] =
             json!({"started_on": 1, "completed_on": 2, "bytes": 10});
+        value["scenes"][0]["sequence_data"]["quality_check"] = quality_check(90.0);
+        value["scenes"][0]["sequence_data"]["target_quality"] = target_quality(90.0);
         let plan = reset_sequence(&value, "ParallelEncoder").expect("reset");
         assert!(
             plan.condor["scenes"][0]["sequence_data"]["parallel_encoder"]["started_on"].is_null()
+        );
+        assert_eq!(
+            plan.condor["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([])
+        );
+        assert_eq!(
+            plan.condor["scenes"][0]["sequence_data"]["target_quality"],
+            target_quality(90.0)
         );
         assert!(plan.files.scene_chunks);
         assert!(!plan.files.all_chunks);
@@ -596,43 +872,98 @@ mod tests {
     }
 
     #[test]
-    fn a_split_inherits_the_encoder_and_clears_both_halves() {
-        let value = condor(vec![scene(0, 48, 30.0)]);
-        let next = split_scene(&value, 20).expect("split");
-        let scenes = next["scenes"].as_array().expect("scenes");
-        assert_eq!(scenes.len(), 2);
+    fn a_split_inherits_the_encoder_and_keeps_the_later_rows_results() {
+        let mut value = condor(vec![scene(0, 48, 30.0), scene(48, 72, 30.0)]);
+        value["scenes"][1]["sequence_data"]["noise_detection"] = json!({
+            "noise": 4.2,
+            "luminance": 0.3,
+            "created_on": { "secs_since_epoch": 0, "nanos_since_epoch": 0 }
+        });
+        value["scenes"][1]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 20});
+        value["scenes"][1]["sequence_data"]["quality_check"] = quality_check(80.0);
+        value["scenes"][1]["sequence_data"]["target_quality"] = target_quality(80.0);
+
+        let edit = split_scene(&value, 20).expect("split");
+        let scenes = edit.condor["scenes"].as_array().expect("scenes");
+        assert_eq!(scenes.len(), 3);
         assert_eq!(scenes[0]["start_frame"], 0);
         assert_eq!(scenes[0]["end_frame"], 20);
         assert_eq!(scenes[1]["start_frame"], 20);
         assert_eq!(scenes[1]["end_frame"], 48);
         assert_eq!(scenes[0]["encoder"], scenes[1]["encoder"]);
+        assert_eq!(
+            scenes[2]["sequence_data"]["parallel_encoder"]["bytes"], 20,
+            "the later row keeps the chunk its own range produced"
+        );
+        assert_eq!(
+            scenes[2]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([80.0])
+        );
+        assert_eq!(scenes[2]["sequence_data"]["noise_detection"]["noise"], 4.2);
+        assert_eq!(
+            scenes[2]["sequence_data"]["target_quality"]["passes"],
+            json!([]),
+            "the probe directory is deleted whole, so every probe result goes"
+        );
+        assert_eq!(
+            edit.chunks,
+            ChunkEdit {
+                remove: vec![0],
+                renumber_from: 1,
+                renumber_by: 1,
+            }
+        );
     }
 
     #[test]
     fn an_added_scene_fills_a_gap_in_order_with_the_main_encoder() {
         let value = condor(vec![scene(0, 24, 30.0), scene(48, 72, 30.0)]);
-        let next = add_scene(&value, 24, 48).expect("add");
-        let scenes = next["scenes"].as_array().expect("scenes");
+        let edit = add_scene(&value, 24, 48).expect("add");
+        let scenes = edit.condor["scenes"].as_array().expect("scenes");
         assert_eq!(scenes.len(), 3);
         assert_eq!(scenes[1]["start_frame"], 24);
         assert_eq!(scenes[1]["end_frame"], 48);
         assert_eq!(scenes[1]["encoder"], value["encoder"]);
+        assert_eq!(
+            edit.chunks,
+            ChunkEdit {
+                remove: Vec::new(),
+                renumber_from: 1,
+                renumber_by: 1,
+            },
+            "no retained chunk describes the new range"
+        );
         assert!(add_scene(&value, 20, 30).is_err());
         assert!(add_scene(&value, 40, 40).is_err());
     }
 
     #[test]
     fn a_merge_needs_adjacent_scenes_and_takes_the_outer_range() {
-        let value = condor(vec![
+        let mut value = condor(vec![
             scene(0, 24, 30.0),
             scene(24, 48, 31.0),
             scene(48, 72, 32.0),
         ]);
-        let next = merge_scenes(&value, &[0, 1]).expect("merge");
-        let scenes = next["scenes"].as_array().expect("scenes");
+        value["scenes"][2]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 30});
+        let edit = merge_scenes(&value, &[0, 1]).expect("merge");
+        let scenes = edit.condor["scenes"].as_array().expect("scenes");
         assert_eq!(scenes.len(), 2);
         assert_eq!(scenes[0]["start_frame"], 0);
         assert_eq!(scenes[0]["end_frame"], 48);
+        assert_eq!(
+            scenes[1]["sequence_data"]["parallel_encoder"]["bytes"], 30,
+            "the row after the merge keeps its chunk"
+        );
+        assert_eq!(
+            edit.chunks,
+            ChunkEdit {
+                remove: vec![0, 1],
+                renumber_from: 2,
+                renumber_by: -1,
+            }
+        );
         assert!(merge_scenes(&value, &[0, 2]).is_err());
     }
 
@@ -644,26 +975,92 @@ mod tests {
             "luminance": 0.3,
             "created_on": { "secs_since_epoch": 0, "nanos_since_epoch": 0 }
         });
+        value["scenes"][1]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 20});
+        value["scenes"][1]["sequence_data"]["quality_check"] = quality_check(80.0);
+        value["scenes"][1]["sequence_data"]["target_quality"] = target_quality(80.0);
         let next = set_scene_range(&value, 0, 4, 20).expect("range");
         assert_eq!(next["scenes"][0]["start_frame"], 4);
         assert_eq!(next["scenes"][0]["end_frame"], 20);
         assert!(next["scenes"][0]["sequence_data"]["noise_detection"].is_null());
         assert_eq!(next["scenes"][1]["start_frame"], 24);
+        assert_eq!(
+            next["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"],
+            20
+        );
+        assert_eq!(
+            next["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([80.0])
+        );
+        assert_eq!(
+            next["scenes"][1]["sequence_data"]["target_quality"]["passes"],
+            json!([])
+        );
         assert!(set_scene_range(&value, 0, 20, 20).is_err());
         assert!(set_scene_range(&value, 9, 0, 10).is_err());
     }
 
     #[test]
     fn deleting_a_scene_leaves_its_frames_uncovered() {
-        let value = condor(vec![
+        let mut value = condor(vec![
             scene(0, 24, 30.0),
             scene(24, 48, 30.0),
             scene(48, 72, 30.0),
         ]);
-        let next = delete_scene(&value, 1).expect("delete");
-        let scenes = next["scenes"].as_array().expect("scenes");
+        for index in 0..3 {
+            value["scenes"][index]["sequence_data"]["parallel_encoder"] =
+                json!({"started_on": 1, "completed_on": 2, "bytes": 10 + index});
+        }
+
+        let edit = delete_scene(&value, 1).expect("delete");
+        let scenes = edit.condor["scenes"].as_array().expect("scenes");
         assert_eq!(scenes.len(), 2);
         assert_eq!(scenes[1]["start_frame"], 48);
+        assert!(
+            scenes[0]["sequence_data"]["parallel_encoder"]["bytes"].is_null(),
+            "the row that absorbs the hole no longer describes the range it will encode"
+        );
+        assert_eq!(
+            scenes[1]["sequence_data"]["parallel_encoder"]["bytes"], 12,
+            "the row after the hole keeps its chunk"
+        );
+        assert_eq!(
+            edit.chunks,
+            ChunkEdit {
+                remove: vec![0, 1],
+                renumber_from: 2,
+                renumber_by: -1,
+            }
+        );
+
+        // Deleting the last row trims footage: nothing after it moves and the row before it
+        // keeps both its range and its chunk.
+        let tail = delete_scene(&value, 2).expect("tail delete");
+        assert_eq!(
+            tail.chunks,
+            ChunkEdit {
+                remove: vec![2],
+                renumber_from: 3,
+                renumber_by: -1,
+            }
+        );
+        assert_eq!(
+            tail.condor["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"],
+            11
+        );
+
+        // Deleting the first row leaves a leading hole that the new first row absorbs.
+        let head = delete_scene(&value, 0).expect("head delete");
+        assert_eq!(
+            head.chunks,
+            ChunkEdit {
+                remove: vec![0, 1],
+                renumber_from: 1,
+                renumber_by: -1,
+            }
+        );
+        assert!(head.condor["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null());
+
         assert!(delete_scene(&value, 3).is_err());
     }
 
@@ -720,18 +1117,152 @@ mod tests {
     }
 
     #[test]
+    fn restoring_a_snapshot_clears_the_results_the_range_edit_deleted() {
+        let mut before = condor(vec![scene(0, 24, 30.0), scene(24, 48, 30.0)]);
+        before["scenes"][0]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 10});
+        before["scenes"][0]["sequence_data"]["quality_check"] = quality_check(80.0);
+        before["scenes"][0]["sequence_data"]["target_quality"] = target_quality(80.0);
+        before["scenes"][1]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 3, "completed_on": 4, "bytes": 20});
+        before["scenes"][1]["sequence_data"]["quality_check"] = quality_check(90.0);
+        before["scenes"][1]["sequence_data"]["target_quality"] = target_quality(90.0);
+
+        let mut current = before.clone();
+        current["scenes"][0]["start_frame"] = json!(4);
+        current["scenes"][0]["end_frame"] = json!(20);
+        for scene in current["scenes"].as_array_mut().expect("scenes") {
+            scene["sequence_data"]["target_quality"] = json!({ "passes": [] });
+        }
+        let restored = restore_scene_table(&current, &before["scenes"]).expect("restore");
+
+        assert_eq!(restored["scenes"][0]["start_frame"], 0);
+        assert!(restored["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null());
+        assert_eq!(
+            restored["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([])
+        );
+        assert_eq!(
+            restored["scenes"][0]["sequence_data"]["target_quality"]["passes"],
+            json!([])
+        );
+        assert_eq!(
+            restored["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"],
+            20
+        );
+        assert_eq!(
+            restored["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([90.0])
+        );
+        assert_eq!(
+            restored["scenes"][1]["sequence_data"]["target_quality"]["passes"],
+            json!([])
+        );
+    }
+
+    #[test]
+    fn restoring_a_snapshot_after_an_encoder_assignment_keeps_the_probe_results() {
+        let mut before = condor(vec![scene(0, 24, 30.0), scene(24, 48, 30.0)]);
+        before["scenes"][0]["sequence_data"]["target_quality"] = target_quality(80.0);
+        before["scenes"][1]["sequence_data"]["target_quality"] = target_quality(90.0);
+        let mut current = before.clone();
+        current["scenes"][0]["encoder"] =
+            serde_json::to_value(scene(0, 24, 35.0).encoder).expect("encoder");
+        let restored = restore_scene_table(&current, &before["scenes"]).expect("restore");
+        assert_eq!(restored["scenes"], before["scenes"]);
+    }
+
+    #[test]
     fn scene_output_reset_clears_only_the_selected_encoder_results() {
         let mut value = condor(vec![scene(0, 24, 30.0), scene(24, 48, 30.0)]);
         value["scenes"][0]["sequence_data"]["parallel_encoder"] =
             json!({"started_on": 1, "completed_on": 2, "bytes": 10});
+        value["scenes"][0]["sequence_data"]["quality_check"] = quality_check(80.0);
+        value["scenes"][0]["sequence_data"]["target_quality"] = target_quality(80.0);
         value["scenes"][1]["sequence_data"]["parallel_encoder"] =
             json!({"started_on": 3, "completed_on": 4, "bytes": 20});
+        value["scenes"][1]["sequence_data"]["quality_check"] = quality_check(90.0);
+        value["scenes"][1]["sequence_data"]["target_quality"] = target_quality(90.0);
         let next = reset_scene_outputs(&value, &[1]).expect("reset");
         assert_eq!(
             next["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
             10
         );
+        assert_eq!(
+            next["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([80.0])
+        );
+        assert_eq!(
+            next["scenes"][0]["sequence_data"]["target_quality"],
+            target_quality(80.0)
+        );
         assert!(next["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null());
+        assert!(
+            next["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
+        );
+        assert_eq!(
+            next["scenes"][1]["sequence_data"]["target_quality"],
+            target_quality(90.0)
+        );
+    }
+
+    #[test]
+    fn an_encoder_write_clears_only_the_selected_scenes_chunks() {
+        let mut value = condor(vec![scene(0, 24, 30.0), scene(24, 48, 30.0)]);
+        value["scenes"][0]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 10});
+        value["scenes"][0]["sequence_data"]["quality_check"] = quality_check(80.0);
+        value["scenes"][0]["sequence_data"]["target_quality"] = target_quality(80.0);
+        value["scenes"][1]["sequence_data"]["parallel_encoder"] =
+            json!({"started_on": 1, "completed_on": 2, "bytes": 20});
+        let encoder = serde_json::to_value(scene(0, 24, 35.0).encoder).expect("encoder");
+
+        let next = set_scene_encoders(&value, &[0], &encoder, true).expect("write");
+        assert_eq!(next.changed, vec![0]);
+        assert_eq!(next.condor["scenes"][0]["encoder"], encoder);
+        assert!(next.condor["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null());
+        assert_eq!(
+            next.condor["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+            json!([])
+        );
+        assert_eq!(
+            next.condor["scenes"][0]["sequence_data"]["target_quality"],
+            target_quality(80.0),
+            "an encoder change does not invalidate a probe over the same range"
+        );
+        assert_eq!(
+            next.condor["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"],
+            20
+        );
+        assert_eq!(
+            next.condor["scenes"][1]["encoder"],
+            value["scenes"][1]["encoder"]
+        );
+
+        let kept = set_scene_encoders(&value, &[0], &encoder, false).expect("write");
+        assert_eq!(
+            kept.condor["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"], 10,
+            "keeping the chunks keeps their records too"
+        );
+
+        // An editor's JSON spells an integral float as `30`, while the checkpoint holds the
+        // engine's `30.0`. The same encoder must still count as unchanged, so a save cannot
+        // delete a chunk it did not invalidate.
+        let mut respelled = encoder.clone();
+        respell_integers(&mut respelled);
+        assert_ne!(respelled, encoder, "the spelling is what this checks");
+        let again = set_scene_encoders(&kept.condor, &[0], &respelled, true).expect("write");
+        assert!(
+            again.changed.is_empty(),
+            "a scene already carrying the document is not rewritten"
+        );
+        assert_eq!(
+            again.condor["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"], 10,
+            "and its chunk record survives a clear request"
+        );
+        assert!(set_scene_encoders(&value, &[9], &encoder, false).is_err());
     }
 
     proptest! {

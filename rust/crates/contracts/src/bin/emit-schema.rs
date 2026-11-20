@@ -46,6 +46,7 @@ use av1ation_contracts::script::{
 };
 use av1ation_contracts::settings::{
     AppSettings, AppSettingsUpdate, ConfigOverrides, EffectiveConfig, GeneralDefaults,
+    VideoOverridesUpdate,
 };
 use av1ation_contracts::video::{
     AudioTrack, AudioTrackList, ClipDetails, ConcatChapter, ConcatInventory,
@@ -126,6 +127,11 @@ fn main() -> ExitCode {
             "settings",
             "config-overrides.json",
             schema_for!(ConfigOverrides),
+        ),
+        (
+            "settings",
+            "video-overrides-update.json",
+            schema_for!(VideoOverridesUpdate),
         ),
         (
             "settings",

@@ -147,10 +147,22 @@ pub struct SceneEncoderDetail {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SceneEncoderRequest {
-    /// Scene indices in engine order. Duplicates are harmless; the empty list is rejected.
+    /// Scene indices in engine order.
+    ///
+    /// A scene that already carries `encoder` is left untouched, so it keeps its retained
+    /// chunk. Duplicates are harmless; the empty list is rejected.
     pub scenes: Vec<u32>,
     /// The complete engine `Encoder` document to write.
     pub encoder: Value,
+    /// Delete the retained chunks this write invalidates.
+    ///
+    /// A chunk was encoded with the document its scene carried before this write, so the
+    /// sheet asks whether to delete it. Only a scene whose encoder actually changes is
+    /// invalidated; a selected scene that already carries the document keeps its chunk.
+    /// Keeping the choice in the same request is what stops the encoder and the chunks on
+    /// disk from disagreeing about what the scene is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_chunks: Option<bool>,
 }
 
 /// Replace one scene's custom sequence data.

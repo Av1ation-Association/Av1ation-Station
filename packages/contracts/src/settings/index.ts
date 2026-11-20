@@ -446,3 +446,27 @@ export const GeneralDefaultsSchema = z
         "Project-level defaults applied to videos added from now on.\n\nExisting queue entries keep the input and output they were created with. The defaults are\nstored on the project rather than inferred at add time, so the LAN browser and the desktop\nwindow add the same video from the same document.",
     );
 export type GeneralDefaults = z.infer<typeof GeneralDefaultsSchema>;
+
+/** Generated from `schema/settings/video-overrides-update.json`. */
+export const VideoOverridesUpdateSchema = z
+    .object({
+        clear_chunks: z
+            .union([
+                z
+                    .boolean()
+                    .describe("Delete the retained chunks of the scenes this write re-encodes."),
+                z
+                    .null()
+                    .describe("Delete the retained chunks of the scenes this write re-encodes."),
+            ])
+            .describe("Delete the retained chunks of the scenes this write re-encodes.")
+            .optional(),
+        fields: z
+            .record(z.string(), z.any())
+            .describe('A missing path means "inherit from the project".'),
+    })
+    .strict()
+    .describe(
+        "Replace a video's sparse overrides, optionally deleting the chunks the change invalidates.\n\nThe body is the map `GET …/overrides` returns plus one write-time choice: a video-level\nencoder change makes every inheriting scene's retained chunk stale, and the encoder sheet\nasks whether to delete those chunks in the same request.",
+    );
+export type VideoOverridesUpdate = z.infer<typeof VideoOverridesUpdateSchema>;

@@ -1033,6 +1033,340 @@ async fn video_overrides_resolve_with_provenance_and_can_be_reset() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// A video-level encoder change re-encodes every scene that inherits it, so only those
+/// scenes' chunks are stale. A scene carrying its own encoder keeps both its encoder and
+/// its chunk.
+#[tokio::test]
+async fn a_video_encoder_override_clears_only_the_inheriting_scenes_chunks() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Inheriting chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited);
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(ffmpeg.clone());
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    second["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 28.0,
+            "scores": [80.0],
+            "bitrate": 900000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"inheriting").expect("inheriting chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"custom").expect("custom chunk");
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "fields": { "encoder": ffmpeg.clone() },
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the scene that inherits the new encoder loses its old chunk"
+    );
+    assert!(
+        chunks.join("00001.ivf").exists(),
+        "a scene with its own encoder keeps its chunk"
+    );
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(persisted["overrides"]["encoder"], ffmpeg);
+    assert!(
+        persisted["condor"]["scenes"][0]["encoder"]
+            .get("FFmpeg")
+            .is_some(),
+        "the inheriting scene now carries the new video encoder document"
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["encoder"], ffmpeg,
+        "a scene with its own encoder keeps its document"
+    );
+    assert!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"],
+        20
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([80.0])
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Keeping the chunks does not keep the old encoder: the write still rewrites every
+/// inheriting scene, so the next run that re-encodes one uses the new document.
+#[tokio::test]
+async fn a_video_encoder_override_rewrites_inheriting_scenes_and_keeps_their_chunks() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Kept chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited);
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(ffmpeg.clone());
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"inheriting").expect("inheriting chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"custom").expect("custom chunk");
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "fields": { "encoder": ffmpeg.clone() },
+                    "clear_chunks": false
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "the inheriting scene keeps its chunk when the guard is checked"
+    );
+    assert!(chunks.join("00001.ivf").exists());
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert!(
+        persisted["condor"]["scenes"][0]["encoder"]
+            .get("FFmpeg")
+            .is_some(),
+        "the kept chunk belongs to a scene that now carries the new document"
+    );
+    assert_eq!(persisted["condor"]["scenes"][1]["encoder"], ffmpeg);
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"], 10,
+        "keeping the chunks keeps their records too"
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([90.0])
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// The encoder reads `sequences.parallel_encoder.input`, so changing it invalidates every
+/// retained chunk, including a scene carrying its own encoder. The scene document is
+/// unchanged, but the frames it encodes are not.
+#[tokio::test]
+async fn a_video_input_override_deletes_every_scene_chunk() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Input chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited);
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(ffmpeg.clone());
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    second["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 28.0,
+            "scores": [80.0],
+            "bitrate": 900000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"inheriting").expect("inheriting chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"custom").expect("custom chunk");
+
+    let input = script_input("clip.set_output()");
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "fields": { "sequences.parallel_encoder.input": input.clone() },
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the inheriting scene encodes the new input"
+    );
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "a custom encoder does not keep a chunk of the old frames"
+    );
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["overrides"]["sequences.parallel_encoder.input"], input,
+        "the input override is stored at its leaf"
+    );
+    assert!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["encoder"], ffmpeg,
+        "an input write leaves a scene's own encoder alone"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 /// The script editor writes one sparse leaf; a nested `sequences` object is rejected as
 /// an unknown section, so the editor must send the dotted path.
 #[tokio::test]
@@ -1154,6 +1488,485 @@ async fn a_video_general_document_round_trips_and_rejects_a_relative_output() {
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// The encoder inherits the General input by default, so replacing the source makes every
+/// retained chunk stale, including one belonging to a scene with its own encoder.
+#[tokio::test]
+async fn a_video_general_source_change_deletes_every_scene_chunk() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "General chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited);
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(ffmpeg.clone());
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    second["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 28.0,
+            "scores": [80.0],
+            "bitrate": 900000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"inheriting").expect("inheriting chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"custom").expect("custom chunk");
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    let moved = dir.join("moved.mkv");
+    std::fs::write(&moved, b"fixture").expect("replacement source");
+    let mut input = general["input"].clone();
+    input["Video"]
+        .as_object_mut()
+        .expect("a Video input")
+        .insert("path".to_owned(), serde_json::json!(moved));
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input": input,
+                    "output": general["output"].clone(),
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["source_path"], moved.display().to_string());
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the inheriting scene encodes the new source"
+    );
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "a custom encoder does not keep a chunk of the old frames"
+    );
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["encoder"], ffmpeg,
+        "a source write leaves a scene's own encoder alone"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Only the source invalidates chunks. The output file and the retained work are separate.
+#[tokio::test]
+async fn a_video_general_output_change_keeps_every_scene_chunk() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "General output").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let mut scene = saved_scene(av1ation_engine::default_project_config()["encoder"].clone());
+    scene["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    scene["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [scene] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"retained").expect("chunk");
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    let mut output = general["output"].clone();
+    output["path"] = serde_json::json!(dir.join("renamed.av1.mkv"));
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input": general["input"].clone(),
+                    "output": output,
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "an output-only write keeps the chunk"
+    );
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
+        serde_json::json!(10)
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A video that states its encoder input does not read the General source, so its chunks
+/// survive a source change.
+#[tokio::test]
+async fn an_explicit_encoder_input_keeps_its_chunks_when_the_general_source_changes() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "General explicit").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let mut scene = saved_scene(av1ation_engine::default_project_config()["encoder"].clone());
+    scene["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    record["condor"] = serde_json::json!({ "scenes": [scene] });
+    record["overrides"] = serde_json::json!({
+        "sequences.parallel_encoder": {
+            "workers": 8,
+            "scenes_directory": "scenes",
+            "input": {
+                "Video": {
+                    "path": dir.join("encode.mkv").display().to_string(),
+                    "filters": [],
+                    "import_method": { "FFMS2": { "cache_path": null, "index": null } }
+                }
+            }
+        }
+    });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"retained").expect("chunk");
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    let moved = dir.join("moved.mkv");
+    std::fs::write(&moved, b"fixture").expect("replacement source");
+    let mut input = general["input"].clone();
+    input["Video"]
+        .as_object_mut()
+        .expect("a Video input")
+        .insert("path".to_owned(), serde_json::json!(moved));
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input": input,
+                    "output": general["output"].clone(),
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "the encoder reads its own input, not the General source"
+    );
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
+        serde_json::json!(10)
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A pathless encoder input is filled from the General source at run time, so a new source
+/// path invalidates its chunks just as a null input does.
+#[tokio::test]
+async fn a_pathless_encoder_input_reads_the_general_source() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "General pathless").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let mut scene = saved_scene(av1ation_engine::default_project_config()["encoder"].clone());
+    scene["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    record["condor"] = serde_json::json!({ "scenes": [scene] });
+    record["overrides"] = serde_json::json!({
+        "sequences.parallel_encoder": {
+            "workers": 8,
+            "scenes_directory": "scenes",
+            "input": {
+                "Video": {
+                    "path": "",
+                    "filters": [],
+                    "import_method": { "FFMS2": { "cache_path": null, "index": null } }
+                }
+            }
+        }
+    });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"retained").expect("chunk");
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    let moved = dir.join("moved.mkv");
+    std::fs::write(&moved, b"fixture").expect("replacement source");
+    let mut input = general["input"].clone();
+    input["Video"]
+        .as_object_mut()
+        .expect("a Video input")
+        .insert("path".to_owned(), serde_json::json!(moved));
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input": input,
+                    "output": general["output"].clone(),
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the pathless input decodes the new source"
+    );
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Only the path is filled into a pathless encoder input, so a General index change does not
+/// invalidate its chunks.
+#[tokio::test]
+async fn a_general_index_change_keeps_a_pathless_encoder_inputs_chunks() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "General index").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let mut scene = saved_scene(av1ation_engine::default_project_config()["encoder"].clone());
+    scene["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    record["condor"] = serde_json::json!({ "scenes": [scene] });
+    record["overrides"] = serde_json::json!({
+        "sequences.parallel_encoder": {
+            "workers": 8,
+            "scenes_directory": "scenes",
+            "input": {
+                "Video": {
+                    "path": "",
+                    "filters": [],
+                    "import_method": { "FFMS2": { "cache_path": null, "index": null } }
+                }
+            }
+        }
+    });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"retained").expect("chunk");
+
+    let (status, general) = send(
+        app.clone(),
+        Request::get(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{general}");
+    let mut input = general["input"].clone();
+    input["Video"]["import_method"]["FFMS2"]["cache_path"] =
+        serde_json::json!(dir.join("source.ffindex"));
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/general"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "input": input,
+                    "output": general["output"].clone(),
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "the pathless input only takes the source path from General"
+    );
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
+        serde_json::json!(10)
+    );
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }

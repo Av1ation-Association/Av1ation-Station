@@ -551,16 +551,25 @@ route. Every section is a draft until saved, and the server enforces the run loc
    half-configured one. Noise scaling writes a per-scene `photon_noise.iso`; this section's
    ISO is the fallback for scenes the scaler leaves unchanged, and the UI says so instead of
    implying the value always wins.
-6. **Edit parameters.** Add, edit, search, and remove parameter cards. A bounded integer
+6. **Guard a video's retained chunks.** On a video's Configuration, saving a change to the
+   encoder, its settings, its parameters, or the Input is intercepted when an affected scene
+   already has a retained chunk, because Parallel Encoder skips a scene that has one. An
+   encoder change counts the inheriting encoded scenes: the write leaves a scene with its own
+   encoder alone. An Input change counts every encoded scene, because a custom encoder still
+   reads the new frames. The dialog offers an unchecked **Keep the N existing chunks**
+   checkbox; Save sends the overrides and `clear_chunks` in one request. A worker-count change
+   invalidates nothing. The project's own Encoding save writes defaults and touches no
+   video's chunks.
+7. **Edit parameters.** Add, edit, search, and remove parameter cards. A bounded integer
    scale of 100 or less gets a slider; a long range stays a field.
-7. **Add an unlisted parameter.** The Add parameter sheet is the only path; a value is an
+8. **Add an unlisted parameter.** The Add parameter sheet is the only path; a value is an
    engine `CLIParameter`, not a JSON object editor.
-8. **Filter with FFmpeg.** Because Quality Check scores the source while encoding scored the
+9. **Filter with FFmpeg.** Because Quality Check scores the source while encoding scored the
    filtered frames, an active filter shows **Scoring may be inaccurate** here and repeats it
    in Quality Check. The application never claims a filtered encode was scored against the
    same picture.
-9. **Keep custom parameters here.** Custom encoder parameters live on this screen, not on a
-   separate Benchmarking screen.
+10. **Keep custom parameters here.** Custom encoder parameters live on this screen, not on a
+    separate Benchmarking screen.
 
 ### Encoding states
 

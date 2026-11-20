@@ -463,6 +463,21 @@ pub struct ConfigOverrides {
     pub fields: BTreeMap<String, Value>,
 }
 
+/// Replace a video's sparse overrides, optionally deleting the chunks the change invalidates.
+///
+/// The body is the map `GET …/overrides` returns plus one write-time choice: a video-level
+/// encoder change makes every inheriting scene's retained chunk stale, and the encoder sheet
+/// asks whether to delete those chunks in the same request.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct VideoOverridesUpdate {
+    /// A missing path means "inherit from the project".
+    pub fields: BTreeMap<String, Value>,
+    /// Delete the retained chunks of the scenes this write re-encodes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_chunks: Option<bool>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

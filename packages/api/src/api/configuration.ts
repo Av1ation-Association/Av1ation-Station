@@ -27,6 +27,7 @@ import {
     VideoProbeSchema,
     type ConfigOverrides,
     type ScriptMaterialiseRequest,
+    type VideoOverridesUpdate,
 } from "@av1ation/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -215,7 +216,7 @@ export function useSaveVideoOverrides(projectId: string, videoId: string) {
     const transport = useTransport();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (overrides: ConfigOverrides) =>
+        mutationFn: (overrides: VideoOverridesUpdate) =>
             transport.putJson(
                 videoOverridesPath(projectId, videoId),
                 overrides,

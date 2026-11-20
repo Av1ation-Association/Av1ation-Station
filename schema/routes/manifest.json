@@ -548,7 +548,7 @@
           "method": "PUT",
           "handler": "video::put_video_general",
           "owner": "api::routes::video::document",
-          "purpose": "replace both documents after validating paths and engine shapes"
+          "purpose": "replace both documents after validating paths and engine shapes; a changed source can delete the retained chunks it invalidates"
         }
       ]
     },
@@ -692,7 +692,7 @@
           "method": "PUT",
           "handler": "video::put_video_overrides",
           "owner": "api::routes::video::document",
-          "purpose": "replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section"
+          "purpose": "replace overrides; each path is a leaf or a whole `encoder`/`sequences.<key>` section; a changed encoder rewrites every inheriting scene's encoder, and a changed encoder or `sequences.parallel_encoder.input` can delete the chunks it invalidates"
         },
         {
           "method": "DELETE",
@@ -734,7 +734,7 @@
           "method": "PUT",
           "handler": "video::put_scene_encoders",
           "owner": "api::routes::video::state",
-          "purpose": "write one encoder document to named scenes; rejects the whole request if any index is stale or a run holds the lock"
+          "purpose": "write one encoder document to the named scenes that do not already carry it; optionally deletes only those scenes' retained chunks; rejects the whole request if any index is stale or a run holds the lock"
         }
       ]
     },
@@ -746,7 +746,7 @@
           "method": "POST",
           "handler": "scenes::add_scene",
           "owner": "api::routes::scenes",
-          "purpose": "insert a scene in an uncovered `start_frame`–`end_frame` range; clears chunks because later indices move"
+          "purpose": "insert a scene in an uncovered `start_frame`–`end_frame` range; moves every later chunk up one index"
         }
       ]
     },
@@ -758,7 +758,7 @@
           "method": "POST",
           "handler": "scenes::split_scene",
           "owner": "api::routes::scenes",
-          "purpose": "split the scene containing `frame`; clears chunks because later indices move"
+          "purpose": "split the scene containing `frame`; deletes its chunk and moves every later chunk up one index"
         }
       ]
     },
@@ -770,7 +770,7 @@
           "method": "POST",
           "handler": "scenes::merge_scenes",
           "owner": "api::routes::scenes",
-          "purpose": "merge an adjacent scene selection; clears chunks"
+          "purpose": "merge an adjacent scene selection; deletes the merged chunks and moves every later chunk down"
         }
       ]
     },
@@ -812,7 +812,7 @@
           "method": "DELETE",
           "handler": "scenes::delete_scene",
           "owner": "api::routes::scenes",
-          "purpose": "delete one scene"
+          "purpose": "delete one scene; deletes its chunk and moves every later chunk down"
         }
       ]
     },

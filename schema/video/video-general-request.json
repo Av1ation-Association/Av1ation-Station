@@ -4,6 +4,13 @@
   "description": "A whole-subtree replacement request for a video's General documents.",
   "type": "object",
   "properties": {
+    "clear_chunks": {
+      "description": "Delete the retained chunks a changed source invalidates.\n\nThe encoder input inherits this document when `sequences.parallel_encoder.input` is\nnull, so replacing the source makes every chunk stale.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
     "input": {
       "description": "Engine `Input` JSON; its path must be absolute when it states one."
     },

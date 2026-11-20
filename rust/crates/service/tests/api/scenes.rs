@@ -259,12 +259,18 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
-    for name in ["00000.ivf", "00001.ivf", "00001.temp.264"] {
-        assert!(
-            !chunks.join(name).exists(),
-            "a split moved scene {name} to a different index"
-        );
-    }
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the split scene's chunk described the old range"
+    );
+    assert!(
+        chunks.join("00002.ivf").exists(),
+        "the later scene's chunk moved up with its row"
+    );
+    assert!(
+        chunks.join("00002.temp.264").exists(),
+        "a half-written file moves with its scene too"
+    );
     let persisted: Value =
         serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
             .expect("video json");
@@ -317,12 +323,18 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
-    for name in ["00000.ivf", "00001.ivf"] {
-        assert!(
-            !chunks.join(name).exists(),
-            "a merge moved scene {name} to a different index"
-        );
-    }
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "the merged scenes' chunks are gone"
+    );
+    assert!(
+        !chunks.join("00002.ivf").exists(),
+        "and the merged scene has no chunk of its own"
+    );
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "the scene before the merge keeps its chunk"
+    );
     let persisted: Value =
         serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
             .expect("video json");
@@ -352,6 +364,412 @@ async fn scene_structure_edits_and_custom_data_round_trip() {
     assert_eq!(scenes.len(), 2);
     assert_eq!(scenes[0]["start_frame"], 0);
     assert_eq!(scenes[1]["start_frame"], 100);
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// Refuses a run that would reuse a chunk a split deleted.
+///
+/// The engine skips a scene whose Parallel Encoder record is complete, so a stale record on
+/// an unchanged later scene is the A1 failure: the run starts, skips the scene, and fails
+/// only when the concatenator opens the missing file. Checking at the runner boundary makes
+/// that state visible without an encoder.
+struct DeletedChunkRunner {
+    temp_root: PathBuf,
+}
+
+impl EncodeRunner for DeletedChunkRunner {
+    fn start(&self, request: EncodeRequest) -> Result<EncodeHandle, EngineError> {
+        if let Some(condor) = request.condor.as_ref()
+            && let Some(scenes) = condor["scenes"].as_array()
+        {
+            for (index, scene) in scenes.iter().enumerate() {
+                let encoded = scene["sequence_data"]["parallel_encoder"]["bytes"].is_number();
+                let chunk = self
+                    .temp_root
+                    .join(&request.video_id)
+                    .join(format!("{index:05}.ivf"));
+                if encoded && !chunk.exists() {
+                    return Err(EngineError::Rejected(format!(
+                        "scene {} still points at the deleted chunk {}",
+                        index + 1,
+                        chunk.display()
+                    )));
+                }
+            }
+        }
+        FakeRunner.start(request)
+    }
+}
+
+/// A structural edit deletes only the chunk whose scene range changed. A scene whose range
+/// did not move keeps its chunk under a new index, so the next run must find the renamed
+/// file rather than skip the scene and fail on the artifact the edit removed.
+#[tokio::test]
+async fn a_split_then_run_reuses_the_chunks_it_kept() {
+    let dir = project_dir();
+    let app = router(AppState::with_runner_probes_and_data_dir(
+        None,
+        Arc::new(DeletedChunkRunner {
+            temp_root: dir.join("temp"),
+        }),
+        test_probes(),
+        dir.clone(),
+    ));
+    let id = create_project(app.clone(), "Split then run").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let encoder = av1ation_engine::default_project_config()["encoder"].clone();
+    let mut scenes = Vec::new();
+    for (start, end) in [(0_u64, 240_u64), (240, 480), (480, 720), (720, 960)] {
+        let mut scene = saved_scene(encoder.clone());
+        scene["start_frame"] = Value::from(start);
+        scene["end_frame"] = Value::from(end);
+        if start >= 240 {
+            scene["sequence_data"]["parallel_encoder"] = serde_json::json!({
+                "started_on": 1,
+                "completed_on": 2,
+                "bytes": 1_024
+            });
+            scene["sequence_data"]["target_quality"] = serde_json::json!({
+                "passes": [{
+                    "quantizer": 24.0,
+                    "scores": [90.0],
+                    "bitrate": 1.0,
+                    "started_on": 0,
+                    "completed_on": 0
+                }]
+            });
+            scene["sequence_data"]["quality_check"]["quality"]["scores"] =
+                serde_json::json!([90.0]);
+        }
+        scenes.push(scene);
+    }
+    record["condor"] = serde_json::json!({ "scenes": scenes });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    tokio::fs::create_dir_all(&chunks).await.expect("chunk dir");
+    for index in 0..4 {
+        tokio::fs::write(chunks.join(format!("{index:05}.ivf")), vec![0_u8; 16])
+            .await
+            .expect("retained chunk");
+    }
+
+    let (status, body) = send(
+        app.clone(),
+        Request::post(format!("/api/projects/{id}/videos/{video_id}/scenes/split"))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::json!({ "frame": 100 }).to_string()))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let table = persisted["condor"]["scenes"]
+        .as_array()
+        .expect("scene table");
+    assert_eq!(table.len(), 5);
+    for index in [0, 1] {
+        let data = &table[index]["sequence_data"];
+        assert!(
+            data["parallel_encoder"]["bytes"].is_null(),
+            "the new half {index} has no chunk of its own"
+        );
+        assert!(
+            data["quality_check"]["quality"]["scores"]
+                .as_array()
+                .is_some_and(Vec::is_empty),
+            "the new half {index} has no quality check of its own"
+        );
+    }
+    for index in [2, 3, 4] {
+        let data = &table[index]["sequence_data"];
+        assert_eq!(
+            data["parallel_encoder"]["bytes"], 1_024,
+            "scene {index} keeps the chunk its range produced"
+        );
+        assert_eq!(
+            data["quality_check"]["quality"]["scores"],
+            serde_json::json!([90.0]),
+            "and the quality check that read it"
+        );
+    }
+    for (index, scene) in table.iter().enumerate() {
+        assert!(
+            scene["sequence_data"]["target_quality"]["passes"]
+                .as_array()
+                .is_some_and(Vec::is_empty),
+            "scene {index} still names a probe the deleted probe directory held"
+        );
+    }
+    assert!(
+        table[2]["sequence_data"]["noise_detection"]["noise"].is_number(),
+        "a later scene keeps the source measurement whose range did not move"
+    );
+    assert!(
+        !chunks.join("00000.ivf").exists(),
+        "the split scene's chunk described the old range"
+    );
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "the old first chunk slot is vacated by the move"
+    );
+    for index in 2..5 {
+        assert!(
+            chunks.join(format!("{index:05}.ivf")).exists(),
+            "chunk {index} is the retained chunk of its new row"
+        );
+    }
+
+    let (status, body) = send(app.clone(), start_request(&id, &video_id)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+
+    let run_id = body["run_id"].as_str().expect("run id").to_owned();
+    let (status, _) = send(
+        app.clone(),
+        Request::delete(format!("/api/runs/{run_id}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    wait_for_config_write(app.clone(), &id).await;
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// The encoder write and the chunk deletion are one request: a scene whose encoder changed
+/// must not keep a chunk encoded with the previous document, while the other scenes keep
+/// theirs.
+#[tokio::test]
+async fn an_encoder_write_deletes_only_the_selected_scenes_chunks() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Encoder chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited.clone());
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(inherited);
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    second["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 28.0,
+            "scores": [80.0],
+            "bitrate": 900000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"first").expect("first chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"second").expect("second chunk");
+
+    let (status, updated) = send(
+        app.clone(),
+        Request::put(format!(
+            "/api/projects/{id}/videos/{video_id}/scenes/encoder"
+        ))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "scenes": [1], "encoder": ffmpeg, "clear_chunks": true })
+                .to_string(),
+        ))
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(updated["scenes"][1]["encoder_label"], "FFmpeg");
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "the selected scene's chunk is deleted with its old encoder"
+    );
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "a scene outside the selection keeps its chunk"
+    );
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
+        10
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([90.0])
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
+/// A selection can include a scene that already carries the requested document. Nothing
+/// about that scene is invalidated, so its chunk and its results stay even when the write
+/// clears the chunks of the scenes it does change.
+#[tokio::test]
+async fn an_encoder_write_keeps_the_chunk_of_a_scene_that_already_carries_it() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Encoder chunks").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let ffmpeg = serde_json::json!({
+        "FFmpeg": {
+            "executable": null,
+            "options": {},
+            "append_color_data": true
+        }
+    });
+    let mut first = saved_scene(inherited.clone());
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    first["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 30.0,
+            "scores": [90.0],
+            "bitrate": 1000000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    let mut second = saved_scene(ffmpeg);
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    second["sequence_data"]["quality_check"] = serde_json::json!({
+        "quality": {
+            "quantizer": 28.0,
+            "scores": [80.0],
+            "bitrate": 900000.0,
+            "started_on": 0,
+            "completed_on": 0
+        }
+    });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"first").expect("first chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"second").expect("second chunk");
+
+    // Scene 1 already carries the video's encoder; only scene 2's document changes.
+    let (status, updated) = send(
+        app.clone(),
+        Request::put(format!(
+            "/api/projects/{id}/videos/{video_id}/scenes/encoder"
+        ))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({ "scenes": [0, 1], "encoder": inherited, "clear_chunks": true })
+                .to_string(),
+        ))
+        .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(updated["scenes"][1]["encoder_custom"], false);
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "a scene that already carried the encoder keeps its chunk"
+    );
+    assert!(
+        !chunks.join("00001.ivf").exists(),
+        "the scene whose encoder changed loses its chunk"
+    );
+
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"],
+        10
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([90.0])
+    );
+    assert!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["parallel_encoder"]["bytes"].is_null()
+    );
+    assert_eq!(
+        persisted["condor"]["scenes"][1]["sequence_data"]["quality_check"]["quality"]["scores"],
+        serde_json::json!([])
+    );
 
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
@@ -565,8 +983,12 @@ async fn a_manual_scene_fills_a_gap_and_an_overlap_is_refused() {
         .expect("a catalogue encoder")
         .default;
     let empty = serde_json::json!({ "scenes": [], "encoder": encoder });
-    let seeded = av1ation_engine::run::reset::add_scene(&empty, 0, 24).expect("first scene");
-    let seeded = av1ation_engine::run::reset::add_scene(&seeded, 48, 72).expect("second scene");
+    let seeded = av1ation_engine::run::reset::add_scene(&empty, 0, 24)
+        .expect("first scene")
+        .condor;
+    let seeded = av1ation_engine::run::reset::add_scene(&seeded, 48, 72)
+        .expect("second scene")
+        .condor;
 
     let record_path = dir
         .join("projects")

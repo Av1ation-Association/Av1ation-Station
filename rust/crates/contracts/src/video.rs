@@ -78,6 +78,12 @@ pub struct VideoGeneralRequest {
     /// The queued source a script input is told to open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_path: Option<String>,
+    /// Delete the retained chunks a changed source invalidates.
+    ///
+    /// The encoder input inherits this document when `sequences.parallel_encoder.input` is
+    /// null, so replacing the source makes every chunk stale.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_chunks: Option<bool>,
 }
 
 /// One video's scratch directory and the space it occupies.
