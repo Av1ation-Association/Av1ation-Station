@@ -16,7 +16,7 @@ import { documentFromValues, type JsonSchema } from "../../shared/schema/config-
 import { encoderWrite, type SceneEncoderScope } from "./scene-encoder";
 import { Button } from "../../shared/Button";
 import { EncoderEditor } from "../encoders/EncoderEditor";
-import { SceneEncoderChunkGuard } from "./SceneEncoderChunkGuard";
+import { SceneEncoderChunkGuard } from "../../shared/SceneEncoderChunkGuard";
 import { Sheet } from "../../shared/Sheet";
 
 function variantOf(document: unknown): string | null {

@@ -31,7 +31,6 @@ import {
     ProjectChunkImpactSchema,
     ScriptMaterialisedSchema,
     VideoProbeSchema,
-    type ConfigOverrides,
     type ScriptMaterialiseRequest,
     type VideoOverridesUpdate,
 } from "@av1ation/contracts";

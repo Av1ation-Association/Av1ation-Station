@@ -130,8 +130,12 @@ silently expanding this phase.
 not a cleanup after the refactor.
 
 **Landed early:** commit `5a97680` reconciled `docs/service.md`, regenerated the route matrix,
-removed the invalid fork waiver, and updated the Phase 6 status. 7.2 and 7.3 are complete;
-7.1 is still open because the five Prettier failures are unrelated to that commit.
+removed the invalid fork waiver, and updated the Phase 6 status. 7.1 is closed by
+`de3d3c0`. 7.4's aggregate gates and 7.5's generated-artifact checklist in `CONTRIBUTING.md`
+are recorded; 7.1–7.5 are complete. The 7.4 run also fixed an unused `ConfigOverrides`
+import, moved the shared chunk guard out of `features/scenes` so the projects and videos
+features declare no new edges, and regenerated the matrix with the missing
+`POST /api/projects/{project_id}/config/impact` requirement and coverage.
 
 ---
 

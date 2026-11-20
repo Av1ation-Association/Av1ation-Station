@@ -195,6 +195,18 @@ see [docs/testing.md](docs/testing.md). The complete script list is in
 [docs/commands.md](docs/commands.md); the CI/local comparison is in
 [docs/commands.md#ci-and-local-verification](docs/commands.md#ci-and-local-verification).
 
+### Generated artifacts
+
+A route, service module, Rust model, or test change has a generated counterpart. Run the
+matching check before committing; each one names the file that drifted.
+
+| Changed | Check |
+| --- | --- |
+| A route group or handler | `npm run routes:check` |
+| A module under `rust/crates/service/src` | `npm run check:service-modules` |
+| A Rust contract model or schema | `npm run contracts:check` |
+| A test file, suite, or count | `npm run check:test-inventory` |
+
 ## Build and package
 
 | Command | Result |

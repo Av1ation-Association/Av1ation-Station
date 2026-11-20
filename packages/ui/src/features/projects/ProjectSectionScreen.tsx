@@ -34,8 +34,8 @@ import {
     mergeDraft,
     schemaFor,
 } from "../configuration/SectionEditor";
-import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
-import { useChunkGuard } from "../scenes/useChunkGuard";
+import { SceneEncoderChunkGuard } from "../../shared/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../../shared/useChunkGuard";
 
 /**
  * One configuration section. The form is generated from the engine's JSON Schema, so every

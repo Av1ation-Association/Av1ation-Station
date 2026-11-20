@@ -32,8 +32,8 @@ import { inputFromValue, inputValueOf, type InputValue } from "../../shared/mode
 import { ScriptPluginNotice } from "../../shared/ScriptPluginNotice";
 import { documentFromValues, getIn } from "../../shared/schema/config-schema";
 import { sameValue } from "../../shared/structural-equality";
-import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
-import { useChunkGuard } from "../scenes/useChunkGuard";
+import { SceneEncoderChunkGuard } from "../../shared/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../../shared/useChunkGuard";
 import { DeleteRetainedDialog } from "./DeleteRetainedDialog";
 import { VideoRunActions } from "./VideoRunActions";
 import { VideoTabs } from "./VideoTabs";

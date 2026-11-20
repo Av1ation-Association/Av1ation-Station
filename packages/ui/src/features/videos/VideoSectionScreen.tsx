@@ -60,8 +60,8 @@ import {
 import { videoTimeline, type TimelineStep } from "../../shared/model/video-timeline";
 import { VideoProbeContext } from "../../shared/video/video-probe";
 import { resetDataCopy } from "../../shared/reset-copy";
-import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
-import { useChunkGuard } from "../scenes/useChunkGuard";
+import { SceneEncoderChunkGuard } from "../../shared/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../../shared/useChunkGuard";
 import { NO_INVALIDATION, encodingInvalidation } from "./encoding-invalidation";
 
 /**

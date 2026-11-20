@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import { Info } from "lucide-react";
 
-import { Button } from "../../shared/Button";
-import { DialogFrame } from "../../shared/DialogFrame";
-import { formatBytes } from "../../shared/format";
+import { Button } from "./Button";
+import { DialogFrame } from "./DialogFrame";
+import { formatBytes } from "./format";
 
 /** The encoded scenes whose retained chunks a save invalidates. */
 export interface ChunkScene {
