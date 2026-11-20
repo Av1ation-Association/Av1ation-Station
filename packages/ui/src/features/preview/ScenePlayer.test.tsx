@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { useState } from "react";
+
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
@@ -6,7 +8,7 @@ import type { ZodType } from "zod";
 import { MockTransport } from "@av1ation/api";
 
 import { renderWithApi } from "../../test/render";
-import { ScenePlayer } from "./ScenePlayer";
+import { ScenePlayer, type PreviewSource } from "./ScenePlayer";
 
 /** A transport that can hand a media element a URL, which the demo transport cannot. */
 class MediaTransport extends MockTransport {
@@ -94,6 +96,75 @@ function renderPlayer(
         />,
         { transport },
     );
+}
+
+/** A player whose source control actually changes the source, as the screen does. */
+function SwitchingPlayer({
+    initialSource = "original",
+    initialPlayhead = 0,
+}: {
+    initialSource?: PreviewSource;
+    initialPlayhead?: number;
+}) {
+    const [source, setSource] = useState<PreviewSource>(initialSource);
+    const [playhead, setPlayhead] = useState(initialPlayhead);
+    return (
+        <ScenePlayer
+            projectId="project-1"
+            videoId="video-1"
+            source={source}
+            onSourceChange={setSource}
+            frameRate={24}
+            playhead={playhead}
+            onSeek={setPlayhead}
+            sceneIndex={0}
+            sceneStarts={[0, 240]}
+            sceneEnds={[240, 480]}
+            totalFrames={960}
+        />
+    );
+}
+
+/** Choose a source through the transport's own menu. */
+function chooseSource(name: RegExp) {
+    openSourceMenu();
+    fireEvent.click(screen.getByRole("menuitemradio", { name }));
+}
+
+/** Describe the media state a browser would have after loading or seeking. */
+function mediaState(
+    element: HTMLVideoElement,
+    {
+        readyState,
+        duration,
+        buffered = [],
+        paused = true,
+        currentTime,
+    }: {
+        readyState: number;
+        duration: number;
+        buffered?: readonly [number, number] | readonly [];
+        paused?: boolean;
+        currentTime?: number;
+    },
+) {
+    Object.defineProperty(element, "readyState", { configurable: true, value: readyState });
+    Object.defineProperty(element, "duration", { configurable: true, value: duration });
+    Object.defineProperty(element, "buffered", {
+        configurable: true,
+        value:
+            buffered.length === 0
+                ? { length: 0 }
+                : { length: 1, start: () => buffered[0], end: () => buffered[1] },
+    });
+    Object.defineProperty(element, "paused", { configurable: true, value: paused });
+    if (currentTime !== undefined) {
+        element.currentTime = currentTime;
+    }
+}
+
+function previewReady(): string | null {
+    return screen.getByLabelText("Video preview").getAttribute("data-preview-ready");
 }
 
 describe("ScenePlayer", () => {
@@ -386,6 +457,102 @@ describe("ScenePlayer", () => {
         // The seek that lands on the same frame must not start a second interval.
         fireEvent.seeked(next);
         expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears the loading stage after a paused switch to Decoded", () => {
+        renderWithApi(<SwitchingPlayer initialPlayhead={100} />, {
+            transport: new MediaTransport(),
+        });
+        const original = document.querySelector("video")!;
+        mediaState(original, { readyState: 4, duration: 40 });
+        fireEvent.loadedMetadata(original);
+        expect(previewReady()).toBe("true");
+
+        chooseSource(/^Decoded/u);
+        const decoded = document.querySelector("video")!;
+        expect(decoded).not.toBe(original);
+        // The stream opens at the window that contains the paused frame.
+        expect(decoded.getAttribute("src")).toContain("frame=96");
+
+        // Metadata arrives before the window has the requested frame. Once the window is
+        // buffered the loading stage has to clear on the frame the user asked for, without
+        // requiring a second Play or source selection.
+        mediaState(decoded, { readyState: 1, duration: 2, buffered: [0, 2] });
+        fireEvent.loadedMetadata(decoded);
+        // The rest of the window lands and the element becomes seekable. The append has to
+        // retry the pending request itself; waiting for a `seeked` that was already sent for
+        // the window's first frame is what left the spinner up forever.
+        mediaState(decoded, { readyState: 2, duration: 2, buffered: [0, 2] });
+        fireEvent.progress(decoded);
+
+        expect(previewReady()).toBe("true");
+        expect(screen.getByRole("button", { name: "Play" })).toBeDefined();
+        // A paused switch stays paused. The frame is shown; playback is the user's choice.
+        expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole("button", { name: "Play" }));
+        expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+        fireEvent.play(decoded);
+        expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
+    });
+
+    it("keeps playing and keeps the frame across a switch to Decoded", () => {
+        renderWithApi(<SwitchingPlayer initialPlayhead={100} />, {
+            transport: new MediaTransport(),
+        });
+        const original = document.querySelector("video")!;
+        mediaState(original, { readyState: 4, duration: 40, paused: false });
+        fireEvent.loadedMetadata(original);
+        fireEvent.play(original);
+        expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
+
+        vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+        chooseSource(/^Decoded/u);
+        const decoded = document.querySelector("video")!;
+        mediaState(decoded, {
+            readyState: 2,
+            duration: 2,
+            buffered: [0, 2],
+            currentTime: (100 - 96) / 24,
+        });
+        fireEvent.loadedMetadata(decoded);
+        fireEvent.seeked(decoded);
+
+        expect(previewReady()).toBe("true");
+        expect(decoded.currentTime).toBeCloseTo((100 - 96) / 24, 4);
+        expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+        fireEvent.play(decoded);
+        expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
+    });
+
+    it("keeps playing and keeps the frame across a switch back to Original", () => {
+        renderWithApi(<SwitchingPlayer initialSource="decoded" initialPlayhead={100} />, {
+            transport: new MediaTransport(),
+        });
+        const decoded = document.querySelector("video")!;
+        mediaState(decoded, {
+            readyState: 2,
+            duration: 2,
+            buffered: [0, 2],
+            paused: false,
+            currentTime: (100 - 96) / 24,
+        });
+        fireEvent.loadedMetadata(decoded);
+        fireEvent.seeked(decoded);
+        fireEvent.play(decoded);
+        expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
+
+        vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+        chooseSource(/^Original/u);
+        const original = document.querySelector("video")!;
+        mediaState(original, { readyState: 4, duration: 40 });
+        fireEvent.loadedMetadata(original);
+
+        expect(previewReady()).toBe("true");
+        expect(original.currentTime).toBeCloseTo(100 / 24, 4);
+        expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+        fireEvent.play(original);
+        expect(screen.getByRole("button", { name: "Pause" })).toBeDefined();
     });
 
     it("reopens a decoded window whose bytes the session has already dropped", () => {

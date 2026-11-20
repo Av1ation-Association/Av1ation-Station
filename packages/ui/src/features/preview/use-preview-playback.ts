@@ -14,7 +14,11 @@ import {
     sourceIsExhausted as checkSourceExhausted,
 } from "./playback-interval";
 import { PlaybackRecorder } from "./playback-metrics";
-import { RETAIN_BEHIND_SECONDS, type PreviewBufferPlan } from "./preview-buffer-plan";
+import {
+    RETAIN_BEHIND_SECONDS,
+    prefetchFitsBudget,
+    type PreviewBufferPlan,
+} from "./preview-buffer-plan";
 import type { PreviewSource } from "./preview-player";
 import { nextCoveredFrameIn, playbackView, sceneStepFrame } from "./preview-playback-view";
 import type { SeekQueue } from "./preview-seek";
@@ -196,6 +200,14 @@ export function usePreviewPlayback({
      */
     const readyUrl = useRef<string | null>(null);
     /**
+     * The latest pending-request applier.
+     *
+     * A buffered append can make the requested frame reachable between two media events.
+     * The buffer effect below calls through this ref so a growing window retries the seek
+     * without waiting for a `canplay` or `seeked` that the element may already have sent.
+     */
+    const applyPendingRef = useRef<(element: HTMLVideoElement) => void>(() => undefined);
+    /**
      * The requested frame is on screen. Decoded deliberately clears the stage here, with
      * whatever lead exists: this is an editor, so frames are shown as they land rather than
      * waiting for a buffer. Encoded also waits for its chunk separately before it can play.
@@ -285,10 +297,16 @@ export function usePreviewPlayback({
                 },
             },
             {
-                // Decoded's lead is what its measured bitrate can hold; Encoded keeps the
-                // appetite that lets one scene chunk load before its cut.
-                maxAheadSeconds: () => (source === "decoded" ? plan.current.pausedLeadSeconds : 5),
+                // Decoded's lead is what its measured bitrate can hold, and it is the cap
+                // in motion too, so queued windows cannot grow the element past what the
+                // plan measured. A paused read returns before this is consulted. Encoded
+                // keeps the appetite that lets one scene chunk load before its cut.
+                maxAheadSeconds: () => (source === "decoded" ? plan.current.leadSeconds : 5),
                 retainBehindSeconds: () => (source === "decoded" ? RETAIN_BEHIND_SECONDS : 2),
+                // The look-ahead response is not appended yet, so it is not in the lead the
+                // plan measured. Count its estimated size before holding a second copy of a
+                // window; an expensive source then requests it only when the append is done.
+                canPrefetchAhead: () => source !== "decoded" || prefetchFitsBudget(plan.current),
             },
         );
         streamRef.current = stream;
@@ -839,7 +857,11 @@ export function usePreviewPlayback({
      * Mark the requested frame ready without waiting for a `seeked` event.
      */
     const settleTarget = (element: HTMLVideoElement) => {
-        if (ready) {
+        // `ready` outlives a source swap for one render; the URL that reported it is the
+        // authority. Otherwise a fast new element arrives while the old source's `ready` is
+        // still true, skips this settle, and then the reset clears it with no second event
+        // to ask again — the paused switch sits on its loading stage indefinitely.
+        if (readyUrl.current === url) {
             return;
         }
         const tolerance = frameRate === null ? 0.25 : Math.max(0.05, 0.75 / frameRate);
@@ -869,6 +891,27 @@ export function usePreviewPlayback({
             startPicture(element);
         }
     };
+    applyPendingRef.current = applyPending;
+
+    // The element's buffer grows independently of its events. A paused switch to Decoded
+    // can have its metadata and its first `canplay` before the requested frame is appended;
+    // when the rest of the window lands there is no new `seeked` to settle. Retry here so
+    // the loading stage clears on the frame that arrived, rather than waiting for a source
+    // change or a second Play. A readiness rise that follows the bytes is the element's own
+    // `progress` event, which applies the same pending target.
+    useEffect(() => {
+        if (ready || url === null) {
+            return;
+        }
+        const element = videoRef.current;
+        if (element === null) {
+            return;
+        }
+        if (pendingFrameRef.current === null && pendingTarget.current === null) {
+            return;
+        }
+        applyPendingRef.current(element);
+    }, [bufferedEnd, ready, url, frameRate, source, videoRef]);
 
     const seekToFrame = (frame: number) => {
         if (frameRate === null) {

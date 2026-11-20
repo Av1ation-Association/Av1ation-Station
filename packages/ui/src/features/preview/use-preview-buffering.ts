@@ -109,6 +109,9 @@ export function usePreviewBuffering({ url, videoRef }: PreviewBufferingOptions) 
         const ranges = element.buffered;
         const start = ranges.length === 0 ? 0 : ranges.start(0);
         const end = ranges.length === 0 ? 0 : ranges.end(ranges.length - 1);
+        // A direct source has no MediaSource session to report its appends, so the element's
+        // own range is also what makes a pending Decoded request retry as it grows.
+        setBufferedEnd(end);
         setBufferRange((current) =>
             current.start === start && current.end === end ? current : { start, end },
         );

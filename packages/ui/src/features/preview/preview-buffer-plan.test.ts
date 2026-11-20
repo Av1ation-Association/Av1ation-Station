@@ -6,6 +6,7 @@ import {
     MAX_PAUSED_PREBUILD_WINDOWS,
     initialPreviewPlan,
     observePreviewWindow,
+    prefetchFitsBudget,
     type PreviewBufferPlan,
     type WindowObservation,
 } from "./preview-buffer-plan";
@@ -29,12 +30,13 @@ function repeatedly(
 }
 
 describe("preview buffer plan", () => {
-    it("starts from the measured 1080p build and keeps three windows of lead", () => {
+    it("starts from the measured 1080p build and keeps two windows of lead", () => {
         const plan = initialPreviewPlan(2);
 
-        // 140 MB at the measured 15 MB/s leaves room for three 2 s windows after the
-        // playhead, plus the one in flight and the retained second behind it.
-        expect(plan.leadSeconds).toBe(6);
+        // 140 MB at the measured 15 MB/s leaves room for two 2 s windows after the
+        // playhead, plus the in-flight append, the look-ahead response, and the retained
+        // second behind it.
+        expect(plan.leadSeconds).toBe(4);
         expect(plan.prebuildWindows).toBe(3);
         expect(plan.retainedBytes).toBeLessThanOrEqual(SOURCE_BUFFER_BUDGET_BYTES);
         expect(plan.retainedBytes).toBeGreaterThan(SOURCE_BUFFER_BUDGET_BYTES * 0.9);
@@ -79,7 +81,7 @@ describe("preview buffer plan", () => {
         expect(plan.buildSeconds).toBeGreaterThan(4.5);
         expect(plan.prebuildWindows).toBe(6);
         // The lead itself is memory-bound, not build-bound, so it stays at the budget.
-        expect(plan.leadSeconds).toBe(6);
+        expect(plan.leadSeconds).toBe(4);
     });
 
     it("does not spend more lead than the SourceBuffer budget can hold", () => {
@@ -100,6 +102,22 @@ describe("preview buffer plan", () => {
         expect(spike.buildSeconds).toBeGreaterThan(first.buildSeconds);
         expect(spike.buildSeconds).toBeLessThan(4);
         expect(spike.leadSeconds).toBe(first.leadSeconds);
+    });
+
+    it("holds a look-ahead response only when the whole reservation fits", () => {
+        // The default plan already reserves a window for the look-ahead, so a 1080p source
+        // can overlap the next build without exceeding the 140 MiB ceiling.
+        expect(prefetchFitsBudget(initialPreviewPlan(2))).toBe(true);
+
+        // A source whose single window spends the whole budget has no room for a second
+        // copy: it requests the next window only once the current append is done.
+        const huge = repeatedly(
+            initialPreviewPlan(2),
+            observation(SOURCE_BUFFER_BUDGET_BYTES, 1.4),
+            4,
+        );
+        expect(huge.retainedBytes).toBeGreaterThan(SOURCE_BUFFER_BUDGET_BYTES);
+        expect(prefetchFitsBudget(huge)).toBe(false);
     });
 
     it("ignores an observation with no usable bytes or time", () => {

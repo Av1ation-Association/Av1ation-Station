@@ -27,11 +27,11 @@ export const SOURCE_BUFFER_BUDGET_BYTES = 140 * 1024 * 1024;
 export const RETAIN_BEHIND_SECONDS = 1;
 
 /**
- * Extra seconds left behind a trim, so it cannot cut the GOP the playhead is in.
+ * Extra seconds left behind a trim, so a short backward step is still a buffer hit.
  *
- * The lossless proxy is encoded with a 25-frame GOP (about 1.04 s). A `remove` whose end
- * lands inside the group that is playing makes Chromium roll the playhead back to a
- * keyframe it just discarded; half a second of guard keeps the cut in the previous group.
+ * This is margin, not the safety rule: a `remove` that touches an appended window discards
+ * the whole window, so `PreviewStream` also stops the cut at the start of the window that
+ * holds the playhead. The guard keeps the retained history behind that point usable.
  * It is not part of the retention budget because it is headroom, not seekable history.
  */
 export const TRIM_GUARD_SECONDS = 0.5;
@@ -103,13 +103,29 @@ export type PreviewBufferPlan = {
     prebuildWindows: number;
     /** Windows to build beyond the appended horizon while the element is paused. */
     pausedPrebuildWindows: number;
-    /** Bytes the plan expects the session to retain, for diagnostics and tests. */
+    /**
+     * Bytes the plan expects the session to retain: the SourceBuffer lead, the in-flight
+     * append, the look-ahead response, and the history behind the playhead.
+     */
     retainedBytes: number;
     /** The smoothed rate the plan used, so a later observation can move it. */
     bytesPerSecond: number;
     /** The smoothed build time the plan used. */
     buildSeconds: number;
 };
+
+/**
+ * Whether one response may be held ahead of the append without leaving the byte budget.
+ *
+ * The look-ahead response is not in the `SourceBuffer` yet, but its body is held in the
+ * browser until the previous window has been appended. Counting one estimated window keeps
+ * that extra copy inside the same ceiling as the buffered lead; a source whose single
+ * window already spends the budget gets no look-ahead and falls back to requesting the next
+ * window as soon as the current one is appended.
+ */
+export function prefetchFitsBudget(plan: PreviewBufferPlan): boolean {
+    return plan.retainedBytes <= SOURCE_BUFFER_BUDGET_BYTES;
+}
 
 /**
  * The starting plan before the session has measured anything.
@@ -166,7 +182,13 @@ function planFor(
 ): PreviewBufferPlan {
     const window = Math.max(0.5, windowSeconds);
     const budgetSeconds = SOURCE_BUFFER_BUDGET_BYTES / bytesPerSecond;
-    const affordableWindows = Math.floor((budgetSeconds - RETAIN_BEHIND_SECONDS) / window) - 1;
+    // Reserve the in-flight append and the response held ahead of it before deciding the
+    // lead. The look-ahead is not in the SourceBuffer yet, but its body is browser memory;
+    // reserving one window for each keeps the total inside the same ceiling instead of
+    // letting the lead spend the budget and disabling the overlap that hides a seam.
+    const affordableWindows = Math.floor(
+        (budgetSeconds - RETAIN_BEHIND_SECONDS - 2 * window) / window,
+    );
     const wantedWindows = Math.ceil((buildSeconds * 3 + 2) / window);
     const leadWindows = Math.max(
         1,
@@ -174,8 +196,8 @@ function planFor(
     );
     const leadSeconds = leadWindows * window;
     // Nothing consumes a paused buffer, so the whole SourceBuffer is the lead; the
-    // playing plan keeps a window of headroom for the in-flight append and the retained
-    // second behind the playhead.
+    // playing plan keeps two windows of headroom for the in-flight append and the
+    // look-ahead response, plus the retained second behind the playhead.
     const pausedWindows = Math.max(1, Math.floor(budgetSeconds / window));
     const pausedLeadSeconds = pausedWindows * window;
     const prebuildWindows = Math.min(
@@ -194,7 +216,7 @@ function planFor(
         pausedLeadSeconds,
         prebuildWindows,
         pausedPrebuildWindows,
-        retainedBytes: (RETAIN_BEHIND_SECONDS + leadSeconds + window) * bytesPerSecond,
+        retainedBytes: (RETAIN_BEHIND_SECONDS + leadSeconds + 2 * window) * bytesPerSecond,
         bytesPerSecond,
         buildSeconds,
     };

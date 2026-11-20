@@ -168,11 +168,14 @@ function installMediaSource() {
     const buffer = new Buffer();
     class Media extends EventTarget {
         static isTypeSupported = () => true;
-        readyState = "open";
+        readyState: "closed" | "open" | "ended" = "closed";
         addSourceBuffer = () => buffer;
         constructor() {
             super();
-            queueMicrotask(() => this.dispatchEvent(new Event("sourceopen")));
+            queueMicrotask(() => {
+                this.readyState = "open";
+                this.dispatchEvent(new Event("sourceopen"));
+            });
         }
     }
     vi.stubGlobal("MediaSource", Media);
@@ -257,6 +260,98 @@ describe("PreviewStream", () => {
         await vi.waitFor(() => expect(stream.idle).toBe(true));
     });
 
+    it("requests the next window before the current one finishes arriving", async () => {
+        installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        const requested: string[] = [];
+        let releaseFirst!: (response: Response) => void;
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((input: RequestInfo | URL) => {
+                const url = String(input);
+                requested.push(url);
+                if (url.endsWith("/1")) {
+                    return new Promise<Response>((resolve) => {
+                        releaseFirst = resolve;
+                    });
+                }
+                return Promise.resolve(new Response(bytes));
+            }),
+        );
+        const stream = new PreviewStream(fakeVideo());
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.loadingUrl).toBe("http://service/api/media/1"));
+
+        // The opening window is still arriving. Asking for the next one now lets the
+        // service build it while the browser parses and appends the first, instead of
+        // leaving the decoder idle through every seam.
+        void stream.append("http://service/api/media/2", 2);
+        await vi.waitFor(() =>
+            expect(requested).toEqual(["http://service/api/media/1", "http://service/api/media/2"]),
+        );
+        expect(stream.loadingUrl).toBe("http://service/api/media/1");
+
+        releaseFirst(new Response(bytes));
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+    });
+
+    it("does not hold a window ahead when the byte budget is full", async () => {
+        installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        const requested: string[] = [];
+        let releaseFirst!: (response: Response) => void;
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((input: RequestInfo | URL) => {
+                const url = String(input);
+                requested.push(url);
+                if (url.endsWith("/1")) {
+                    return new Promise<Response>((resolve) => {
+                        releaseFirst = resolve;
+                    });
+                }
+                return Promise.resolve(new Response(bytes));
+            }),
+        );
+        const stream = new PreviewStream(fakeVideo(), {}, { canPrefetchAhead: () => false });
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.loadingUrl).toBe("http://service/api/media/1"));
+
+        // The next request waits for the append instead of holding a second body that the
+        // plan says does not fit.
+        void stream.append("http://service/api/media/2", 2);
+        expect(requested).toEqual(["http://service/api/media/1"]);
+
+        releaseFirst(new Response(bytes));
+        await vi.waitFor(() => expect(stream.idle).toBe(true));
+        expect(requested).toEqual(["http://service/api/media/1", "http://service/api/media/2"]);
+    });
+
+    it("sends the opening window before a queued prefetch", async () => {
+        installMediaSource();
+        const requested: string[] = [];
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((input: RequestInfo | URL) => {
+                requested.push(String(input));
+                return new Promise<Response>(() => undefined);
+            }),
+        );
+        const stream = new PreviewStream(fakeVideo());
+
+        // The caller queues the next window while MediaSource is still opening; the
+        // opening request must reach the service first, or the window the element is
+        // waiting for queues behind a prefetch.
+        stream.open("http://service/api/media/1");
+        void stream.append("http://service/api/media/2", 2);
+
+        expect(requested).toEqual([]);
+        await vi.waitFor(() => expect(requested).toHaveLength(2));
+        expect(requested).toEqual(["http://service/api/media/1", "http://service/api/media/2"]);
+    });
+
     it("retains the plan's GOP-safe margin behind the playhead", async () => {
         const { buffer } = installMediaSource();
         const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
@@ -276,10 +371,39 @@ describe("PreviewStream", () => {
         );
 
         stream.open("http://service/api/media/1");
+        // The playhead sits in the window appended at 8 s; the history before that window
+        // is what a trim may drop.
+        void stream.append("http://service/api/media/2", 8);
         await vi.waitFor(() => expect(stream.started).toBe(true));
         element.dispatchEvent(new Event("timeupdate"));
 
-        await vi.waitFor(() => expect(buffer.remove).toHaveBeenCalledWith(0, 8.5));
+        await vi.waitFor(() => expect(buffer.remove).toHaveBeenCalledWith(0, 8));
+    });
+
+    it("never trims into the window the playhead is playing", async () => {
+        const { buffer } = installMediaSource();
+        const bytes = init(sampleEntry("avc1", box("avcC", new Uint8Array([1, 0x64, 0x00, 0x28]))));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(bytes)),
+        );
+        vi.spyOn(performance, "now").mockReturnValue(1000);
+        const element = fakeVideo();
+        // 0.34 s behind the playhead, inside the only appended window. Chromium discards
+        // the whole window for that cut, which leaves the playhead outside the buffer.
+        element.currentTime = 1.84;
+        const stream = new PreviewStream(
+            element,
+            {},
+            { retainBehindSeconds: () => RETAIN_BEHIND_SECONDS },
+        );
+
+        stream.open("http://service/api/media/1");
+        await vi.waitFor(() => expect(stream.started).toBe(true));
+        element.dispatchEvent(new Event("timeupdate"));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(buffer.remove).not.toHaveBeenCalled();
     });
 
     it("releases a read throttled ahead of the playhead when the element stalls", async () => {
@@ -350,6 +474,7 @@ describe("PreviewStream", () => {
         const preview = new PreviewStream(element, {}, { retainBehindSeconds: () => 3 });
 
         preview.open("http://service/api/media/1");
+        void preview.append("http://service/api/media/2", 8);
         await vi.waitFor(() => expect(preview.started).toBe(true));
         element.dispatchEvent(new Event("timeupdate"));
 
@@ -397,13 +522,14 @@ describe("PreviewStream", () => {
     it("waits for playback instead of failing when a paused buffer is full", async () => {
         const { buffer, element, onError, stream } = await parkOnQuota();
 
-        // The playhead moves far enough to free history without cutting the playing GOP.
+        // The playhead moves into the second window, so the first one is free history: the
+        // cut stops at its start, never inside the window the playhead is playing.
         element.currentTime = 5;
         element.dispatchEvent(new Event("timeupdate"));
         await vi.waitFor(() => expect(stream.idle).toBe(true));
 
         expect(onError).not.toHaveBeenCalled();
-        expect(buffer.remove).toHaveBeenCalledWith(0, 2.5);
+        expect(buffer.remove).toHaveBeenCalledWith(0, 2);
         expect(buffer.appendBuffer).toHaveBeenCalledTimes(4);
     });
 
@@ -422,7 +548,7 @@ describe("PreviewStream", () => {
         await vi.waitFor(() => expect(stream.idle).toBe(true));
 
         expect(onError).not.toHaveBeenCalled();
-        expect(buffer.remove).toHaveBeenCalledWith(0, 2.5);
+        expect(buffer.remove).toHaveBeenCalledWith(0, 2);
         expect(buffer.appendBuffer).toHaveBeenCalledTimes(4);
     });
 

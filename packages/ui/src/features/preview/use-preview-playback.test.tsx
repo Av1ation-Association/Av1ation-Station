@@ -176,6 +176,32 @@ describe("usePreviewPlayback", () => {
         expect(result.current.playback.ready).toBe(true);
     });
 
+    it("settles a pending decoded frame as the window's buffer grows", () => {
+        const { result, rerender } = renderHook(
+            ({ bufferedEnd }: { bufferedEnd: number }) =>
+                useHarness({
+                    source: "decoded",
+                    playhead: 48,
+                    totalFrames: 240,
+                    bufferedEnd,
+                }),
+            { initialProps: { bufferedEnd: 0 } },
+        );
+        const element = result.current.videoRef.current;
+        if (element === null) {
+            throw new Error("the harness has no video element");
+        }
+        // The element is parked on the frame the pending seek asked for, but the append
+        // that made it available raised its readiness without a `seeked` or `canplay`.
+        Object.defineProperty(element, "readyState", { configurable: true, value: 2 });
+        Object.defineProperty(element, "duration", { configurable: true, value: 2 });
+        element.currentTime = 2;
+
+        rerender({ bufferedEnd: 2 });
+
+        expect(result.current.playback.ready).toBe(true);
+    });
+
     it("presents decoded frames instead of holding when the buffer runs dry", () => {
         vi.useFakeTimers();
         try {

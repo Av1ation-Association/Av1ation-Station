@@ -152,10 +152,11 @@ export function usePreviewPrefetch({
         const bufferedEnd = ranges.length === 0 ? 0 : ranges.end(ranges.length - 1);
         const reached = appendedThrough.current ?? streamStart;
         const next = reached + windowFrames;
-        // The end of the last appended window on the element's clock, so a burst of updates
-        // before its bytes arrive cannot queue window after window against the same lead.
+        // The end of the next window on the element's clock. Counting the windows already
+        // queued here, rather than only what the element has buffered, is what lets a burst
+        // of updates fill the lead instead of stopping at one window in flight.
         const appendedEnd = (reached + windowFrames - streamStart) / frameRate;
-        const queued = appendedEnd - bufferedEnd;
+        const queued = Math.max(0, appendedEnd - bufferedEnd);
         const current = plan.current;
         // A paused element never consumes its lead, so waiting for the playhead to release
         // an append would leave the pipeline at one window. Paused means fill the plan now:
@@ -181,14 +182,23 @@ export function usePreviewPrefetch({
             PAUSED_MSE_MAX_SECONDS,
             Math.max(windowSeconds, current.pausedLeadSeconds - windowSeconds),
         );
-        const appendHorizon = Math.max(current.leadSeconds, pausedFill);
+        // A paused fill may use the whole paused budget. In motion the playing lead is the
+        // target; readiness below HAVE_FUTURE_DATA is still filling, because the first
+        // window has not become playable yet.
+        const appendHorizon = filling
+            ? Math.max(current.leadSeconds, pausedFill)
+            : current.leadSeconds;
         // Paused, the appended horizon is the only clock. In motion, the buffered lead is
-        // the clock and at most one window may wait beyond it, so the next request is
-        // already in the stream before the playhead reaches the previous buffer's end.
+        // the clock and the queue may hold as many windows as the remaining planned lead:
+        // the decoder then has work ready through the whole lead, instead of receiving the
+        // next window only as the current one runs dry. `queued` counts the next window
+        // and everything already queued beyond the buffer, so it cannot grow past the lead.
         const withinLead = filling
             ? appendedEnd - element.currentTime < (paused ? pausedFill : appendHorizon)
             : bufferedEnd - element.currentTime < appendHorizon;
-        const queueAllowed = filling || queued < windowSeconds;
+        const leadAhead = Math.max(0, bufferedEnd - element.currentTime);
+        const roomToQueue = Math.max(windowSeconds, appendHorizon - leadAhead);
+        const queueAllowed = filling || queued <= roomToQueue + 0.05;
         const appended = next < totalFrames && withinLead && queueAllowed;
         if (appended) {
             appendedThrough.current = next;

@@ -42,7 +42,7 @@ export function finishPlaybackInterval(
         };
     }
     if (current.hasFrames) {
-        publishPlayback(current.summary());
+        publishPlayback(current.summary(performance.now()));
     }
     recorder.current = new PlaybackRecorder(source);
 }

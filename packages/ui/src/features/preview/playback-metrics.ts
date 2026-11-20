@@ -97,14 +97,23 @@ export class PlaybackRecorder {
         return this.frames.length > 0;
     }
 
-    summary(): PlaybackSummary {
+    /**
+     * The interval's summary, closed at `endMs`.
+     *
+     * A picture that stops for good before the user pauses has no later frame to form a
+     * gap, so the trailing gap is measured here: without it a run that presented four
+     * seconds of a sixteen-second attempt reported zero stalls and a healthy frame rate.
+     */
+    summary(endMs?: number): PlaybackSummary {
         const intervals: number[] = [];
         for (let index = 1; index < this.frames.length; index += 1) {
             intervals.push(this.frames[index]! - this.frames[index - 1]!);
         }
-        const playedMs =
-            this.frames.length > 1 ? this.frames[this.frames.length - 1]! - this.frames[0]! : 0;
+        const last = this.frames[this.frames.length - 1];
+        const playedMs = this.frames.length > 1 ? last! - this.frames[0]! : 0;
         const stalls = intervals.filter((gap) => gap >= STALL_MS);
+        const endGap = endMs === undefined || last === undefined ? 0 : Math.max(0, endMs - last);
+        const endStall = endGap >= STALL_MS ? endGap : 0;
         return {
             source: this.source,
             playedMs,
@@ -118,8 +127,8 @@ export class PlaybackRecorder {
                     : 0,
             intervalP50Ms: percentile(intervals, 0.5),
             intervalP95Ms: percentile(intervals, 0.95),
-            stalls: stalls.length,
-            longestStallMs: stalls.length > 0 ? Math.max(...stalls) : 0,
+            stalls: stalls.length + (endStall > 0 ? 1 : 0),
+            longestStallMs: Math.max(0, ...stalls, endStall),
             firstFrameMs: this.firstFrameMs,
             seekMs: this.seekMs,
         };

@@ -325,10 +325,12 @@ export function ScenePlayer({
                                     pendingTarget.current = null;
                                 }
                                 // The requested frame is on screen; the ready effect applies
-                                // the resume a deliberate seek interrupted.
-                                if (!ready) {
-                                    settleTarget(element);
-                                } else {
+                                // the resume a deliberate seek interrupted. `settleTarget`
+                                // checks the URL that reported readiness itself, so asking it
+                                // here is also what repairs a source swap whose `ready` state
+                                // has not been reset yet.
+                                settleTarget(element);
+                                if (ready) {
                                     applyPending(element);
                                 }
                             }}

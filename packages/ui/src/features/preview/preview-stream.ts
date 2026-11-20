@@ -41,6 +41,14 @@ export type PreviewStreamOptions = {
     maxAheadSeconds?: () => number;
     /** Seconds of played media to keep behind the playhead. */
     retainBehindSeconds?: () => number;
+    /**
+     * Whether the caller's byte budget allows one response to be held ahead.
+     *
+     * A pre-issued response keeps the service building across the previous append, but its
+     * body is browser memory until that append finishes. When the buffered lead already
+     * spends the budget, the next request waits instead of holding a second copy.
+     */
+    canPrefetchAhead?: () => boolean;
 };
 
 /**
@@ -361,6 +369,8 @@ export class PreviewStream {
     #objectUrl: string | null = null;
     #buffer: SourceBuffer | null = null;
     #segments: Segment[] = [];
+    /** Start times of the segments appended so far, in order, for the trim boundary. */
+    #offsets: number[] = [];
     #pumping = false;
     #closed = false;
     #abort: AbortController | null = null;
@@ -371,11 +381,27 @@ export class PreviewStream {
     #lastTrim = 0;
     /** The segment whose request is open, so a prefetch can see that its append is in flight. */
     #loading: string | null = null;
+    /**
+     * The next segment's request, issued while the current one is still arriving.
+     *
+     * A build and the browser's append of the previous build are different stages. Waiting
+     * for the previous response body to end before asking for the next one leaves the
+     * decoder idle through every append: on a source whose build is close to its own
+     * playback time, that idle gap is the stall at each window seam. One response may be
+     * held here ahead of time; its bytes are appended only after the current segment, so
+     * the timeline is unchanged.
+     */
+    #ahead: {
+        segment: Segment;
+        controller: AbortController;
+        response: Promise<Response>;
+    } | null = null;
     /** The session handed the URL to the element because MediaSource refused its codec. */
     #direct = false;
     /** The buffer plan's appetite and retention, read at update time. */
     readonly #maxAheadSeconds: () => number;
     readonly #retainBehindSeconds: () => number;
+    readonly #canPrefetchAhead: () => boolean;
 
     constructor(
         element: HTMLVideoElement,
@@ -387,6 +413,7 @@ export class PreviewStream {
         this.#maxAheadSeconds = options.maxAheadSeconds ?? (() => DEFAULT_MAX_AHEAD_SECONDS);
         this.#retainBehindSeconds =
             options.retainBehindSeconds ?? (() => DEFAULT_RETAIN_BEHIND_SECONDS);
+        this.#canPrefetchAhead = options.canPrefetchAhead ?? (() => true);
         element.addEventListener("timeupdate", this.#onTimeUpdate);
         // A read that was throttled because the buffer was ahead is waiting for the
         // playhead to move. A pause, a seek, or a starved element stops the playhead
@@ -461,6 +488,7 @@ export class PreviewStream {
         this.#element.src = this.#objectUrl;
         this.#element.load();
         this.#segments.push({ url, offset: 0 });
+        this.#offsets.push(0);
         void this.#pump();
     }
 
@@ -480,6 +508,11 @@ export class PreviewStream {
             requested = resolve;
         });
         this.#segments.push({ url, offset, requested });
+        this.#offsets.push(offset);
+        // A segment may be appended while the one before it is still downloading. Ask for
+        // its body now, so the service can build it across that download instead of only
+        // after the element has finished parsing it.
+        this.#prefetchAhead();
         void this.#pump();
         return started;
     }
@@ -488,6 +521,7 @@ export class PreviewStream {
         this.#closed = true;
         this.#abort?.abort();
         this.#abort = null;
+        this.#abortAhead();
         this.#demand?.();
         this.#demand = null;
         this.#element.removeEventListener("timeupdate", this.#onTimeUpdate);
@@ -501,6 +535,7 @@ export class PreviewStream {
             this.#objectUrl = null;
         }
         this.#segments = [];
+        this.#offsets = [];
         this.#buffer = null;
         this.#media = null;
         try {
@@ -509,6 +544,38 @@ export class PreviewStream {
         } catch {
             // A detached element cannot be reloaded; nothing is left to release.
         }
+    }
+
+    /** Start the next segment's request without reading its body yet. */
+    #prefetchAhead(): void {
+        if (this.#closed || this.#direct || this.#ahead !== null) {
+            return;
+        }
+        if (!this.#canPrefetchAhead()) {
+            return;
+        }
+        // Never reach the service with a later window before the current one has a request.
+        // A segment appended before `sourceopen` must wait for the opening read.
+        if (this.#loading === null) {
+            return;
+        }
+        const next = this.#segments[1];
+        if (next === undefined) {
+            return;
+        }
+        const controller = new AbortController();
+        const response = fetch(next.url, { signal: controller.signal });
+        // The body is awaited when this segment becomes current. Observe a rejection now so
+        // a refusal while the previous window is still arriving is not unhandled.
+        void response.catch(() => undefined);
+        next.requested?.();
+        this.#ahead = { segment: next, controller, response };
+    }
+
+    /** Drop the request that has not become the current segment yet. */
+    #abortAhead(): void {
+        this.#ahead?.controller.abort();
+        this.#ahead = null;
     }
 
     /** Release a throttled read: the playhead moved, paused, or jumped. */
@@ -547,7 +614,28 @@ export class PreviewStream {
      * same boundary as the periodic trim.
      */
     #safeDiscardEnd(): number {
-        return this.#element.currentTime - this.#retainBehindSeconds() - TRIM_GUARD_SECONDS;
+        const playhead = this.#element.currentTime;
+        // A `remove` that reaches into an appended segment discards the whole segment, not
+        // just the range: cutting a fraction of a second into the window under the playhead
+        // left the buffered range starting after it, and the picture stalled on the hole.
+        // The cut therefore stops at the start of the segment holding the playhead; the
+        // retained history always falls inside an earlier one.
+        return Math.min(
+            playhead - this.#retainBehindSeconds() - TRIM_GUARD_SECONDS,
+            this.#segmentStartAt(playhead),
+        );
+    }
+
+    /** The start of the appended segment whose media contains `seconds`. */
+    #segmentStartAt(seconds: number): number {
+        let start = 0;
+        for (const offset of this.#offsets) {
+            if (offset > seconds) {
+                break;
+            }
+            start = offset;
+        }
+        return start;
     }
 
     /** Drop what is far enough behind the playhead that a seek there is unlikely. */
@@ -584,6 +672,9 @@ export class PreviewStream {
             return;
         }
         await this.#run(() => buffer.remove(from, to)).catch(() => undefined);
+        // The removed segments cannot hold the playhead again, so only the boundary at the
+        // new start has to be remembered.
+        this.#offsets = this.#offsets.filter((offset) => offset >= to);
     }
 
     /**
@@ -790,6 +881,7 @@ export class PreviewStream {
                 this.#segments.shift();
             }
         } catch (error) {
+            this.#abortAhead();
             if (!this.#closed) {
                 this.#events.onError?.(error instanceof Error ? error.message : String(error));
             }
@@ -799,19 +891,27 @@ export class PreviewStream {
     }
 
     async #load(segment: Segment): Promise<void> {
-        const controller = new AbortController();
-        this.#abort?.abort();
+        const ahead = this.#ahead?.segment === segment ? this.#ahead : null;
+        if (ahead !== null) {
+            this.#ahead = null;
+        }
+        const controller = ahead?.controller ?? new AbortController();
+        if (ahead === null) {
+            this.#abort?.abort();
+        }
         this.#abort = controller;
         // Every proxy starts its own clock at zero, so the offset must be in place before
         // the first media fragment of this segment is appended.
         if (this.#buffer !== null) {
             await this.#setOffset(segment.offset);
         }
-        const pending = fetch(segment.url, { signal: controller.signal });
+        const pending = ahead?.response ?? fetch(segment.url, { signal: controller.signal });
         // Record the request only after it exists: a prefetch may warm behind a segment
         // whose fetch has been issued, never behind one that is still waiting in the queue.
         this.#loading = segment.url;
         segment.requested?.();
+        // The current bytes are on the way; the next build can start behind them now.
+        this.#prefetchAhead();
         try {
             const response = await pending;
             if (!response.ok) {
@@ -928,6 +1028,7 @@ export class PreviewStream {
         this.#buffer = null;
         this.#abort?.abort();
         this.#abort = null;
+        this.#abortAhead();
         try {
             this.#element.src = url;
             this.#element.load();

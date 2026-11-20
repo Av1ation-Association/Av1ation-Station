@@ -103,10 +103,13 @@ the lossless encode and mux, not for decoder construction.
 
 The lead is not a fixed number. Chromium retains roughly 150 MB in one `SourceBuffer`, so
 the player spends a 140 MiB budget at the source's measured lossless rate: a two-second
-1080p 10-bit window yields about six seconds of appended lead, and a cheaper source yields
-more from the same bytes. The paused fill is capped at **six seconds**, even when a coarser
-rate estimate would plan more: the next window has to fit beside the fill, and a grainy
-source can otherwise reach 8–10 s and leave the append that starts playback no room at all.
+1080p 10-bit window yields about six seconds of runway — four appended, one in flight, and
+one response held ahead of the append — and a cheaper source yields more from the same
+bytes. The look-ahead is part of the same budget, not extra: when it would not fit, it is
+not held, and the next request waits for the append. The paused fill is capped at **six
+seconds**, even when a coarser rate estimate would plan more: the next window has to fit
+beside the fill, and a grainy source can otherwise reach 8–10 s and leave the append that
+starts playback no room at all.
 The cap is `PAUSED_MSE_MAX_SECONDS` in `preview-buffer-plan.ts`. The cache runway beyond the append horizon is sized from the
 measured build time, so a slower machine prebuilds more windows instead of outrunning a
 constant. Those warm builds are not attached to the timeline: the append that later reaches
@@ -134,10 +137,10 @@ paused by the same wait. Encoded still holds until its scene chunk has a lead, b
 chunk ends at a cut instead of continuing the same stream. MediaSource receives each proxy in 4 MiB
 batches rather than one append per 64 KB read: an append is a full `updateend` round trip,
 and one per read spent seconds on a single 30 MB window. The element retains one second
-behind the playhead, plus another half-second before a trim so it cannot cut the GOP that
-is playing, so a short backward step is a buffer read; a seek further back opens
-the window containing that frame from cache. Its one-second GOPs let the element start on
-the first fragment.
+behind the playhead, and a trim stops at the start of the window the playhead is playing:
+`SourceBuffer.remove` discards the whole appended window a cut touches, so cutting into the
+playing one leaves the playhead outside the buffer. A short backward step is a buffer read;
+a seek further back opens the window containing that frame from cache.
 
 The browser's own `<video>` element plays, seeks, and buffers all three with zero
 JavaScript decoding. This is the decision that makes LAN and website preview possible at

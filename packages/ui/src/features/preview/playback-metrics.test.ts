@@ -36,6 +36,27 @@ describe("PlaybackRecorder", () => {
         expect(summary.stalls).toBeLessThan(summary.presented);
     });
 
+    it("counts a stall that is still running when the interval ends", () => {
+        const recorder = new PlaybackRecorder("decoded");
+        recorder.playStarted(0);
+        play(recorder, 0, 48);
+        // The last frame arrived at about 2 s; the picture then stayed frozen for 4 s.
+        const summary = recorder.summary((47 * 1000) / 24 + 4000);
+
+        expect(summary.stalls).toBe(1);
+        expect(summary.longestStallMs).toBeCloseTo(4000);
+        expect(summary.fps).toBeCloseTo(24, 0);
+    });
+
+    it("does not turn a normal pause into a stall", () => {
+        const recorder = new PlaybackRecorder("decoded");
+        play(recorder, 0, 24);
+        const summary = recorder.summary((23 * 1000) / 24 + 50);
+
+        expect(summary.stalls).toBe(0);
+        expect(summary.longestStallMs).toBe(0);
+    });
+
     it("keeps a gap under the threshold out of the stall count", () => {
         const recorder = new PlaybackRecorder("original");
         recorder.frame(0);

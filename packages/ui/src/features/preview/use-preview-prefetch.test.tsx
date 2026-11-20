@@ -298,6 +298,33 @@ describe("usePreviewPrefetch", () => {
         expect(frames).toEqual(["48", "96"]);
     });
 
+    it("keeps the planned lead queued while playing", () => {
+        const append = vi.fn();
+        const streamRef = { current: fakeStream(append) };
+        const plan = {
+            current: {
+                ...initialPreviewPlan(2),
+                leadSeconds: 6,
+                pausedLeadSeconds: 8,
+            },
+        };
+
+        const harness = renderHook(() => useHarness({ plan, streamRef }, 2, 0, false));
+        // The opening window is already appended; the rest of the lead is still to fill.
+        append.mockClear();
+
+        act(() => harness.result.current.prefetch.prefetchNextWindow());
+        act(() => harness.result.current.prefetch.prefetchNextWindow());
+        act(() => harness.result.current.prefetch.prefetchNextWindow());
+
+        const frames = (append.mock.calls as [string, number][]).map(([target]) =>
+            new URL(target).searchParams.get("frame"),
+        );
+        // The decoder has three windows of lead to build into, not one. Stopping at one
+        // leaves every seam waiting for a build that was only requested as it ran out.
+        expect(frames).toEqual(["96", "144"]);
+    });
+
     it("queues the next window a window before the playing lead drains", () => {
         const append = vi.fn();
         const streamRef = { current: fakeStream(append) };
@@ -311,7 +338,8 @@ describe("usePreviewPrefetch", () => {
             },
         };
 
-        renderHook(() => useHarness({ plan, streamRef }, 3, 0.5, false));
+        // A 1.5 s buffer at 0.5 s leaves 1 s of lead, below the plan's 2 s target.
+        renderHook(() => useHarness({ plan, streamRef }, 1.5, 0.5, false));
 
         expect(append).toHaveBeenCalledTimes(1);
         const [target] = append.mock.calls[0] as [string, number];

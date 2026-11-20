@@ -380,7 +380,11 @@ export function usePreviewSession({
         }
         askForFrame(null);
         pendingTarget.current = null;
-        resumeAfterSource.current = playing || held;
+        // Read the element, not only the render's state: a pause or play event may not have
+        // been committed to React yet, and the intent captured here decides whether the new
+        // source starts. An Encoded hold also counts even though its element is paused.
+        const element = videoRef.current;
+        resumeAfterSource.current = element === null ? playing || held : !element.paused || held;
         resetWarm();
         onSourceChange(next);
     };
