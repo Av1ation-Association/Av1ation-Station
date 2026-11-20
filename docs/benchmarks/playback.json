@@ -1,35 +1,65 @@
 {
-  "measured_at": "2026-11-03T13:51:35.273Z",
-  "service": "http://127.0.0.1:51557",
-  "project": "Playback benchmark 2026-11-03T13-51-26",
+  "measured_at": "2026-11-20T08:57:03.532Z",
+  "service": "http://127.0.0.1:51555",
+  "project": "Playback benchmark 2026-11-20T08-56-42",
   "video": "Synthetic 90 s",
   "source_file": "C:\\Users\\ichig\\AppData\\Local\\Temp\\av1ation-bench\\synthetic-90s-1080p10-24fps.mp4",
-  "seconds": 1,
+  "seconds": 10,
   "baseline": {
-    "appMiB": 1108.67578125,
-    "browserMiB": 760.42578125,
-    "totalMiB": 1869.1015625
+    "appMiB": 412.07421875,
+    "browserMiB": 790.0625,
+    "totalMiB": 1202.13671875
   },
   "sources": [
     {
-      "source": "original",
+      "source": "decoded",
       "ready": true,
-      "readySeconds": 0.096,
-      "playableSeconds": 0.001,
-      "firstFrameMs": 114.2999998092655,
-      "seekMs": 4262.699999904633,
+      "readySeconds": 2.333,
+      "playableSeconds": 0.004,
+      "firstFrameMs": 53.30000004768408,
+      "seekMs": 274.7000000238422,
       "dragMs": null,
-      "fps": 24.2261476272219,
+      "fps": 21.970966220893487,
       "dropped": 0,
-      "produced": 26,
+      "produced": 246,
       "dropRate": 0,
       "stalls": 0,
       "longestStallMs": 0,
-      "p50Ms": 50,
-      "p95Ms": 66.69999999999982,
-      "appMiB": 1108.578125,
-      "browserMiB": 854.41015625,
-      "totalMiB": 1962.98828125
+      "p50Ms": 49.99799999999959,
+      "p95Ms": 66.70399999999972,
+      "windows": [
+        {
+          "frame": 144,
+          "startSeconds": 0,
+          "firstByteMs": 1847,
+          "doneMs": 1862,
+          "gapMs": null
+        },
+        {
+          "frame": 192,
+          "startSeconds": 3.859,
+          "firstByteMs": 2069,
+          "doneMs": 2119,
+          "gapMs": 1997
+        },
+        {
+          "frame": 240,
+          "startSeconds": 3.859,
+          "firstByteMs": 2069,
+          "doneMs": 2218,
+          "gapMs": -2119
+        },
+        {
+          "frame": 288,
+          "startSeconds": 6.058,
+          "firstByteMs": 1132,
+          "doneMs": 1491,
+          "gapMs": -19
+        }
+      ],
+      "appMiB": 1277.5,
+      "browserMiB": 925.140625,
+      "totalMiB": 2202.640625
     }
   ]
 }

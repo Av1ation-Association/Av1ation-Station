@@ -451,7 +451,9 @@ async function pauseVideo(page) {
 async function chooseSource(page, source) {
     const area = await playerArea(page);
     await area.locator('button[aria-haspopup="menu"]').click();
-    await area
+    // The shared menu portals to the body, so the items are not inside the player's
+    // section. Scoping the lookup to the section waits out the timeout on every run.
+    await page
         .getByRole("menuitemradio", { name: new RegExp(`^${SOURCE_LABELS[source]}`) })
         .click();
 }
@@ -621,6 +623,7 @@ async function main() {
             "--autoplay-policy=no-user-gesture-required",
             "--disable-background-timer-throttling",
             "--disable-renderer-backgrounding",
+            "--disable-backgrounding-occluded-windows",
             "--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling",
             ...(options.noCors ? ["--disable-web-security"] : []),
         ],
@@ -634,6 +637,10 @@ async function main() {
         sampler = startSampler(rootPid, options.app, samplesFile);
 
         const page = context.pages()[0] ?? (await context.newPage());
+        // A window behind the terminal stops presenting frames, and the player's own frame
+        // callback then reports a stall the app did not cause. Foregrounding the page is
+        // what makes the interval summary describe playback rather than occlusion.
+        await page.bringToFront();
         page.on("console", (message) => {
             const text = message.text();
             if (text.startsWith("[playback]")) {
@@ -646,6 +653,40 @@ async function main() {
         page.on("response", (response) => {
             if (response.status() >= 400) {
                 console.log(`  http ${String(response.status())} ${response.url()}`);
+            }
+        });
+        // A Decoded window is one fetch, so the browser's own request events are where the
+        // player's pipeline is visible: the interval summary says whether frames were
+        // presented, not whether the next window was requested before the current one had
+        // been parsed. These are recorded only while a source is playing, because a paused
+        // fill deliberately builds a cache runway whose requests are not the seam's cost.
+        let windows = new Map();
+        page.on("request", (request) => {
+            const url = new URL(request.url());
+            if (
+                !windows ||
+                url.searchParams.get("source") !== "decoded" ||
+                !url.searchParams.has("frame")
+            ) {
+                return;
+            }
+            windows.set(request, {
+                frame: Number(url.searchParams.get("frame")),
+                start: Date.now(),
+                firstByte: null,
+                end: null,
+            });
+        });
+        page.on("response", (response) => {
+            const entry = windows?.get(response.request());
+            if (entry !== undefined) {
+                entry.firstByte = Date.now();
+            }
+        });
+        page.on("requestfinished", (request) => {
+            const entry = windows?.get(request);
+            if (entry !== undefined) {
+                entry.end = Date.now();
             }
         });
 
@@ -709,6 +750,9 @@ async function main() {
             }
 
             const phaseStart = Date.now();
+            // Only the windows requested while the picture is moving are the seams: the
+            // paused fill before this point is the runway the player is meant to consume.
+            windows = new Map();
             await (await playerArea(page)).locator("video").click({ position: { x: 24, y: 24 } });
             await sleep(options.seconds * 1000);
             if (options.seek) {
@@ -729,11 +773,41 @@ async function main() {
             if (options.drag && source !== "decoded") {
                 dragMs = await dragTransport(page);
             }
+            const playedWindows = [...windows.values()]
+                .filter((entry) => entry.end !== null)
+                .sort((left, right) => left.start - right.start)
+                .map((entry, index, all) => ({
+                    frame: entry.frame,
+                    startSeconds: (entry.start - all[0].start) / 1000,
+                    firstByteMs: entry.firstByte === null ? null : entry.firstByte - entry.start,
+                    doneMs: entry.end - entry.start,
+                    gapMs: index === 0 ? null : entry.start - all[index - 1].end,
+                }));
             await pauseVideo(page);
             const summary = await readSummary(page, before);
             const phaseEnd = Date.now();
             phases.push({ name: source, start: phaseStart, end: phaseEnd });
-            records.push({ source, ready: true, readyMs, playableMs, summary, dragMs });
+            records.push({
+                source,
+                ready: true,
+                readyMs,
+                playableMs,
+                summary,
+                dragMs,
+                windows: playedWindows,
+            });
+            if (playedWindows.length > 0) {
+                const cell = (value, digits = 0) =>
+                    value === null || Number.isNaN(value) ? "—" : value.toFixed(digits);
+                console.log("  window  start (s)  first byte (ms)  done (ms)  gap (ms)");
+                for (const window of playedWindows) {
+                    console.log(
+                        `  ${String(window.frame).padStart(6)}  ${cell(window.startSeconds, 2).padStart(9)}  ` +
+                            `${cell(window.firstByteMs).padStart(15)}  ${cell(window.doneMs).padStart(9)}  ` +
+                            `${cell(window.gapMs).padStart(8)}`,
+                    );
+                }
+            }
             if (summary !== null) {
                 console.log(
                     `  ${summary.fps.toFixed(1)} fps, ${(summary.dropRate * 100).toFixed(1)}% dropped, ` +
@@ -769,6 +843,7 @@ async function main() {
                 longestStallMs: record.summary?.longestStallMs ?? 0,
                 p50Ms: record.summary?.intervalP50Ms ?? null,
                 p95Ms: record.summary?.intervalP95Ms ?? null,
+                windows: record.windows ?? [],
                 ...memory,
             };
         });

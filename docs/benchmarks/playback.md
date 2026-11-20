@@ -37,6 +37,7 @@ node scripts/bench-playback.mjs --service http://127.0.0.1:51555 --no-cors --sec
 - [What is measured](#what-is-measured)
 - [Environment](#environment)
 - [Results — cold cache, 1080p 10-bit synthetic source](#results--cold-cache-1080p-10-bit-synthetic-source)
+- [Decoded windows after the look-ahead](#decoded-windows-after-the-look-ahead)
 - [Why an encoded seek costs a decode walk](#why-an-encoded-seek-costs-a-decode-walk)
 - [What this measurement changed](#what-this-measurement-changed)
 - [Known limits](#known-limits)
@@ -105,6 +106,39 @@ moves between decoded windows instead of seeking in place, so it has no drag num
   10-bit scene. Warm, the finished cache file answers immediately.
 - **Memory is steady.** The service stays between 766 and 862 MiB across the measured runs;
   the browser adds 120–220 MiB over baseline for the decoded picture.
+
+## Decoded windows after the look-ahead
+
+A decoded window used to be requested only once the previous one had been appended. The
+player now holds one response in flight ahead of the append, inside the same byte budget it
+measures for the lead. A decoded-only run records every window request, so the seam is
+visible directly: `Request at` is relative to the first request after Play, `First byte` is
+the service opening the stream, `Done` is its last byte, and `Gap` is the request's start
+minus the previous body's end — a negative gap means the next build began while the current
+window was still arriving.
+
+| Window | Request at (s) | First byte (ms) | Done (ms) | Gap (ms) |
+| --- | --- | --- | --- | --- |
+| frame 144 · 6 s | 0.00 | 1847 | 1862 | — |
+| frame 192 · 8 s | 3.86 | 2069 | 2119 | 1997 |
+| frame 240 · 10 s | 3.86 | 2069 | 2218 | −2119 |
+| frame 288 · 12 s | 6.06 | 1132 | 1491 | −19 |
+
+- **The look-ahead overlaps the next build with the current download.** Window 240 is
+  requested at 3.86 s, while window 192's body does not end until 5.98 s; window 288 starts
+  19 ms before 240's body ends. That idle gap is what the change removes.
+- **It adds no throughput.** A two-second window takes 1.1–2.1 s to build here, close to its
+  own playback time, so the lead is the margin rather than the seam. The run presents
+  22.0 fps with 0 stalls and a 67 ms p95 gap: the interval is bounded by the builds.
+- **The first run of this measurement exposed a trim bug, now fixed.** At a playhead of
+  1.84 s the element's buffered ranges were `[[2, 6]]`: a trim to 0.34 s had discarded the
+  whole window holding the playhead, because `SourceBuffer.remove` drops the entire appended
+  window it touches. The picture then stalled for 6.2 s with ten seconds still buffered. The
+  cut now stops at the start of the window the playhead is playing, and the same run plays
+  without stalls.
+
+This run measured Decoded only; the table above is the earlier full run, and its Encoded
+row predates both changes. `playback.json` holds this decoded run, including the window rows.
 
 ## Why an encoded seek costs a decode walk
 
@@ -184,6 +218,10 @@ Encoded could start, and left several such builds running at once; Encoded then 
   with a build in flight, Encoded fell to 11.3 fps with a 5.4 s freeze. At idle the same
   run held **24.0 fps, 0 dropped, 0 stalls**. Priority is scheduling only; the bitstream is
   unchanged.
+- **A trim no longer cuts into the window that is playing.** `SourceBuffer.remove` discards
+  the whole appended window the cut touches, so a trim 1.5 s behind a playhead near a window
+  start left the playhead outside the buffer and stalled the picture for six seconds. The
+  cut now stops at the window boundary.
 - A one-frame playhead difference no longer restarts the stream. The old threshold spawned
   six full builds in four seconds; the service log shows **one** build per view.
 - The preview cache is capped at **2 GiB**, oldest finished file first, so windows cannot
@@ -203,8 +241,10 @@ Encoded could start, and left several such builds running at once; Encoded then 
   built once the current one finishes, so a scene that takes longer to encode than to play
   will reach its end before the next chunk is ready. Longer scenes — where a cut is not
   immediately followed by another — are covered.
-- **The player trims 1 s behind the playhead, plus a 0.5 s GOP guard.** A seek further back than that is outside
-  the buffer and re-opens a window from cache, which is a build on a cold cache.
+- **The player trims 1 s behind the playhead, and stops at the start of the window it is
+  playing.** A `remove` that reaches into a window discards the whole window, so the cut
+  never enters the playing one; a seek further back than the retained second is outside the
+  buffer and re-opens a window from cache, which is a build on a cold cache.
 - **Chrome under-reports decoded frames on a chunked stream.** `totalVideoFrames` read 23
   while rVFC presented 243 in an earlier run, so the drop percentage is a lower bound. The
   frame-gap numbers are the reliable ones.
