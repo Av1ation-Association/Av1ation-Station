@@ -8,6 +8,7 @@
 //! Encoded chunks live under `<app-data>/temp/<video>/`, named by the video rather than by
 //! the project, so a crashed run's chunks stay attributable and two videos never collide.
 
+pub(crate) mod invalidation;
 mod store;
 
 use std::{

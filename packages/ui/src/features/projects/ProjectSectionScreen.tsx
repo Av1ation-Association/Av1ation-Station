@@ -4,6 +4,7 @@ import {
     useConfigSchemas,
     useEncoders,
     useProject,
+    useProjectChunkImpact,
     useProjectConfig,
     useProjectScriptPlugins,
     useProjectVideos,
@@ -33,6 +34,8 @@ import {
     mergeDraft,
     schemaFor,
 } from "../configuration/SectionEditor";
+import { SceneEncoderChunkGuard } from "../scenes/SceneEncoderChunkGuard";
+import { useChunkGuard } from "../scenes/useChunkGuard";
 
 /**
  * One configuration section. The form is generated from the engine's JSON Schema, so every
@@ -58,6 +61,8 @@ export function ProjectSectionScreen() {
         (videos.data ?? []).map((video) => video.id),
     );
     const save = useSaveProjectConfig(projectId);
+    const chunkImpact = useProjectChunkImpact(projectId);
+    const chunkGuard = useChunkGuard();
     const plugins = useProjectScriptPlugins(projectId);
 
     const document = useMemo(
@@ -85,15 +90,36 @@ export function ProjectSectionScreen() {
             if (definition === null) {
                 return false;
             }
+            const document = mergeDraft(server, definition, draft);
+            let clearChunks: boolean | undefined;
+            if (definition.id === "encoding") {
+                // The project has no scene table, so the service names the chunks this write
+                // reaches. The save resolves the same impact again before it writes.
+                const impact = await chunkImpact.mutateAsync(document);
+                if (impact.scenes.length > 0) {
+                    const keep = await chunkGuard.ask(impact.scenes, {
+                        eyebrow: "Project encoding",
+                        reason: impact.reason ?? "encoder",
+                        videos: impact.videos,
+                    });
+                    if (keep === null) {
+                        return false;
+                    }
+                    clearChunks = !keep;
+                }
+            }
             try {
-                await save.mutateAsync(mergeDraft(server, definition, draft));
+                await save.mutateAsync({
+                    document,
+                    ...(clearChunks === undefined ? {} : { clearChunks }),
+                });
                 toast.success(`${definition.title} saved`);
                 return true;
             } catch {
                 return false;
             }
         },
-        pending: save.isPending,
+        pending: save.isPending || chunkImpact.isPending,
         active: definition !== null,
     });
     const draft = session.value;
@@ -169,6 +195,14 @@ export function ProjectSectionScreen() {
                         {save.error instanceof Error
                             ? `The configuration could not be saved: ${save.error.message}`
                             : "The configuration could not be saved."}
+                    </InlineError>
+                ) : null}
+
+                {chunkImpact.isError ? (
+                    <InlineError className="mt-4 mb-0">
+                        {chunkImpact.error instanceof Error
+                            ? `The chunks this save would invalidate could not be checked: ${chunkImpact.error.message}`
+                            : "The chunks this save would invalidate could not be checked."}
                     </InlineError>
                 ) : null}
 
@@ -292,6 +326,8 @@ export function ProjectSectionScreen() {
                         : `${activeVideo.name} is encoding`
                 }
             />
+
+            <SceneEncoderChunkGuard {...chunkGuard.props} />
         </main>
     );
 }

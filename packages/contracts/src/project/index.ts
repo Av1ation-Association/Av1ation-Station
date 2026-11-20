@@ -2,6 +2,80 @@
 import { z } from "zod";
 
 import { GeneralDefaultsSchema } from "../settings";
+/** Generated from `schema/project/chunk-invalidation-reason.json`. */
+export const ChunkInvalidationReasonSchema = z
+    .any()
+    .superRefine((x, ctx) => {
+        const schemas = [
+            z.literal("encoder").describe("The encoder document changed."),
+            z.literal("input").describe("The encoder's Parallel Encoder input changed."),
+        ];
+        const { errors, failed } = schemas.reduce<{
+            errors: z.core.$ZodIssue[];
+            failed: number;
+        }>(
+            ({ errors, failed }, schema) =>
+                ((result) =>
+                    result.error
+                        ? {
+                              errors: [...errors, ...result.error.issues],
+                              failed: failed + 1,
+                          }
+                        : { errors, failed })(schema.safeParse(x)),
+            { errors: [], failed: 0 },
+        );
+        const passed = schemas.length - failed;
+        if (passed !== 1) {
+            ctx.addIssue(
+                errors.length
+                    ? {
+                          path: [],
+                          code: "invalid_union",
+                          errors: [errors],
+                          message: "Invalid input: Should pass single schema. Passed " + passed,
+                      }
+                    : {
+                          path: [],
+                          code: "custom",
+                          errors: [errors],
+                          message: "Invalid input: Should pass single schema. Passed " + passed,
+                      },
+            );
+        }
+    })
+    .describe(
+        "Why a configuration write makes a retained chunk stale.\n\nThe encoder document decides how a chunk was encoded; the Parallel Encoder input decides\nwhich frames it encodes. A save that changes either invalidates the chunks it reaches.",
+    );
+export type ChunkInvalidationReason = z.infer<typeof ChunkInvalidationReasonSchema>;
+
+/** Generated from `schema/project/project-chunk-impact.json`. */
+export const ProjectChunkImpactSchema = z
+    .object({
+        reason: z
+            .union([z.lazy(() => ChunkInvalidationReasonSchema), z.null()])
+            .describe("Why the write invalidates chunks; `null` means it does not.")
+            .optional(),
+        scenes: z
+            .array(z.lazy(() => ProjectChunkSceneSchema))
+            .describe("One entry per retained chunk the write invalidates, across every video."),
+        videos: z.number().int().gte(0).describe("Videos with at least one invalidated scene."),
+    })
+    .strict()
+    .describe(
+        "The retained work a project-level configuration write invalidates.\n\nA project's encoder and Parallel Encoder input are the base every video inherits, so one\nsave can invalidate chunks in videos the write never names. The impact is reported before\nthe write so the guard can ask whether to keep them, and recomputed by the write itself so\nthe answer and the documents land together.",
+    );
+export type ProjectChunkImpact = z.infer<typeof ProjectChunkImpactSchema>;
+
+/** Generated from `schema/project/project-chunk-scene.json`. */
+export const ProjectChunkSceneSchema = z
+    .object({
+        chunk_bytes: z.number().int().gte(0).describe("The retained chunk's size in bytes."),
+        index: z.number().int().gte(0).describe("Zero-based scene index within its video."),
+    })
+    .strict()
+    .describe("One encoded scene a project-level configuration write invalidates.");
+export type ProjectChunkScene = z.infer<typeof ProjectChunkSceneSchema>;
+
 /** Generated from `schema/project/project-create-request.json`. */
 export const ProjectCreateRequestSchema = z
     .object({

@@ -93,6 +93,13 @@ export function invalidateDeletedChunks(
     invalidate(queryClient, queryKeys.storage);
 }
 
+/** A project encoder or Parallel Encoder input change rewrites inheriting scenes in every video. */
+export function invalidateProjectChunks(queryClient: QueryClient, projectId: string) {
+    invalidate(queryClient, queryKeys.videoStatePrefix(projectId));
+    invalidate(queryClient, queryKeys.videos(projectId));
+    invalidate(queryClient, queryKeys.storage);
+}
+
 /** A run start or cancel changes every visible video state in the project. */
 export function invalidateVideoStatePrefix(queryClient: QueryClient, projectId: string) {
     invalidate(queryClient, queryKeys.videoStatePrefix(projectId));

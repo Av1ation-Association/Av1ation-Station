@@ -1,6 +1,7 @@
 use super::*;
 use crate::api::json::ApiJson;
 use crate::project::config;
+use crate::project::videos::invalidation::{impact_for, scene_indices};
 use av1ation_contracts::settings::VideoOverridesUpdate;
 use av1ation_engine::run::reset;
 
@@ -630,71 +631,25 @@ pub(crate) async fn put_video_overrides(
         Err(error) => return project_error(error),
     };
     // A scene encodes with its own complete encoder document, so changing only the video's
-    // overrides would leave every existing scene on the old document. Rewrite the scenes
-    // that still inherit it in the same checkpoint as the overrides; `clear_chunks` decides
-    // whether their now-stale chunks survive, not whether the encoder changes.
+    // overrides would leave every existing scene on the old document. The shared resolver
+    // rewrites the scenes that still inherit it, clears their records only when asked, and
+    // invalidates every chunk when the effective Parallel Encoder input changed.
     let clear_chunks = body.clear_chunks.unwrap_or(false);
     let previous = config::materialise(&defaults, &project_document, &record.overrides);
-    let previous_encoder = previous.get("encoder").cloned();
-    let inherited = candidate.get("encoder").cloned();
-    let encoder_changed = inherited.is_some() && inherited != previous_encoder;
-    let affected = if encoder_changed {
-        inheriting_scenes(record.condor.as_ref(), previous_encoder.as_ref())
-    } else {
-        Vec::new()
-    };
-    // The encoder reads `sequences.parallel_encoder.input`, so changing it invalidates every
-    // chunk: a scene carrying its own encoder still encodes the new frames.
-    let input_changed = previous.pointer("/sequences/parallel_encoder/input")
-        != candidate.pointer("/sequences/parallel_encoder/input");
-    let invalidated = if input_changed {
-        scene_indices(record.condor.as_ref())
-    } else {
-        affected.clone()
-    };
-    let next = match (
-        affected.is_empty(),
-        inherited.as_ref(),
-        record.condor.as_ref(),
-    ) {
-        (false, Some(encoder), Some(condor)) => {
-            match reset::set_scene_encoders(condor, &affected, encoder, clear_chunks) {
-                Ok(write) => Some(write.condor),
-                Err(message) => {
-                    return error_response(
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        ErrorCode::InvalidConfig,
-                        message,
-                        Some("Reload the scene table; a run may have rewritten it.".to_owned()),
-                    );
-                }
-            }
+    let impact = match impact_for(&previous, &candidate, record, clear_chunks) {
+        Ok(impact) => impact,
+        Err(message) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidConfig,
+                message,
+                Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+            );
         }
-        _ => None,
     };
-    // A changed input has no encoder write to carry the cleared records, so the reset is
-    // applied on its own. It is still one checkpoint with the overrides: the next run cannot
-    // read the new input beside a chunk that was encoded from the old one.
-    let next = if clear_chunks && input_changed && !invalidated.is_empty() {
-        match next
-            .as_ref()
-            .or(record.condor.as_ref())
-            .map(|condor| reset::reset_scene_outputs(condor, &invalidated))
-        {
-            Some(Ok(cleared)) => Some(cleared),
-            Some(Err(message)) => {
-                return error_response(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    ErrorCode::InvalidConfig,
-                    message,
-                    Some("Reload the scene table; a run may have rewritten it.".to_owned()),
-                );
-            }
-            None => next,
-        }
-    } else {
-        next
-    };
+    let record = impact.record;
+    let next = impact.condor;
+    let invalidated = impact.invalidated;
     if clear_chunks
         && !invalidated.is_empty()
         && let Err(error) = videos
@@ -730,28 +685,6 @@ pub(crate) async fn put_video_overrides(
     }
 }
 
-/// The scenes a video-level encoder write changes: every row that still inherits it.
-///
-/// A scene carrying its own encoder keeps it, which is the comparison the scene table's
-/// `encoder_custom` flag already reports.
-fn inheriting_scenes(condor: Option<&Value>, inherited: Option<&Value>) -> Vec<u32> {
-    let (Some(condor), Some(inherited)) = (condor, inherited) else {
-        return Vec::new();
-    };
-    condor
-        .get("scenes")
-        .and_then(Value::as_array)
-        .map(|scenes| {
-            scenes
-                .iter()
-                .enumerate()
-                .filter(|(_, scene)| scene.get("encoder") == Some(inherited))
-                .filter_map(|(index, _)| u32::try_from(index).ok())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// What a sequence's `input` reads from the video's General document.
 enum GeneralRead {
     /// The engine inherits the whole General input when the sequence names none.
@@ -780,19 +713,6 @@ fn general_read(input: Option<&Value>) -> GeneralRead {
         }
     }
     GeneralRead::Explicit
-}
-
-/// Every scene index in the checkpoint, for a write that invalidates the whole table.
-fn scene_indices(condor: Option<&Value>) -> Vec<u32> {
-    condor
-        .and_then(|condor| condor.get("scenes"))
-        .and_then(Value::as_array)
-        .map(|scenes| {
-            (0..scenes.len())
-                .filter_map(|index| u32::try_from(index).ok())
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 /// Drop every override, so each leaf inherits the project value again.

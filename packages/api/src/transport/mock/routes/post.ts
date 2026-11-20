@@ -380,6 +380,11 @@ export async function post<T>(
         state.syncPreflight();
         return schema.parse(check);
     }
+    const projectConfigImpact = /^\/api\/projects\/[^/]+\/config\/impact$/u.exec(path);
+    if (projectConfigImpact !== null) {
+        // The demo has no chunks on disk, so no project-level save can invalidate one.
+        return schema.parse({ reason: null, videos: 0, scenes: [] });
+    }
     if (state.routes.has(path)) {
         const route = state.routes.get(path);
         return schema.parse(typeof route === "function" ? (route as () => unknown)() : route);

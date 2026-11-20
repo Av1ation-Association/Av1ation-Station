@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectChunkImpact",
+  "description": "The retained work a project-level configuration write invalidates.\n\nA project's encoder and Parallel Encoder input are the base every video inherits, so one\nsave can invalidate chunks in videos the write never names. The impact is reported before\nthe write so the guard can ask whether to keep them, and recomputed by the write itself so\nthe answer and the documents land together.",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "description": "Why the write invalidates chunks; `null` means it does not.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ChunkInvalidationReason"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scenes": {
+      "description": "One entry per retained chunk the write invalidates, across every video.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProjectChunkScene"
+      }
+    },
+    "videos": {
+      "description": "Videos with at least one invalidated scene.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "videos",
+    "scenes"
+  ],
+  "$defs": {
+    "ChunkInvalidationReason": {
+      "description": "Why a configuration write makes a retained chunk stale.\n\nThe encoder document decides how a chunk was encoded; the Parallel Encoder input decides\nwhich frames it encodes. A save that changes either invalidates the chunks it reaches.",
+      "oneOf": [
+        {
+          "description": "The encoder document changed.",
+          "type": "string",
+          "const": "encoder"
+        },
+        {
+          "description": "The encoder's Parallel Encoder input changed.",
+          "type": "string",
+          "const": "input"
+        }
+      ]
+    },
+    "ProjectChunkScene": {
+      "description": "One encoded scene a project-level configuration write invalidates.",
+      "type": "object",
+      "properties": {
+        "chunk_bytes": {
+          "description": "The retained chunk's size in bytes.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "index": {
+          "description": "Zero-based scene index within its video.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "chunk_bytes"
+      ]
+    }
+  }
+}

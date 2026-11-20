@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChunkInvalidationReason",
+  "description": "Why a configuration write makes a retained chunk stale.\n\nThe encoder document decides how a chunk was encoded; the Parallel Encoder input decides\nwhich frames it encodes. A save that changes either invalidates the chunks it reaches.",
+  "oneOf": [
+    {
+      "description": "The encoder document changed.",
+      "type": "string",
+      "const": "encoder"
+    },
+    {
+      "description": "The encoder's Parallel Encoder input changed.",
+      "type": "string",
+      "const": "input"
+    }
+  ]
+}

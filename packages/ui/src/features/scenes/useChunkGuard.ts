@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-import type { ChunkScene } from "./SceneEncoderChunkGuard";
+import type { ChunkReason, ChunkScene } from "./SceneEncoderChunkGuard";
 
 /** Keep the chunks, delete them, or cancel the save without writing anything. */
 export type ChunkGuardDecision = boolean | null;
@@ -8,7 +8,8 @@ export type ChunkGuardDecision = boolean | null;
 interface PendingGuard {
     scenes: readonly ChunkScene[];
     eyebrow: string;
-    reason: "encoder" | "input";
+    reason: ChunkReason;
+    videos: number | undefined;
 }
 
 /**
@@ -24,7 +25,7 @@ export function useChunkGuard() {
 
     const ask = (
         scenes: readonly ChunkScene[],
-        options: { eyebrow: string; reason?: "encoder" | "input" },
+        options: { eyebrow: string; reason?: ChunkReason; videos?: number },
     ): Promise<ChunkGuardDecision> =>
         new Promise((resolve) => {
             resolver.current = resolve;
@@ -32,6 +33,7 @@ export function useChunkGuard() {
                 scenes,
                 eyebrow: options.eyebrow,
                 reason: options.reason ?? "encoder",
+                videos: options.videos,
             });
         });
 
@@ -49,6 +51,7 @@ export function useChunkGuard() {
             scenes: pending?.scenes ?? [],
             eyebrow: pending?.eyebrow ?? "",
             reason: pending?.reason ?? "encoder",
+            videos: pending?.videos,
             onCancel: () => settle(null),
             onSave: (keep: boolean) => settle(keep),
             saving: false,

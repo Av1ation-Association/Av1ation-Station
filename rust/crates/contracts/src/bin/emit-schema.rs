@@ -23,11 +23,12 @@ use av1ation_contracts::platform::{
     StorageOverview, StorageProject, ToolchainComponent, ToolchainInfo, UpdateStatus,
 };
 use av1ation_contracts::project::{
-    Project, ProjectCreateRequest, ProjectDefaultsState, ProjectSummary, ProjectTemplate,
-    ProjectTemplateApplied, ProjectTemplateApplyRequest, ProjectTemplateArchive,
-    ProjectTemplateArchiveKind, ProjectTemplateArchiveTemplate, ProjectTemplateCreateRequest,
-    ProjectTemplateDefaultRequest, ProjectTemplateExport, ProjectTemplateExportReport,
-    ProjectTemplateImportResult, ProjectTemplateUpdate, ProjectUpdateRequest,
+    ChunkInvalidationReason, Project, ProjectChunkImpact, ProjectChunkScene, ProjectCreateRequest,
+    ProjectDefaultsState, ProjectSummary, ProjectTemplate, ProjectTemplateApplied,
+    ProjectTemplateApplyRequest, ProjectTemplateArchive, ProjectTemplateArchiveKind,
+    ProjectTemplateArchiveTemplate, ProjectTemplateCreateRequest, ProjectTemplateDefaultRequest,
+    ProjectTemplateExport, ProjectTemplateExportReport, ProjectTemplateImportResult,
+    ProjectTemplateUpdate, ProjectUpdateRequest,
 };
 use av1ation_contracts::protocol::{ErrorBody, EventTicket, InputKind, MediaTicket, OutputMode};
 use av1ation_contracts::queue::{QueueBatchRequest, QueueBatchStatus, VideoOrderRequest};
@@ -143,7 +144,23 @@ fn main() -> ExitCode {
             "general-defaults.json",
             schema_for!(GeneralDefaults),
         ),
-        // Project: the project document, its summary, and the templates it starts from.
+        // Project: the project document, its summary, the templates it starts from, and the
+        // retained work a project-level configuration write can invalidate.
+        (
+            "project",
+            "chunk-invalidation-reason.json",
+            schema_for!(ChunkInvalidationReason),
+        ),
+        (
+            "project",
+            "project-chunk-impact.json",
+            schema_for!(ProjectChunkImpact),
+        ),
+        (
+            "project",
+            "project-chunk-scene.json",
+            schema_for!(ProjectChunkScene),
+        ),
         (
             "project",
             "project-create-request.json",

@@ -374,7 +374,19 @@
           "method": "PUT",
           "handler": "project::put_project_config",
           "owner": "api::routes::project",
-          "purpose": "replace project config"
+          "purpose": "replace project config; a changed encoder or Parallel Encoder input rewrites every inheriting scene and can delete the retained chunks it invalidates"
+        }
+      ]
+    },
+    {
+      "id": "project.config.impact",
+      "path": "/api/projects/{project_id}/config/impact",
+      "methods": [
+        {
+          "method": "POST",
+          "handler": "project::project_config_impact",
+          "owner": "api::routes::project",
+          "purpose": "the retained chunks a candidate project configuration would invalidate, without writing it"
         }
       ]
     },

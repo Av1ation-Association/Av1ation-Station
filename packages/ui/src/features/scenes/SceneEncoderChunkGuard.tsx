@@ -12,6 +12,59 @@ export interface ChunkScene {
     chunk_bytes?: number | null | undefined;
 }
 
+/** What a save changed about the scenes whose chunks it invalidates. */
+export type ChunkReason = "encoder" | "input";
+
+/**
+ * The guard's copy for one save.
+ *
+ * A project save names the video span instead of a single scene number; otherwise the count
+ * decides singular or plural. One sentence covers both surfaces so the two guards cannot
+ * describe the same invalidation differently.
+ */
+function guardCopy({
+    reason,
+    count,
+    sceneNumber,
+    videos,
+}: {
+    reason: ChunkReason;
+    count: number;
+    sceneNumber: number | null;
+    videos: number | undefined;
+}) {
+    const input = reason === "input";
+    const plural = count !== 1;
+    const sceneWord = plural ? "scenes" : "scene";
+    const videoSpan = videos ?? 0;
+    const videoWord = videoSpan === 1 ? "video" : "videos";
+    const acrossVideos = videoSpan > 0;
+    const subject = acrossVideos
+        ? `${String(count)} encoded ${sceneWord} across ${String(videoSpan)} ${videoWord}`
+        : sceneNumber !== null
+          ? `Scene ${String(sceneNumber)}`
+          : `${String(count)} encoded ${sceneWord}`;
+    const title = input
+        ? sceneNumber !== null
+            ? `${subject} was built from the old input`
+            : `${subject} ${plural ? "were" : "was"} built from the old input`
+        : sceneNumber !== null
+          ? `${subject} is encoded with the old encoder`
+          : `${subject} ${plural ? "use" : "uses"} the old encoder`;
+    const encoded = input ? "from the previous input" : "with the previous settings";
+    const counted = acrossVideos
+        ? `${String(count)} ${sceneWord} in ${String(videoSpan)} ${videoWord}`
+        : `${String(count)} ${sceneWord}`;
+    const body = `${sceneNumber !== null ? subject : counted} already ${plural ? "have" : "has"} a retained chunk encoded ${encoded}. Parallel Encoder skips a scene that already has one.`;
+    const target = input ? "from the new input" : "with the new encoder";
+    const chunks = plural ? `the ${String(count)} chunks` : "the chunk";
+    const kept = plural
+        ? "the chunks stay and these scenes keep"
+        : "the chunk stays and this scene keeps";
+    const tip = `Recommended off. Saving deletes ${chunks}, and the next run encodes ${plural ? "these scenes" : "this scene"} ${target}. On, ${kept} the old encode until you reset ${plural ? "them" : "it"}.`;
+    return { title, body, tip };
+}
+
 /**
  * The guard between an encoder save and the chunks that save invalidates.
  *
@@ -27,6 +80,7 @@ export function SceneEncoderChunkGuard({
     saving,
     eyebrow = "Scene encoder",
     reason = "encoder",
+    videos,
 }: {
     open: boolean;
     /** The encoded scenes whose retained chunks the save invalidates. */
@@ -37,7 +91,9 @@ export function SceneEncoderChunkGuard({
     /** The surface that opened the guard, named in the modal's eyebrow. */
     eyebrow?: string;
     /** What the save changed; a changed input invalidates every chunk it reaches. */
-    reason?: "encoder" | "input";
+    reason?: ChunkReason;
+    /** How many videos the scenes span; a project-level save sets it and names no scene. */
+    videos?: number | undefined;
 }) {
     const [keep, setKeep] = useState(false);
 
@@ -48,43 +104,19 @@ export function SceneEncoderChunkGuard({
     }, [open]);
 
     const count = scenes.length;
-    const singleScene = count === 1 ? (scenes[0]?.index ?? null) : null;
+    // A project save spans videos, so no single scene number can name it. The count and the
+    // video span are the only honest description of what the save reaches.
+    const acrossVideos = videos !== undefined && videos > 0;
+    const singleScene = !acrossVideos && count === 1 ? (scenes[0]?.index ?? null) : null;
     const totalBytes = scenes.reduce((total, scene) => total + (scene.chunk_bytes ?? 0), 0);
-    const sceneNumber = singleScene === null ? 0 : singleScene + 1;
-    const copy =
-        reason === "input"
-            ? {
-                  title:
-                      singleScene === null
-                          ? `${String(count)} encoded scenes were built from the old input`
-                          : `Scene ${String(sceneNumber)} was built from the old input`,
-                  body:
-                      singleScene === null
-                          ? `${String(count)} scenes already have a retained chunk encoded from the previous input. Parallel Encoder skips a scene that already has one.`
-                          : `Scene ${String(sceneNumber)} already has a retained chunk encoded from the previous input. Parallel Encoder skips a scene that already has one.`,
-                  tip:
-                      singleScene === null
-                          ? `Recommended off. Saving deletes the ${String(count)} chunks, and the next run encodes these scenes from the new input. On, the chunks stay and these scenes keep the old encode until you reset them.`
-                          : "Recommended off. Saving deletes the chunk, and the next run encodes this scene from the new input. On, the chunk stays and the scene keeps the old encode until you reset it.",
-              }
-            : {
-                  title:
-                      singleScene === null
-                          ? `${String(count)} encoded scenes use the old encoder`
-                          : `Scene ${String(sceneNumber)} is encoded with the old encoder`,
-                  body:
-                      singleScene === null
-                          ? `${String(count)} scenes already have a retained chunk encoded with the previous settings. Parallel Encoder skips a scene that already has one.`
-                          : `Scene ${String(sceneNumber)} already has a retained chunk encoded with the previous settings. Parallel Encoder skips a scene that already has one.`,
-                  tip:
-                      singleScene === null
-                          ? `Recommended off. Saving deletes the ${String(count)} chunks, and the next run encodes these scenes with the new encoder. On, the chunks stay and these scenes keep the old encode until you reset them.`
-                          : "Recommended off. Saving deletes the chunk, and the next run encodes this scene with the new encoder. On, the chunk stays and the scene keeps the old encode until you reset it.",
-              };
+    const copy = guardCopy({
+        reason,
+        count,
+        sceneNumber: singleScene === null ? null : singleScene + 1,
+        videos,
+    });
     const label =
-        singleScene === null
-            ? `Keep the ${String(count)} existing chunks`
-            : "Keep the existing chunk";
+        count === 1 ? "Keep the existing chunk" : `Keep the ${String(count)} existing chunks`;
 
     return (
         <DialogFrame

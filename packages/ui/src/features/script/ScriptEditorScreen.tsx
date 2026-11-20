@@ -182,7 +182,7 @@ export function ScriptEditorScreen() {
                 previous,
             );
             try {
-                await saveConfig.mutateAsync(setAtPath(document, inputPath, next));
+                await saveConfig.mutateAsync({ document: setAtPath(document, inputPath, next) });
                 toast.success("VapourSynth script saved");
                 return true;
             } catch (error) {
@@ -299,7 +299,7 @@ export function ScriptEditorScreen() {
             previous,
         );
         try {
-            await saveConfig.mutateAsync(setAtPath(document, inputPath, next));
+            await saveConfig.mutateAsync({ document: setAtPath(document, inputPath, next) });
             setMode("text");
             setPath("");
             setText(template);

@@ -2034,6 +2034,80 @@ async fn a_video_replaces_whole_sections_and_reads_its_raw_overrides() {
     std::fs::remove_dir_all(dir).expect("cleanup");
 }
 
+/// A whole-section replacement that omits `input` still means "inherit the General input".
+/// Treating the missing key as a change would delete every chunk on a workers-only edit.
+#[tokio::test]
+async fn a_whole_section_override_without_input_keeps_every_chunk() {
+    let dir = project_dir();
+    let app = router(project_state(&dir));
+    let id = create_project(app.clone(), "Whole section").await;
+    let video_id = add_video(app.clone(), &id, &dir).await;
+
+    let document = dir
+        .join("projects")
+        .join(&id)
+        .join("videos")
+        .join(format!("{video_id}.json"));
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    let inherited = av1ation_engine::default_project_config()["encoder"].clone();
+    let mut first = saved_scene(inherited.clone());
+    first["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 10 });
+    let mut second = saved_scene(inherited);
+    second["start_frame"] = Value::from(24);
+    second["end_frame"] = Value::from(48);
+    second["sequence_data"]["parallel_encoder"] =
+        serde_json::json!({ "started_on": null, "completed_on": null, "bytes": 20 });
+    record["condor"] = serde_json::json!({ "scenes": [first, second] });
+    std::fs::write(
+        &document,
+        serde_json::to_string(&record).expect("video json"),
+    )
+    .expect("rewrite the video document");
+
+    let chunks = dir.join("temp").join(&video_id);
+    std::fs::create_dir_all(&chunks).expect("chunk dir");
+    std::fs::write(chunks.join("00000.ivf"), b"first").expect("first chunk");
+    std::fs::write(chunks.join("00001.ivf"), b"second").expect("second chunk");
+
+    let (status, saved) = send(
+        app.clone(),
+        Request::put(format!("/api/projects/{id}/videos/{video_id}/overrides"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({
+                    "fields": {
+                        "sequences.parallel_encoder": {
+                            "scenes_directory": "",
+                            "workers": 4
+                        }
+                    },
+                    "clear_chunks": true
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(
+        chunks.join("00000.ivf").exists(),
+        "an omitted input still inherits the General input"
+    );
+    assert!(chunks.join("00001.ivf").exists());
+    let persisted: Value =
+        serde_json::from_str(&std::fs::read_to_string(&document).expect("video document"))
+            .expect("video json");
+    assert_eq!(
+        persisted["condor"]["scenes"][0]["sequence_data"]["parallel_encoder"]["bytes"], 10,
+        "the kept chunk keeps its record"
+    );
+
+    std::fs::remove_dir_all(dir).expect("cleanup");
+}
+
 #[tokio::test]
 async fn video_storage_names_the_scratch_directory_and_probe_failure_is_data() {
     let dir = project_dir();

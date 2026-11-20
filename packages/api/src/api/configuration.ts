@@ -1,6 +1,10 @@
 /** Generated schemas, scripts, sequence overrides, and effective config. */
 import { useTransport } from "./client";
-import { invalidateProjectChecks, invalidateVideoOverrides } from "./invalidate";
+import {
+    invalidateProjectChecks,
+    invalidateProjectChunks,
+    invalidateVideoOverrides,
+} from "./invalidate";
 import { queryKeys } from "./keys";
 import {
     configFiltersPath,
@@ -9,6 +13,7 @@ import {
     configScriptsValidatePath,
     editorInterpretersPath,
     editorLanguageServerPath,
+    projectConfigImpactPath,
     projectConfigPath,
     scriptMaterialisePath,
     videoConfigPath,
@@ -23,6 +28,7 @@ import {
     PythonInterpretersSchema,
     ScriptCheckSchema,
     ScriptGuideSchema,
+    ProjectChunkImpactSchema,
     ScriptMaterialisedSchema,
     VideoProbeSchema,
     type ConfigOverrides,
@@ -152,18 +158,48 @@ export function useMaterialiseScript() {
     });
 }
 
+/** One project configuration write, with the guard's answer when the section asked for one. */
+export interface ProjectConfigSave {
+    document: Record<string, unknown>;
+    /** Delete the chunks this write invalidates; absent when the caller had no choice to make. */
+    clearChunks?: boolean;
+}
+
 /** Replaces the whole project configuration with a validated document. */
 export function useSaveProjectConfig(projectId: string) {
     const transport = useTransport();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (document: Record<string, unknown>) =>
-            transport.putJson(projectConfigPath(projectId), document, EffectiveConfigSchema),
+        mutationFn: ({ document, clearChunks }: ProjectConfigSave) =>
+            transport.putJson(
+                clearChunks === undefined
+                    ? projectConfigPath(projectId)
+                    : `${projectConfigPath(projectId)}?clear_chunks=${clearChunks ? "true" : "false"}`,
+                document,
+                EffectiveConfigSchema,
+            ),
         onSuccess: (config) => {
             queryClient.setQueryData(queryKeys.projectConfig(projectId), config);
             // Every video inheriting the changed sequence input needs a fresh script scan.
             invalidateProjectChecks(queryClient, projectId);
+            // A changed encoder rewrites every inheriting scene even when the chunks stay.
+            invalidateProjectChunks(queryClient, projectId);
         },
+    });
+}
+
+/**
+ * The retained work a project configuration save would invalidate, without writing it.
+ *
+ * The project screen has no scene table of its own, so the count the guard shows comes from
+ * the service. The save resolves the same impact again before it writes, which is what keeps
+ * the guard's answer and the documents on disk in one decision.
+ */
+export function useProjectChunkImpact(projectId: string) {
+    const transport = useTransport();
+    return useMutation({
+        mutationFn: (document: Record<string, unknown>) =>
+            transport.post(projectConfigImpactPath(projectId), document, ProjectChunkImpactSchema),
     });
 }
 

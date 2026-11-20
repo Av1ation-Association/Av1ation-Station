@@ -261,7 +261,13 @@ routes! {
         path: "/api/projects/{project_id}/config",
         methods: {
             get => (project::get_project_config, "api::routes::project", "effective config + provenance, **including the input and its script**"),
-            put => (project::put_project_config, "api::routes::project", "replace project config"),
+            put => (project::put_project_config, "api::routes::project", "replace project config; a changed encoder or Parallel Encoder input rewrites every inheriting scene and can delete the retained chunks it invalidates"),
+        },
+    },
+    "project.config.impact" => {
+        path: "/api/projects/{project_id}/config/impact",
+        methods: {
+            post => (project::project_config_impact, "api::routes::project", "the retained chunks a candidate project configuration would invalidate, without writing it"),
         },
     },
     "project.general" => {

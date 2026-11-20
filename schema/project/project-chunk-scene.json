@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectChunkScene",
+  "description": "One encoded scene a project-level configuration write invalidates.",
+  "type": "object",
+  "properties": {
+    "chunk_bytes": {
+      "description": "The retained chunk's size in bytes.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "index": {
+      "description": "Zero-based scene index within its video.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "index",
+    "chunk_bytes"
+  ]
+}

@@ -87,7 +87,8 @@ export async function putJson<T>(
         });
         return schema.parse(next);
     }
-    const projectConfig = /^\/api\/projects\/([^/]+)\/config$/u.exec(path);
+    const projectConfig =
+        /^\/api\/projects\/([^/]+)\/config(?:\?clear_chunks=(?:true|false))?$/u.exec(path);
     if (projectConfig !== null) {
         const projectId = decodeURIComponent(projectConfig[1] ?? "");
         if (state.projects().find((entry) => entry.id === projectId) === undefined) {

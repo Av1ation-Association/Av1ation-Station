@@ -558,8 +558,10 @@ route. Every section is a draft until saved, and the server enforces the run loc
    encoder alone. An Input change counts every encoded scene, because a custom encoder still
    reads the new frames. The dialog offers an unchecked **Keep the N existing chunks**
    checkbox; Save sends the overrides and `clear_chunks` in one request. A worker-count change
-   invalidates nothing. The project's own Encoding save writes defaults and touches no
-   video's chunks.
+   invalidates nothing. The project's own Encoding save applies the same choice across the
+   queue: the service resolves every video that inherits the change, the guard names the
+   chunks and how many videos they span, and `clear_chunks` on that request deletes them. A
+   video that overrides the encoder or the Parallel Encoder input is left alone.
 7. **Edit parameters.** Add, edit, search, and remove parameter cards. A bounded integer
    scale of 100 or less gets a slider; a long range stays a field.
 8. **Add an unlisted parameter.** The Add parameter sheet is the only path; a value is an

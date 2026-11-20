@@ -78,6 +78,46 @@ pub struct ProjectUpdateRequest {
     pub description: Option<String>,
 }
 
+/// Why a configuration write makes a retained chunk stale.
+///
+/// The encoder document decides how a chunk was encoded; the Parallel Encoder input decides
+/// which frames it encodes. A save that changes either invalidates the chunks it reaches.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChunkInvalidationReason {
+    /// The encoder document changed.
+    Encoder,
+    /// The encoder's Parallel Encoder input changed.
+    Input,
+}
+
+/// One encoded scene a project-level configuration write invalidates.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectChunkScene {
+    /// Zero-based scene index within its video.
+    pub index: u32,
+    /// The retained chunk's size in bytes.
+    pub chunk_bytes: u64,
+}
+
+/// The retained work a project-level configuration write invalidates.
+///
+/// A project's encoder and Parallel Encoder input are the base every video inherits, so one
+/// save can invalidate chunks in videos the write never names. The impact is reported before
+/// the write so the guard can ask whether to keep them, and recomputed by the write itself so
+/// the answer and the documents land together.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectChunkImpact {
+    /// Why the write invalidates chunks; `null` means it does not.
+    pub reason: Option<ChunkInvalidationReason>,
+    /// Videos with at least one invalidated scene.
+    pub videos: u32,
+    /// One entry per retained chunk the write invalidates, across every video.
+    pub scenes: Vec<ProjectChunkScene>,
+}
+
 /// One named project template.
 ///
 /// The configuration is materialised when the template is saved, so applying it needs no

@@ -1,21 +1,23 @@
 use std::collections::BTreeMap;
 
 use av1ation_contracts::project::{
-    Project, ProjectArchive, ProjectArchiveVideo, ProjectCreateRequest, ProjectDefaultsState,
-    ProjectSummary, ProjectTemplateApplied, ProjectTemplateApplyRequest, ProjectUpdateRequest,
+    ChunkInvalidationReason, Project, ProjectArchive, ProjectArchiveVideo, ProjectChunkImpact,
+    ProjectChunkScene, ProjectCreateRequest, ProjectDefaultsState, ProjectSummary,
+    ProjectTemplateApplied, ProjectTemplateApplyRequest, ProjectUpdateRequest,
 };
 use av1ation_contracts::protocol::ErrorCode;
 use av1ation_contracts::script::ScriptPluginReport;
 use av1ation_contracts::settings::GeneralDefaults;
 use axum::{
     Json,
-    extract::{Path as AxumPath, State},
+    extract::{Path as AxumPath, Query, State},
     http::{
         StatusCode,
         header::{CONTENT_DISPOSITION, HeaderValue},
     },
     response::{IntoResponse, Response},
 };
+use serde::Deserialize;
 use serde_json::Value;
 
 use super::{locked, no_storage, project_error, project_not_found};
@@ -25,7 +27,8 @@ use crate::{
     project::config,
     project::derive::output_is_written,
     project::projects::default_config,
-    project::videos::{input_path_of, iso8601, now_epoch},
+    project::videos::invalidation::{VideoImpact, impact_for, parallel_encoder_input},
+    project::videos::{VideoRecord, VideoStore, input_path_of, iso8601, now_epoch},
     state::AppState,
 };
 
@@ -277,10 +280,167 @@ pub(crate) async fn project_scripts(
     Json::<ScriptPluginReport>(scan.report).into_response()
 }
 
+/// The one write-time choice a project configuration save carries besides the document.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct ConfigWriteQuery {
+    /// Delete the retained chunks the write invalidates. Absent means keep them.
+    #[serde(default)]
+    clear_chunks: bool,
+}
+
+/// Validate and fully materialise the document a project configuration write would store.
+fn candidate_document(defaults: &Value, body: &Value) -> Result<Value, String> {
+    config::validate(body, defaults)?;
+    Ok(config::materialise(defaults, body, &BTreeMap::new()))
+}
+
+/// The rejection for a document whose value kinds the engine would not read.
+fn invalid_document(message: String) -> Response {
+    error_response(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        ErrorCode::InvalidConfig,
+        message,
+        Some("Change only the value of a field, not its type.".to_owned()),
+    )
+}
+
+/// The rejection for a scene table the engine cannot read.
+fn invalid_scenes(message: String) -> Response {
+    error_response(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        ErrorCode::InvalidConfig,
+        message,
+        Some("Reload the scene table; a run may have rewritten it.".to_owned()),
+    )
+}
+
+/// Whether a project write can reach a video's retained work at all.
+///
+/// Every other section leaves both the encoder document and the Parallel Encoder input
+/// alone, so the queue does not have to be read for a scene-detection or storage save.
+fn project_reaches_videos(previous: &Value, next: &Value) -> bool {
+    previous.get("encoder") != next.get("encoder")
+        || parallel_encoder_input(previous) != parallel_encoder_input(next)
+}
+
+/// No retained work is at stake; shared by the impact route's early returns.
+fn no_impact() -> ProjectChunkImpact {
+    ProjectChunkImpact {
+        reason: None,
+        videos: 0,
+        scenes: Vec::new(),
+    }
+}
+
+/// Resolve every queued video against the project document before and after a write.
+///
+/// The scene table is the engine's own checkpoint, so a stale index is rejected before any
+/// document or chunk changes rather than applying a prefix of the write.
+fn video_impacts(
+    defaults: &Value,
+    records: Vec<VideoRecord>,
+    previous_project: &Value,
+    next_project: &Value,
+    clear_chunks: bool,
+) -> Result<Vec<VideoImpact>, String> {
+    records
+        .into_iter()
+        .map(|record| {
+            let previous = config::materialise(defaults, previous_project, &record.overrides);
+            let next = config::materialise(defaults, next_project, &record.overrides);
+            impact_for(&previous, &next, record, clear_chunks)
+        })
+        .collect()
+}
+
+/// The retained chunks a candidate project configuration would invalidate.
+///
+/// A project-level encoder or Parallel Encoder input change reaches every video that
+/// inherits it, and the project screen has no scene table of its own to count them from. The
+/// save route resolves the same impact before writing, so this preview cannot disagree with
+/// what Save deletes.
+pub(crate) async fn project_config_impact(
+    State(state): State<AppState>,
+    AxumPath(project_id): AxumPath<String>,
+    ApiJson(body): ApiJson<Value>,
+) -> Response {
+    let Some(store) = state.projects() else {
+        return project_not_found(&project_id);
+    };
+    let previous = match store.document(&project_id).await {
+        Ok(Some(document)) => document,
+        Ok(None) => return project_not_found(&project_id),
+        Err(error) => return project_error(error),
+    };
+    let defaults = default_config();
+    let next = match candidate_document(&defaults, &body) {
+        Ok(next) => next,
+        Err(message) => return invalid_document(message),
+    };
+    if !project_reaches_videos(&previous, &next) {
+        return Json(no_impact()).into_response();
+    }
+    let Some(videos) = state.videos() else {
+        return Json(no_impact()).into_response();
+    };
+    let records = match videos.records(&project_id).await {
+        Ok(records) => records,
+        Err(error) => return project_error(error),
+    };
+    let impacts = match video_impacts(&defaults, records, &previous, &next, true) {
+        Ok(impacts) => impacts,
+        Err(message) => return invalid_scenes(message),
+    };
+    let mut reason = None;
+    let mut affected_videos = 0_u32;
+    let mut scenes = Vec::new();
+    for impact in &impacts {
+        if impact.invalidated.is_empty() {
+            continue;
+        }
+        let sizes = videos
+            .chunk_sizes(&impact.record.id, impact.record.temp_directory.as_deref())
+            .await;
+        let before = scenes.len();
+        for index in &impact.invalidated {
+            if let Some(chunk_bytes) = VideoStore::chunk_bytes(&sizes, *index as usize) {
+                scenes.push(ProjectChunkScene {
+                    index: *index,
+                    chunk_bytes,
+                });
+            }
+        }
+        if scenes.len() == before {
+            continue;
+        }
+        affected_videos += 1;
+        // A changed input invalidates every chunk it reaches, including a scene with its own
+        // encoder, so it is the reason the guard explains whenever both changed. Only a
+        // video that actually contributes a chunk decides the copy.
+        if impact.reason == Some(ChunkInvalidationReason::Input) {
+            reason = Some(ChunkInvalidationReason::Input);
+        } else if reason.is_none() {
+            reason = impact.reason;
+        }
+    }
+    Json(ProjectChunkImpact {
+        reason,
+        videos: affected_videos,
+        scenes,
+    })
+    .into_response()
+}
+
 /// Replace the project configuration with a validated, fully materialised document.
+///
+/// The encoder and Parallel Encoder input are the base every video inherits, so a change to
+/// either rewrites the scenes that still inherit it and, when the request asks, deletes the
+/// chunks those scenes can no longer reuse. `clear_chunks` is the guard's answer; the scene
+/// rewrite happens either way, because keeping a chunk must not keep the old encoder.
 pub(crate) async fn put_project_config(
     State(state): State<AppState>,
     AxumPath(project_id): AxumPath<String>,
+    Query(query): Query<ConfigWriteQuery>,
     ApiJson(body): ApiJson<Value>,
 ) -> Response {
     if state.runs().config_locked_for(&project_id).await {
@@ -289,8 +449,58 @@ pub(crate) async fn put_project_config(
     let Some(store) = state.projects() else {
         return project_not_found(&project_id);
     };
-
-    match store.replace_config(&project_id, body).await {
+    let previous = match store.document(&project_id).await {
+        Ok(Some(document)) => document,
+        Ok(None) => return project_not_found(&project_id),
+        Err(error) => return project_error(error),
+    };
+    let defaults = default_config();
+    let next = match candidate_document(&defaults, &body) {
+        Ok(next) => next,
+        Err(message) => return invalid_document(message),
+    };
+    if let Some(videos) = state.videos()
+        && project_reaches_videos(&previous, &next)
+    {
+        let records = match videos.records(&project_id).await {
+            Ok(records) => records,
+            Err(error) => return project_error(error),
+        };
+        let impacts = match video_impacts(&defaults, records, &previous, &next, query.clear_chunks)
+        {
+            Ok(impacts) => impacts,
+            Err(message) => return invalid_scenes(message),
+        };
+        // The cleared records land before the files they describe: a crash between the two
+        // leaves a chunk the next run re-encodes, never a record naming a missing chunk.
+        for impact in &impacts {
+            if let Some(condor) = &impact.condor
+                && let Err(error) = videos
+                    .replace_condor(&project_id, &impact.record.id, condor)
+                    .await
+            {
+                return project_error(error);
+            }
+        }
+        if query.clear_chunks {
+            for impact in &impacts {
+                if impact.invalidated.is_empty() {
+                    continue;
+                }
+                if let Err(error) = videos
+                    .remove_scene_chunk_files(
+                        &impact.record.id,
+                        impact.record.temp_directory.as_deref(),
+                        Some(&impact.invalidated),
+                    )
+                    .await
+                {
+                    return project_error(error);
+                }
+            }
+        }
+    }
+    match store.replace_config(&project_id, next).await {
         Ok(Some(config)) => Json(config).into_response(),
         Ok(None) => project_not_found(&project_id),
         Err(error) => project_error(error),

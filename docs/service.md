@@ -50,6 +50,7 @@ rust/crates/service/src/
 │   ├── templates.rs               portable template sanitizer and export document
 │   ├── starter.rs                 the fresh-data-directory template seed
 │   └── videos/
+│       ├── invalidation.rs        project-level chunk invalidation per video
 │       ├── mod.rs                 per-video documents and chunk paths
 │       └── store.rs               video persistence
 ├── run/

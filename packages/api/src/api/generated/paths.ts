@@ -39,6 +39,8 @@ export const projectPath = (projectId: string | number) =>
     `/api/projects/${encodeURIComponent(String(projectId))}`;
 export const projectConfigPath = (projectId: string | number) =>
     `/api/projects/${encodeURIComponent(String(projectId))}/config`;
+export const projectConfigImpactPath = (projectId: string | number) =>
+    `/api/projects/${encodeURIComponent(String(projectId))}/config/impact`;
 export const projectGeneralPath = (projectId: string | number) =>
     `/api/projects/${encodeURIComponent(String(projectId))}/general`;
 export const projectTemplatePath = (projectId: string | number) =>
