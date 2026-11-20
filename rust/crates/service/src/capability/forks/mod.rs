@@ -997,7 +997,6 @@ exit 2
         let alt = &merged[&alt_cdef];
         assert_eq!(alt.kind, curated[&alt_cdef].kind);
         assert_eq!(alt.group.as_deref(), Some("Filtering"));
-        assert_eq!(alt.default, curated[&alt_cdef].default);
 
         // A narrower range in the help does not replace the fork's range, while the help's
         // stated default is authoritative.

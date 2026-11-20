@@ -134,8 +134,8 @@ rejecting the build.
 
 The fork files hold only additions, overrides, and removals over `svt_av1.rs`; a row shared
 with the base is inherited, so a base correction reaches both forks unless the fork names it.
-A drift test names every intentional divergence and fails when an inherited row changes by
-accident.
+A drift test verifies every declared difference against the base: an addition must be absent
+from it, an override must differ, and a removal must exist.
 
 A user fork's map is the probe result, so it is re-probed when the service starts; without
 that, a description the parser has since learned to type would stay wrong on disk forever.

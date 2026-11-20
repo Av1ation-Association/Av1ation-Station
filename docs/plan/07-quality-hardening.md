@@ -195,11 +195,13 @@ inherited, and 25 removals. The shared rows were copies with independent ownersh
 
 **Landed:** `essential.rs` and `five_fish.rs` hold `ADDITIONS`, `OVERRIDES`, and `REMOVALS`
 over `svt_av1.rs`; `fork_catalogue` composes base − removals + overrides + additions. The
-drift test `the_fork_tables_state_every_difference_from_the_base` names every divergence and
-rejects a declared override that matches the base or an addition the base already has. The
-probe test `a_probe_defers_to_the_fork_table_where_the_fork_differs` keeps the fork's kind and
-range, drops a fork-only flag the help no longer lists, and takes only a stated default from
-the help. The website fork snapshot matches, so the rewrite is behavior-preserving.
+drift test `every_fork_states_only_real_differences_from_the_base` verifies each declared
+difference against the base and that the composed table equals the base plus the declarations;
+the checked-in website fork snapshot matches, so the rewrite is behavior-preserving and a
+deleted row or changed description still fails. The probe test
+`a_probe_defers_to_the_fork_table_where_the_fork_differs` keeps the fork's kind and range,
+drops a fork-only flag the help no longer lists, and takes only a stated default from the
+help.
 
 ### 7.14 Split `EncoderEditor`
 
