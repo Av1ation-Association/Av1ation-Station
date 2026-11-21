@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serviceRoot = path.join(root, "rust", "crates", "service", "src");
 const apiRoot = path.join(root, "packages", "api", "src");
-const docsPath = path.join(root, "docs", "backend.md");
+const docsPaths = [path.join(root, "docs", "backend.md"), path.join(root, "docs", "api.md")];
 const failures = [];
 
 function fail(message) {
@@ -101,35 +101,40 @@ for (const file of clientFiles) {
 }
 
 // Docs prose must agree with the route table. The generated table itself is skipped.
-const docs = fs.readFileSync(docsPath, "utf8");
-const withoutTable = docs.replace(/<!-- routes:start -->[\s\S]*?<!-- routes:end -->/u, "");
 const byPath = new Map();
 for (const route of manifest.routes) {
     const normalized = route.path.replace(/\{[^}]+\}/gu, "{}");
     byPath.set(normalized, new Set(route.methods.map((method) => method.method)));
 }
 const tokenPattern = /\/api\/[A-Za-z0-9_./{}:-]+/gu;
-withoutTable.split("\n").forEach((line, index) => {
-    for (const match of line.matchAll(tokenPattern)) {
-        let token = match[0].replace(/[.,;:)\]}]+$/u, "");
-        if (token.includes("?")) token = token.slice(0, token.indexOf("?"));
-        // A source-file path such as `/api/json.rs` is not a route.
-        if (token.split("/").pop()?.includes(".") === true) continue;
-        const normalized = token
-            .replace(/:([A-Za-z_][A-Za-z0-9_]*)/gu, "{}")
-            .replace(/\{[^}]+\}/gu, "{}");
-        const methods = byPath.get(normalized);
-        if (methods === undefined) {
-            fail(`docs/backend.md:${index + 1}: ${token} is not in the route manifest`);
-            continue;
+for (const docsPath of docsPaths) {
+    const label = path.relative(root, docsPath).split(path.sep).join("/");
+    const docs = fs.readFileSync(docsPath, "utf8");
+    const withoutTable = docs.replace(/<!-- routes:start -->[\s\S]*?<!-- routes:end -->/u, "");
+    withoutTable.split("\n").forEach((line, index) => {
+        for (const match of line.matchAll(tokenPattern)) {
+            let token = match[0].replace(/[.,;:)\]}]+$/u, "");
+            if (token.includes("?")) token = token.slice(0, token.indexOf("?"));
+            // A source-file path such as `/api/json.rs` is not a route.
+            if (token.split("/").pop()?.includes(".") === true) continue;
+            const normalized = token
+                .replace(/:([A-Za-z_][A-Za-z0-9_]*)/gu, "{}")
+                .replace(/\{[^}]+\}/gu, "{}");
+            const methods = byPath.get(normalized);
+            if (methods === undefined) {
+                fail(`${label}:${index + 1}: ${token} is not in the route manifest`);
+                continue;
+            }
+            const before = line.slice(0, match.index);
+            const method = [...before.matchAll(/\b(GET|POST|PUT|PATCH|DELETE|HEAD)\b/gu)].at(
+                -1,
+            )?.[1];
+            if (method !== undefined && !methods.has(method)) {
+                fail(`${label}:${index + 1}: ${method} ${token} is not in the route manifest`);
+            }
         }
-        const before = line.slice(0, match.index);
-        const method = [...before.matchAll(/\b(GET|POST|PUT|PATCH|DELETE|HEAD)\b/gu)].at(-1)?.[1];
-        if (method !== undefined && !methods.has(method)) {
-            fail(`docs/backend.md:${index + 1}: ${method} ${token} is not in the route manifest`);
-        }
-    }
-});
+    });
+}
 
 if (failures.length > 0) {
     console.error("route check failed:");

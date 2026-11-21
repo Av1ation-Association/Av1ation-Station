@@ -35,7 +35,7 @@ pub struct Scene<S> {
 }
 ```
 
-`Input` is the three-variant enum in [backend.md](backend.md#51-inputs-and-scripts):
+`Input` is the three-variant enum in [api.md](api.md#2-inputs-and-scripts):
 `Video`, `VapourSynth`, or `VapourSynthScript`, each carrying its decoder choice and ordered
 filters, and the script variant carrying the script itself. There is no separate project
 script field.

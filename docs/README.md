@@ -21,6 +21,8 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | [architecture.md](architecture.md) | topology, process model, workspace layout, where changes belong, dependency direction, runtime flows |
 | [data-model.md](data-model.md) | `Condor` model mapping, config inheritance, derived state |
 | [backend.md](backend.md) | Rust crates, engine integration, concurrency, persistence, errors |
+| [api.md](api.md) | HTTP surface, route naming and exceptions, input and script documents, preview media, and the generated route table |
+| [runs.md](runs.md) | sequence catalogue, valid transitions, run loop, live checkpoint data, progress fan-out, derived state |
 | [contracts.md](contracts.md) | JSON Schema → TypeScript/Zod pipeline, encoder parameters, filter descriptors |
 | [preflight.md](preflight.md) | required tools, bundled and system providers, custom executables, metric backends, optional language server |
 | [packaging.md](packaging.md) | bundled toolchain contents, layout, provider selection, lock, and release transparency; the Phase 5 packaging contract |
@@ -88,7 +90,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | which command to run for a local check, verification, E2E, or real encode | [commands.md](commands.md) |
 | what the system is made of, and which way dependencies point | [architecture.md](architecture.md) |
 | what a term means, or where an area of responsibility lives | [glossary.md](glossary.md) + [architecture.md](architecture.md#31-where-a-change-belongs) |
-| what the service does with the engine, a run, or a config write | [backend.md](backend.md) + [data-model.md](data-model.md) |
+| what the service does with the engine, a run, or a config write | [backend.md](backend.md) + [runs.md](runs.md) + [data-model.md](data-model.md) |
 | which tools are required, or why an action is unavailable | [preflight.md](preflight.md) |
 | where a change in the engine adapter belongs | [engine.md](engine.md) + [backend.md](backend.md) |
 | where a change in the service belongs | [service.md](service.md) + [backend.md](backend.md) |
@@ -96,7 +98,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | what the design file must contain before code starts | [frontend-penpot.md](frontend-penpot.md) |
 | which encoder parameter, filter or widget field exists | [contracts.md](contracts.md) + [filter-catalogue.md](filter-catalogue.md) |
 | how preview works and which spike gates it | [preview.md](preview.md) |
-| which API route exists, or how to add one | [backend.md](backend.md#52-routes) + [AGENTS.md](../AGENTS.md#215-routes-are-declared-once-and-derived) |
+| which API route exists, or how to add one | [api.md](api.md#3-routes) + [AGENTS.md](../AGENTS.md#215-routes-are-declared-once-and-derived) |
 | what must be tested and which experiments must pass | [testing.md](testing.md) |
 | why a choice was made, or which assumptions are still open | the owning architecture document + [decisions.md](decisions.md) for open post-baseline decisions + the register below |
 | what ships in the installer, or which provider a tool comes from | [packaging.md](packaging.md) |
@@ -113,7 +115,7 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 | change the engine or service | [engine.md](engine.md) → [service.md](service.md) → [backend.md](backend.md) → [data-model.md](data-model.md) |
 | change a screen | [frontend.md](frontend.md) → [screens/README.md](screens/README.md) → the surface page → [frontend-penpot.md](frontend-penpot.md) |
 | change a boundary type | [contracts.md](contracts.md) → [data-model.md](data-model.md) → [backend.md](backend.md) |
-| add or change an API route | [AGENTS.md](../AGENTS.md#215-routes-are-declared-once-and-derived) → [service.md](service.md) → [backend.md](backend.md#52-routes) |
+| add or change an API route | [AGENTS.md](../AGENTS.md#215-routes-are-declared-once-and-derived) → [service.md](service.md) → [api.md](api.md#3-routes) |
 | prepare a release | [releases.md](releases.md) → [packaging.md](packaging.md) → [security.md](security.md) → [plan/05-ci.md](plan/05-ci.md#15-release-workflow) → [progress.md](progress.md) |
 
 ## Conventions

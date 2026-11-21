@@ -1,4 +1,4 @@
-// Generates the typed client path builders and the route table in docs/backend.md.
+// Generates the typed client path builders and the route table in docs/api.md.
 // The route vocabulary itself is emitted from Rust; this script is the only hand-written
 // translation step.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -9,7 +9,7 @@ import prettier from "prettier";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const manifestPath = join(root, "schema", "routes", "manifest.json");
 const output = join(root, "packages", "api", "src", "api", "generated", "paths.ts");
-const docsPath = join(root, "docs", "backend.md");
+const docsPath = join(root, "docs", "api.md");
 const check = process.argv.includes("--check");
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
@@ -112,9 +112,9 @@ if (docs.includes("<!-- routes:start -->")) {
 } else {
     const header = "| Method | Path | Purpose |";
     const start = docs.indexOf(header);
-    if (start === -1) throw new Error("docs/backend.md has no route table header");
+    if (start === -1) throw new Error("docs/api.md has no route table header");
     const end = docs.indexOf(`${eol}${eol}`, start);
-    if (end === -1) throw new Error("docs/backend.md route table has no terminating blank line");
+    if (end === -1) throw new Error("docs/api.md route table has no terminating blank line");
     nextDocs = `${docs.slice(0, start)}${table}${docs.slice(end)}`;
 }
 nextDocs = await prettier.format(nextDocs, {
@@ -124,7 +124,7 @@ nextDocs = await prettier.format(nextDocs, {
 
 const targets = [
     { path: output, content: generated, label: "packages/api/src/api/generated/paths.ts" },
-    { path: docsPath, content: nextDocs, label: "docs/backend.md" },
+    { path: docsPath, content: nextDocs, label: "docs/api.md" },
 ];
 
 if (check) {

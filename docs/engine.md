@@ -121,4 +121,4 @@ not add sleeps or polling.
 
 `src/lib.rs`, this file, and the group `mod.rs` files are one map. A new group, a new child
 seam, or a moved public item updates all three in the same change. The rationale for the
-grouping is described above; the run contract and event semantics remain in [backend.md](backend.md).
+grouping is described above; the run contract and event semantics remain in [runs.md](runs.md).

@@ -68,9 +68,9 @@ the whole flow covered by Rust tests.
 | 2.4.6 | Cooperative cancel via `Arc<AtomicBool>` | |
 | 2.4.7 | `catch_unwind` boundary → `EnginePanic` | lock always released |
 | 2.4.8 | Watchdog on heartbeat | handles a silently dead worker |
-| 2.4.9 | **`save_callback` sink** supplied at `Condor` construction; invoked by every `save()` call | atomic write, cheap enqueue, coalescing | [backend.md](../backend.md#33-live-data-during-a-run) |
+| 2.4.9 | **`save_callback` sink** supplied at `Condor` construction; invoked by every `save()` call | atomic write, cheap enqueue, coalescing | [runs.md](../runs.md#4-live-data-during-a-run) |
 | 2.4.10 | Disk space check before start → `507` | |
-| 2.4.11 | **Sequence transition table** — the 11 sequences, their prerequisites, and the valid-transition graph | [backend.md](../backend.md#31-valid-transitions) |
+| 2.4.11 | **Sequence transition table** — the 11 sequences, their prerequisites, and the valid-transition graph | [runs.md](../runs.md#2-valid-transitions) |
 | 2.4.12 | **`POST …/run`** — run exactly one named sequence, after checking the transition table | `422` on an invalid transition |
 | 2.4.13 | **`POST …/encode`** — resolve the full chain from current state, skipping already-complete sequences | a full pipeline root run |
 | 2.4.14 | **Persist on every `save()`**, not per sequence and not only at the end | a cancel or power loss mid-sequence keeps detected scenes | |
@@ -85,7 +85,7 @@ the whole flow covered by Rust tests.
 | 2.5.2 | Index rebuild when missing or corrupt | index is a cache |
 | 2.5.3 | `schema_version` + ordered migration chain, each with a fixture test | |
 | 2.5.4 | Refuse-to-load-newer behaviour | never partially apply |
-| 2.5.5 | Script stored in the input as `VapourSynthScriptSource::Text` or `::Path`; no separate `.vpy` sidecar | [backend.md](../backend.md#51-inputs-and-scripts) |
+| 2.5.5 | Script stored in the input as `VapourSynthScriptSource::Text` or `::Path`; no separate `.vpy` sidecar | [api.md](../api.md#2-inputs-and-scripts) |
 | 2.5.6 | Import/export a project as a single archive | needed for bug reports |
 | 2.5.7 | Timeline append/read/prune with trailing-partial-line tolerance | |
 | 2.5.8 | `AppSettings.project_templates` and `default_project_template_id`; `POST /projects` copies the marked template, or engine defaults when none is marked | no live link, no propagation |
@@ -94,7 +94,7 @@ the whole flow covered by Rust tests.
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 2.6.1 | Implement every route in [backend.md](../backend.md#5-http-surface) | |
+| 2.6.1 | Implement every route in [api.md](../api.md#3-routes) | |
 | 2.6.2 | Status codes: `409`, `423`, `422`, `507` | part of the contract |
 | 2.6.3 | SSE with `Last-Event-ID` resume | |
 | 2.6.4 | `/api/encoders` and `/api/sequences` descriptors from the engine | drives the generated config UI |

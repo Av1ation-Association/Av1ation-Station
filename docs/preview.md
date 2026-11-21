@@ -248,7 +248,7 @@ For a full run, `rust/crates/engine` already uses A for the scene table and each
 sequence so a later sequence sees what Noise Detector or Target Quality produced. The
 values arrive as `bytes` in Python. Detection still runs on the unmodified graph, so the
 script must preserve the frame count and format it measured. The key list is in
-[backend.md](backend.md#script-evaluation-and-injected-data). The video state endpoint
+[api.md](api.md#script-evaluation-and-injected-data). The video state endpoint
 serves the keys, descriptions, and current values as `script_data`, so the editor documents
 what a script receives without opening it. Preview uses the same keys; a script that works
 in a full encode works in preview.

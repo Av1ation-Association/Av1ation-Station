@@ -84,7 +84,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 - **Routes.** Project detail and configuration routes; queue routes; template application
   through `GET /api/settings/templates` and
   `POST /api/projects/{project_id}/template`. See
-  [backend.md §5](../backend.md#5-http-surface).
+  [api.md §3](../api.md#3-routes).
 - **Derived card state.** Set, Engine default, and Locked are derived from the project
   configuration and the live run. No card state is stored.
 - **Queue.** Order and membership are server state; selection is ephemeral. See [Queue](#queue).
@@ -173,7 +173,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 
 - **Routes.** Project and video configuration routes; `GET /api/projects/{project_id}/scripts`;
   `GET /api/settings/templates/{template_id}/scripts`; `POST …/validate`. See
-  [backend.md §5](../backend.md#5-http-surface).
+  [api.md §3](../api.md#3-routes).
 - **Persistence.** The draft is local. Save replaces the resource and the server validates
   it. A project's sections refuse writes while its run holds the lock; sibling video
   overrides and template writes stay available.
@@ -245,7 +245,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 
 - **Routes.** `GET …/videos`; `POST …/videos`; `PATCH …/videos/order`;
   `POST …/videos/remove`; `DELETE …/videos/:video_id`. See
-  [backend.md §5](../backend.md#5-http-surface).
+  [api.md §3](../api.md#3-routes).
 - **Order and membership.** Server state, because they change what the next client runs.
 - **Selection.** Ephemeral React state, not persisted, cleared by navigation. The drag is
   ephemeral until drop.
@@ -320,7 +320,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 ### General data and contracts
 
 - **Routes.** `GET`/`PUT` the project or video General document; `GET /api/config/filters`
-  for the engine filter schemas. See [backend.md §5](../backend.md#5-http-surface).
+  for the engine filter schemas. See [api.md §3](../api.md#3-routes).
 - **Filter catalogue.** Field-by-field ownership is in
   [filter-catalogue.md](../filter-catalogue.md).
 - **Scope.** A project document has no source path or FFMS2 index; a video's General has
@@ -586,7 +586,7 @@ route. Every section is a draft until saved, and the server enforces the run loc
 ### Encoding data and contracts
 
 - **Catalogue and builds.** Encoder catalogue, encoder forks, and preflight inventory. See
-  [backend.md §5](../backend.md#5-http-surface).
+  [api.md §3](../api.md#3-routes).
 - **Configuration.** The sequence document owns the encoder document and parameter values;
   values are engine `CLIParameter`.
 - **Descriptors.** The generated encoder definition and its parameter descriptors; see

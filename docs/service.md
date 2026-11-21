@@ -205,5 +205,5 @@ module, or a changed ownership rule updates all three in the same change.
 `npm run check:service-modules` parses the fenced tree in this file, compares it with every
 `.rs` file under `src/` except `bin/`, rejects a root module other than `lib.rs` or
 `state.rs`, and rejects a reference to a retired flat path. It runs in `npm run check` and
-in the Rust CI job. The rationale for the grouping is described above; the HTTP contract,
-persistence, and run semantics remain in [backend.md](backend.md).
+in the Rust CI job. The rationale for the grouping is described above; the HTTP contract and run semantics
+remain in [api.md](api.md) and [runs.md](runs.md), and persistence in [backend.md](backend.md).

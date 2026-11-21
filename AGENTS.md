@@ -124,7 +124,7 @@ continues, so a cancel or a power loss mid-sequence keeps the work already done 
 scenes, scored scenes, and so on.
 
 Do not batch checkpoints to sequence completion, and do not poll for them. See
-`docs/backend.md` §3.3.
+`docs/runs.md` §4.
 
 ### 2.10 The script is one input for the whole video
 
@@ -205,10 +205,16 @@ and it is enforced by the service rather than by the screen. See
 Every API route is one group in `rust/crates/service/src/api/routes/manifest.rs`: the path,
 a stable id, and one entry per method carrying its handler, owner module, and docs purpose.
 The macro emits the axum registration and `ROUTES`; `schema/routes/manifest.json`,
-`packages/api/src/api/generated/paths.ts`, and the route table in `docs/backend.md` are
+`packages/api/src/api/generated/paths.ts`, and the route table in `docs/api.md` are
 generated. `npm run routes:check` rejects `.route(` elsewhere, hard-coded production `/api`
 paths, owner drift, and stale docs prose. Add a route by adding one group and running
 `npm run routes`; never edit a generated file by hand.
+
+Naming follows one rule. A resource transition uses the resource URL and the HTTP method
+that names it (`DELETE …/videos/:video_id`, `PATCH …/scenes/:index`). A command that has no
+resource representation keeps a trailing verb (`…/scenes/split`), and every such path is
+listed with its reason in `docs/api.md` §3; a new verb path adds a row there. A route
+change lands with its regenerated table and route matrix, which `check:evidence` requires.
 
 ## 3. Layering
 
