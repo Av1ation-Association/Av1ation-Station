@@ -1,37 +1,11 @@
 import type { ParameterDescriptor } from "@av1ation/contracts";
 
-import parametersJson from "../gallery/encoder-parameters.json";
-import realRun from "../gallery/real-run.json";
-
-/** One detected scene from the captured real run the screenshots were generated from. */
-export interface SceneRow {
-    index: number;
-    start_frame: number;
-    end_frame: number;
-    frame_count: number;
-    encoded: boolean;
-    chunk_bytes: number;
-    speed: number | null;
-    quality_score: number | null;
-    encode_ms: number | null;
-}
-
-interface RunFixture {
-    scenes: { total_frames: number; scenes: SceneRow[] };
-    video: { id: string; name: string };
-    project: { name: string };
-}
-
-const run = realRun as unknown as RunFixture;
+import svtAv1Parameters from "virtual:svt-parameters";
 
 export const FPS = 24;
-export const SCENES = run.scenes.scenes;
-export const TOTAL_FRAMES = run.scenes.total_frames;
-export const VIDEO_NAME = "documentary-cut.mkv";
-export const PROJECT_NAME = "Documentaries";
 
-const catalog = parametersJson as unknown as Record<string, Record<string, ParameterDescriptor>>;
-export const SVT_PARAMETERS = catalog["svt-av1"] ?? {};
+/** Only SVT-AV1 is shown here, so the other encoders stay out of the initial bundle. */
+export const SVT_PARAMETERS: Record<string, ParameterDescriptor> = svtAv1Parameters;
 
 export function descriptor(key: string): ParameterDescriptor | undefined {
     return SVT_PARAMETERS[key];

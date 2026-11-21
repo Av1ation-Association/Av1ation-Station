@@ -144,6 +144,31 @@ function docsShots(): Plugin {
     };
 }
 
+/** The site needs one encoder's catalogue, not every encoder's. */
+const SVT_PARAMETERS_ID = "virtual:svt-parameters";
+const ENCODER_PARAMETERS_FILE = resolve(import.meta.dirname, "src/gallery/encoder-parameters.json");
+
+function svtParameters(): Plugin {
+    const resolved = `\0${SVT_PARAMETERS_ID}`;
+    return {
+        name: "svt-parameters",
+        resolveId(source) {
+            return source === SVT_PARAMETERS_ID ? resolved : null;
+        },
+        load(id) {
+            if (id !== resolved) {
+                return null;
+            }
+            this.addWatchFile(ENCODER_PARAMETERS_FILE);
+            const catalogue = JSON.parse(readFileSync(ENCODER_PARAMETERS_FILE, "utf8")) as Record<
+                string,
+                unknown
+            >;
+            return `export default ${JSON.stringify(catalogue["svt-av1"] ?? {})};`;
+        },
+    };
+}
+
 function demoTourAssets(): Plugin {
     return {
         name: "demo-tour-assets",
@@ -174,6 +199,7 @@ export default defineConfig(({ command, mode }) => {
         base: process.env.WEBSITE_BASE_PATH ?? (pagesBuild ? "/Av1ation-Station/" : "/"),
         plugins: [
             docsMdx(),
+            svtParameters(),
             react(),
             tailwindcss(),
             ...(command === "build" && !galleryBuild ? [demoTourAssets(), docsShots()] : []),
