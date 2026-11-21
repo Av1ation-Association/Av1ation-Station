@@ -387,6 +387,12 @@ immutable.
    paths. It does not inspect wheel tags, SPDX licence IDs, build-tool versions, patch
    ancestry, or provider semantics.
 
+A host with no macOS or Linux tree cannot run step 3. Dispatch **Bundled toolchain** with
+`write_lock` on and `package` off instead: the `lock` job hashes the three assembled trees,
+skips the drift check, and uploads the result as the `regenerated-lock` artifact. Download
+it over `packaging/toolchain.lock.json`, review the diff, and commit it; the next ordinary
+run checks the committed lock again.
+
 The staged Python environment is a directory artifact in each target's lock; pip's resolver
 runs during the component build, pinned to `vapoursynth==82`, `vsjetpack==3.0.0` and
 `vapoursynth-ffms2==5.4.0`. The lock records the bytes that result, not every wheel that pip
@@ -458,7 +464,7 @@ manifest; a stale or partial directory is rebuilt instead of trusted.
 | `plan` | emit the component/target matrix and each component cache key | every run |
 | `component` (matrix over every target and component) | build or restore one component; upload its cache directory | every toolchain run |
 | `assemble` (matrix: `windows-2025`, `macos-15`, `ubuntu-24.04`) | merge the target's components, verify every claimed artifact, upload the target tree | after all components |
-| `lock` | run `toolchain:lock --check` over the three target artifacts; fail on drift from the committed lock | after assembly |
+| `lock` | run `toolchain:lock --check` over the three target artifacts; fail on drift from the committed lock. A `write_lock` dispatch generates the lock and uploads it as `regenerated-lock` | after assembly |
 | `package` (matrix over published targets) | verify the target tree against the committed lock, stage it into `dist/tools`, build the channel's Tauri variants, upload installers | manual dispatch with `package`, or a tag-driven `release.yml` call; the committed lock is the only packaging input |
 
 The component job is a matrix, not one job that builds a whole target on one runner. Each
@@ -469,12 +475,13 @@ drift with the runner image. The engine's prebuilt ONNX Runtime requires glibc 2
 Ubuntu 24.04 artifact emits GLIBC_2.39, so the effective floor is 2.39.
 
 `toolchain:verify` remains fail-closed: it does not accept a target tree in place of the
-lock. The workflow never uploads or substitutes a lock generated in the same run; it checks
-the committed lock against every assembled tree, and each package leg checks its own target
-tree with `toolchain:lock --target <triple> --check`. `release.yml` downloads the
-`release-*` artifacts only after the package jobs and the release-security gates pass, then
-rechecks the audit bundle and writes the manifest before creating a release. Stable Windows
-legs build MSI, NSIS and the portable; weekly and RC legs build NSIS and the portable only.
+lock. The gate checks the committed lock against every assembled tree, and each package leg
+checks its own target tree with `toolchain:lock --target <triple> --check`; a `write_lock`
+dispatch is the only mode that writes a lock, and its artifact is a candidate a human
+reviews and commits. `release.yml` downloads the `release-*` artifacts only after the
+package jobs and the release-security gates pass, then rechecks the audit bundle and writes
+the manifest before creating a release. Stable Windows legs build MSI, NSIS and the
+portable; weekly and RC legs build NSIS and the portable only.
 
 Certificate-based code signing is **not planned**. The hosted package job produces unsigned
 artifacts on Windows and Linux and ad-hoc-signed artifacts on macOS. On macOS, every nested

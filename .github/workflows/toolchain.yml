@@ -10,6 +10,10 @@ on:
             release_tag:
                 description: Release tag for package builds; required when package is true
                 type: string
+            write_lock:
+                description: Regenerate packaging/toolchain.lock.json from the assembled trees and upload it; set package off
+                type: boolean
+                default: false
     workflow_call:
         inputs:
             package:
@@ -119,7 +123,7 @@ jobs:
             ref: ${{ inputs.ref }}
 
     lock:
-        name: Verify committed lock against built trees
+        name: Verify or regenerate the committed lock
         needs: target
         runs-on: ubuntu-24.04
         timeout-minutes: 20
@@ -135,7 +139,7 @@ jobs:
                   pattern: toolchain-*
                   path: dist/downloaded-targets
 
-            - name: Arrange target trees and verify the committed lock
+            - name: Arrange target trees
               shell: bash
               run: |
                   mkdir -p dist/toolchain-targets
@@ -144,4 +148,23 @@ jobs:
                     target="${name#toolchain-}"
                     mv "$directory" "dist/toolchain-targets/${target}"
                   done
-                  node scripts/toolchain-lock.mjs --from dist/toolchain-targets --check
+
+            - name: Verify the committed lock
+              if: inputs.write_lock != true
+              shell: bash
+              run: node scripts/toolchain-lock.mjs --from dist/toolchain-targets --check
+
+            # A host with no macOS or Linux tree cannot run toolchain:lock, so this dispatch
+            # mode hashes the three assembled trees and hands back a candidate lock to review.
+            - name: Regenerate the lock from the assembled trees
+              if: inputs.write_lock == true
+              shell: bash
+              run: node scripts/toolchain-lock.mjs --from dist/toolchain-targets
+
+            - name: Upload the regenerated lock
+              if: inputs.write_lock == true
+              uses: actions/upload-artifact@v4
+              with:
+                  name: regenerated-lock
+                  path: packaging/toolchain.lock.json
+                  if-no-files-found: error
