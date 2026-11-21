@@ -17,29 +17,28 @@
                 letter-spacing: -3px;
             }
         </style>
-        <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(1088 320) scale(560 400)">
-            <stop offset="0" stop-color="#38BDF8" stop-opacity="0.09"/>
-            <stop offset="0.55" stop-color="#38BDF8" stop-opacity="0.025"/>
-            <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+        <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(1020.75 320) scale(560 400)">
+            <stop offset="0" stop-color="#0EA5E9" stop-opacity="0.1"/>
+            <stop offset="0.55" stop-color="#0EA5E9" stop-opacity="0.035"/>
+            <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/>
         </radialGradient>
-        <linearGradient id="contrail" gradientUnits="userSpaceOnUse" x1="1060" y1="0" x2="180" y2="0">
-            <stop offset="0" stop-color="#A3AFC2" stop-opacity="0.6"/>
-            <stop offset="0.45" stop-color="#A3AFC2" stop-opacity="0.28"/>
-            <stop offset="0.82" stop-color="#A3AFC2" stop-opacity="0.1"/>
-            <stop offset="1" stop-color="#A3AFC2" stop-opacity="0"/>
+        <linearGradient id="contrail" gradientUnits="userSpaceOnUse" x1="546" y1="0" x2="180" y2="0">
+            <stop offset="0" stop-color="#64748B" stop-opacity="0.6"/>
+            <stop offset="0.45" stop-color="#64748B" stop-opacity="0.28"/>
+            <stop offset="0.82" stop-color="#64748B" stop-opacity="0.1"/>
+            <stop offset="1" stop-color="#64748B" stop-opacity="0"/>
         </linearGradient>
     </defs>
-    <rect width="1280" height="640" fill="#0D1118"/>
+    <rect width="1280" height="640" fill="#F7F9FC"/>
     <rect width="1280" height="640" fill="url(#glow)"/>
     <!-- Each trail is centred on a rear point of the wing (viewBox y 71.1628 and 108.8372). -->
     <g fill="url(#contrail)">
-        <rect x="180" y="291.88" width="880" height="6" rx="3"/>
-        <rect x="180" y="342.12" width="880" height="6" rx="3"/>
+        <rect x="112.75" y="291.88" width="880" height="6" rx="3"/>
+        <rect x="112.75" y="342.12" width="880" height="6" rx="3"/>
     </g>
-    <g transform="translate(980 200) scale(1.3333333)" fill="#E8EDF5">
+    <g transform="translate(912.75 200) scale(1.3333333)" fill="#101827">
         <path fill-rule="evenodd" d="M153 90 0 0 41.9178 54.4187 6.2877 71.1628 31.4384 90 6.2877 108.8372 41.9178 125.5813 0 180ZM127.8493 90 117.3699 97.3257 108.9863 90 117.3699 82.6743Z"/>
     </g>
-    <!-- A and S share a left ink edge: the S's side bearing is compensated in its origin. -->
-    <text class="wordmark" x="474.5" y="274" text-anchor="start" fill="#E8EDF5">Av1ation</text>
-    <text class="wordmark" x="472" y="453" text-anchor="start" fill="#A3AFC2">Station</text>
+    <text class="wordmark" x="407.25" y="274" text-anchor="start" fill="#101827">Av1ation</text>
+    <text class="wordmark" x="404.75" y="453" text-anchor="start" fill="#526276">Station</text>
 </svg>

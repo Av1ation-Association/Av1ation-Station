@@ -1,8 +1,9 @@
 // Brand lockup — the approved 1280x640 image board.
 //
 // The mark is right-aligned; two trails leave the two rear points of the wing and
-// fade left; Av1ation sits above them and Station below. Run in the connected
-// Penpot tab after kit.js. Idempotent by board name.
+// fade left; Av1ation sits above them and Station below. The whole lockup is shifted
+// left so the text block is centered. Run in the connected Penpot tab after kit.js.
+// Idempotent by board name.
 const K = storage.K;
 const page = penpot.currentFile.pages.find((p) => p.name === '00 Foundations');
 if (!page) throw new Error('00 Foundations page not found');
@@ -34,11 +35,11 @@ const sky = K.color('color.brand.default');
 glow.fills = [{
   fillColorGradient: {
     type: 'radial',
-    startX: 0.85,
+    startX: 0.7974609375,
     startY: 0.5,
-    endX: 1.29,
+    endX: 1.2349609375,
     endY: 0.5,
-    width: 0.44,
+    width: 0.4375,
     stops: [
       { color: sky, opacity: 0.09, offset: 0 },
       { color: sky, opacity: 0.025, offset: 0.55 },
@@ -54,7 +55,7 @@ const trail = (name, top) => {
   const shape = penpot.createRectangle();
   shape.name = name;
   b.appendChild(shape);
-  shape.x = b.x + 180;
+  shape.x = b.x + 112.75;
   shape.y = b.y + top;
   shape.resize(880, 6);
   shape.borderRadius = 3;
@@ -81,7 +82,7 @@ const trail = (name, top) => {
 trail('brand / trail 0', 291.88);
 trail('brand / trail 1', 342.12);
 
-const mark = K.mark(b, 980, 200, 204, 'color.text.primary');
+const mark = K.mark(b, 912.75, 200, 204, 'color.text.primary');
 mark.name = 'brand / mark';
 
 // Both words share a left ink edge. The S sits 2.5px in from its origin at this
@@ -99,8 +100,8 @@ const word = (name, value, x, inkTop, width, color) => {
   return shape;
 };
 
-const av1ation = word('brand / Av1ation', 'Av1ation', 474.5, 186.7, 560, 'color.text.primary');
-const station = word('brand / Station', 'Station', 472, 365.7, 440, 'color.text.secondary');
+const av1ation = word('brand / Av1ation', 'Av1ation', 407.25, 186.7, 560, 'color.text.primary');
+const station = word('brand / Station', 'Station', 404.75, 365.7, 440, 'color.text.secondary');
 
 // K.text places the text box, not the painted glyphs. Snap each line to its cap
 // top so the baselines match the approved SVG at 274 and 453.

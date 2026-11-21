@@ -135,11 +135,14 @@ bundle behavior, not a board. App screens remain governed by §3 and §9.
 Foundations carries eight boards: `Colour`, `Finishes`, `Type`, `Spacing`, `Radius`,
 `Motion`, `Logo`, and `Brand lockup`. The `Logo` board is the only place the app mark's
 path, clear space and minimum size are specified; the mark is recoloured per theme, never
-redrawn. `Brand lockup` is the approved 1280×640 image lockup — mark right-aligned, two
-trails fading from its rear points, `Av1ation` above and `Station` below — and closes the
-page on its own row at its native size. `Finishes` is not optional — the brushed
-aluminium treatment is defined by tokens, and the board is the only place its gradient
-stops, specular placement, and grain density are specified.
+redrawn. `Brand lockup` is the approved 1280×640 image lockup — mark at right, two trails
+fading from its rear points, `Av1ation` above and `Station` below, shifted left so the text
+block is centered — and closes the page on its own row at its native size. The README uses
+matching `av1ation-station-1280x640-dark.png` and `av1ation-station-1280x640-light.png`
+exports.
+`Finishes` is not optional — the brushed aluminium treatment is defined by tokens, and the
+board is the only place its gradient stops, specular placement, and grain density are
+specified.
 
 ## 4. Token contract
 
