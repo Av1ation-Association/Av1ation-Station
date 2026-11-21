@@ -6,6 +6,9 @@ use crate::common::*;
 async fn a_saved_encoder_build_keeps_its_parameters_when_the_file_is_missing() {
     let dir = std::env::temp_dir().join(format!("av1ation-api-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&dir).await.expect("temp dir");
+    // The probe must fail for a reason this test owns: the path is inside the test's own
+    // data directory, so no build installed on the developer's machine can satisfy it.
+    let missing = dir.join("av1ation-svt.exe");
     let crf = serde_json::json!({
         "delimiter": "Space",
         "label": "CRF",
@@ -25,7 +28,7 @@ async fn a_saved_encoder_build_keeps_its_parameters_when_the_file_is_missing() {
                 "id": "kept",
                 "label": "Kept",
                 "base": "svt-av1",
-                "executable": "C:/definitely-missing/av1ation-svt.exe",
+                "executable": missing.display().to_string(),
                 "version": null,
                 "parameters": { "--crf": crf }
             }]
@@ -698,6 +701,7 @@ async fn encoder_forks_and_parameter_routes_report_their_status_surface() {
     tokio::fs::create_dir_all(&dir)
         .await
         .expect("test data directory");
+    let missing = dir.join("av1ation-svt.exe");
     tokio::fs::write(
         dir.join("config.json"),
         serde_json::json!({
@@ -705,7 +709,7 @@ async fn encoder_forks_and_parameter_routes_report_their_status_surface() {
                 "id": "kept",
                 "label": "Kept",
                 "base": "svt-av1",
-                "executable": "C:/definitely-missing/av1ation-svt.exe",
+                "executable": missing.display().to_string(),
                 "version": null,
                 "parameters": {}
             }]

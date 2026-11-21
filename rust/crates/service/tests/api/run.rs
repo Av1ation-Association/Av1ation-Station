@@ -94,7 +94,7 @@ async fn a_pathless_fork_with_a_marker_resolves_the_base_provider_before_a_run()
         serde_json::json!({
             "custom_tools": [{
                 "kind": "svt-av1",
-                "path": "C:/tools/SvtAv1EncApp.exe"
+                "path": base_provider_path(&dir)
             }]
         })
         .to_string(),
@@ -154,7 +154,8 @@ async fn a_pathless_fork_with_a_marker_resolves_the_base_provider_before_a_run()
         .clone()
         .expect("preparation handed the runner an encoder");
     assert_eq!(
-        encoder["SVTAV1"]["executable"], "C:/tools/SvtAv1EncApp.exe",
+        encoder["SVTAV1"]["executable"],
+        base_provider_path(&dir),
         "preparation must resolve the base provider, not pass null to the engine"
     );
 
@@ -184,7 +185,7 @@ async fn a_located_fork_supplies_the_executable_for_a_pathless_document() {
         serde_json::json!({
             "custom_tools": [{
                 "kind": "svt-av1",
-                "path": "C:/tools/SvtAv1EncApp.exe"
+                "path": base_provider_path(&dir)
             }],
             "encoder_forks": [{
                 "id": "svt-av1-essential",
@@ -280,7 +281,7 @@ async fn a_fork_path_that_moves_falls_back_to_the_base_provider() {
         serde_json::json!({
             "custom_tools": [{
                 "kind": "svt-av1",
-                "path": "C:/tools/SvtAv1EncApp.exe"
+                "path": base_provider_path(&dir)
             }],
             "encoder_forks": [{
                 "id": "svt-av1-essential",
@@ -370,7 +371,8 @@ async fn a_fork_path_that_moves_falls_back_to_the_base_provider() {
         .clone()
         .expect("preparation handed the runner an encoder");
     assert_eq!(
-        encoder["SVTAV1"]["executable"], "C:/tools/SvtAv1EncApp.exe",
+        encoder["SVTAV1"]["executable"],
+        base_provider_path(&dir),
         "a saved path that no longer exists must fall back to the base provider"
     );
 
@@ -401,7 +403,7 @@ async fn a_reset_shipped_fork_falls_back_to_the_base_provider() {
         serde_json::json!({
             "custom_tools": [{
                 "kind": "svt-av1",
-                "path": "C:/tools/SvtAv1EncApp.exe"
+                "path": base_provider_path(&dir)
             }],
             "encoder_forks": [{
                 "id": "svt-av1-essential",
@@ -481,7 +483,8 @@ async fn a_reset_shipped_fork_falls_back_to_the_base_provider() {
         .clone()
         .expect("preparation handed the runner an encoder");
     assert_eq!(
-        encoder["SVTAV1"]["executable"], "C:/tools/SvtAv1EncApp.exe",
+        encoder["SVTAV1"]["executable"],
+        base_provider_path(&dir),
         "a reset build resolves on PATH, so preparation must use the base provider"
     );
 

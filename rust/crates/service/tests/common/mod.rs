@@ -518,6 +518,15 @@ pub(crate) fn project_dir() -> PathBuf {
     std::env::temp_dir().join(format!("av1ation-api-projects-{}", uuid::Uuid::new_v4()))
 }
 
+/// The base-provider path a test's settings document configures.
+///
+/// It is derived from the test's own data directory, so a fixture never names a path that
+/// exists on the machine running the suite. The file is not created: preparation uses the
+/// configured path verbatim when no located build exists.
+pub(crate) fn base_provider_path(dir: &Path) -> String {
+    dir.join("SvtAv1EncApp-base.exe").display().to_string()
+}
+
 /// Removes a test root once its background writers have stopped.
 ///
 /// A cancel is acknowledged before the event thread appends the run's terminal timeline

@@ -672,7 +672,10 @@ mod tests {
         // The scene is previewed before Parallel Encoder has run, so no table exists yet.
         // The retained document may also name one from a scratch directory that was cleaned.
         let dir = scratch("generate");
-        let document = svt_document(Some(800), "C:/gone/old-table.tbl");
+        // `scratch` wipes and recreates the directory, so this table cannot exist on the
+        // machine running the test.
+        let stale = dir.join("old-table.tbl").display().to_string();
+        let document = svt_document(Some(800), &stale);
         let encoder = prepared(&document, dir.to_str().expect("utf-8"))
             .expect("a photon-noise encoder is prepared");
         let table = match encoder.parameters().get("fgs-table") {
@@ -710,7 +713,8 @@ mod tests {
         // Reset clears the setting but leaves the option behind; encoding with it fails the
         // whole scene over a path that can never exist again.
         let dir = scratch("drop");
-        let document = svt_document(None, "C:/gone/old-table.tbl");
+        let stale = dir.join("old-table.tbl").display().to_string();
+        let document = svt_document(None, &stale);
         let encoder = prepared(&document, dir.to_str().expect("utf-8"))
             .expect("an encoder without photon noise is prepared");
         assert!(
