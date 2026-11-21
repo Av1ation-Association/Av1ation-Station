@@ -84,19 +84,20 @@ and their executables do not run from a writable install directory: a macOS bina
 inside `<Name>.app/Contents/MacOS`, and an AppImage binary lives in a read-only temporary
 mount.
 
-**Decision.** Portable mode stays an opt-in empty file named `portable`, resolved against
-the artifact the user downloaded rather than the running binary:
+**Decision.** Portable mode stays an opt-in file named `portable`, resolved against the
+artifact the user downloaded rather than the running binary:
 
 - Windows: the executable's directory (the extracted ZIP).
 - macOS: the directory holding the `.app` bundle. The ZIP ships the marker beside the
   bundle, outside its signature, and the data folder lands beside it on first run.
 - Linux: the AppImage runtime's `$APPIMAGE` directory. The AppImage cannot carry a sibling
-  file, so the user opts in by creating an empty `portable` file beside it. Without the
-  marker it keeps the platform app-data directory.
+  file, so the user opts in by creating a `portable` file beside it (empty is enough).
+  Without the marker it keeps the platform app-data directory.
 
 **Consequences.** `rust/desktop-shell/src/main.rs` owns the artifact-directory resolution
 and its tests; the service keeps deriving portable mode from the data root's parent, so no
-second flag crosses the boundary. `scripts/collect-release.mjs` writes the marker into the
-Windows ZIP and the macOS app ZIP, `scripts/release-package-check.mjs` checks both, and
+second flag crosses the boundary. `scripts/collect-release.mjs` writes the marker, with the
+portable instructions in that same file, into the Windows ZIP and the macOS app ZIP;
+`scripts/release-package-check.mjs` checks both and rejects a second `PORTABLE.txt` note.
 `docs/packaging.md` and `docs/releases.md` record the three forms. Packaged unzip-and-run
 checks remain pending, especially on macOS.

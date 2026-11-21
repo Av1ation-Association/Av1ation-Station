@@ -24,7 +24,7 @@ with the website.
 ## 1. Purpose and scope
 
 `/docs/` is end-user documentation for installing, configuring, running, and troubleshooting
-Av1ation Station. It explains the current `0.1.0-rc.3` pre-release, not a future product. It does
+Av1ation Station. It explains the current published pre-release, not a future product. It does
 not duplicate architecture, contracts, development setup, or contribution rules; a single
 “For contributors” page links to those repository documents.
 
@@ -62,20 +62,24 @@ work can be sequenced, but the release gate is the complete set.
 
 ### 2.1 Installation truth
 
-The root README and the install page are written from the same published-release catalogue:
-the current `0.1.0-rc.3` Windows, macOS arm64, and Linux downloads, labelled unsigned on
-Windows/Linux and ad-hoc signed on macOS, with the source build and GitHub Releases kept as
-fallback paths. When a stable release exists beside a SemVer-newer pre-release, both are
-selectable; an older pre-release is rejected. Both surfaces name the same assets, caveats,
-and fallback. Neither may claim a notarised or platform-trusted signature, a stable channel,
-or an updater that the manifest does not provide.
+The public install page is the single download surface. It projects the published-release
+catalogue into Windows, Linux, macOS, and Source tabs: the current Windows, macOS arm64, and
+Linux downloads, labelled unsigned on Windows/Linux and ad-hoc signed on macOS, with the
+source build and GitHub Releases kept as fallback paths. When a stable release exists beside
+a SemVer-newer pre-release, both are selectable; an older pre-release is rejected. The page
+must name the same assets, caveats, and fallback as the catalogue. It must not claim a
+notarised or platform-trusted signature, a stable channel, or an updater that the manifest
+does not provide.
 
-The install page projects that catalogue into Windows, Linux, macOS, and Source tabs. Each
-platform tab names its bundled assets first and its system-toolchain assets second. The macOS
-tab carries the DMG/app-ZIP downloads and states that Gatekeeper may block the ad-hoc build;
-it points at the source instructions only when the selected release has no macOS asset. The
-page then checks the toolchain, covers troubleshooting, and links to the first encode, so the
-two surfaces cannot drift into different instructions.
+The root README states the pre-release status and links to the install page for assets,
+platform requirements, checksums, and caveats. It does not repeat the asset list, so a
+release update changes one surface.
+
+The install page names its bundled assets first and its system-toolchain assets second. The
+macOS tab carries the DMG/app-ZIP downloads and states that Gatekeeper may block the ad-hoc
+build; it points at the source instructions only when the selected release has no macOS
+asset. The page then checks the toolchain, covers troubleshooting, and links to the first
+encode, so the page cannot drift from the catalogue.
 
 ### 2.2 Live-host gate
 

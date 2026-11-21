@@ -185,9 +185,9 @@ configuration and scratch file inside the extracted folder's `data` directory, s
 that folder removes the application and its data together.
 
 The macOS app ZIP carries the same marker beside the `.app`, so deleting the unzipped folder
-also removes its `data` directory. The AppImage is portable only when an empty `portable`
-file sits beside it; without that opt-in it uses the platform app-data directory, which must
-be removed separately.
+also removes its `data` directory. The AppImage is portable only when a `portable` file sits
+beside it; without that opt-in it uses the platform app-data directory, which must be
+removed separately.
 
 A Windows NSIS check measured an installed tree of 1,165.5 MiB over 8,931 files, with no
 helper process left after installation. On 2026-11-16, fresh bundled and system NSIS installs

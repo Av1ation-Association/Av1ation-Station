@@ -627,10 +627,10 @@ archive cannot collide with or enter the installer upload set. The Cargo
 intermediate; remove them with `npm run clean:outputs` after the archives exist. `dist/tools`
 is a staging input, not a release artifact.
 
-Portable mode is opt-in per launch artifact with an empty file named `portable`. When it is
-present the desktop host resolves `<artifact directory>/data` as the service's only data
-root, so projects, settings, logs, thumbnails, cache, VapourSynth configuration and scratch
-stay with the artifact. Removing that folder removes the data too.
+Portable mode is opt-in per launch artifact with a file named `portable`. When it is present
+the desktop host resolves `<artifact directory>/data` as the service's only data root, so
+projects, settings, logs, thumbnails, cache, VapourSynth configuration and scratch stay with
+the artifact. Removing that folder removes the data too.
 
 | Artifact | Marker location | Data root |
 | --- | --- | --- |
@@ -638,11 +638,11 @@ stay with the artifact. Removing that folder removes the data too.
 | macOS `.app.zip` | beside `<Name>.app` in the zip's wrapper folder | `<unzipped folder>/data` |
 | Linux AppImage | beside the `.AppImage`, created by the user | `<AppImage directory>/data` |
 
-The Windows ZIP and macOS app ZIP ship the marker. The AppImage cannot carry a file beside
-itself, so portable mode there is an explicit opt-in: create an empty `portable` file next
-to the AppImage. Without it the AppImage keeps the platform app-data directory. Opt in only
-when the AppImage sits in a writable directory, because the service has to create `data`
-beside it.
+The Windows ZIP and macOS app ZIP ship the marker, with the portable instructions in that
+same file. The AppImage cannot carry a file beside itself, so portable mode there is an
+explicit opt-in: create a `portable` file next to the AppImage (an empty one is enough).
+Without it the AppImage keeps the platform app-data directory. Opt in only when the AppImage
+sits in a writable directory, because the service has to create `data` beside it.
 
 The macOS host resolves the directory holding the `.app` bundle because the executable lives
 inside `Contents/MacOS`; the marker and `data` therefore stay outside the signed bundle and
@@ -652,9 +652,9 @@ path over the read-only temporary mount that holds the running executable.
 An installed MSI or NSIS build, a `.deb`, or a `.dmg` copy has no marker and continues to use
 the platform app-data directory. The marker is a file, not a directory, so an unrelated
 `portable` folder cannot switch an installed build into portable mode. The Windows package
-check lists each portable ZIP and fails if the marker is missing, and the macOS package check
-does the same for the app ZIP, so neither archive can pass while its data-root switch is
-absent.
+check lists each portable ZIP and fails unless it carries exactly one marker and no retired
+`PORTABLE.txt` note; the macOS package check does the same for the app ZIP, so neither
+archive can pass while its data-root switch is absent or duplicated.
 
 ### Measured sizes
 

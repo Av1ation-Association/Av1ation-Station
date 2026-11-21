@@ -205,21 +205,33 @@ function zipDirectory(source, destination) {
     run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", source, destination]);
 }
 
-function windowsPortableReadme(productName, version, variant) {
+/**
+ * The `portable` file is both the marker the host checks and the note a person reads after
+ * unzipping the archive. Keeping them in one file means the archive cannot ship a marker and
+ * a README that disagree about why portable mode is active.
+ */
+export function portableReadme({ platform, productName, version, variant = "bundled" }) {
+    const windows = platform === "windows";
     const toolchain =
         variant === "bundled"
             ? "The bundled toolchain lives in the tools folder beside the executable."
             : "This build uses the tools installed on this PC; it does not include a tools folder.";
-    return [
-        `${productName} ${version} - portable`,
+    const lines = [
+        `${productName} ${version} - portable${windows ? "" : " (macOS)"}`,
         "",
-        "Unzip this folder anywhere and run av1ation-desktop.exe.",
-        "The web folder must stay beside the executable.",
-        "The portable marker keeps projects, settings, thumbnails, logs, scratch and VapourSynth data in the data folder beside the executable. Delete this folder to remove them.",
-        toolchain,
-        "WebView2 Runtime is required; Windows 10 and 11 normally include it.",
+        `This file is the portable-mode marker. Keep it beside the ${windows ? "executable" : "app bundle"}; removing it returns the app to the platform data directory.`,
+        windows
+            ? "Unzip this folder anywhere and run av1ation-desktop.exe."
+            : `Unzip this folder anywhere and open ${productName}.app.`,
+        windows ? "The web folder must stay beside the executable." : null,
+        `Portable mode keeps projects, settings, thumbnails, logs, scratch and VapourSynth data in the data folder beside the ${windows ? "executable" : "app"}. Delete this folder to remove them.`,
+        windows
+            ? toolchain
+            : "This build is ad-hoc signed and not notarised; use the documented Gatekeeper override after verifying the SHA-256.",
+        windows ? "WebView2 Runtime is required; Windows 10 and 11 normally include it." : null,
         "",
-    ].join("\n");
+    ];
+    return lines.filter((line) => line !== null).join("\n");
 }
 
 function createWindowsPortable({ destination, productName, version, variant }) {
@@ -257,12 +269,11 @@ function createWindowsPortable({ destination, productName, version, variant }) {
             cpSync(nativeFfms2, join(appRoot, "ffms2.dll"));
         }
     }
-    // The host looks for this marker beside the executable and roots every service write in
-    // a sibling `data` directory. A README alone is documentation, not a launch mode.
-    writeFileSync(join(appRoot, "portable"), "");
+    // The host checks only that this file exists; its contents are the portable instructions.
+    // One file keeps the marker and the note from disagreeing.
     writeFileSync(
-        join(appRoot, "PORTABLE.txt"),
-        windowsPortableReadme(productName, version, variant),
+        join(appRoot, "portable"),
+        portableReadme({ platform: "windows", productName, version, variant }),
     );
 
     const zipName = `${productName}_${version}_${targetArch()}_portable.zip`;
@@ -275,17 +286,6 @@ function createWindowsPortable({ destination, productName, version, variant }) {
     return zipName;
 }
 
-function macPortableReadme(productName, version) {
-    return [
-        `${productName} ${version} - portable (macOS)`,
-        "",
-        `Unzip this folder anywhere and open ${productName}.app.`,
-        "The portable marker keeps projects, settings, thumbnails, logs, scratch and VapourSynth data in the data folder beside the app. Delete this folder to remove them.",
-        "This build is ad-hoc signed and not notarised; use the documented Gatekeeper override after verifying the SHA-256.",
-        "",
-    ].join("\n");
-}
-
 function createMacPortable({ artifact, destination, productName, version, variant }) {
     const stagingParent = join(releaseDir, releasePlatform(), "portable", variant);
     const stagingRoot = join(stagingParent, productName);
@@ -294,9 +294,12 @@ function createMacPortable({ artifact, destination, productName, version, varian
     cpSync(artifact.path, join(stagingRoot, artifact.name), { recursive: true });
     // The host resolves the directory holding the `.app`, so the marker has to be a sibling
     // of the bundle. Inside `Contents` it would put generated state in the signed tree and
-    // be lost on the next application update.
-    writeFileSync(join(stagingRoot, "portable"), "");
-    writeFileSync(join(stagingRoot, "PORTABLE.txt"), macPortableReadme(productName, version));
+    // be lost on the next application update. The marker carries the instructions too, so
+    // there is no second note to drift.
+    writeFileSync(
+        join(stagingRoot, "portable"),
+        portableReadme({ platform: "macos", productName, version }),
+    );
 
     const zipName = `${productName}_${version}_${targetArch()}.app.zip`;
     zipDirectory(stagingRoot, join(destination, zipName));

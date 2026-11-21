@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { matchesProduct } from "./collect-release.mjs";
+import { matchesProduct, portableReadme } from "./collect-release.mjs";
+
+describe("portable archive note", () => {
+    it("puts the Windows marker and instructions in one file", () => {
+        const note = portableReadme({
+            platform: "windows",
+            productName: "Av1ation Station",
+            version: "0.1.0",
+            variant: "bundled",
+        });
+        expect(note).toContain("This file is the portable-mode marker");
+        expect(note).toContain("av1ation-desktop.exe");
+        expect(note).toContain("bundled toolchain");
+        expect(note).not.toContain("PORTABLE.txt");
+    });
+
+    it("describes the app bundle and Gatekeeper on macOS", () => {
+        const note = portableReadme({
+            platform: "macos",
+            productName: "Av1ation Station",
+            version: "0.1.0",
+        });
+        expect(note).toContain("Av1ation Station.app");
+        expect(note).toContain("Gatekeeper");
+        expect(note).not.toContain("PORTABLE.txt");
+    });
+});
 
 describe("release artifact selection", () => {
     it("separates a stable version from a prerelease that shares its prefix", () => {

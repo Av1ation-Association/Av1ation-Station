@@ -154,11 +154,11 @@ function compressedSizes(variant) {
     };
 }
 
-/// A portable archive carries the empty `portable` marker beside the launch artifact.
-/// Windows ships a ZIP rooted at the executable's folder; macOS ships one rooted at the
-/// folder holding the `.app`. Check the marker here as well as in `collect-release`, so a
-/// staging copy that loses the empty file fails the package gate instead of silently
-/// writing to app-data at run time.
+/// A portable archive carries exactly one `portable` file beside the launch artifact. The
+/// file is both the data-root marker and the user-facing portable note. Windows ships a ZIP
+/// rooted at the executable's folder; macOS ships one rooted at the folder holding the
+/// `.app`. Check the marker here as well as in `collect-release`, so a staging copy cannot
+/// lose the marker or regress to a second `PORTABLE.txt` note that disagrees with it.
 function assertPortableMarker(directory, pattern = /portable\.zip$/iu, label = "portable ZIP") {
     const portable = walkFiles(directory).find((path) => pattern.test(path));
     if (portable === undefined) {
@@ -167,8 +167,14 @@ function assertPortableMarker(directory, pattern = /portable\.zip$/iu, label = "
     const listing = run("tar", ["-tf", portable]);
     requireSuccess(listing, `list ${label} ${portable}`);
     const names = (listing.stdout ?? "").split(/\r?\n/u).map((name) => name.replaceAll("\\", "/"));
-    if (!names.some((name) => /(^|\/)portable$/u.test(name))) {
-        throw new Error(`${label} ${portable} does not carry the data-root marker`);
+    const markers = names.filter((name) => /(^|\/)portable$/u.test(name));
+    if (markers.length !== 1) {
+        throw new Error(
+            `${label} ${portable} must carry exactly one portable marker (found ${String(markers.length)})`,
+        );
+    }
+    if (names.some((name) => /(^|\/)PORTABLE\.txt$/iu.test(name))) {
+        throw new Error(`${label} ${portable} carries the retired PORTABLE.txt note`);
     }
 }
 

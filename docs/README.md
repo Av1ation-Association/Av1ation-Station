@@ -121,8 +121,9 @@ not current behaviour. Current delivery status lives only in [progress.md](progr
 ## Conventions
 
 - **Status has one owner.** [progress.md](progress.md) is the only place that states phase
-  delivery status. The root README may state release availability as part of installation
-  and links here for phase status. Phase plans under `docs/plan/` are historical records:
+  delivery status. The root README may state pre-release availability and link to the public
+  download page; it links here for phase status. Phase plans under `docs/plan/` are historical
+  records:
   they keep tasks, exit criteria, and checkboxes as evidence, and open with a banner pointing
   to `progress.md`. Domain documents keep durable technical facts and limitations; they do
   not restate delivery status. `npm run check:docs` rejects a status block in the root README

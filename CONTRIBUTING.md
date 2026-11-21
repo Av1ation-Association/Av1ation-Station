@@ -252,8 +252,9 @@ artifact. The manifest stages upload files in `dist/release/assets/`; when the a
 is present it also writes the single `Av1ation-Station_<version>_metadata.zip` there. Upload
 every file from that flat directory, not the nested build folders. The portable form is a
 ZIP on Windows, a zipped `.app` on macOS, and the AppImage on Linux. The Windows ZIP and the
-macOS app ZIP ship the `portable` marker beside the executable or bundle; the AppImage is
-opted into portable mode by creating that file beside it.
+macOS app ZIP ship the `portable` marker beside the executable or bundle, with the portable
+instructions in that same file; the AppImage is opted into portable mode by creating that
+file beside it.
 
 Both wrappers default to the host's installer types: `msi`/`nsis` on Windows, `dmg`/`app` on
 macOS, and `deb`/`rpm`/`appimage` on Linux. Set `AV1ATION_BUNDLES` for another set.
