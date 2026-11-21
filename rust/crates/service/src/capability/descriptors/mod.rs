@@ -572,7 +572,7 @@ mod tests {
         let ParameterKind::Choice(spec) = &tune.kind else {
             panic!("tune is a labeled numeric choice");
         };
-        // `--tune` accepts 0-5 in the bundled 4.3.0 build; option 5 is VMAF.
+        // `--tune` accepts 0-5 in the bundled 4.3.1 build; option 5 is VMAF.
         assert_eq!(spec.options.len(), 6);
         assert_eq!(spec.options[0].label, "VQ");
         assert_eq!(spec.options[5].label, "VMAF");

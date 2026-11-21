@@ -26,13 +26,13 @@ export default async function build({ target, workDir, outputDir, component }) {
         buildDir: build,
         prefix: join(workDir, "prefix"),
         configureArgs,
-        target: "aomenc",
+        target: "avmenc",
     });
-    const name = executable(target, "aomenc");
+    const name = executable(target, "avmenc");
     const binary = requireFile(
         build,
         (path) => path.endsWith(`/${name}`) || path.endsWith(`\\${name}`),
         name,
     );
-    stageFile(binary, outputDir, `bin/${executable(target, "avmenc")}`);
+    stageFile(binary, outputDir, `bin/${name}`);
 }

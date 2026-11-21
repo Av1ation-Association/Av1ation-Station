@@ -1,6 +1,6 @@
 {
     "schema_version": 1,
-    "revision": "2026.11.1",
+    "revision": "2026.11.2",
     "components": [
         {
             "id": "vapoursynth",
@@ -103,14 +103,14 @@
         },
         {
             "id": "encoder:svt-av1",
-            "version": "4.3.0",
+            "version": "4.3.1",
             "license": "BSD-3-Clause-Clear",
             "provides": ["encode:svt-av1"],
             "source": {
                 "kind": "git",
                 "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                "tag": "v4.3.0",
-                "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe"
+                "tag": "v4.3.1",
+                "commit": "462771f87694e959cc1d3f9addde23d7015662e3"
             },
             "build": { "recipe": "packaging/recipes/svt-av1.mjs" },
             "artifacts": {
@@ -157,14 +157,14 @@
         },
         {
             "id": "encoder:avm",
-            "version": "1.0.0",
+            "version": "15.0.0",
             "license": "BSD-3-Clause",
             "provides": ["encode:avm"],
             "source": {
                 "kind": "git",
                 "url": "https://aomedia.googlesource.com/avm",
-                "tag": "research-v1.0.0",
-                "commit": "0709d086b115a90c581082349a5f75c99638d4b0"
+                "tag": "research-v15.0.0",
+                "commit": "917ddae7db6d340b96246cf337b319dbd9cf98a7"
             },
             "build": { "recipe": "packaging/recipes/avm.mjs" },
             "artifacts": {
@@ -231,14 +231,14 @@
         },
         {
             "id": "ffmpeg",
-            "version": "9.0.2",
+            "version": "9.1",
             "license": "LGPL-2.1-or-later",
             "provides": ["mux:ffmpeg", "encode:ffmpeg"],
             "source": {
                 "kind": "git",
                 "url": "https://github.com/FFmpeg/FFmpeg",
-                "tag": "n9.0.2",
-                "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+                "tag": "n9.1",
+                "commit": "74e4393595cf2b5857f0da925c4e0dd74ea306e5"
             },
             "build": {
                 "recipe": "packaging/recipes/ffmpeg.mjs",
