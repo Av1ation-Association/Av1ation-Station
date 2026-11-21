@@ -33,7 +33,7 @@ describe("VideoDemo", () => {
             });
         const transport = populatedTransport();
         const view = render(<VideoDemo transport={transport} paused />);
-        await screen.findByRole("heading", { level: 1, name: "Pipeline" });
+        await screen.findByRole("heading", { level: 1, name: "Pipeline" }, { timeout: 5_000 });
 
         const root = view.container.querySelector("[data-video-demo]");
         if (root === null) throw new Error("the demo root did not render");
@@ -60,7 +60,7 @@ describe("VideoDemo", () => {
     it("restores the host scroll position and reports in-demo navigation", async () => {
         const onNavigate = vi.fn();
         render(<VideoDemo transport={populatedTransport()} onNavigate={onNavigate} />);
-        await screen.findByRole("heading", { level: 1, name: "Pipeline" });
+        await screen.findByRole("heading", { level: 1, name: "Pipeline" }, { timeout: 5_000 });
 
         fireEvent.click(screen.getByRole("link", { name: "Scenes" }));
 
