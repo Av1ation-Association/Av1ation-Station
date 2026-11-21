@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { useEncoders } from "@av1ation/api";
 import type { EncoderDescriptor, ParameterDescriptor } from "@av1ation/contracts";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, ChevronDown, Copy, Plus, Search } from "lucide-react";
@@ -16,18 +15,13 @@ import {
     ENCODER_CHOICES,
     buildDocument,
     commandPreview,
-    forkMarker,
-    forkVariant,
-    hasField,
-    hasForkMarker,
-    isForkMarker,
     nullableNumber,
     passCount,
     record,
-    sameBuildPath,
-    selectedBody,
     variantSchema,
 } from "./encoder-document";
+import { encoderChoiceDocument } from "./encoder-selection";
+import { useEncoderSelection } from "./useEncoderSelection";
 import { Sheet } from "../../shared/Sheet";
 import { Switch } from "../../shared/Switch";
 import {
@@ -36,7 +30,6 @@ import {
     buildOption,
     canonicalOf,
     defaultValue,
-    mergeDescriptor,
     optionName,
     startingValue,
     withOptionValue,
@@ -120,70 +113,25 @@ export function EncoderEditor({
     /** Whose encoder this is: a project default, a template, a video's sequence, or one scene. */
     scope?: DocumentScope | "scene";
 }) {
-    const encoders = useEncoders();
-    const { variant, body } = selectedBody(value);
-    const choice = ENCODER_CHOICES.find((entry) => entry.variant === variant);
-    // A saved build is another provider of a base encoder. A located build is matched by
-    // the path the document runs; a pathless one by the marker that keeps its identity.
-    const forks = useMemo(
-        () => (encoders.data ?? []).filter((entry) => entry.fork && forkVariant(entry) !== null),
-        [encoders.data],
-    );
-    const bodyExecutable = typeof body.executable === "string" ? body.executable : null;
-    const options = record(body.options);
-    const visibleOptions = Object.entries(options).filter(
-        ([name, parameter]) => !isForkMarker(name, parameter),
-    );
-    const selectedFork =
-        forks.find((entry) => forkVariant(entry) === variant && hasForkMarker(options, entry.id)) ??
-        forks.find(
-            (entry) =>
-                forkVariant(entry) === variant && sameBuildPath(entry.executable, bodyExecutable),
-        );
-    // A marker can outlive the saved row it names. The document still selects a build, so
-    // the screen has to say that the build is gone rather than silently showing its base.
-    // That claim needs a loaded catalogue: absent data is not evidence of a deletion.
-    const marker = forkMarker(options);
-    const missingFork = marker !== null && encoders.isSuccess && selectedFork === undefined;
-    const base = selectedFork?.base ?? choice?.base;
+    const { encoders, selection } = useEncoderSelection(value);
+    const {
+        variant,
+        body,
+        options,
+        visibleOptions,
+        choice,
+        forks,
+        selectedFork,
+        marker,
+        missingFork,
+        descriptors,
+        catalogue,
+        buildLabel,
+        forkWarning,
+        executable,
+        available,
+    } = selection;
     const schema = variantSchema(root, node, variant);
-    const builtIn = useMemo(
-        () =>
-            (encoders.data ?? []).find(
-                (entry) => !entry.fork && (entry.id === base || entry.base === base),
-            ),
-        [encoders.data, base],
-    );
-    const descriptors = selectedFork ?? builtIn;
-    // A build reports the flags its own binary accepts, which may include ones the base
-    // catalogue does not know. The base's descriptions still label the flags both share.
-    const catalogue = useMemo(() => {
-        const merged = new Map<string, ParameterDescriptor>();
-        for (const [canonical, descriptor] of Object.entries(builtIn?.parameters ?? {})) {
-            merged.set(canonical, descriptor);
-        }
-        for (const [canonical, descriptor] of Object.entries(selectedFork?.parameters ?? {})) {
-            merged.set(canonical, mergeDescriptor(merged.get(canonical), descriptor) ?? descriptor);
-        }
-        return merged;
-    }, [builtIn, selectedFork]);
-    const buildLabel = selectedFork?.label ?? choice?.label ?? base ?? "this encoder";
-    const forkWarning = missingFork
-        ? {
-              title: "The build this project selected is no longer saved.",
-              body: "Runs fall back to the base encoder's provider on PATH. Choose an encoder to clear the old selection.",
-          }
-        : selectedFork !== undefined && !selectedFork.executable
-          ? {
-                title: `${selectedFork.label} has no executable yet.`,
-                body: "Runs fall back to the base encoder's provider on PATH, so this build's flags may not apply.",
-            }
-          : selectedFork !== undefined && !selectedFork.available
-            ? {
-                  title: `${selectedFork.label} is not at its saved path.`,
-                  body: "Runs fall back to the base encoder's provider on PATH until the build is located again.",
-              }
-            : null;
     const [addOpen, setAddOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [parameterSearch, setParameterSearch] = useState("");
@@ -231,28 +179,7 @@ export function EncoderEditor({
         ) {
             return;
         }
-        const descriptor = (encoders.data ?? []).find(
-            (candidate) =>
-                !candidate.fork && (candidate.id === entry.base || candidate.base === entry.base),
-        );
-        const defaults = record(descriptor?.default)[entry.variant];
-        const next = { ...record(defaults) };
-        // The previous build belongs to the previous encoder, so it never carries over.
-        next.executable = null;
-        next.options = record(next.options);
-        if (hasField(entry.variant, "pass") && next.pass === undefined) {
-            next.pass = { All: 1 };
-        }
-        if (hasField(entry.variant, "append_color_data") && next.append_color_data === undefined) {
-            next.append_color_data = true;
-        }
-        if (hasField(entry.variant, "ffmpeg_filter") && next.ffmpeg_filter === undefined) {
-            next.ffmpeg_filter = null;
-        }
-        if (hasField(entry.variant, "photon_noise") && next.photon_noise === undefined) {
-            next.photon_noise = null;
-        }
-        onChange({ [entry.variant]: next });
+        onChange({ [entry.variant]: encoderChoiceDocument(entry, encoders.data) });
     };
 
     /** Start the project from a saved build, executable and custom flags included. */
@@ -288,14 +215,12 @@ export function EncoderEditor({
                       head: "The encoder every scene is encoded with. A video or a scene can choose another.",
                       foot: "A video or an individual scene can override this encoder. Builds from Settings → Encoders appear in the same list.",
                   };
-    const executable = typeof body.executable === "string" ? body.executable : null;
     const photon =
         body.photon_noise === null || body.photon_noise === undefined
             ? null
             : record(body.photon_noise);
     const colour = body.append_color_data !== false;
     const filter = typeof body.ffmpeg_filter === "string" ? body.ffmpeg_filter : "";
-    const available = descriptors?.available === true;
     const command = commandPreview(executable, buildLabel, variant, options);
 
     const unset = [...catalogue.entries()]

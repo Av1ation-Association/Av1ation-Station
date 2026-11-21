@@ -119,6 +119,32 @@ export function sameBuildPath(
 }
 
 /**
+ * A starting body with the fields the variant requires, seeded only when it lacks them.
+ *
+ * A built-in encoder's default and a saved build's own document both start here, so the
+ * first save of either is already a complete document.
+ */
+export function withRequiredFields(
+    variant: string,
+    body: Record<string, unknown>,
+): Record<string, unknown> {
+    const next = { ...body };
+    if (hasField(variant, "pass") && next.pass === undefined) {
+        next.pass = { All: 1 };
+    }
+    if (hasField(variant, "append_color_data") && next.append_color_data === undefined) {
+        next.append_color_data = true;
+    }
+    if (hasField(variant, "ffmpeg_filter") && next.ffmpeg_filter === undefined) {
+        next.ffmpeg_filter = null;
+    }
+    if (hasField(variant, "photon_noise") && next.photon_noise === undefined) {
+        next.photon_noise = null;
+    }
+    return next;
+}
+
+/**
  * The engine encoder document a saved build starts from.
  *
  * The build's own document already names its executable and its starting options, so it is
@@ -133,25 +159,15 @@ export function buildDocument(
     if (variant === null) {
         return null;
     }
-    const body = { ...record(record(fork.default)[variant]) };
-    body.executable = fork.executable ?? null;
+    const body = withRequiredFields(variant, {
+        ...record(record(fork.default)[variant]),
+        executable: fork.executable ?? null,
+    });
     const options = record(body.options);
     if (!fork.executable) {
         options[forkOptionName(fork.id)] = { Bool: { prefix: "--", value: false } };
     }
     body.options = options;
-    if (hasField(variant, "pass") && body.pass === undefined) {
-        body.pass = { All: 1 };
-    }
-    if (hasField(variant, "append_color_data") && body.append_color_data === undefined) {
-        body.append_color_data = true;
-    }
-    if (hasField(variant, "ffmpeg_filter") && body.ffmpeg_filter === undefined) {
-        body.ffmpeg_filter = null;
-    }
-    if (hasField(variant, "photon_noise") && body.photon_noise === undefined) {
-        body.photon_noise = null;
-    }
     return { variant, body };
 }
 

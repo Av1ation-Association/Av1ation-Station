@@ -214,6 +214,14 @@ mapping, parameter filtering, three cards, and two sheets.
 | 7.15 | Extract the settings, parameter, and command-preview sections. | `EncoderEditor.tsx` is below 500 lines and each section owns one concern. | `wc -l`; existing encoder tests pass | 7.14 |
 | 7.16 | Keep the rendered behavior unchanged. | No visual redesign; all existing encoder tests pass without weakening assertions. | `npm run test:web -- packages/ui/src/features/encoders` | 7.14–7.15 |
 
+**Landed:** `encoder-selection.ts` resolves the selected build, the pathless/missing/deleted
+warnings, and the merged parameter catalogue from the document and catalogue;
+`useEncoderSelection` wraps the query and memoizes that resolution. `EncoderEditor` consumes
+the hook, and `encoder-selection.test.ts` covers marker selection and migration, path
+matching, loaded/unloaded deletion, pathless and missing warnings, catalogue merge,
+encoder-switch seeding, and marker writes without rendering the editor. 7.15 remains: the
+settings, parameter, and command-preview sections are still in the editor.
+
 **Do not** combine this with a styling pass. The split is behavior-preserving.
 
 ---
