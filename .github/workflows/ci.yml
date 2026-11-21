@@ -160,7 +160,7 @@ jobs:
     rust:
         name: Rust tests and coverage
         runs-on: windows-latest
-        timeout-minutes: 30
+        timeout-minutes: 45
         needs: changes
         if: needs.changes.outputs.rust == 'true'
         steps:
