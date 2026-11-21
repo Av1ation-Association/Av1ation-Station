@@ -727,8 +727,41 @@ async function validateWindowsVariant(variant) {
     }
 }
 
+/// The AppImage's VapourSynth core is copied to usr/lib, but its dlopened filter libraries
+/// are not DT_NEEDED dependencies, so linuxdeploy misses them unless the release config maps
+/// them explicitly. Without these files the bundled app aborts before its first window.
+function assertAppImageFilters(directory) {
+    const appimage = walkFiles(directory).find((path) => /\.AppImage$/iu.test(path));
+    if (appimage === undefined) {
+        throw new Error(`no AppImage under ${directory}`);
+    }
+    const extractDir = mkdtempSync(join(tmpdir(), "av1ation-appimage-"));
+    try {
+        for (const name of [
+            "libvapoursynthfilters.so",
+            "libvapoursynthfilters_avx2.so",
+            "libvapoursynthfilters_zn4.so",
+        ]) {
+            requireSuccess(
+                run(appimage, ["--appimage-extract", `usr/lib/${name}`], {
+                    cwd: extractDir,
+                }),
+                `extract ${name} from ${appimage}`,
+            );
+            if (!existsSync(join(extractDir, "squashfs-root", "usr", "lib", name))) {
+                throw new Error(`${appimage} does not carry usr/lib/${name}`);
+            }
+        }
+    } finally {
+        rmSync(extractDir, { recursive: true, force: true });
+    }
+}
+
 async function validateLinuxVariant(variant) {
     const directory = variantPaths(variant);
+    if (variant === "bundled") {
+        assertAppImageFilters(directory);
+    }
     const deb = walkFiles(directory).find((path) => /\.deb$/iu.test(path));
     if (deb === undefined) {
         throw new Error(`no deb package under ${directory}`);

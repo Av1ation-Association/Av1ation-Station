@@ -69,6 +69,37 @@ if (args[0] === "build" && !helpOrVersion && !args.includes("--config") && !args
         "../../dist/apps/desktop/": "web/",
         "../../dist/tools/": "tools/",
     };
+    if (process.platform === "linux") {
+        // The AppImage copies libvapoursynth.so.4 to usr/lib, but linuxdeploy does not see
+        // the dlopened filter libraries beside it. Without these three files the core
+        // aborts at startup with "Failed to load ... libvapoursynthfilters.so".
+        const filterRoot = join(stagedTools, "python/lib/python3.14/site-packages/vapoursynth");
+        const filters = {
+            "/usr/lib/libvapoursynthfilters.so": "libvapoursynthfilters.so",
+            "/usr/lib/libvapoursynthfilters_avx2.so": "libvapoursynthfilters_avx2.so",
+            "/usr/lib/libvapoursynthfilters_zn4.so": "libvapoursynthfilters_zn4.so",
+        };
+        const appimageFiles = {};
+        for (const [destination, name] of Object.entries(filters)) {
+            const source = join(filterRoot, name);
+            if (!existsSync(source)) {
+                console.error(`The staged VapourSynth filter is missing: ${source}`);
+                process.exit(1);
+            }
+            appimageFiles[destination] =
+                `../../dist/tools/python/lib/python3.14/site-packages/vapoursynth/${name}`;
+        }
+        config.bundle.linux = {
+            ...config.bundle.linux,
+            appimage: {
+                ...config.bundle.linux?.appimage,
+                files: {
+                    ...config.bundle.linux?.appimage?.files,
+                    ...appimageFiles,
+                },
+            },
+        };
+    }
     if (process.platform === "win32") {
         const nativeFfms2 = join(stagedTools, "lib", "ffms2.dll");
         if (!existsSync(nativeFfms2)) {

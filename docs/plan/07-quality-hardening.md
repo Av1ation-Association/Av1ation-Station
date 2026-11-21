@@ -103,7 +103,7 @@ silently expanding this phase.
 
 ### Entry
 
-- [ ] Phase 6 is closed, or every remaining item is explicitly deferred with a reason.
+- [x] Phase 6 is closed, or every remaining item is explicitly deferred with a reason.
 - [ ] The current release-candidate baseline is tagged or otherwise identified.
 - [ ] The audit report is accepted as the Phase 7 baseline.
 - [ ] No feature branch is mid-merge against the encoder files.
@@ -345,7 +345,8 @@ and real-encode suites are the recorded functional evidence.
 
 **Landed (7.30):** the Phase 7 row is complete and the release-readiness text names the
 remaining stable gate: Phase 6 backlog closure or per-item deferral, owned by the repository
-owner. The exit criteria and definition of done are fully checked; no stable tag was created
+owner. The Phase 6 close-out (2026-11-21) closes all 39 items, including the fresh-build-
+verified R4 AppImage filter fix, with three P2 post-stable checks; no stable tag was created
 or moved.
 
 ---
