@@ -157,14 +157,14 @@
         },
         {
             "id": "encoder:avm",
-            "version": "15.0.0",
+            "version": "1.0.0",
             "license": "BSD-3-Clause",
             "provides": ["encode:avm"],
             "source": {
                 "kind": "git",
-                "url": "https://aomedia.googlesource.com/avm",
-                "tag": "research-v15.0.0",
-                "commit": "917ddae7db6d340b96246cf337b319dbd9cf98a7"
+                "url": "https://github.com/AOMediaCodec/avm",
+                "tag": "v1.0.0",
+                "commit": "966a7d7cd6fcf60360caf5dc413b2aeeb65e144d"
             },
             "build": { "recipe": "packaging/recipes/avm.mjs" },
             "artifacts": {
