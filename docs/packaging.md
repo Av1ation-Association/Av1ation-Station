@@ -458,6 +458,13 @@ invalidate aomenc, and a cache hit is a directory copy rather than a compile. Th
 writes the key into `component.json` only after verifying every artifact claimed by the
 manifest; a stale or partial directory is rebuilt instead of trusted.
 
+`encoder:avm` also keeps a ccache directory at `dist/toolchain-ccache/<target>`, restored
+under a per-target rolling key that does not include the recipe. Its TFLite and XNNPACK
+sources change far less often than AVM itself, so a version bump reuses those objects even
+though the component cache key changed. The recipe bounds its build parallelism: the
+default job count exhausts the Linux runner's memory and thrashes the 7 GB macOS runner on
+the largest units.
+
 | Job | Runs | Gate |
 | --- | --- | --- |
 | `validate` | manifest shape, immutable source refs, recipe presence, recipe syntax | every push that touches packaging |

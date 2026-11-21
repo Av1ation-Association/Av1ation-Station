@@ -100,12 +100,34 @@ jobs:
                   key="$(node scripts/toolchain-build.mjs --target "$TARGET" --component "$COMPONENT" --print-cache-key)"
                   EXPECTED_CACHE_KEY="$key" node scripts/toolchain-cache-check.mjs
 
+            # The component cache key includes the recipe, so it cannot survive a recipe
+            # change. The compiler cache can: most AVM bumps leave the vendored TFLite and
+            # XNNPACK sources untouched.
+            - name: Configure the AVM compiler cache
+              if: matrix.id == 'encoder:avm' && runner.os != 'Windows' && steps.cache-check.outcome != 'success'
+              shell: bash
+              run: |
+                  {
+                    echo "CCACHE_DIR=$GITHUB_WORKSPACE/dist/toolchain-ccache/${{ matrix.target }}"
+                    echo "CCACHE_COMPILERCHECK=content"
+                    echo "CCACHE_MAXSIZE=1G"
+                  } >> "$GITHUB_ENV"
+
+            - name: Restore the AVM compiler cache
+              if: matrix.id == 'encoder:avm' && runner.os != 'Windows' && steps.cache-check.outcome != 'success'
+              uses: actions/cache@v4
+              with:
+                  path: dist/toolchain-ccache/${{ matrix.target }}
+                  key: avm-ccache-${{ matrix.target }}-${{ github.run_id }}
+                  restore-keys: |
+                      avm-ccache-${{ matrix.target }}-
+
             - name: Install Linux build tools
               if: runner.os == 'Linux' && steps.cache-check.outcome != 'success'
               run: |
                   sudo apt-get update
                   sudo apt-get install -y --no-install-recommends \
-                    build-essential cmake ninja-build meson nasm yasm pkg-config \
+                    build-essential cmake ninja-build meson nasm yasm pkg-config ccache \
                     autoconf automake libtool ruby rake unzip \
                     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
                     libogg-dev libvorbis-dev libflac-dev \
@@ -117,7 +139,7 @@ jobs:
             - name: Install macOS build tools
               if: runner.os == 'macOS' && steps.cache-check.outcome != 'success'
               run: |
-                  brew install cmake ninja meson nasm yasm pkg-config autoconf automake libtool ruby ffmpeg \
+                  brew install cmake ninja meson nasm yasm pkg-config ccache autoconf automake libtool ruby ffmpeg \
                     libogg libvorbis flac
                   if [[ "${{ matrix.id }}" == "mkvmerge" ]]; then
                     brew install boost gmp fmt pugixml nlohmann-json utf8cpp qtbase docbook-xsl
