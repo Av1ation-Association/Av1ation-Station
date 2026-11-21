@@ -11,8 +11,8 @@ preparation, so a build located after a project selected it runs its own binary;
 explicit `fork_id` field (7.6/7.7) is deferred to the stable window under the migration
 rule below. The encoder-editor split (7.14–7.16) is complete: selection resolution is a
 tested model module and the editor composes four sections. Workstream D (7.17–7.20), 7.21–7.22, and the
-7.23–7.25 documentation items are closed or deferred; the release proof (7.26–7.30)
-remains. This phase follows Phase 6 and precedes the first stable tag. It is a
+7.23–7.25 documentation items are closed or deferred; 7.26 is closed, and the browser
+and real-encode proof (7.27–7.30) remains. This phase follows Phase 6 and precedes the first stable tag. It is a
 hardening phase, not a feature phase.
 
 **Goal:** make the repository’s quality claims true again, remove the maintainability
@@ -113,7 +113,7 @@ silently expanding this phase.
 - [ ] All P0 and P1 tasks are closed.
 - [ ] P2 tasks are closed or deferred in this plan with a reason.
 - [ ] `npm run check:static`, `npm run check:evidence`, and `npm run check:test-inventory` pass.
-- [ ] `npm run verify` passes.
+- [x] `npm run verify` passes.
 - [ ] `npm run test:e2e` passes; `npm run test:real-encode` passes where the environment is
       available, or its limitation is recorded.
 - [ ] The route matrix and `docs/service.md` are current.
@@ -292,6 +292,16 @@ fan-out, and derived state. `backend.md` keeps topology and ownership, service s
 persistence, logging, errors, and preflight, with §3 and §5 as pointers so existing section
 anchors survive. `check-routes` scans both backend and API prose, and the docs index lists
 both pages.
+
+**Landed (7.26):** `npm run verify` passes end to end — static checks, 1,318 web tests in
+200 files with the frontend coverage policy and the 219-check inventory, and the Rust suite
+plus coverage (engine 74.12%, service 82.84%). The gate exposed two real defects, both
+fixed: `ProjectChunkImpact` had no boundary fixture since `9be8807`, and a failed preview
+scene could answer before removing its decoder session, letting the next scene reserve a
+dying graph; the session is now forgotten before the failure reply. It also exposed a
+loading race in the `VideoDemo` test, which now allows the same five seconds as its
+navigation wait. The first run hit a transient `link.exe` `STATUS_DLL_INIT_FAILED`; a
+clean rerun passed. The regenerated `docs/test-inventory.md` is part of the evidence.
 
 ---
 
