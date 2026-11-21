@@ -245,7 +245,9 @@ fn run_session(
                 }
                 Err(message) => {
                     // An input that cannot open will not open for the next scene either;
-                    // answer this one and leave the pool so a fixed script gets a new try.
+                    // leave the pool before answering so a fixed script gets a new try and
+                    // the next scene cannot reserve the session that is about to exit.
+                    decoders.forget(&key, session_id);
                     let _ = job.reply.send(Err(message));
                     break;
                 }
@@ -266,6 +268,12 @@ fn run_session(
         };
         // The encoder owns its failures; only the graph can make the session unusable.
         let keep = session.as_ref().is_some_and(|opened| opened.is_usable());
+        if !keep {
+            // Remove the session before answering: the caller may start the next scene as
+            // soon as it sees this error, and it must open a new graph rather than reserve
+            // the one that is about to exit.
+            decoders.forget(&key, session_id);
+        }
         let _ = job.reply.send(result);
         if !keep {
             break;
