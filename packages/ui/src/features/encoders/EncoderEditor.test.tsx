@@ -605,6 +605,81 @@ it("enables photon noise with its required ISO and opens the coefficient sheet",
     expect(await screen.findByRole("dialog", { name: /coefficients/iu })).toBeTruthy();
 });
 
+it("copies the previewed command and reports a copy failure", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+    });
+    mount();
+    await screen.findByRole("heading", { name: "Parameters" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview command" }));
+    const preview = await screen.findByRole("dialog", { name: "Preview command" });
+    fireEvent.click(within(preview).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("x265"));
+
+    writeText.mockRejectedValueOnce(new Error("clipboard denied"));
+    fireEvent.click(within(preview).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+});
+
+it("edits each photon field and applies custom coefficients", async () => {
+    const onChange = mount({
+        initial: {
+            SVTAV1: {
+                executable: null,
+                options: {},
+                pass: { All: 1 },
+                append_color_data: true,
+                ffmpeg_filter: null,
+                photon_noise: null,
+            },
+        },
+    });
+    await screen.findByRole("heading", { name: "Parameters" });
+    fireEvent.click(screen.getByRole("switch", { name: "Photon noise" }));
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ iso: 1600 }),
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Chroma ISO" }), {
+        target: { value: "800" },
+    });
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ chroma_iso: 800 }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Width" }), {
+        target: { value: "1920" },
+    });
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ width: 1920 }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Height" }), {
+        target: { value: "1080" },
+    });
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({ height: 1080 }),
+    );
+
+    const iso = screen.getByRole<HTMLInputElement>("textbox", { name: "ISO" });
+    fireEvent.change(iso, { target: { value: "" } });
+    expect(iso.value).toBe("");
+    fireEvent.blur(iso);
+    await waitFor(() => expect(iso.value).toBe("1600"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Custom coefficients" }));
+    const sheet = await screen.findByRole("dialog", { name: /coefficients/iu });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Customise" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Apply coefficients" }));
+    await waitFor(() =>
+        expect(bodyOf(onChange.mock.lastCall?.[0]).photon_noise).toMatchObject({
+            c_y: expect.any(Array),
+        }),
+    );
+    expect(screen.getByText("1 of 3 planes customised")).toBeTruthy();
+});
+
 it("disables every authoring control when the document is locked", async () => {
     mount({ locked: true });
     await screen.findByRole("heading", { name: "Parameters" });
