@@ -141,8 +141,8 @@ export function EncoderParametersSection({
         <>
             <section className="rounded-lg border border-line bg-surface">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-5">
-                    {/* The summary shrinks so the search and actions stay on the header's own
-                        line at a narrow width instead of dropping to a second row. */}
+                    {/* The summary shrinks first, so the search and actions keep their own
+                        line at narrow widths. */}
                     <div className="min-w-0 flex-1">
                         <h2 className="m-0 text-base font-semibold text-ink">Parameters</h2>
                         <p className="mt-0.5 mb-0 text-[11.5px] leading-relaxed text-ink-muted">

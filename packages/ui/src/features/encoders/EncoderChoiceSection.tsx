@@ -58,8 +58,8 @@ export function EncoderChoiceSection({
                 </p>
             </div>{" "}
             <div className="px-4 py-4 sm:px-5">
-                {/* Tops align, not bottoms: Workers is a two-row block, and bottom
-                    alignment pushed the encoder select and Passes sixty pixels down. */}
+                {/* The row aligns at the top: Workers can be two rows tall, and its
+                    height must not move the encoder select or Passes. */}
                 <div className="flex flex-wrap items-start gap-3">
                     <label className="block min-w-0 flex-1 basis-72">
                         <span className="flex items-center justify-between gap-3">

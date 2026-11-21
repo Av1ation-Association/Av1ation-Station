@@ -97,9 +97,8 @@ export function EncoderSettingsSection({
                     </p>
                 </div>
                 <div className="space-y-4 px-4 py-4 sm:px-5">
-                    {/* Two switches side by side, then the photon fields across the whole
-                        card. Holding the fields inside the switch's column left the left
-                        half of the section empty for the height of four inputs. */}
+                    {/* Colour and photon noise share a two-column row; the photon fields
+                        span the card so four inputs fit without a half-empty column. */}
                     <div className="grid items-start gap-x-8 gap-y-4 md:grid-cols-2">
                         <div className="flex min-w-0 items-start gap-2.5">
                             <Switch
