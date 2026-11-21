@@ -219,8 +219,15 @@ warnings, and the merged parameter catalogue from the document and catalogue;
 `useEncoderSelection` wraps the query and memoizes that resolution. `EncoderEditor` consumes
 the hook, and `encoder-selection.test.ts` covers marker selection and migration, path
 matching, loaded/unloaded deletion, pathless and missing warnings, catalogue merge,
-encoder-switch seeding, and marker writes without rendering the editor. 7.15 remains: the
-settings, parameter, and command-preview sections are still in the editor.
+encoder-switch seeding, and marker writes without rendering the editor.
+
+**Landed (7.15):** `EncoderEditor.tsx` is 161 lines and composes four sections that each
+own one concern: `EncoderChoiceSection` (encoder, passes, workers, fork warning, status),
+`EncoderSettingsSection` (colour, photon noise with its coefficient sheet, FFmpeg filter),
+`EncoderParametersSection` (set rows, catalogue search, and the Add parameter sheet), and
+`EncoderCommandPreview` (the copyable argv sheet). Each section owns the state it edits,
+so the editor keeps only the document patch helpers and the scope copy; the 15 existing
+`EncoderEditor` tests pass unchanged.
 
 **Do not** combine this with a styling pass. The split is behavior-preserving.
 
