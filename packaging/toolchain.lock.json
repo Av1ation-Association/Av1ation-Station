@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
-    "revision": "2026.11.1",
-    "manifest_sha256": "32497e1ec2807f5616e6d3ad84999616817796c96a2c2038698edbe3176ec0cf",
+    "revision": "2026.11.2",
+    "manifest_sha256": "89b5aedb6bc6f592a20ee2b103533a4aa113a0cf3fccc332774258bd1361e427",
     "targets": {
         "x86_64-pc-windows-msvc": {
             "components": {
@@ -8860,18 +8860,18 @@
                     }
                 },
                 "encoder:svt-av1": {
-                    "version": "4.3.0",
+                    "version": "4.3.1",
                     "license": "BSD-3-Clause-Clear",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "tag": "v4.3.0",
-                        "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe"
+                        "tag": "v4.3.1",
+                        "commit": "462771f87694e959cc1d3f9addde23d7015662e3"
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "06f22bfcbe822a72a6396656904a8a62f24f7aa5b47d68c9b52045c3b834b275",
-                        "size": 9290794,
+                        "sha256": "f67d67d82d1423a633f4ac98078e58db1cd846cfd4eb95478d738bcaecfee79e",
+                        "size": 9405840,
                         "install": "tools/bin/SvtAv1EncApp.exe"
                     }
                 },
@@ -8912,14 +8912,14 @@
                     "license": "BSD-3-Clause",
                     "source": {
                         "kind": "git",
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "tag": "research-v1.0.0",
-                        "commit": "0709d086b115a90c581082349a5f75c99638d4b0"
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "tag": "v1.0.0",
+                        "commit": "966a7d7cd6fcf60360caf5dc413b2aeeb65e144d"
                     },
                     "artifact": {
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "sha256": "58f11211270b2ebfd19112d77fb93bb76d8d1229937862920ebd9c4f808a2fb8",
-                        "size": 11572387,
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "sha256": "68cea02cbc78d950faf6acd2d5d353eca27b856593b00cf97fa300347e9dd088",
+                        "size": 12347623,
                         "install": "tools/bin/avmenc.exe"
                     }
                 },
@@ -8971,18 +8971,18 @@
                     }
                 },
                 "ffmpeg": {
-                    "version": "9.0.2",
+                    "version": "9.1",
                     "license": "LGPL-2.1-or-later",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "tag": "n9.0.2",
-                        "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+                        "tag": "n9.1",
+                        "commit": "74e4393595cf2b5857f0da925c4e0dd74ea306e5"
                     },
                     "artifact": {
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "sha256": "ea73fa03700720abbce2adb478be5054bae20129e1fb775a71b936bd23e3a103",
-                        "size": 22431232,
+                        "sha256": "c6b28412d585d085f91a29ec1f0be77bc44931165271acaac427ac03e2461e4f",
+                        "size": 23517184,
                         "install": "tools/bin/ffmpeg.exe"
                     }
                 },
@@ -9066,8 +9066,8 @@
                 }
             },
             "tree": {
-                "sha256": "a51af58e2f6d1bfb5f8be6d8c888022181664d5a46197558d17ddfc6c7af7952",
-                "size": 1167667540,
+                "sha256": "535b77d40d6ed01ba073fc65704ed1030fe9a928547c31692542a6955850c1e1",
+                "size": 1169643774,
                 "files": [
                     "tools/bin/aomenc.exe",
                     "tools/bin/avmenc.exe",
@@ -26771,18 +26771,18 @@
                     }
                 },
                 "encoder:svt-av1": {
-                    "version": "4.3.0",
+                    "version": "4.3.1",
                     "license": "BSD-3-Clause-Clear",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "tag": "v4.3.0",
-                        "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe"
+                        "tag": "v4.3.1",
+                        "commit": "462771f87694e959cc1d3f9addde23d7015662e3"
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "3cd59fa4de38d2588fb88b7004a09725b084c59a31bcba346b890b04fda54571",
-                        "size": 4132512,
+                        "sha256": "ddf967a8de562971e1cc1724c1cd4ef67bd3948c305b550cc11fbd7335328a3b",
+                        "size": 4101872,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
                 },
@@ -26823,14 +26823,14 @@
                     "license": "BSD-3-Clause",
                     "source": {
                         "kind": "git",
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "tag": "research-v1.0.0",
-                        "commit": "0709d086b115a90c581082349a5f75c99638d4b0"
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "tag": "v1.0.0",
+                        "commit": "966a7d7cd6fcf60360caf5dc413b2aeeb65e144d"
                     },
                     "artifact": {
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "sha256": "b5983c06ae2e65d9ea34e2525dd8a12404698b118415afbe85f827b1a94d9cee",
-                        "size": 5641880,
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "sha256": "2cde5d4ffa5ac5811b75dfd6765badcdbe74b1db4569ab7a40d41872ef558942",
+                        "size": 12423720,
                         "install": "tools/bin/avmenc"
                     }
                 },
@@ -26882,18 +26882,18 @@
                     }
                 },
                 "ffmpeg": {
-                    "version": "9.0.2",
+                    "version": "9.1",
                     "license": "LGPL-2.1-or-later",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "tag": "n9.0.2",
-                        "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+                        "tag": "n9.1",
+                        "commit": "74e4393595cf2b5857f0da925c4e0dd74ea306e5"
                     },
                     "artifact": {
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "sha256": "449ba4fe184d290660c60bdf31cb12f969e9c5329fba538a59bcef9842ac3507",
-                        "size": 21418216,
+                        "sha256": "d79572c8128d53a6bca3807ec1f99e3eb4bd285c0d51c0ad678f1f30dc249ecb",
+                        "size": 21795704,
                         "install": "tools/bin/ffmpeg"
                     }
                 },
@@ -26977,8 +26977,8 @@
                 }
             },
             "tree": {
-                "sha256": "9ffc7c70900335fc07f7817148a8fb913c5f280eb9b62d5fb31e10367c525dda",
-                "size": 815404804,
+                "sha256": "edf994015c56bfde38b7bc6268ca55b44a3299e5bfd8c826a3112473dea9f465",
+                "size": 822533492,
                 "files": [
                     "tools/bin/aomenc",
                     "tools/bin/avmenc",
@@ -47695,18 +47695,18 @@
                     }
                 },
                 "encoder:svt-av1": {
-                    "version": "4.3.0",
+                    "version": "4.3.1",
                     "license": "BSD-3-Clause-Clear",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "tag": "v4.3.0",
-                        "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe"
+                        "tag": "v4.3.1",
+                        "commit": "462771f87694e959cc1d3f9addde23d7015662e3"
                     },
                     "artifact": {
                         "url": "https://github.com/AOMediaCodec/SVT-AV1",
-                        "sha256": "60a48a3e45004c39fc12332561eb8575406899b41a3c8cc1ef2f1027ea8633cc",
-                        "size": 7945208,
+                        "sha256": "fc226e445b9b300a6f722a0194127c1912bbfcc137d3c5ca61997181d6bb917d",
+                        "size": 8036560,
                         "install": "tools/bin/SvtAv1EncApp"
                     }
                 },
@@ -47747,14 +47747,14 @@
                     "license": "BSD-3-Clause",
                     "source": {
                         "kind": "git",
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "tag": "research-v1.0.0",
-                        "commit": "0709d086b115a90c581082349a5f75c99638d4b0"
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "tag": "v1.0.0",
+                        "commit": "966a7d7cd6fcf60360caf5dc413b2aeeb65e144d"
                     },
                     "artifact": {
-                        "url": "https://aomedia.googlesource.com/avm",
-                        "sha256": "a5642aaceed471559012a902b41864afe68f3220b385845374a0456174505a3d",
-                        "size": 9861768,
+                        "url": "https://github.com/AOMediaCodec/avm",
+                        "sha256": "e7cf590b733c22eaafd03e7cbcba44c61e32dbaf53669ab0e4115ce6f122101c",
+                        "size": 17986752,
                         "install": "tools/bin/avmenc"
                     }
                 },
@@ -47806,18 +47806,18 @@
                     }
                 },
                 "ffmpeg": {
-                    "version": "9.0.2",
+                    "version": "9.1",
                     "license": "LGPL-2.1-or-later",
                     "source": {
                         "kind": "git",
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "tag": "n9.0.2",
-                        "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+                        "tag": "n9.1",
+                        "commit": "74e4393595cf2b5857f0da925c4e0dd74ea306e5"
                     },
                     "artifact": {
                         "url": "https://github.com/FFmpeg/FFmpeg",
-                        "sha256": "cb1c0e38694e0884fb252a5c4b001f2c091182015b4a3c65d83138fadeda38bf",
-                        "size": 29498024,
+                        "sha256": "5e6de79db381c4ceec385e0aa5e186c58641ddb2e3f339933a0b1a9a2ab1191b",
+                        "size": 29993640,
                         "install": "tools/bin/ffmpeg"
                     }
                 },
@@ -47901,8 +47901,8 @@
                 }
             },
             "tree": {
-                "sha256": "92a8b35814a087b1f0e420932c2f95988b78adc6cc8621ec997e1ee85a54f9df",
-                "size": 1588158660,
+                "sha256": "5e853e3154798c414f3fdc8418bb58700a343d9549d33539020ba0a5816485e2",
+                "size": 1596870612,
                 "files": [
                     "tools/bin/aomenc",
                     "tools/bin/avmenc",
