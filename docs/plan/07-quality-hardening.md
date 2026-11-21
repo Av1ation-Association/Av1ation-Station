@@ -11,8 +11,8 @@ preparation, so a build located after a project selected it runs its own binary;
 explicit `fork_id` field (7.6/7.7) is deferred to the stable window under the migration
 rule below. The encoder-editor split (7.14–7.16) is complete: selection resolution is a
 tested model module and the editor composes four sections. Workstream D (7.17–7.20), 7.21–7.22, and the
-7.23–7.25 documentation items are closed or deferred; 7.26 is closed, and the browser
-and real-encode proof (7.27–7.30) remains. This phase follows Phase 6 and precedes the first stable tag. It is a
+7.23–7.25 documentation items are closed or deferred; 7.26 and 7.27 are closed, and the
+real-encode and re-audit proof (7.28–7.30) remains. This phase follows Phase 6 and precedes the first stable tag. It is a
 hardening phase, not a feature phase.
 
 **Goal:** make the repository’s quality claims true again, remove the maintainability
@@ -302,6 +302,12 @@ dying graph; the session is now forgotten before the failure reply. It also expo
 loading race in the `VideoDemo` test, which now allows the same five seconds as its
 navigation wait. The first run hit a transient `link.exe` `STATUS_DLL_INIT_FAILED`; a
 clean rerun passed. The regenerated `docs/test-inventory.md` is part of the evidence.
+
+**Landed (7.27):** `npm run test:e2e` passes — the 17 app journeys (smoke, fake-engine
+completion, cancel and navigation, capability and LAN pairing, log export, security
+negatives, and the template, scene, settings, and encoder flows) plus the five chart
+gesture tests. The suite ran against the prebuilt service and desktop SPA; the three hosts
+started on ephemeral ports and were health-checked before any test ran.
 
 ---
 
