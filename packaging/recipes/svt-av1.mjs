@@ -17,7 +17,10 @@ export default async function build({ target, workDir, outputDir, component }) {
         configureArgs: [
             "-DBUILD_APPS=ON",
             "-DBUILD_SHARED_LIBS=OFF",
-            "-DENABLE_AVX512=ON",
+            // 4.3.1 guards its C-level AVX-512 code on EN_AVX512_SUPPORT alone, and the
+            // arm64 compiler accepts -mavx512f, so the x86 intrinsic headers would be
+            // pulled into an arm64 build.
+            target === "aarch64-apple-darwin" ? "-DENABLE_AVX512=OFF" : "-DENABLE_AVX512=ON",
             "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         ],
         target: "SvtAv1EncApp",
