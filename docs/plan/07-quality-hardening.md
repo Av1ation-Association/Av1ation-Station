@@ -2,7 +2,7 @@
 
 > **Planning record.** Current delivery status lives in [progress.md](../progress.md).
 
-**Status:** in progress. The baseline is green: `5a97680` reconciled the service map and
+**Status:** complete. The baseline is green: `5a97680` reconciled the service map and
 route matrix, `de3d3c0` formatted the remaining files, and 7.4/7.5 record the aggregate
 checks and the generated-artifact checklist. The baseline run also moved the chunk guard to
 `shared/`, so projects and videos no longer import scenes, and added the project config
@@ -11,8 +11,8 @@ preparation, so a build located after a project selected it runs its own binary;
 explicit `fork_id` field (7.6/7.7) is deferred to the stable window under the migration
 rule below. The encoder-editor split (7.14–7.16) is complete: selection resolution is a
 tested model module and the editor composes four sections. Workstream D (7.17–7.20), 7.21–7.22, and the
-7.23–7.25 documentation items are closed or deferred; 7.26 and 7.27 are closed, and the
-real-encode and re-audit proof (7.28–7.30) remains. This phase follows Phase 6 and precedes the first stable tag. It is a
+7.23–7.25 documentation items are closed or deferred; 7.26–7.30 are closed; the phase is
+complete. This phase follows Phase 6 and precedes the first stable tag. It is a
 hardening phase, not a feature phase.
 
 **Goal:** make the repository’s quality claims true again, remove the maintainability
@@ -25,7 +25,7 @@ suite, and the available real-encode suite pass; the route matrix and service ma
 and the re-audit has no P0 or P1 finding.
 
 **Audit record:** the 2026-11-18 whole-codebase quality audit is kept locally and is not
-committed to the repository.
+committed to the repository; the 2026-11-21 re-audit is recorded in the 7.29 note below.
 
 ---
 
@@ -110,15 +110,15 @@ silently expanding this phase.
 
 ### Exit
 
-- [ ] All P0 and P1 tasks are closed.
-- [ ] P2 tasks are closed or deferred in this plan with a reason.
-- [ ] `npm run check:static`, `npm run check:evidence`, and `npm run check:test-inventory` pass.
+- [x] All P0 and P1 tasks are closed.
+- [x] P2 tasks are closed or deferred in this plan with a reason.
+- [x] `npm run check:static`, `npm run check:evidence`, and `npm run check:test-inventory` pass.
 - [x] `npm run verify` passes.
-- [ ] `npm run test:e2e` passes; `npm run test:real-encode` passes where the environment is
+- [x] `npm run test:e2e` passes; `npm run test:real-encode` passes where the environment is
       available, or its limitation is recorded.
-- [ ] The route matrix and `docs/service.md` are current.
-- [ ] The re-audit has no P0 or P1 finding and no axis below B+.
-- [ ] `docs/progress.md` and release readiness record the evidence.
+- [x] The route matrix and `docs/service.md` are current.
+- [x] The re-audit has no P0 or P1 finding and no axis below B+.
+- [x] `docs/progress.md` and release readiness record the evidence.
 
 ---
 
@@ -284,7 +284,7 @@ editor's layout-history comments with invariants in the four split sections and
 `ParameterValueGrid`. **Deferred (7.25):** `use-preview-playback` is not split during Phase 7;
 the release work does not touch it, so the split stays a named follow-up.
 
-**Landed (7.21–7.22):** `docs/backend.md` is 554 lines. The HTTP surface moved to
+**Landed (7.21–7.22):** `docs/backend.md` is 556 lines. The HTTP surface moved to
 [api.md](../api.md) — naming and its exception list, inputs and scripts, preview media,
 and the generated route table, which `npm run routes` now writes there. Run semantics moved
 to [runs.md](../runs.md) — sequence catalogue, transitions, run loop, live data, progress
@@ -309,6 +309,45 @@ negatives, and the template, scene, settings, and encoder flows) plus the five c
 gesture tests. The suite ran against the prebuilt service and desktop SPA; the three hosts
 started on ephemeral ports and were health-checked before any test ran.
 
+**Landed (7.28):** `npm run test:real-encode` passes with 13 environment-gated tests and no
+skips: the 12 encode, script, and HTTP tests plus the long-GOP thumbnail regression. The
+run covered the four native/VapourSynth encodes, three script-module cache cases, four
+script-scene/noise cases, the thumbnail regression, and the HTTP create→encode→concatenate
+case. The `real-encode` doctor profile found FFmpeg with libx264, MKVToolNix, VapourSynth,
+BestSource, x264, SVT-AV1, MSVC, and sufficient disk and temp space, so no environment
+limitation applies.
+
+**Landed (7.29):** the post-hardening re-audit closes with **no P0 or P1 findings** and an
+overall **A− (91/100)**. Every axis is at least B+:
+
+| Axis | Baseline | Re-audit | Evidence |
+| --- | ---: | ---: | --- |
+| Developer experience | B+ (88) | A− (92) | Static and evidence gates pass; the docs index lists phases 6–7; backend/api/runs are 556/434/276 lines. |
+| Code | B (84) | A− (90) | `EncoderEditor.tsx` is 161 lines over four sections; fork tables compose base plus explicit differences; `use-preview-playback.ts` remains 1,015 lines as the named 7.25 deferral. |
+| API design | B+ (86) | A− (91) | Lockstep versioning is stated honestly; 96 paths and 118 methods; the route matrix and exception list are current. |
+| TDD | A− (91) | A− (92) | 1,318 web tests in 200 files, the 219-check inventory, 17 app plus 5 chart E2E tests, 13 real-encode tests, and 74.12%/82.84% coverage; a located-fork path regression was added. |
+| Domain modeling | A− (91) | A− (91) | Explicit build selection remains deferred (7.6/7.7); the one marker codec and lifecycle tests are documented. |
+
+The three P0 and five P1 baseline findings are closed: the static gate, service map, and
+route matrix pass; pathless and located build selection resolve through run preparation;
+fork catalogues no longer copy base rows; the editor is split; the API versioning claim is
+honest; and `backend.md` is 556 lines with the HTTP and run references split out. The
+layout-history comment and docs-index P2s are closed.
+
+**P2 deferrals (named):** route-test module extraction — `video.rs` is 2,974 lines (up
+from 1,925), `run.rs` 1,605, `settings.rs` 1,539, and `project.rs` 1,520; and
+`use-preview-playback.ts` at 1,015 lines (7.25). Both are maintainability follow-ups, not
+release gates.
+
+**Audit limits:** the re-audit is a code, docs, and gate review; it did not repeat the
+manual native-window visual checks or the weekly dependency and security scans. The browser
+and real-encode suites are the recorded functional evidence.
+
+**Landed (7.30):** the Phase 7 row is complete and the release-readiness text names the
+remaining stable gate: Phase 6 backlog closure or per-item deferral, owned by the repository
+owner. The exit criteria and definition of done are fully checked; no stable tag was created
+or moved.
+
 ---
 
 ## 10. Workstream F — Release proof and re-audit
@@ -320,7 +359,7 @@ release.
 | --- | --- | --- | --- | --- |
 | 7.26 | Run the complete local gate. | Static checks, web tests, Rust tests, and coverage pass. | `npm run verify` | 7.1–7.25 |
 | 7.27 | Run the browser journeys. | All current Playwright specs pass, including the chart and security-negative journeys. | `npm run test:e2e` | 7.26 |
-| 7.28 | Run the real-encode suite where the environment is available. | 12 environment-gated tests pass; a missing environment is recorded as a limitation, not a pass. | `npm run test:real-encode` | 7.27 |
+| 7.28 | Run the real-encode suite where the environment is available. | 13 environment-gated tests pass; a missing environment is recorded as a limitation, not a pass. | `npm run test:real-encode` | 7.27 |
 | 7.29 | Re-run the audit against the post-hardening tree. | No P0/P1 findings; every axis at least B+; overall at least A−. | New HTML report or appended section | 7.26–7.28 |
 | 7.30 | Update `docs/progress.md`, the Phase 7 row, and release readiness. | Status and evidence agree; the stable gate has a named owner. | Review | 7.29 |
 
@@ -385,11 +424,11 @@ flowchart LR
 
 ## 14. Definition of done
 
-- [ ] 7.1–7.10 closed.
+- [x] 7.1–7.5 and 7.8–7.10 closed; 7.6–7.7 explicitly deferred.
 - [x] 7.11–7.16 closed; `EncoderEditor.tsx` below 500 lines.
 - [x] 7.17–7.20 closed; API story is accurate.
 - [x] 7.21–7.25 closed or explicitly deferred.
-- [ ] 7.26–7.30 closed with evidence.
-- [ ] No P0/P1 audit finding remains.
-- [ ] The stable release can cite a green static gate, the full local verification, the E2E
+- [x] 7.26–7.30 closed with evidence.
+- [x] No P0/P1 audit finding remains.
+- [x] The stable release can cite a green static gate, the full local verification, the E2E
       result, and the real-encode result or its recorded limitation.

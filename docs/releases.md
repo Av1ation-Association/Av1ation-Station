@@ -6,8 +6,10 @@ lives in [progress.md](progress.md), and the toolchain contents and provider rul
 [packaging.md](packaging.md).
 
 The release gate is **open** for the RC channel: hosted package validation and a tag-driven
-workflow run pass. The first **stable** release also waits for the Phase 6 product backlog to
-be closed or explicitly deferred ([progress.md](progress.md), [plan/06-product-backlog.md](plan/06-product-backlog.md));
+workflow run pass. Phase 7 quality hardening is complete: the full local gate, the browser
+and real-encode suites, and an A− (91) re-audit are recorded in [progress.md](progress.md).
+The first **stable** release also waits for the Phase 6 product backlog to be closed or
+explicitly deferred ([progress.md](progress.md), [plan/06-product-backlog.md](plan/06-product-backlog.md));
 an RC is not blocked by that gate. `v0.1.0-rc.3` is published as a prerelease; no stable tag
 has been created or moved. Windows and Linux installs are validated. macOS is published
 **best-effort**: without a macOS host or certificate, its install, ad-hoc signing, and
@@ -368,10 +370,13 @@ before publishing; hand editing is expected and does not feed back into the mani
 
 ## Current gate
 
-The RC publication gate has passed. The first stable tag is not yet approved; it additionally
-waits for the Phase 6 backlog closure or per-item deferral recorded in
-[progress.md](progress.md). A local stable `0.1.0` check has installed the bundled MSI in
-its logged `INSTALLDIR`, launched it, passed `/api/health`, completed a real eight-sequence
+The RC publication gate has passed. Phase 7 quality hardening is complete: the full local
+gate, 17 app plus five chart E2E journeys, 13 environment-gated real-encode tests, and the
+A− (91) re-audit are recorded in [progress.md](progress.md). The first stable tag is not yet
+approved; it additionally waits for the Phase 6 backlog closure or per-item deferral recorded
+in [progress.md](progress.md). The stable gate is owned by the repository owner. A local
+stable `0.1.0` check has installed the bundled MSI in its logged `INSTALLDIR`, launched it,
+passed `/api/health`, completed a real eight-sequence
 encode, and uninstalled both MSIs; the hosted stable package job still has to reproduce that
 evidence. The remaining RC items are platform verification and optional channel coverage,
 not build blockers:
