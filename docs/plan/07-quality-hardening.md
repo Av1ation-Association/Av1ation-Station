@@ -9,8 +9,11 @@ checks and the generated-artifact checklist. The baseline run also moved the chu
 impact route to the reviewed matrix. The fork-selection marker is now read at run
 preparation, so a build located after a project selected it runs its own binary; the
 explicit `fork_id` field (7.6/7.7) is deferred to the stable window under the migration
-rule below. The encoder-editor split remains. This phase follows
-Phase 6 and precedes the first stable tag. It is a hardening phase, not a feature phase.
+rule below. The encoder-editor split (7.14–7.16) is complete: selection resolution is a
+tested model module and the editor composes four sections. Workstream D (7.17–7.20), 7.21–7.22, and the
+7.23–7.25 documentation items are closed or deferred; the release proof (7.26–7.30)
+remains. This phase follows Phase 6 and precedes the first stable tag. It is a
+hardening phase, not a feature phase.
 
 **Goal:** make the repository’s quality claims true again, remove the maintainability
 regressions introduced by the encoder-fork work, and leave the stable release with a green
@@ -229,6 +232,14 @@ own one concern: `EncoderChoiceSection` (encoder, passes, workers, fork warning,
 so the editor keeps only the document patch helpers and the scope copy; the 15 existing
 `EncoderEditor` tests pass unchanged.
 
+**Landed (7.16):** no production code changed for this check. The editor from `528d85e`,
+the commit before 7.14, and the current one render byte-identical DOM — after normalising
+React's generated ids — for a base encoder, an SVT-AV1 document with photon noise and an
+active filter, a selected pathless build with its warning, both open sheets, and a populated
+Workers slot. `EncoderEditor.test.tsx` is unchanged since `2f3a56f`, so 7.14–7.15 edited no
+assertion; `npm run test:web -- packages/ui/src/features/encoders` passes 90 tests in 14
+files, including the 15 editor tests.
+
 **Do not** combine this with a styling pass. The split is behavior-preserving.
 
 ---
@@ -244,6 +255,14 @@ so the editor keeps only the document patch helpers and the scope copy; the 15 e
 | 7.19 | Audit the existing command/resource exceptions (`videos/remove`, `scenes/add`, `split`, `merge`, `reset`, `undo`, `preflight/refresh`, `encoders/probe`, `script/materialise`). | Each is either kept with a reason or scheduled for a breaking rename; no silent inconsistency remains. | Route review; no functional change required | 7.18 |
 | 7.20 | Keep the generated route table current and make the matrix a required review artifact. | A route change cannot land without the generated diff. | `check:evidence` | 7.3 |
 
+**Landed:** `docs/api.md` §1 states that the API is lockstep and `api_version` is
+diagnostic, not negotiated. `AGENTS.md` §2.15 records the naming rule and requires a new
+verb path to add a row to the exception list. `docs/api.md` §3 audits every trailing-verb path — the
+nine named here plus the validate, probe, import, listener, run-control, reset, and export
+commands — and keeps each with a reason; none is scheduled for a breaking rename. The route
+table and matrix remain generated and required: `routes:check` rejects stale prose and
+`check:evidence` requires the matrix.
+
 ---
 
 ## 9. Workstream E — Documentation and developer experience
@@ -258,6 +277,21 @@ fact.
 | 7.23 | Add the Phase 6 and Phase 7 plans to `docs/README.md`. | The index remains the only documentation map. | `npm run check:docs` | — |
 | 7.24 | Replace layout-history comments in `EncoderEditor` with invariant comments. | Comments explain engine, state, security, or accessibility constraints; pixel history is gone. | Review | 7.15 |
 | 7.25 | Defer `use-preview-playback` splitting unless the release work touches it. | A named deferral, not an unowned refactor. | Phase 7 close-out | — |
+
+**Landed:** 7.23 was already satisfied — `docs/README.md` lists
+`plan/06-product-backlog.md` and `plan/07-quality-hardening.md`. 7.24 replaced the encoder
+editor's layout-history comments with invariants in the four split sections and
+`ParameterValueGrid`. **Deferred (7.25):** `use-preview-playback` is not split during Phase 7;
+the release work does not touch it, so the split stays a named follow-up.
+
+**Landed (7.21–7.22):** `docs/backend.md` is 554 lines. The HTTP surface moved to
+[api.md](../api.md) — naming and its exception list, inputs and scripts, preview media,
+and the generated route table, which `npm run routes` now writes there. Run semantics moved
+to [runs.md](../runs.md) — sequence catalogue, transitions, run loop, live data, progress
+fan-out, and derived state. `backend.md` keeps topology and ownership, service state,
+persistence, logging, errors, and preflight, with §3 and §5 as pointers so existing section
+anchors survive. `check-routes` scans both backend and API prose, and the docs index lists
+both pages.
 
 ---
 
@@ -336,9 +370,9 @@ flowchart LR
 ## 14. Definition of done
 
 - [ ] 7.1–7.10 closed.
-- [ ] 7.11–7.16 closed; `EncoderEditor.tsx` below 500 lines.
-- [ ] 7.17–7.20 closed; API story is accurate.
-- [ ] 7.21–7.25 closed or explicitly deferred.
+- [x] 7.11–7.16 closed; `EncoderEditor.tsx` below 500 lines.
+- [x] 7.17–7.20 closed; API story is accurate.
+- [x] 7.21–7.25 closed or explicitly deferred.
 - [ ] 7.26–7.30 closed with evidence.
 - [ ] No P0/P1 audit finding remains.
 - [ ] The stable release can cite a green static gate, the full local verification, the E2E
