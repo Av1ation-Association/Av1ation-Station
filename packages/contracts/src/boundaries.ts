@@ -20,6 +20,7 @@ import logExportFixture from "./fixtures/boundary/platform/log-export.json";
 import logPageFixture from "./fixtures/boundary/platform/log-page.json";
 import preflightCheckFixture from "./fixtures/boundary/encoder/preflight-check.json";
 import preflightReportFixture from "./fixtures/boundary/encoder/preflight-report.json";
+import projectChunkImpactFixture from "./fixtures/boundary/project/project-chunk-impact.json";
 import projectFixture from "./fixtures/boundary/project/project.json";
 import projectSummaryFixture from "./fixtures/boundary/project/project-summary.json";
 import projectTemplateAppliedFixture from "./fixtures/boundary/project/project-template-applied.json";
@@ -69,6 +70,7 @@ import {
     LogPageSchema,
     PreflightCheckSchema,
     PreflightReportSchema,
+    ProjectChunkImpactSchema,
     ProjectSchema,
     ProjectSummarySchema,
     ProjectTemplateAppliedSchema,
@@ -250,6 +252,12 @@ export const BOUNDARY_FIXTURES = [
         schema: ProjectSchema,
         fixturePath: "project/project.json",
         fixture: projectFixture,
+    },
+    {
+        name: "ProjectChunkImpact",
+        schema: ProjectChunkImpactSchema,
+        fixturePath: "project/project-chunk-impact.json",
+        fixture: projectChunkImpactFixture,
     },
     {
         name: "ProjectSummary",

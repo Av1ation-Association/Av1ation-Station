@@ -1,0 +1,10 @@
+{
+  "reason": "encoder",
+  "scenes": [
+    {
+      "index": 0,
+      "chunk_bytes": 1048576
+    }
+  ],
+  "videos": 1
+}
